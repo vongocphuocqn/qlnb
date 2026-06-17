@@ -3609,13 +3609,9 @@ function nbRenderMyList(){
     mine=[...nbRecords].sort((a,b)=>b.id-a.id);
     if(mySearchQ) mine=mine.filter(function(r){return (r.person||'').toLowerCase().includes(mySearchQ.toLowerCase());});
     if(myStatusQ) mine=mine.filter(function(r){return r.status===myStatusQ;});
-    if(myFromQ) mine=mine.filter(function(r){
-      var firstDate=(r.entries&&r.entries[0]&&r.entries[0].date)||r.date||'';
-      return firstDate>=myFromQ;
-    });
-    if(myToQ) mine=mine.filter(function(r){
-      var lastDate=(r.entries&&r.entries.length?r.entries[r.entries.length-1].date:'')||r.date||'';
-      return lastDate<=myToQ;
+    if(myFromQ||myToQ) mine=mine.filter(function(r){
+      var dates=(r.entries&&r.entries.length)?r.entries.map(function(e){return e.date;}):[(r.date||'')];
+      return dates.some(function(d){return (!myFromQ||d>=myFromQ)&&(!myToQ||d<=myToQ);});
     });
   } else {
     mine=nbRecords.filter(function(r){return (r.person||'').trim()===(nbCurrentUser.name||'').trim();}).sort((a,b)=>b.id-a.id);
@@ -3684,8 +3680,7 @@ function nbGetFiltered(){
   if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase()));
   if(st)list=list.filter(r=>r.status===st);
   if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
-  if(fr)list=list.filter(r=>r.date>=fr||(r.entries&&r.entries.some(e=>e.date>=fr)));
-  if(to)list=list.filter(r=>r.date<=to||(r.entries&&r.entries.some(e=>e.date<=to)));
+  if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
   return list.sort((a,b)=>b.id-a.id);
 }
 
@@ -3969,8 +3964,10 @@ function nbRenderStat(){
   const to=(document.getElementById('nbStatTo')||{}).value||'';
   const st=(document.getElementById('nbStatStatus')||{}).value||'';
   let list=[...nbRecords];
-  if(fr)list=list.filter(r=>r.date>=fr);
-  if(to)list=list.filter(r=>r.date<=to);
+  if(fr||to)list=list.filter(function(r){
+    var dates=(r.entries&&r.entries.length)?r.entries.map(function(e){return e.date;}):[(r.date||'')];
+    return dates.some(function(d){return (!fr||d>=fr)&&(!to||d<=to);});
+  });
   if(st)list=list.filter(r=>r.status===st);
   // Group by person
   const byPerson={};
@@ -4763,8 +4760,8 @@ function npRenderMyList(){
     mine=[...npRecords].sort((a,b)=>b.id-a.id);
     if(npSearchQ) mine=mine.filter(function(r){return (r.person||'').toLowerCase().includes(npSearchQ.toLowerCase());});
     if(npStatusQ) mine=mine.filter(function(r){return r.status===npStatusQ;});
-    if(npFromQ) mine=mine.filter(function(r){return (r.dateTo||r.dateFrom)>=npFromQ;});
-    if(npToQ) mine=mine.filter(function(r){return (r.dateFrom||r.dateTo)<=npToQ;});
+    if(npFromQ||npToQ) mine=mine.filter(function(r){return (!npFromQ||(r.dateTo||r.dateFrom)>=npFromQ)&&(!npToQ||(r.dateFrom||r.dateTo)<=npToQ);});
+
   } else {
     mine=npRecords.filter(r=>(r.person||'').trim()===(npCurrentUser.name||'').trim()).sort((a,b)=>b.id-a.id);
   }
@@ -4834,8 +4831,8 @@ function npGetFiltered(){
   if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase()));
   if(st)list=list.filter(r=>r.status===st);
   if(tp)list=list.filter(r=>r.type===tp);
-  if(fr)list=list.filter(r=>(r.dateTo||r.dateFrom)>=fr);
-  if(to)list=list.filter(r=>(r.dateFrom||r.dateTo)<=to);
+  if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
+
   return list.sort((a,b)=>b.id-a.id);
 }
 function npRenderList(){
@@ -4990,8 +4987,8 @@ function npRenderStat(){
   const to=(document.getElementById('npStatTo')||{}).value||'';
   const st=(document.getElementById('npStatStatus')||{}).value||'';
   let list=[...npRecords];
-  if(fr)list=list.filter(r=>(r.dateTo||r.dateFrom)>=fr);
-  if(to)list=list.filter(r=>(r.dateFrom||r.dateTo)<=to);
+  if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
+
   if(st)list=list.filter(r=>r.status===st);
   const byP={};
   list.forEach(r=>{
@@ -5361,7 +5358,7 @@ function npStopAutoRefresh(){
 // ══ THÔNG BÁO HÔM NAY (Trang chủ) ══
 function homeTBRender(){
   var today=new Date();
-  var todayStr=today.toISOString().slice(0,10);
+  var todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
   var DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
   var dow=DOW[today.getDay()];
   var dd=String(today.getDate()).padStart(2,'0');
@@ -5392,11 +5389,11 @@ function homeTBRender(){
     buRecords.forEach(function(r){
       if(!r||!r.person)return;
       var entries=(r.entries&&r.entries.length)?r.entries:[{date:r.date,shift:r.shift}];
-      entries.forEach(function(e){
+      entries.forEach(function(e,idx){
         if(e.date!==todayStr)return;
         var repl=r.replacer||'';
         if(r.replacers&&r.replacers.length){
-          var idx=entries.indexOf(e);
+
           repl=r.replacers[idx]||r.replacer||'';
         }
         var item={name:r.person,repl:repl,status:r.status};
