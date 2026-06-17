@@ -491,6 +491,19 @@ font-size:10px;color:var(--tx3)}
       </div>
     </div>
 
+    <!-- THÔNG BÁO HÔM NAY -->
+    <div class="home-divider" style="margin-top:14px">📢 Thông báo hôm nay – Nhân sự vắng & điều phối</div>
+    <div id="homeTBCard" style="background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1.5px solid #ffe082;border-radius:12px;padding:13px 15px;margin-bottom:4px;box-shadow:0 2px 8px rgba(255,160,0,.12)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <i class="ti ti-calendar-event" style="font-size:18px;color:#f57c00"></i>
+        <span id="homeTBDate" style="font-weight:700;font-size:13px;color:#e65100"></span>
+        <span id="homeTBTotal" style="margin-left:auto;background:#ff6f00;color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700"></span>
+      </div>
+      <div id="homeTBBody" style="font-size:12px;color:#555;line-height:1.7">
+        <span style="color:#aaa;font-style:italic">Đang tải dữ liệu...</span>
+      </div>
+    </div>
+
     <!-- KHU NHÂN VIÊN -->
     <div class="home-divider" style="margin-top:18px">👤 Nhân viên – Chọn chức năng</div>
     <div class="home-cards" style="grid-template-columns:1fr 1fr;gap:10px">
@@ -1419,7 +1432,7 @@ font-size:10px;color:var(--tx3)}
 </div>
 
 <!-- APP -->
-<div id="pqScreen" style="display:none;min-height:100vh;background:#f5f0ff;flex-direction:column"><div style="background:linear-gradient(90deg,#4a148c,#6a1e7e);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:10px"><i class="ti ti-shield-lock" style="font-size:22px"></i><div style="font-weight:700;font-size:15px">PHÂN QUYỀN NHÂN VIÊN – KHOA GÂY MÊ HỒI SỨC</div><button onclick="document.getElementById('pqScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button></div><div style="max-width:960px;margin:20px auto;padding:0 16px;width:100%"><div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(106,30,126,.1)"><div style="font-weight:700;font-size:14px;color:#4a148c;margin-bottom:12px"><i class="ti ti-users"></i> Danh sách nhân viên & quyền truy cập</div><div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><div style="position:relative;flex:1;min-width:180px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i><input type="text" id="pqSearch" placeholder="Tìm tên nhân viên..." oninput="pqFilter()" style="width:100%;padding:8px 8px 8px 32px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div><button onclick="pqSelectAll(true)" style="background:#4a148c;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Tích tất cả</button><button onclick="pqSelectAll(false)" style="background:#fff;color:#4a148c;border:1.5px solid #4a148c;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Bỏ tích</button></div><div id="pqCount" style="font-size:11px;color:#7b1fa2;margin-bottom:6px;min-height:16px"></div><div id="pqTable" style="overflow-x:auto"></div><div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button onclick="pqSaveAll()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-device-floppy"></i> Lưu tất cả quyền</button><button onclick="pqResetAll()" style="background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa tất cả</button></div></div><div id="pqAlert" style="display:none;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:13px"></div></div></div>
+<div id="pqScreen" style="display:none;min-height:100vh;background:#f5f0ff;flex-direction:column"><div style="background:linear-gradient(90deg,#4a148c,#6a1e7e);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:10px"><i class="ti ti-shield-lock" style="font-size:22px"></i><div style="font-weight:700;font-size:15px">PHÂN QUYỀN NHÂN VIÊN – KHOA GÂY MÊ HỒI SỨC</div><button onclick="pqPrintList()" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> In danh sách</button><button onclick="document.getElementById('pqScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button></div><div style="max-width:960px;margin:20px auto;padding:0 16px;width:100%"><div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(106,30,126,.1)"><div style="font-weight:700;font-size:14px;color:#4a148c;margin-bottom:12px"><i class="ti ti-users"></i> Danh sách nhân viên & quyền truy cập</div><div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><div style="position:relative;flex:1;min-width:180px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i><input type="text" id="pqSearch" placeholder="Tìm tên nhân viên..." oninput="pqFilter()" style="width:100%;padding:8px 8px 8px 32px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div><button onclick="pqSelectAll(true)" style="background:#4a148c;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Tích tất cả</button><button onclick="pqSelectAll(false)" style="background:#fff;color:#4a148c;border:1.5px solid #4a148c;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Bỏ tích</button></div><div id="pqCount" style="font-size:11px;color:#7b1fa2;margin-bottom:6px;min-height:16px"></div><div id="pqTable" style="overflow-x:auto"></div><div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button onclick="pqSaveAll()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-device-floppy"></i> Lưu tất cả quyền</button><button onclick="pqResetAll()" style="background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa tất cả</button></div></div><div id="pqAlert" style="display:none;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:13px"></div></div></div>
 <div id="appScreen" style="display:none">
   <div class="topbar">
     <div class="tlogo"><i class="ti ti-clipboard-heart"></i></div>
@@ -1600,6 +1613,8 @@ const db = firebase.database();
 const cardsRef = db.ref('cards');
 const staffRef = db.ref('staffList');
 const pwdRef   = db.ref('config/adminPwd');
+// Tải thẻ thông báo hôm nay sau khi Firebase sẵn sàng
+setTimeout(function(){homeTBInit();},1200);
 
 /* ══════════════════════════════
    STATE
@@ -3214,6 +3229,8 @@ function goHome(){
   npCurrentUser=null;
   cu=null;
   authDest='';
+  // Cập nhật thẻ thông báo hôm nay
+  homeTBRender();
 }
 
 /* Patch logout to go home - handled above */
@@ -4442,12 +4459,21 @@ function enterNpScreen(){
   ['npBtnExcel','npBtnWord'].forEach(id=>{document.getElementById(id).style.display='flex';});
   ['npBtnBackup','npBtnRestore'].forEach(id=>{document.getElementById(id).style.display=isA?'flex':'none';});
   ['npBtnGoKanban','npBtnGoNghiBu','npBtnGoPhanQuyen'].forEach(id=>{var el=document.getElementById(id);if(el)el.style.display=isA?'flex':'none';});
-  document.getElementById('npTab3').style.display='flex';
+  document.getElementById('npTab3').style.display=isA?'flex':'none';
   npPopulatePersonSelect();
   npUpdateTime();
   document.getElementById('npFormFrom').value=today();
   document.getElementById('npFormTo').value=today();
   npCalcDays();
+  // Reset bộ lọc danh sách về mặc định (tránh giữ ngày cũ từ lần trước)
+  var npFFrom=document.getElementById('npFFrom');if(npFFrom)npFFrom.value='';
+  var npFTo=document.getElementById('npFTo');if(npFTo)npFTo.value='';
+  var npFName=document.getElementById('npFName');if(npFName)npFName.value='';
+  var npFStatus=document.getElementById('npFStatus');if(npFStatus)npFStatus.value='';
+  var npFType=document.getElementById('npFType');if(npFType)npFType.value='';
+  // Reset bộ lọc "Phiếu của tôi"
+  ['npMySearch','npMyFrom','npMyTo'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  var npMyStatus=document.getElementById('npMyStatus');if(npMyStatus)npMyStatus.value='';
   // Reset attachments
   npPendingFiles=[];
   var fp=document.getElementById('npFilePrev');if(fp)fp.innerHTML='';
@@ -4737,8 +4763,8 @@ function npRenderMyList(){
     mine=[...npRecords].sort((a,b)=>b.id-a.id);
     if(npSearchQ) mine=mine.filter(function(r){return (r.person||'').toLowerCase().includes(npSearchQ.toLowerCase());});
     if(npStatusQ) mine=mine.filter(function(r){return r.status===npStatusQ;});
-    if(npFromQ) mine=mine.filter(function(r){return (r.dateFrom||'')>=npFromQ;});
-    if(npToQ) mine=mine.filter(function(r){return (r.dateTo||'')<=npToQ;});
+    if(npFromQ) mine=mine.filter(function(r){return (r.dateTo||r.dateFrom)>=npFromQ;});
+    if(npToQ) mine=mine.filter(function(r){return (r.dateFrom||r.dateTo)<=npToQ;});
   } else {
     mine=npRecords.filter(r=>(r.person||'').trim()===(npCurrentUser.name||'').trim()).sort((a,b)=>b.id-a.id);
   }
@@ -4808,7 +4834,6 @@ function npGetFiltered(){
   if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase()));
   if(st)list=list.filter(r=>r.status===st);
   if(tp)list=list.filter(r=>r.type===tp);
-  // Lấy phiếu có khoảng ngày giao thoa với filter: dateFrom <= to VÀ dateTo >= fr
   if(fr)list=list.filter(r=>(r.dateTo||r.dateFrom)>=fr);
   if(to)list=list.filter(r=>(r.dateFrom||r.dateTo)<=to);
   return list.sort((a,b)=>b.id-a.id);
@@ -5330,6 +5355,210 @@ function npStartAutoRefresh(){
 }
 function npStopAutoRefresh(){
   if(_npAutoRefresh){ clearInterval(_npAutoRefresh); _npAutoRefresh = null; }
+}
+
+
+// ══ THÔNG BÁO HÔM NAY (Trang chủ) ══
+function homeTBRender(){
+  var today=new Date();
+  var todayStr=today.toISOString().slice(0,10);
+  var DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+  var dow=DOW[today.getDay()];
+  var dd=String(today.getDate()).padStart(2,'0');
+  var mm=String(today.getMonth()+1).padStart(2,'0');
+  var yyyy=today.getFullYear();
+  var dateLabel=dow+', ngày '+dd+'/'+mm+'/'+yyyy;
+
+  var elDate=document.getElementById('homeTBDate');
+  var elTotal=document.getElementById('homeTBTotal');
+  var elBody=document.getElementById('homeTBBody');
+  if(elDate)elDate.textContent=dateLabel;
+
+  // Lấy dữ liệu từ Firebase
+  var promises=[
+    db.ref('nghiBu').once('value'),
+    db.ref('nghiPhep').once('value')
+  ];
+
+  Promise.all(promises).then(function(snaps){
+    var buData=snaps[0].val()||{};
+    var phepData=snaps[1].val()||{};
+
+    var buRecords=Array.isArray(buData)?buData:Object.values(buData);
+    var phepRecords=Array.isArray(phepData)?phepData:Object.values(phepData);
+
+    // Nghỉ bù hôm nay (đã duyệt + chờ duyệt)
+    var buHom={caNgay:[],caDem:[],caNgayPending:[],caDemPending:[],cuNgay:[],cuNgayPending:[]};
+    buRecords.forEach(function(r){
+      if(!r||!r.person)return;
+      var entries=(r.entries&&r.entries.length)?r.entries:[{date:r.date,shift:r.shift}];
+      entries.forEach(function(e){
+        if(e.date!==todayStr)return;
+        var repl=r.replacer||'';
+        if(r.replacers&&r.replacers.length){
+          var idx=entries.indexOf(e);
+          repl=r.replacers[idx]||r.replacer||'';
+        }
+        var item={name:r.person,repl:repl,status:r.status};
+        if(r.status==='approved'){
+          if(e.shift==='ca-ngay')buHom.caNgay.push(item);
+          else if(e.shift==='ca-dem')buHom.caDem.push(item);
+          else buHom.cuNgay.push(item);
+        } else if(r.status==='pending'){
+          if(e.shift==='ca-ngay')buHom.caNgayPending.push(item);
+          else if(e.shift==='ca-dem')buHom.caDemPending.push(item);
+          else buHom.cuNgayPending.push(item);
+        }
+      });
+    });
+
+    // Nghỉ phép hôm nay (đã duyệt + chờ duyệt)
+    var phepHom={approved:[],pending:[]};
+    phepRecords.forEach(function(r){
+      if(!r||!r.person||!r.dateFrom||!r.dateTo)return;
+      if(todayStr>=r.dateFrom&&todayStr<=r.dateTo){
+        var repl=r.replacer||'';
+        if(r.status==='approved')phepHom.approved.push({name:r.person,repl:repl,days:r.days||0});
+        else if(r.status==='pending')phepHom.pending.push({name:r.person,repl:repl,days:r.days||0});
+      }
+    });
+
+    var tongVang=phepHom.approved.length+buHom.caNgay.length+buHom.caDem.length+buHom.cuNgay.length;
+    var tongCho=phepHom.pending.length+buHom.caNgayPending.length+buHom.caDemPending.length+buHom.cuNgayPending.length;
+
+    if(elTotal){
+      if(tongVang+tongCho===0){
+        elTotal.textContent='Không có vắng';
+        elTotal.style.background='#4caf50';
+      } else {
+        elTotal.textContent='Vắng: '+(tongVang+tongCho)+' người';
+        elTotal.style.background=tongVang>=3?'#b71c1c':'#f57c00';
+      }
+    }
+
+    function renderGroup(title,color,icon,items,isPending){
+      if(!items.length)return'';
+      var badge=isPending?'<span style="background:#ff8f00;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;font-weight:700">Chờ duyệt</span>':'';
+      var html='<div style="margin-bottom:6px">'
+        +'<span style="font-weight:700;color:'+color+'">'+icon+' '+title+'</span>'+badge
+        +' <span style="color:#888;font-size:11px">('+items.length+' người)</span>'
+        +'<div style="padding-left:10px;margin-top:3px">';
+      items.forEach(function(it){
+        html+='<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;border-bottom:1px dashed #eee">'
+          +'<span style="color:#333;font-weight:600">• '+it.name+'</span>';
+        if(it.repl){
+          html+='<span style="font-size:11px;color:#555">→ Thay: <b style="color:'+color+'">'+it.repl+'</b></span>';
+        } else {
+          html+='<span style="font-size:11px;color:#bbb;font-style:italic">→ Chưa phân thay thế</span>';
+        }
+        if(it.days)html+='<span style="font-size:10px;color:#888;margin-left:4px">('+it.days+' ngày)</span>';
+        html+='</div>';
+      });
+      html+='</div></div>';
+      return html;
+    }
+
+    var body='';
+    body+=renderGroup('Nghỉ phép – Cả ngày','#880e4f','🏖️',phepHom.approved,false);
+    body+=renderGroup('Nghỉ phép (chờ duyệt)','#e65100','🏖️',phepHom.pending,true);
+    body+=renderGroup('Nghỉ bù – Ca ngày (07h–19h)','#1565C0','☀️',buHom.caNgay,false);
+    body+=renderGroup('Nghỉ bù – Ca đêm (19h–06h59)','#4a148c','🌙',buHom.caDem,false);
+    body+=renderGroup('Nghỉ bù – Cả ngày','#2e7d32','🔄',buHom.cuNgay,false);
+    body+=renderGroup('Nghỉ bù ca ngày (chờ duyệt)','#e65100','☀️',buHom.caNgayPending,true);
+    body+=renderGroup('Nghỉ bù ca đêm (chờ duyệt)','#e65100','🌙',buHom.caDemPending,true);
+
+    if(!body){
+      body='<div style="text-align:center;color:#4caf50;font-weight:600;padding:6px 0">'
+        +'<i class="ti ti-circle-check"></i> Hôm nay không có nhân viên nghỉ phép/bù</div>';
+    }
+
+    if(elBody)elBody.innerHTML=body;
+  }).catch(function(e){
+    if(elBody)elBody.innerHTML='<span style="color:#aaa;font-style:italic">Không thể tải dữ liệu</span>';
+  });
+}
+
+// Gọi khi trang chủ hiển thị
+var _tbLoaded=false;
+function homeTBInit(){
+  if(!_tbLoaded){_tbLoaded=true;homeTBRender();}
+  // Làm mới mỗi 2 phút
+  setInterval(homeTBRender,120000);
+}
+
+// ══ IN DANH SÁCH NHÂN VIÊN ══
+function pqPrintList(){
+  var now=new Date();
+  var pd=String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+
+  // Lấy dữ liệu từ Firebase
+  db.ref('staffList').once('value').then(function(snap){
+    var data=snap.val()||[];
+    var list=[];
+    if(Array.isArray(data))list=data.filter(Boolean);
+    else if(typeof data==='object')list=Object.values(data).filter(function(x){return typeof x==='string'&&x.trim();});
+    list.sort(function(a,b){return a.localeCompare(b,'vi');});
+
+    // Lấy thêm quyền
+    db.ref('staffPermissions').once('value').then(function(psnap){
+      var perms=psnap.val()||{};
+
+      var rows=list.map(function(name,i){
+        var p=perms[name]||{};
+        var qArr=[];
+        if(p.kanban)qArr.push('Kanban');
+        if(p.nghibu)qArr.push('Nghỉ Bù');
+        if(p.nghibu_view)qArr.push('Xem NB');
+        if(p.nghiphep)qArr.push('Nghỉ Phép');
+        if(p.nghiphep_view)qArr.push('Xem NP');
+        return '<tr style="'+(i%2===1?'background:#faf5ff':'')+'">'+
+          '<td style="text-align:center;color:#888;padding:5pt 8pt">'+(i+1)+'</td>'+
+          '<td style="padding:5pt 8pt;font-weight:600">'+(name||'')+'</td>'+
+          '<td style="padding:5pt 8pt;color:#4a148c;font-size:9.5pt">'+qArr.join(', ')+'</td>'+
+          '<td style="padding:5pt 8pt"></td>'+
+          '</tr>';
+      }).join('');
+
+      var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        +'<style>@page{size:A4;margin:2cm 2cm 2cm 2cm}'
+        +'body{font-family:"Times New Roman",serif;font-size:11pt}'
+        +'.hdr{text-align:center;margin-bottom:14pt}'
+        +'.org{font-size:10pt;color:#444;font-weight:600}'
+        +'.title{font-size:14pt;font-weight:700;text-transform:uppercase;margin:5pt 0 2pt}'
+        +'.sub{font-size:10pt;color:#555}'
+        +'hr{border:none;border-top:1.5pt solid #4a148c;margin:7pt 0 10pt}'
+        +'table{width:100%;border-collapse:collapse;font-size:10.5pt}'
+        +'th{background:#4a148c;color:#fff;padding:6pt 8pt;text-align:left;border:0.5pt solid #3a0a7c}'
+        +'td{border:0.5pt solid #e0d0f0;vertical-align:top}'
+        +'.foot{margin-top:16pt;font-size:9pt;color:#777;text-align:center;border-top:0.5pt solid #ccc;padding-top:6pt}'
+        +'.sign{display:flex;justify-content:flex-end;margin-top:24pt}'
+        +'.sign-box{text-align:center;width:180pt}'
+        +'</style></head><body>'
+        +'<div class="hdr"><div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'
+        +'<div class="org">Khoa Gây mê Hồi sức</div>'
+        +'<div class="title">Danh sách nhân viên</div>'
+        +'<div class="sub">Tổng số: <b>'+list.length+'</b> nhân viên &nbsp;|&nbsp; Ngày in: '+pd+'</div></div>'
+        +'<hr>'
+        +'<table><thead><tr>'
+        +'<th style="width:30pt;text-align:center">STT</th>'
+        +'<th>Họ và tên</th>'
+        +'<th style="width:160pt">Quyền truy cập</th>'
+        +'<th style="width:100pt">Chữ ký</th>'
+        +'</tr></thead>'
+        +'<tbody>'+rows+'</tbody></table>'
+        +'<div class="sign"><div class="sign-box">'
+        +'<div style="font-size:10pt;font-weight:700">Trưởng khoa Gây mê Hồi sức</div>'
+        +'<div style="font-size:9pt;color:#666;font-style:italic">(Ký, đóng dấu)</div>'
+        +'<div style="margin-top:50pt;font-size:10pt;font-weight:700">......................................</div>'
+        +'</div></div>'
+        +'<div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai &nbsp;·&nbsp; Tài liệu nội bộ &nbsp;·&nbsp; In ngày '+pd+'</div>'
+        +'</body></html>';
+
+      var w=window.open('','_blank','width=850,height=750');
+      w.document.write(html);w.document.close();
+      setTimeout(function(){w.print();},600);
+    });
+  });
 }
 
 // ══ AUTO UPDATE CHECK ══
