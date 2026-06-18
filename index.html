@@ -167,31 +167,31 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f8f0;min-height:100vh
 .sc{cursor:pointer;transition:transform .15s,box-shadow .15s}
 .sc:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
 /* Downtime panel */
-.dt-panel-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:flex-start;justify-content:center;padding:12px}
+.dt-panel-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:flex-start;justify-content:center;padding:10px}
 .dt-panel-bg.on{display:flex}
-.dt-panel{background:#fff;border-radius:14px;width:100%;max-width:1200px;height:calc(100vh - 24px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.dt-panel-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(135deg,#2d6a1f,#1a7a4a);color:#fff;flex-shrink:0}
+.dt-panel{background:#fff;border-radius:14px;width:100%;max-width:1480px;height:calc(100vh - 20px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.dt-panel-hd{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;background:linear-gradient(135deg,#2d6a1f,#1a7a4a);color:#fff;flex-shrink:0}
 .dt-panel-close{background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1}
-.dt-ov{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;flex-shrink:0;border-bottom:1px solid #eee}
-.dt-ov-card{background:#f8faf5;border:1px solid #e0e8d8;border-radius:10px;padding:12px 16px;text-align:center;cursor:pointer;transition:all .15s}
+.dt-ov{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:16px 24px;flex-shrink:0;border-bottom:1px solid #eee}
+.dt-ov-card{background:#f8faf5;border:1px solid #e0e8d8;border-radius:12px;padding:16px 20px;text-align:center;cursor:pointer;transition:all .15s}
 .dt-ov-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
 .dt-ov-card.active{border-color:#2d6a1f;background:#e8f5e2;box-shadow:0 0 0 2px #2d6a1f33}
-.dt-ov-val{font-size:30px;font-weight:700;line-height:1}
-.dt-ov-lbl{font-size:12px;color:#666;margin-top:4px}
-.dt-fbar{display:flex;gap:10px;padding:12px 20px;flex-wrap:wrap;border-bottom:1px solid #eee;flex-shrink:0;align-items:center}
-.dt-fbar select{padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-size:14px}
-.dt-tbl-wrap{overflow-y:auto;flex:1;padding:0 20px 16px}
+.dt-ov-val{font-size:34px;font-weight:700;line-height:1}
+.dt-ov-lbl{font-size:13px;color:#666;margin-top:6px}
+.dt-fbar{display:flex;gap:12px;padding:12px 24px;flex-wrap:wrap;border-bottom:1px solid #eee;flex-shrink:0;align-items:center}
+.dt-fbar select{padding:7px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px}
+.dt-tbl-wrap{overflow-y:auto;flex:1;padding:0 24px 16px}
 .dt-tbl{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
-.dt-tbl th{background:#f0f4ed;padding:10px 14px;text-align:left;font-weight:600;font-size:13px;position:sticky;top:0;z-index:1;white-space:nowrap}
-.dt-tbl td{padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+.dt-tbl th{background:#f0f4ed;padding:11px 16px;text-align:left;font-weight:600;font-size:13px;position:sticky;top:0;z-index:1;white-space:nowrap}
+.dt-tbl td{padding:11px 16px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
 .dt-tbl tr:hover td{background:#fafff8}
-.dt-tbl .col-no{width:40px;color:#aaa;text-align:center}
-.dt-tbl .col-name{min-width:160px;font-weight:600}
-.dt-tbl .col-date{width:110px;white-space:nowrap}
-.dt-tbl .col-content{min-width:260px}
-.dt-tbl .col-done{width:110px;white-space:nowrap}
-.dt-tbl .col-dt{width:130px}
-.dt-tbl .col-st{width:130px}
+.dt-tbl .col-no{width:44px;color:#aaa;text-align:center}
+.dt-tbl .col-name{min-width:180px;font-weight:600}
+.dt-tbl .col-date{width:120px;white-space:nowrap}
+.dt-tbl .col-content{min-width:0;width:auto}
+.dt-tbl .col-done{width:120px;white-space:nowrap}
+.dt-tbl .col-dt{width:140px}
+.dt-tbl .col-st{width:140px}
 font-size:10px;color:var(--tx3)}
 .ctext{font-size:12px;color:#445;background:#f8fbf4;border-left:3px solid var(--g100);
   padding:4px 8px;border-radius:0 6px 6px 0;margin-bottom:5px;white-space:pre-wrap;word-break:break-word}
@@ -501,6 +501,18 @@ font-size:10px;color:var(--tx3)}
       </div>
       <div id="homeTBBody" style="font-size:12px;color:#555;line-height:1.7">
         <span style="color:#aaa;font-style:italic">Đang tải dữ liệu...</span>
+      </div>
+    </div>
+
+    <!-- THẺ CHỜ DUYỆT -->
+    <div id="homePendingBadge" style="display:none;margin-bottom:4px">
+      <div style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:1.5px solid #ffb74d;border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <i class="ti ti-bell-ringing" style="font-size:20px;color:#e65100;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#bf360c">⏳ Đang chờ duyệt</div>
+          <div id="homePendingDetail" style="font-size:12px;color:#e65100;margin-top:2px"></div>
+        </div>
+        <button onclick="goAdminDirect()" style="background:#e65100;color:#fff;border:none;border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-clipboard-check" style="vertical-align:-1px"></i> Duyệt ngay</button>
       </div>
     </div>
 
@@ -1006,18 +1018,39 @@ font-size:10px;color:var(--tx3)}
           <!-- Đính kèm giấy phép / chứng từ -->
           <div class="nb-field sp2">
             <label style="color:#00695c"><i class="ti ti-paperclip"></i> Đính kèm giấy phép / chứng từ</label>
+            <!-- Nút chọn phương thức đính kèm -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              <button type="button" onclick="document.getElementById('npFileInp').click()"
+                style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:#e0f2f1;border:1.5px solid #a7d4ce;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#00695c;font-family:inherit">
+                <i class="ti ti-file-upload"></i> Chọn file
+              </button>
+              <button type="button" onclick="document.getElementById('npCamInp').click()"
+                style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:#e0f2f1;border:1.5px solid #a7d4ce;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#00695c;font-family:inherit">
+                <i class="ti ti-camera"></i> Chụp ảnh
+              </button>
+              <button type="button" onclick="document.getElementById('npGalleryInp').click()"
+                style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:#e0f2f1;border:1.5px solid #a7d4ce;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#00695c;font-family:inherit">
+                <i class="ti ti-photo"></i> Thư viện
+              </button>
+              <button type="button" onclick="npAddLink()"
+                style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:#e0f2f1;border:1.5px solid #a7d4ce;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#00695c;font-family:inherit">
+                <i class="ti ti-link"></i> Thêm link
+              </button>
+            </div>
             <div id="npAttachZone"
               onclick="document.getElementById('npFileInp').click()"
-              style="border:2px dashed #a7d4ce;border-radius:10px;padding:14px;
+              style="border:2px dashed #a7d4ce;border-radius:10px;padding:12px;
                 text-align:center;cursor:pointer;background:#f0faf8;transition:all .15s"
               ondragover="event.preventDefault();this.style.borderColor='#00695c';this.style.background='#e0f2f1'"
               ondragleave="this.style.borderColor='#a7d4ce';this.style.background='#f0faf8'"
               ondrop="npHandleDrop(event)">
-              <i class="ti ti-cloud-upload" style="font-size:24px;color:#4db6ac;display:block;margin-bottom:6px"></i>
-              <span style="font-size:13px;color:#4db6ac;font-weight:600">Nhấn để chọn hoặc kéo thả file vào đây</span><br>
+              <i class="ti ti-cloud-upload" style="font-size:22px;color:#4db6ac;display:block;margin-bottom:4px"></i>
+              <span style="font-size:12px;color:#4db6ac;font-weight:600">Kéo thả file vào đây</span><br>
               <span style="font-size:11px;color:#888">PDF, ảnh (JPG/PNG) · Tối đa 3 file · Mỗi file ≤ 2MB</span>
             </div>
             <input type="file" id="npFileInp" accept=".pdf,image/*" multiple style="display:none" onchange="npPreviewFiles(event)">
+            <input type="file" id="npCamInp" accept="image/*" capture="environment" style="display:none" onchange="npPreviewFiles(event)">
+            <input type="file" id="npGalleryInp" accept="image/*" multiple style="display:none" onchange="npPreviewFiles(event)">
             <div id="npFilePrev" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
           </div>
           <div class="nb-field" style="align-items:flex-end;justify-content:flex-end;flex-direction:row;grid-column:span 2">
@@ -1128,6 +1161,7 @@ font-size:10px;color:var(--tx3)}
             <th style="background:#00695c">Đính kèm</th>
             <th style="background:#00695c">Trạng thái</th>
             <th style="background:#00695c">Người thay thế</th>
+            <th style="background:#00695c">Ghi chú QT</th>
             <th style="background:#00695c;width:120px">Thao tác</th>
           </tr></thead>
           <tbody id="npTbody"></tbody>
@@ -3705,11 +3739,20 @@ function nbRenderList(){
   const deny=statBase.filter(r=>r.status==='denied').length;
   const statEl=document.getElementById('nbStats');
   if(statEl){
+    // Tính tổng thời gian downtime (từ createdAt → approvedAt hoặc đến bây giờ cho pending)
+    var totalDtMs=0;
+    statBase.filter(function(r){return r.status==='pending';}).forEach(function(r){
+      if(r.createdAt){totalDtMs+=Date.now()-new Date(r.createdAt).getTime();}
+    });
+    var dtHours=Math.floor(totalDtMs/3600000);
+    var dtDays=Math.floor(dtHours/24);
+    var dtDisplay=dtDays>0?(dtDays+'N '+dtHours%24+'h'):(dtHours+'h');
     statEl.innerHTML=`
       <div class="nb-stat-card"><div class="nb-stat-num" style="color:#1565C0">${total}</div><div class="nb-stat-lbl">Tổng phiếu</div></div>
       <div class="nb-stat-card"><div class="nb-stat-num" style="color:#e65100">${pend}</div><div class="nb-stat-lbl">Chờ duyệt</div></div>
       <div class="nb-stat-card"><div class="nb-stat-num" style="color:#1b5e20">${appr}</div><div class="nb-stat-lbl">Đã duyệt</div></div>
       <div class="nb-stat-card"><div class="nb-stat-num" style="color:#880e4f">${deny}</div><div class="nb-stat-lbl">Từ chối</div></div>
+      ${pend>0?`<div class="nb-stat-card" title="Tổng thời gian phiếu pending chưa được duyệt (tính từ lúc tạo đến hiện tại)" style="border-color:#ffb74d;background:#fff8f0"><div class="nb-stat-num" style="color:#e65100;font-size:18px">${dtDisplay}</div><div class="nb-stat-lbl" style="color:#e65100">⏱ Downtime chờ duyệt</div></div>`:''}
     `;
   }
   if(!list.length){tbody.innerHTML='';empty.style.display='block';return;}
@@ -4513,6 +4556,18 @@ function npProcessFiles(files){
 function npRefreshFilePrev(){
   const el=document.getElementById('npFilePrev');if(!el)return;
   el.innerHTML=npPendingFiles.map((f,i)=>{
+    if(f.isLink){
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+          background:#fff;border:1.5px solid #a7d4ce;border-radius:9px;width:100%;box-sizing:border-box">
+        <i class="ti ti-link" style="font-size:20px;color:#1565C0;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:#004d40;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.name)}</div>
+          <div style="font-size:10px;color:#888">Đường dẫn URL</div>
+        </div>
+        <button onclick="window.open('${f.data.replace(/'/g,'%27')}','_blank')" style="background:#e3f2fd;border:1px solid #90caf9;cursor:pointer;color:#1565C0;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;font-family:inherit">Mở</button>
+        <button onclick="npRemoveFile(${i})" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:18px;line-height:1;flex-shrink:0">&times;</button>
+      </div>`;
+    }
     const isPdf=f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf');
     const isImg=f.type.startsWith('image/');
     const icon=isPdf?'ti-file-type-pdf':isImg?'ti-photo':'ti-file';
@@ -4532,7 +4587,18 @@ function npRefreshFilePrev(){
   }).join('');
 }
 function npRemoveFile(i){npPendingFiles.splice(i,1);npRefreshFilePrev();}
-function npViewFileIdx(i){const f=npPendingFiles[i];if(!f)return;npOpenViewer(f.data,f.type);}
+function npViewFileIdx(i){const f=npPendingFiles[i];if(!f)return;if(f.isLink){window.open(f.data,'_blank');return;}npOpenViewer(f.data,f.type);}
+
+/* ── Link đính kèm ── */
+function npAddLink(){
+  var url=window.prompt('Nhập URL đường dẫn (bắt đầu bằng http:// hoặc https://):','https://');
+  if(!url||!url.trim())return;
+  url=url.trim();
+  if(!/^https?:\/\/.+/i.test(url)){alert('URL không hợp lệ! Phải bắt đầu bằng http:// hoặc https://');return;}
+  if(npPendingFiles.length>=3){npShowAl('Tối đa 3 file/link đính kèm!','warn');return;}
+  npPendingFiles.push({name:url,type:'link',data:url,size:0,isLink:true});
+  npRefreshFilePrev();
+}
 function npViewAttach(arr,i){if(!arr||!arr[i])return;npOpenViewer(arr[i].data,arr[i].type);}
 function npOpenViewer(data,type){
   const w=window.open('','_blank','width=900,height=700');if(!w)return;
@@ -4801,9 +4867,10 @@ function npRenderMyList(){
       +'<td>'+npAttachBadges(r)+'</td>'
       +'<td><span class="nb-badge '+(statusClass[r.status]||'')+'">'+( statusLabel[r.status]||r.status)+'</span></td>'
       +'<td style="font-size:12px">'+npReplacerDisplay(r)+'</td>'
+      +'<td style="font-size:12px;color:#7a5800;max-width:140px;word-break:break-word">'+(r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+esc(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>')+'</td>'
       +'<td>'+actionBtn+'</td></tr>';
   });
-  el.innerHTML='<div style="overflow-x:auto"><table class="nb-tbl" style="min-width:760px">'
+  el.innerHTML='<div style="overflow-x:auto"><table class="nb-tbl" style="min-width:900px">'
     +'<thead><tr>'
     +'<th style="background:#00695c">#</th>'
     +(showPersonNp?'<th style="background:#00695c">Nhân viên</th>':'')
@@ -4812,6 +4879,7 @@ function npRenderMyList(){
     +'<th style="background:#00695c">Số ngày</th><th style="background:#00695c">Loại phép</th>'
     +'<th style="background:#00695c">Lý do</th><th style="background:#00695c">Đính kèm</th>'
     +'<th style="background:#00695c">Trạng thái</th><th style="background:#00695c">Người thay</th>'
+    +'<th style="background:#00695c">Ghi chú QT</th>'
     +'<th style="background:#00695c">Thao tác</th>'
     +'</tr></thead><tbody>'+npMyRows+'</tbody></table></div>';
 }
@@ -4851,12 +4919,17 @@ function npRenderList(){
   const deny=statBase.filter(r=>r.status==='denied').length;
   const totalDays=statBase.filter(r=>r.status==='approved').reduce((s,r)=>s+(r.days||0),0);
   const stat=document.getElementById('npStats');
-  if(stat){stat.innerHTML=`
+  if(stat){
+    const npPendingDtMs=statBase.filter(r=>r.status==='pending').reduce((s,r)=>s+(r.createdAt?(Date.now()-new Date(r.createdAt).getTime()):0),0);
+    const npDtH=Math.floor(npPendingDtMs/3600000);const npDtD=Math.floor(npDtH/24);
+    const npDtStr=npDtD>0?(npDtD+'N '+npDtH%24+'h'):(npDtH+'h');
+    stat.innerHTML=`
     <div class="nb-stat-card"><div class="nb-stat-num" style="color:#00695c">${total}</div><div class="nb-stat-lbl">Tổng phiếu</div></div>
     <div class="nb-stat-card"><div class="nb-stat-num" style="color:#e65100">${pend}</div><div class="nb-stat-lbl">Chờ duyệt</div></div>
     <div class="nb-stat-card"><div class="nb-stat-num" style="color:#1b5e20">${appr}</div><div class="nb-stat-lbl">Đã duyệt</div></div>
     <div class="nb-stat-card"><div class="nb-stat-num" style="color:#880e4f">${deny}</div><div class="nb-stat-lbl">Từ chối</div></div>
     <div class="nb-stat-card"><div class="nb-stat-num" style="color:#00695c">${totalDays}</div><div class="nb-stat-lbl">Tổng ngày phép</div></div>
+    ${npDtH>0?`<div class="nb-stat-card" title="Tổng thời gian phiếu pending chưa được duyệt (tính từ lúc tạo đến hiện tại)" style="border-color:#ffb74d;background:#fff8f0"><div class="nb-stat-num" style="color:#e65100;font-size:18px">${npDtStr}</div><div class="nb-stat-lbl" style="color:#e65100">⏱ Downtime chờ duyệt</div></div>`:''}
   `;}
   const tbody=document.getElementById('npTbody');
   const empty=document.getElementById('npEmpty');
@@ -4874,6 +4947,7 @@ function npRenderList(){
     <td style="min-width:100px">${npAttachBadges(r)}</td>
     <td><span class="nb-badge ${statusClass[r.status]||''}">${statusLabel[r.status]||r.status}</span></td>
     <td style="font-size:12px">${esc(r.replacer||'—')}</td>
+    <td style="font-size:12px;color:#7a5800;max-width:150px;word-break:break-word">${r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+esc(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>'}</td>
     <td>
       ${(!isStaff&&r.status==='pending')?`<button class="nb-btn nb-btn-sm" style="background:#00695c" onclick="openNpApprove('${r.id}')">
         <i class="ti ti-clipboard-check"></i> Duyệt</button>`:''}
@@ -5481,6 +5555,37 @@ function homeTBInit(){
   if(!_tbLoaded){_tbLoaded=true;homeTBRender();}
   // Làm mới mỗi 2 phút
   setInterval(homeTBRender,120000);
+  // Cập nhật badge chờ duyệt
+  homeUpdatePendingBadge();
+  setInterval(homeUpdatePendingBadge,120000);
+}
+
+// ══ BADGE CHỜ DUYỆT TRANG CHỦ ══
+function homeUpdatePendingBadge(){
+  var badge=document.getElementById('homePendingBadge');
+  var detail=document.getElementById('homePendingDetail');
+  if(!badge||!detail)return;
+  // Đọc song song nghỉ phép và nghỉ bù
+  var nbProm=db.ref('nghiBu').once('value').then(function(s){
+    var d=s.val()||{};var arr=Object.values(d);
+    return arr.filter(function(r){return r&&r.status==='pending';}).length;
+  }).catch(function(){return 0;});
+  var npProm=db.ref('nghiPhep').once('value').then(function(s){
+    var d=s.val()||{};var arr=Object.values(d);
+    return arr.filter(function(r){return r&&r.status==='pending';}).length;
+  }).catch(function(){return 0;});
+  Promise.all([nbProm,npProm]).then(function(res){
+    var nbPend=res[0],npPend=res[1],total=nbPend+npPend;
+    if(total>0){
+      badge.style.display='block';
+      var parts=[];
+      if(npPend>0)parts.push(npPend+' phiếu <b>Nghỉ Phép</b>');
+      if(nbPend>0)parts.push(nbPend+' phiếu <b>Nghỉ Bù</b>');
+      detail.innerHTML='Có '+parts.join(' và ')+' chưa được duyệt';
+    } else {
+      badge.style.display='none';
+    }
+  }).catch(function(){badge.style.display='none';});
 }
 
 // ══ IN DANH SÁCH NHÂN VIÊN ══
