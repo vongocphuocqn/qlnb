@@ -3523,6 +3523,8 @@ function ttExportWord(){
     });
   });
 
+  const docFileName=`ThanhTich_TapThe_GMHS_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.doc`;
+
   const html=`<!DOCTYPE html>
 <html lang="vi">
 <head><meta charset="UTF-8">
@@ -3542,6 +3544,7 @@ function ttExportWord(){
     font-family:inherit}
   .tbtn:hover{background:rgba(255,255,255,.3)}
   .tbtn.print{background:#2e7d32;border-color:#2e7d32}
+  .tbtn.dl{background:#1565C0;border-color:#1565C0}
   .page{background:#fff;border-radius:8px;padding:28px 32px;
     box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}
   .hdr-top{text-align:center;margin-bottom:4pt}
@@ -3570,6 +3573,7 @@ function ttExportWord(){
   <div class="toolbar no-print">
     <span>📄 Xem trước – Thành tích Tập thể Khoa GMHS (${printDate})</span>
     <button class="tbtn" onclick="window.close()">✕ Đóng</button>
+    <button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>
     <button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>
   </div>
   <div class="page">
@@ -3603,6 +3607,18 @@ function ttExportWord(){
     <div class="foot">Tài liệu được xuất từ hệ thống Kanban – Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai</div>
   </div>
 </div>
+<script>
+function downloadWordDoc(){
+  var styleTag=document.querySelector('style').outerHTML;
+  var pageHtml=document.querySelector('.page').outerHTML;
+  var docHtml='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${docFileName}</title>'+styleTag+'</head><body>'+pageHtml+'</body></html>';
+  var blob=new Blob(['\\ufeff'+docHtml],{type:'application/msword'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='${docFileName}';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+<\/script>
 </body></html>`;
 
   const w=window.open('','_blank','width=1000,height=780,scrollbars=yes,resizable=yes');
@@ -4881,6 +4897,9 @@ function rcExportWord(){
     });
   });
 
+  const safeNm=ptCurStaff.replace(/[^\p{L}\p{N}]+/gu,'_');
+  const docFileName=`NCKH_SangKien_${safeNm}_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.doc`;
+
   const html=`<!DOCTYPE html>
 <html lang="vi"><head><meta charset="UTF-8">
 <title>NCKH / Sáng kiến – ${ptEsc(ptCurStaff)} – ${printDate}</title>
@@ -4893,6 +4912,7 @@ function rcExportWord(){
   .tbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:#fff;font-family:inherit}
   .tbtn:hover{background:rgba(255,255,255,.3)}
   .tbtn.print{background:#2e7d32;border-color:#2e7d32}
+  .tbtn.dl{background:#1565C0;border-color:#1565C0}
   .page{background:#fff;border-radius:8px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}
   .hdr-top{text-align:center;margin-bottom:4pt}
   .org{font-size:10pt;color:#444;font-style:italic}
@@ -4916,6 +4936,7 @@ function rcExportWord(){
   <div class="toolbar no-print">
     <span>📄 Xem trước – NCKH / Sáng kiến: ${ptEsc(ptCurStaff)} (${printDate})</span>
     <button class="tbtn" onclick="window.close()">✕ Đóng</button>
+    <button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>
     <button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>
   </div>
   <div class="page">
@@ -4942,6 +4963,18 @@ function rcExportWord(){
     <div class="foot">Tài liệu được xuất từ hệ thống Kanban – Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai</div>
   </div>
 </div>
+<script>
+function downloadWordDoc(){
+  var styleTag=document.querySelector('style').outerHTML;
+  var pageHtml=document.querySelector('.page').outerHTML;
+  var docHtml='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${docFileName}</title>'+styleTag+'</head><body>'+pageHtml+'</body></html>';
+  var blob=new Blob(['\\ufeff'+docHtml],{type:'application/msword'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='${docFileName}';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+<\/script>
 </body></html>`;
   const w=window.open('','_blank','width=1000,height=780,scrollbars=yes,resizable=yes');
   if(!w){alert('Trình duyệt chặn popup! Vui lòng cho phép popup để xem trước tài liệu.');return;}
@@ -5141,6 +5174,9 @@ function ptExportWord(){
     });
   });
 
+  const safeNm=ptCurStaff.replace(/[^\p{L}\p{N}]+/gu,'_');
+  const docFileName=`ThanhTich_CaNhan_${safeNm}_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.doc`;
+
   const html=`<!DOCTYPE html>
 <html lang="vi">
 <head><meta charset="UTF-8">
@@ -5160,6 +5196,7 @@ function ptExportWord(){
     font-family:inherit}
   .tbtn:hover{background:rgba(255,255,255,.3)}
   .tbtn.print{background:#2e7d32;border-color:#2e7d32}
+  .tbtn.dl{background:#1565C0;border-color:#1565C0}
   .page{background:#fff;border-radius:8px;padding:28px 32px;
     box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}
   .hdr-top{text-align:center;margin-bottom:4pt}
@@ -5188,6 +5225,7 @@ function ptExportWord(){
   <div class="toolbar no-print">
     <span>📄 Xem trước – Thành tích Cá nhân: ${ptEsc(ptCurStaff)} (${printDate})</span>
     <button class="tbtn" onclick="window.close()">✕ Đóng</button>
+    <button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>
     <button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>
   </div>
   <div class="page">
@@ -5221,6 +5259,18 @@ function ptExportWord(){
     <div class="foot">Tài liệu được xuất từ hệ thống Kanban – Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai</div>
   </div>
 </div>
+<script>
+function downloadWordDoc(){
+  var styleTag=document.querySelector('style').outerHTML;
+  var pageHtml=document.querySelector('.page').outerHTML;
+  var docHtml='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${docFileName}</title>'+styleTag+'</head><body>'+pageHtml+'</body></html>';
+  var blob=new Blob(['\\ufeff'+docHtml],{type:'application/msword'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='${docFileName}';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+<\/script>
 </body></html>`;
 
   const w=window.open('','_blank','width=1000,height=780,scrollbars=yes,resizable=yes');
@@ -5302,6 +5352,30 @@ function _adminSessionUpdateBadge(){
 
 /* ── HELPERS ── */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+/* Trình bày "Ghi chú QT" theo cấu trúc ý mẹ / ý con, tự nhận diện dấu ngăn cách phổ biến */
+function fmtQTNote(note){
+  const raw=String(note||'').trim();
+  if(!raw) return '<span style="color:#bbb">—</span>';
+  let main=raw, subs=[];
+  const ci=raw.indexOf(':');
+  if(ci>-1 && ci<raw.length-1){
+    main=raw.slice(0,ci).trim();
+    let rest=raw.slice(ci+1).trim();
+    if(rest.includes('+')) subs=rest.split('+').map(s=>s.trim()).filter(Boolean);
+    else if(rest.includes(' - ')) subs=rest.split(' - ').map(s=>s.trim()).filter(Boolean);
+    else if(rest.includes(';')) subs=rest.split(';').map(s=>s.trim()).filter(Boolean);
+    else if(rest) subs=[rest];
+  }else if(raw.includes(' - ')){
+    const parts=raw.split(' - ').map(s=>s.trim()).filter(Boolean);
+    main=parts[0]; subs=parts.slice(1);
+  }
+  let html=`<div style="font-weight:700;color:#00695c;font-size:9pt">${esc(main)}</div>`;
+  if(subs.length){
+    html+='<ul style="margin:2pt 0 0;padding-left:12pt;font-size:8.5pt;color:#444;line-height:1.35">'
+      +subs.map(s=>`<li>${esc(s)}</li>`).join('')+'</ul>';
+  }
+  return html;
+}
 function today(){
   const d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -7848,6 +7922,8 @@ function nbExportWord(){
   });
   const persSum=Object.values(byP).sort((a,b)=>b.total-a.total);
 
+  const docFileName=`NghiBu_GMHS_${today()}.doc`;
+
   const html=`<!DOCTYPE html>
 <html lang="vi">
 <head><meta charset="UTF-8">
@@ -7868,6 +7944,8 @@ function nbExportWord(){
   .tbtn:hover{background:rgba(255,255,255,.3)}
   .tbtn.print{background:#2e7d32;border-color:#2e7d32}
   .tbtn.print:hover{background:#1b5e20}
+  .tbtn.dl{background:#fff;color:#1565C0;border-color:#fff}
+  .tbtn.dl:hover{background:#e3eefd}
   .page{background:#fff;border-radius:8px;padding:28px 32px;
     box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}
   .hdr-top{text-align:center;margin-bottom:4pt}
@@ -7903,6 +7981,7 @@ function nbExportWord(){
   <div class="toolbar no-print">
     <span>📄 Xem trước – Danh sách Nghỉ Bù Khoa GMHS (${printDate})</span>
     <button class="tbtn" onclick="window.close()">✕ Đóng</button>
+    <button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>
     <button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>
   </div>
 
@@ -7956,7 +8035,7 @@ function nbExportWord(){
           ${slb[r.status]||''}
         </td>
         <td>${esc(replStr2)}</td>
-        <td style="font-size:9pt">${esc(r.adminNote||'—')}</td>
+        <td style="font-size:9pt">${fmtQTNote(r.adminNote)}</td>
       </tr>`;}).join('')}
       </tbody>
       <tfoot>
@@ -8010,6 +8089,18 @@ function nbExportWord(){
     </div>
   </div><!-- /page -->
 </div>
+<script>
+function downloadWordDoc(){
+  var styleTag=document.querySelector('style').outerHTML;
+  var pageHtml=document.querySelector('.page').outerHTML;
+  var docHtml='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${docFileName}</title>'+styleTag+'</head><body>'+pageHtml+'</body></html>';
+  var blob=new Blob(['\\ufeff'+docHtml],{type:'application/msword'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='${docFileName}';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+<\/script>
 </body></html>`;
 
   const w=window.open('','_blank','width=1100,height=780,scrollbars=yes,resizable=yes');
@@ -8841,7 +8932,7 @@ function npExportExcel(){
       <td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Lập phiếu</td>
       <td class="th">Từ ngày</td><td class="th">Đến ngày</td><td class="th">Số ngày</td>
       <td class="th">Loại phép</td><td class="th">Lý do</td>
-      <td class="th">Trạng thái</td><td class="th">Người thay thế</td>
+      <td class="th">Trạng thái</td><td class="th">Người thay thế</td><td class="th">Ghi chú QT</td>
     </tr>`;
   list.forEach((r,i)=>{
     const ev=i%2===1?' ev':'';
@@ -8857,6 +8948,7 @@ function npExportExcel(){
       <td class="td${ev}">${r.reason||''}</td>
       <td class="td-c${ev}${stCls}">${slb[r.status]||''}</td>
       <td class="td${ev}">${r.replacer||'—'}</td>
+      <td class="td${ev}">${r.adminNote||'—'}</td>
     </tr>`;
   });
   html+=`</table></body></html>`;
@@ -8877,6 +8969,7 @@ function npExportWord(){
   const totalDays=appr.reduce((s,r)=>s+(r.days||0),0);
   const byP={};list.forEach(r=>{if(!byP[r.person])byP[r.person]={name:r.person,totalDays:0,totalPhieu:0};byP[r.person].totalDays+=(r.days||0);byP[r.person].totalPhieu++;});
   const persSum=Object.values(byP).sort((a,b)=>b.totalDays-a.totalDays);
+  const docFileName=`NghiPhep_GMHS_${today()}.doc`;
   const html=`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
 <title>Danh sách Nghỉ Phép – Khoa GMHS – ${printDate}</title>
 <style>
@@ -8887,6 +8980,7 @@ function npExportWord(){
   .toolbar span{font-size:14px;font-weight:700;flex:1}
   .tbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:#fff;font-family:inherit}
   .tbtn.print{background:#2e7d32;border-color:#2e7d32}
+  .tbtn.dl{background:#1565C0;border-color:#1565C0}
   .page{background:#fff;border-radius:8px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}
   .hdr-top{text-align:center;margin-bottom:4pt}
   .org{font-size:10pt;color:#444;font-style:italic}
@@ -8911,6 +9005,7 @@ function npExportWord(){
   <div class="toolbar no-print">
     <span>📄 Xem trước – Danh sách Nghỉ Phép Khoa GMHS (${printDate})</span>
     <button class="tbtn" onclick="window.close()">✕ Đóng</button>
+    <button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>
     <button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>
   </div>
   <div class="page">
@@ -8933,7 +9028,7 @@ function npExportWord(){
         <th style="width:28pt">STT</th><th style="min-width:90pt">Họ và tên</th>
         <th style="width:65pt">Từ ngày</th><th style="width:65pt">Đến ngày</th>
         <th style="width:45pt">Số ngày</th><th style="width:75pt">Loại phép</th>
-        <th>Lý do</th><th style="width:65pt">Trạng thái</th><th>Người thay thế</th>
+        <th>Lý do</th><th style="width:65pt">Trạng thái</th><th>Người thay thế</th><th>Ghi chú QT</th>
       </tr></thead>
       <tbody>${list.map((r,i)=>`<tr class="${i%2===1?'ev':''}">
         <td style="text-align:center">${i+1}</td>
@@ -8945,11 +9040,12 @@ function npExportWord(){
         <td>${esc(r.reason||'—')}</td>
         <td class="st-${r.status==='approved'?'ok':r.status==='denied'?'deny':'pend'}" style="text-align:center">${slb[r.status]||''}</td>
         <td>${esc(r.replacer||'—')}</td>
+        <td style="font-size:9pt">${fmtQTNote(r.adminNote)}</td>
       </tr>`).join('')}</tbody>
       <tfoot><tr>
         <td colspan="4" class="tot">TỔNG CỘNG</td>
         <td class="tot">${list.reduce((s,r)=>s+(r.days||0),0)}</td>
-        <td colspan="4" class="tot">Đã duyệt: ${appr.length} | Chờ: ${list.filter(r=>r.status==='pending').length} | Từ chối: ${list.filter(r=>r.status==='denied').length}</td>
+        <td colspan="5" class="tot">Đã duyệt: ${appr.length} | Chờ: ${list.filter(r=>r.status==='pending').length} | Từ chối: ${list.filter(r=>r.status==='denied').length}</td>
       </tr></tfoot>
     </table>
     <div class="section-title">II. THỐNG KÊ THEO CÁ NHÂN</div>
@@ -8967,7 +9063,20 @@ function npExportWord(){
     </div>
     <div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Hệ thống quản lý Nghỉ Phép nội bộ</div>
   </div>
-</div></body></html>`;
+</div>
+<script>
+function downloadWordDoc(){
+  var styleTag=document.querySelector('style').outerHTML;
+  var pageHtml=document.querySelector('.page').outerHTML;
+  var docHtml='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${docFileName}</title>'+styleTag+'</head><body>'+pageHtml+'</body></html>';
+  var blob=new Blob(['\\ufeff'+docHtml],{type:'application/msword'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='${docFileName}';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+<\/script>
+</body></html>`;
   const w=window.open('','_blank','width=1100,height=780,scrollbars=yes,resizable=yes');
   if(!w){npShowAl('Trình duyệt chặn popup!','warn');return;}
   w.document.write(html);w.document.close();
