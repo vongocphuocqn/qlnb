@@ -444,6 +444,8 @@ font-size:10px;color:var(--tx3)}
   display:flex;align-items:center;gap:8px}
 /* Alert */
 .nb-al{padding:10px 14px;border-radius:9px;font-size:13px;margin-bottom:12px;
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:5000;
+  max-width:92vw;min-width:260px;box-shadow:0 6px 20px rgba(0,0,0,.25);
   display:none;align-items:center;gap:8px;border:1px solid}
 .nb-al-ok{background:#e8f5e9;border-color:#a5d6a7;color:#1b5e20;display:flex}
 .nb-al-err{background:#fce4ec;border-color:#f48fb1;color:#880e4f;display:flex}
@@ -688,6 +690,12 @@ font-size:10px;color:var(--tx3)}
     <!-- TAB 1: ĐĂNG KÝ -->
     <div id="nbPane1">
       <div class="nb-form-card">
+        <div id="nbEditBanner" style="display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#e3f2fd;border:1.5px solid #1565C0;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+          <span style="color:#0d47a1;font-weight:700;font-size:13px"><i class="ti ti-edit"></i> <span id="nbEditBannerText">Đang sửa phiếu</span></span>
+          <button type="button" onclick="nbCancelEditMode()" style="background:#fff;border:1.5px solid #1565C0;color:#1565C0;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">
+            <i class="ti ti-x"></i> Hủy sửa, lập phiếu mới
+          </button>
+        </div>
         <div class="nb-form-title"><i class="ti ti-file-plus"></i> Phiếu Đăng ký Nghỉ Bù</div>
         <div class="nb-grid">
           <div class="nb-field">
@@ -971,6 +979,12 @@ font-size:10px;color:var(--tx3)}
     <!-- TAB 1: ĐĂNG KÝ -->
     <div id="npPane1">
       <div class="nb-form-card" style="border-color:#a7d4ce">
+        <div id="npEditBanner" style="display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#e0f2f1;border:1.5px solid #00695c;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+          <span style="color:#004d40;font-weight:700;font-size:13px"><i class="ti ti-edit"></i> <span id="npEditBannerText">Đang sửa phiếu</span></span>
+          <button type="button" onclick="npCancelEditMode()" style="background:#fff;border:1.5px solid #00695c;color:#00695c;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">
+            <i class="ti ti-x"></i> Hủy sửa, lập phiếu mới
+          </button>
+        </div>
         <div class="nb-form-title" style="color:#00695c;border-color:#d0ece9">
           <i class="ti ti-file-plus"></i> Phiếu Đăng ký Nghỉ Phép
         </div>
@@ -6421,6 +6435,18 @@ function startNbListening(){
 // nbValueHandler inlined into startNbListening
 
 
+function nbScrollToEditForm(formEl){
+  if(!formEl) return;
+  try{
+    var screenEl=formEl.closest('.nb-screen')||formEl.closest('#npScreen')||document;
+    var topbar=screenEl.querySelector?screenEl.querySelector('.nb-topbar'):document.querySelector('.nb-topbar');
+    var offset=(topbar?topbar.offsetHeight:0)+12;
+    var rect=formEl.getBoundingClientRect();
+    var targetY=window.pageYOffset+rect.top-offset;
+    window.scrollTo({top:Math.max(targetY,0),behavior:'smooth'});
+  }catch(e){ formEl.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+
 function nbSetSync(s){
   const dot=document.getElementById('nbSyncDot');
   const msg=document.getElementById('nbSyncMsg');
@@ -7143,7 +7169,9 @@ function nbShowAl(msg,t='ok'){
   document.getElementById('nbAlMsg').textContent=msg;
   el.className='nb-al nb-al-'+(t==='err'?'err':t==='warn'?'warn':'ok');
   ico.className='ti '+(t==='err'?'ti-circle-x':t==='warn'?'ti-alert-triangle':'ti-circle-check');
-  el.style.display='flex';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',4000);
+  const topbar=document.querySelector('#nbScreen .nb-topbar');
+  el.style.top=((topbar?topbar.offsetHeight:0)+10)+'px';
+  el.style.display='flex';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',t==='err'?6000:4500);
 }
 
 function fmtDT(iso){
@@ -7190,6 +7218,7 @@ function getSelectedShift(){
 let nbRowCount = 0;
 
 function nbAddRow(dateVal, shiftVal){
+  nbHideEmptyRowsMsg();
   nbRowCount++;
   const id = 'nbRow_' + nbRowCount;
   const d = dateVal || today();
@@ -7223,14 +7252,30 @@ function nbAddRow(dateVal, shiftVal){
 
 function nbRemoveRow(id){
   const rows = document.getElementById('nbRows');
-  if(rows.children.length <= 1){nbShowAl('Cần ít nhất 1 dòng!','warn');return;}
   const el = document.getElementById(id);
   if(el) el.remove();
+  if(rows && rows.children.length === 0){
+    nbShowAl('Đã xóa hết ngày — hãy thêm dòng/khoảng ngày mới trước khi lưu phiếu.','warn');
+    nbShowEmptyRowsMsg();
+  }
+}
+function nbShowEmptyRowsMsg(){
+  const rows = document.getElementById('nbRows');
+  if(!rows || document.getElementById('nbEmptyRowsMsg')) return;
+  const msg=document.createElement('div');
+  msg.id='nbEmptyRowsMsg';
+  msg.style.cssText='background:#fff3e0;border:1.5px dashed #ef9a3a;border-radius:9px;padding:12px 14px;color:#9a5a1a;font-size:13px;font-weight:600;text-align:center';
+  msg.innerHTML='⚠️ Chưa có ngày nghỉ bù nào trong phiếu. Bấm "+ Thêm dòng" hoặc "🗓 Thêm khoảng" ở trên để thêm trước khi lưu — nếu không, "Cập nhật phiếu" / "Gửi phiếu đăng ký" sẽ KHÔNG lưu được.';
+  rows.appendChild(msg);
+}
+function nbHideEmptyRowsMsg(){
+  const msg=document.getElementById('nbEmptyRowsMsg');
+  if(msg) msg.remove();
 }
 
 function nbGetRows(){
   const rows = document.querySelectorAll('#nbRows > div');
-  return [...rows].map(row=>({
+  return [...rows].filter(row=>row.querySelector('.nb-row-date')).map(row=>({
     date: row.querySelector('.nb-row-date').value,
     shift: row.querySelector('.nb-row-shift').value
   }));
@@ -7286,6 +7331,8 @@ function nbSubmitForm(){
         nbShowAl('Đã cập nhật phiếu nghỉ bù!');nbSetSync('ok');
         delete nbRowsEl2.dataset.editId;
         if(btn3){btn3.innerHTML='<i class="ti ti-send"></i> Gửi phiếu đăng ký';btn3.style.background='#1565C0';}
+        var banner3=document.getElementById('nbEditBanner');
+        if(banner3) banner3.style.display='none';
         document.getElementById('nbFormReason').value='';
         nbResetRows();
       })
@@ -8153,7 +8200,47 @@ function nbRestore(evt){
       const dot=document.getElementById(id);
       if(dot)dot.className='sync-dot'+(v?'':' off');
     });
+    // Đồng bộ đúng trạng thái thật của kết nối Firebase cho cả 3 module
+    // (trước đây các badge "nbSyncMsg/npSyncMsg/syncMsg" chỉ đổi khi đọc/ghi dữ liệu,
+    // nên có thể đứng yên ở "Đang kết nối..." dù máy đã có/mất mạng thật).
+    [
+      {dotId:'nbSyncDot', msgId:'nbSyncMsg'},
+      {dotId:'npSyncDot', msgId:'npSyncMsg'},
+      {dotId:'syncDot',   msgId:'syncMsg'},
+    ].forEach(function(pair){
+      const dot=document.getElementById(pair.dotId);
+      const msg=document.getElementById(pair.msgId);
+      if(!dot||!msg) return;
+      if(v){
+        // Chỉ tự chuyển sang "Đã đồng bộ" nếu đang ở trạng thái chờ kết nối ban đầu,
+        // không đè lên trạng thái "Đang đồng bộ..." khi có thao tác ghi dữ liệu đang chạy.
+        if(msg.textContent==='Đang kết nối...'){ dot.className='sync-dot'; msg.textContent='Đã đồng bộ'; }
+      } else {
+        dot.className='sync-dot off'; msg.textContent='Mất kết nối';
+      }
+    });
+    if(v){ _connWatchdogOk=true; } else { _connWatchdogOk=false; }
   });
+  // Cảnh báo nếu sau một khoảng thời gian vẫn không kết nối được tới máy chủ —
+  // giúp người dùng biết đây là lỗi mạng/tường lửa, không phải do bấm sai nút.
+  var _connWatchdogOk=false;
+  setTimeout(function(){
+    if(_connWatchdogOk) return;
+    ['nbSyncMsg','npSyncMsg','syncMsg'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el && (el.textContent==='Đang kết nối...'||el.textContent==='Đang đồng bộ...')){
+        el.textContent='Không kết nối được máy chủ';
+        var dotEl=document.getElementById(id.replace('Msg','Dot'));
+        if(dotEl) dotEl.className='sync-dot off';
+      }
+    });
+    if(typeof nbShowAl==='function' && document.getElementById('nbScreen') && document.getElementById('nbScreen').style.display!=='none'){
+      nbShowAl('⚠ Không kết nối được tới máy chủ dữ liệu. Phiếu vừa lập/sửa/hủy có thể CHƯA được lưu. Vui lòng kiểm tra mạng Internet/Wifi (thử đổi sang 4G) và bấm "Làm mới", hoặc báo IT bệnh viện kiểm tra tường lửa.','err');
+    }
+    if(typeof npShowAl==='function' && document.getElementById('npScreen') && document.getElementById('npScreen').style.display!=='none'){
+      npShowAl('⚠ Không kết nối được tới máy chủ dữ liệu. Phiếu vừa lập/sửa/hủy có thể CHƯA được lưu. Vui lòng kiểm tra mạng Internet/Wifi (thử đổi sang 4G) và bấm "Làm mới", hoặc báo IT bệnh viện kiểm tra tường lửa.','err');
+    }
+  }, 10000);
   document.addEventListener('click',e=>{
     if(!e.target.closest('#loginS'))hideDrop();
     if(!e.target.closest('#authStaffDrop')&&!e.target.closest('#authSearchInp')){
@@ -8404,7 +8491,9 @@ function npShowAl(msg,t='ok'){
   document.getElementById('npAlMsg').textContent=msg;
   el.className='nb-al nb-al-'+(t==='err'?'err':t==='warn'?'warn':'ok');
   ico.className='ti '+(t==='err'?'ti-circle-x':t==='warn'?'ti-alert-triangle':'ti-circle-check');
-  el.style.display='flex';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',4000);
+  const topbar=document.querySelector('#npScreen .nb-topbar');
+  el.style.top=((topbar?topbar.offsetHeight:0)+10)+'px';
+  el.style.display='flex';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',t==='err'?6000:4500);
 }
 function npUpdateTime(){
   const el=document.getElementById('npFormTime');if(!el)return;
@@ -8553,7 +8642,11 @@ function npSubmitForm(){
     var npEditedRec=npRecords.find(function(x){return String(x.id)===String(npEditId);});
     var npKeepStatus=(isA&&npEditedRec)?npEditedRec.status:'pending';
     npRef.child(String(npEditId)).update({person:person,dateFrom:fr,dateTo:to,days:npEditDays,type:type,reason:reason,status:npKeepStatus,updatedAt:new Date().toISOString()})
-      .then(function(){npShowAl('Đã cập nhật phiếu nghỉ phép!');npCalcDays();})
+      .then(function(){
+        npShowAl('Đã cập nhật phiếu nghỉ phép!');npCalcDays();
+        var npBanner2=document.getElementById('npEditBanner');
+        if(npBanner2) npBanner2.style.display='none';
+      })
       .catch(function(e){npShowAl('Lỗi: '+e.message,'err');});
     return;
   }
@@ -9177,6 +9270,34 @@ function npEditStaff(id){
   var btn=document.querySelector('#npPane1 .nb-btn[onclick="npSubmitForm()"]');
   if(btn){btn.innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật phiếu';btn.style.background='#1565C0';}
   npShowAl('Đang chỉnh sửa phiếu — nhấn "Cập nhật phiếu" để lưu','warn');
+  // Hiện banner rõ ràng đang ở chế độ sửa (kèm tên + khoảng ngày) và cuộn lên đúng vị trí form
+  var npBanner=document.getElementById('npEditBanner');
+  var npBannerText=document.getElementById('npEditBannerText');
+  if(npBanner&&npBannerText){
+    npBannerText.textContent='Đang sửa phiếu của: '+(r.person||'')+' — '+fmtD(r.dateFrom)+(r.dateTo&&r.dateTo!==r.dateFrom?(' → '+fmtD(r.dateTo)):'');
+    npBanner.style.display='flex';
+  }
+  setTimeout(function(){
+    nbScrollToEditForm(document.getElementById('npPane1'));
+  },60);
+}
+function npCancelEditMode(){
+  var fromEl=document.getElementById('npFormFrom');
+  if(fromEl) delete fromEl.dataset.editId;
+  var banner=document.getElementById('npEditBanner');
+  if(banner) banner.style.display='none';
+  var btn=document.querySelector('#npPane1 .nb-btn[onclick="npSubmitForm()"]');
+  if(btn){btn.innerHTML='<i class="ti ti-send"></i> Gửi phiếu đăng ký';btn.style.background='#00695c';}
+  document.getElementById('npFormReason').value='';
+  document.getElementById('npFormTo').value='';
+  document.getElementById('npFormType').value='';
+  if(fromEl) fromEl.value='';
+  npCalcDays();
+  if(npCurrentUser&&npCurrentUser.role==='admin'){
+    var s=document.getElementById('npPersonSearch'), v=document.getElementById('npPersonVal');
+    if(s) s.value=''; if(v) v.value='';
+  }
+  npShowAl('Đã hủy chế độ sửa — sẵn sàng lập phiếu mới','warn');
 }
 
 /* ── Staff Edit/Cancel for NB ── */
@@ -9213,6 +9334,31 @@ function nbEditStaff(id){
   var btn=document.querySelector('#nbPane1 .nb-btn[onclick="nbSubmitForm()"]');
   if(btn){btn.innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật phiếu';btn.style.background='#0d47a1';}
   nbShowAl('Đang chỉnh sửa phiếu — nhấn "Cập nhật phiếu" để lưu','warn');
+  // Hiện banner rõ ràng đang ở chế độ sửa (kèm tên + ngày) và cuộn lên đúng vị trí form
+  var banner=document.getElementById('nbEditBanner');
+  var bannerText=document.getElementById('nbEditBannerText');
+  if(banner&&bannerText){
+    bannerText.textContent='Đang sửa phiếu của: '+(r.person||'')+' — '+nbEntriesToStr(r).replace(/<br>/g,', ');
+    banner.style.display='flex';
+  }
+  setTimeout(function(){
+    nbScrollToEditForm(document.getElementById('nbPane1'));
+  },60);
+}
+function nbCancelEditMode(){
+  var el=document.getElementById('nbRows');
+  if(el) delete el.dataset.editId;
+  var banner=document.getElementById('nbEditBanner');
+  if(banner) banner.style.display='none';
+  var btn=document.querySelector('#nbPane1 .nb-btn[onclick="nbSubmitForm()"]');
+  if(btn){btn.innerHTML='<i class="ti ti-send"></i> Gửi phiếu đăng ký';btn.style.background='#1565C0';}
+  document.getElementById('nbFormReason').value='';
+  if(nbCurrentUser&&nbCurrentUser.role==='admin'){
+    var s=document.getElementById('nbPersonSearch'), v=document.getElementById('nbPersonVal');
+    if(s) s.value=''; if(v) v.value='';
+  }
+  nbResetRows();
+  nbShowAl('Đã hủy chế độ sửa — sẵn sàng lập phiếu mới','warn');
 }
 
 
