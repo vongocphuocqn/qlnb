@@ -7484,10 +7484,19 @@ function nbGetMyFiltered(){
   return mine;
 }
 function nbGetExportData(){
-  // Xuất theo đúng bộ lọc của khung đang hiển thị: Pane2 (Danh sách phiếu) ưu tiên nếu đang mở, ngược lại dùng "Phiếu của tôi"
-  const pane2=document.getElementById('nbPane2');
-  const pane2Visible=pane2&&pane2.style.display!=='none';
-  return pane2Visible?nbGetFiltered():nbGetMyFiltered();
+  // Xuất Word/Excel luôn lấy TOÀN BỘ danh sách (như góc nhìn admin/quản lý),
+  // không bị giới hạn theo vai trò người đang đăng nhập, chỉ áp các bộ lọc tên/trạng thái/ngày nếu có chọn.
+  let list=[...nbRecords];
+  const nm=(document.getElementById('nbFName')||{}).value||'';
+  const st=(document.getElementById('nbFStatus')||{}).value||'';
+  const sh=(document.getElementById('nbFShift')||{}).value||'';
+  const fr=(document.getElementById('nbFFrom')||{}).value||'';
+  const to=(document.getElementById('nbFTo')||{}).value||'';
+  if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase()));
+  if(st)list=list.filter(r=>r.status===st);
+  if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
+  if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
+  return list.sort((a,b)=>b.id-a.id);
 }
 function nbGetFiltered(){
   let list=[...nbRecords];
@@ -8774,9 +8783,19 @@ function npGetMyFiltered(){
   return mine;
 }
 function npGetExportData(){
-  const pane2=document.getElementById('npPane2');
-  const pane2Visible=pane2&&pane2.style.display!=='none';
-  return pane2Visible?npGetFiltered():npGetMyFiltered();
+  // Xuất Word/Excel luôn lấy TOÀN BỘ danh sách (như góc nhìn admin/quản lý),
+  // không bị giới hạn theo vai trò người đang đăng nhập, chỉ áp các bộ lọc tên/trạng thái/ngày nếu có chọn.
+  let list=[...npRecords];
+  const nm=(document.getElementById('npFName')||{}).value||'';
+  const st=(document.getElementById('npFStatus')||{}).value||'';
+  const tp=(document.getElementById('npFType')||{}).value||'';
+  const fr=(document.getElementById('npFFrom')||{}).value||'';
+  const to=(document.getElementById('npFTo')||{}).value||'';
+  if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase()));
+  if(st)list=list.filter(r=>r.status===st);
+  if(tp)list=list.filter(r=>r.type===tp);
+  if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
+  return list.sort((a,b)=>b.id-a.id);
 }
 function npGetFiltered(){
   let list=[...npRecords];
