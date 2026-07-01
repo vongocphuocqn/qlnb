@@ -1306,8 +1306,8 @@ font-size:10px;color:var(--tx3)}
   <div class="modal" style="max-width:430px">
     <h3><i class="ti ti-users"></i> Quản lý danh sách nhân viên</h3>
     <div class="fg" style="display:flex;gap:7px;margin-bottom:8px">
-      <input type="text" id="newStaffName" placeholder="Nhập họ tên nhân viên mới..."
-             style="flex:1" onkeydown="if(event.key==='Enter')addStaffMember()">
+      <input type="text" id="newStaffName" placeholder="Nhập họ tên nhân viên mới hoặc gõ để tìm..."
+             style="flex:1" oninput="renderStaffList()" onkeydown="if(event.key==='Enter')addStaffMember()">
       <button class="btnp" style="padding:7px 12px;white-space:nowrap" onclick="addStaffMember()">
         <i class="ti ti-plus"></i> Thêm
       </button>
@@ -5390,6 +5390,13 @@ function fmtQTNote(note){
   }
   return html;
 }
+// Hiển thị Ghi chú QT nguyên văn như lúc nhập — không tự tách dòng chính/dòng phụ,
+// chỉ giữ đúng xuống dòng người dùng đã gõ.
+function plainQTNote(note){
+  const raw=String(note||'').trim();
+  if(!raw) return '<span style="color:#bbb">—</span>';
+  return esc(raw).replace(/\n/g,'<br>');
+}
 function today(){
   const d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -5449,6 +5456,8 @@ function startListening(){
     populateHomeSelect();
     if(cu&&cu.role==='admin') populatePersonAdmin();
     if(nbCurrentUser) nbPopulatePersonSelect();
+    var staffModalEl=document.getElementById('staffModal');
+    if(staffModalEl&&staffModalEl.classList.contains('on')) renderStaffList();
   });
 
   // Fallback: nếu staffList đã có khi admin login trễ hơn Firebase
@@ -6128,14 +6137,22 @@ function openStaffModal(){
 function closeStaffModal(){document.getElementById('staffModal').classList.remove('on');}
 function renderStaffList(){
   const baseSet=new Set(STAFF_DEFAULT);
-  const sorted=[...staffList].sort((a,b)=>a.localeCompare(b,'vi'));
-  document.getElementById('staffCount').textContent=`Tổng: ${staffList.length} nhân viên`;
+  const qRaw=(document.getElementById('newStaffName')||{}).value||'';
+  const q=noAcc(qRaw.trim().toLowerCase());
+  const sorted=[...staffList].sort((a,b)=>a.localeCompare(b,'vi'))
+    .filter(n=>!q||noAcc(n.toLowerCase()).includes(q));
+  document.getElementById('staffCount').textContent=q
+    ?`Tìm thấy ${sorted.length}/${staffList.length} nhân viên`
+    :`Tổng: ${staffList.length} nhân viên`;
   document.getElementById('staffListBox').innerHTML=sorted.map(n=>{
     const isNew=!baseSet.has(n);
     return`<div class="sitem"><span class="savic">${ini(n)}</span>
       <span>${esc(n)}${isNew?'<span class="new-badge">Mới</span>':''}</span>
       <button class="sbdl" onclick="removeStaff('${n.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">×</button></div>`;
   }).join('');
+  if(q&&!sorted.length){
+    document.getElementById('staffListBox').innerHTML='<div style="text-align:center;color:#aaa;padding:14px;font-size:13px">Không tìm thấy nhân viên nào khớp — bấm "Thêm" để thêm tên mới.</div>';
+  }
 }
 function addStaffMember(){
   const inp=document.getElementById('newStaffName');
@@ -6147,12 +6164,16 @@ function addStaffMember(){
   if(name.length<3){err('Tên quá ngắn!');return;}
   if(staffList.find(n=>n.toLowerCase()===name.toLowerCase())){err(`"${name}" đã có trong danh sách!`);return;}
   const newList=[...staffList,name];
-  staffRef.set(newList).then(()=>{inp.value='';se.style.display='none';showAl(`Đã thêm "${name}"!`);});
+  staffList=newList; // cập nhật ngay cục bộ, không chờ Firebase trả về
+  renderStaffList();
+  staffRef.set(newList).then(()=>{inp.value='';renderStaffList();se.style.display='none';showAl(`Đã thêm "${name}"!`);});
 }
 function removeStaff(name){
   if(!confirm(`Xóa "${name}" khỏi danh sách đăng nhập?`))return;
   const newList=staffList.filter(n=>n!==name);
-  staffRef.set(newList).then(()=>showAl(`Đã xóa "${name}".`,'warn'));
+  staffList=newList; // cập nhật ngay cục bộ, không chờ Firebase trả về
+  renderStaffList();
+  staffRef.set(newList).then(()=>{renderStaffList();showAl(`Đã xóa "${name}".`,'warn');});
 }
 
 /* ── PASSWORD ── */
@@ -6800,12 +6821,10 @@ function getHomeStaff(){return(document.getElementById('authSelVal')||{}).value|
 function homeFilterStaff(){}function homeShowDrop(){}function homeHideDrop(){}
 function homePickStaff(){}function homeNavDrop(){}
 // ══ LỊCH NGHỈ CHUNG ══
-function nbRenderPublic(){
-  var el=document.getElementById('nbPublicTable');
-  if(!el)return;
+function nbGetPublicFiltered(){
   var pubFrom=(document.getElementById('nbPubFrom')||{}).value||'';
   var pubTo=(document.getElementById('nbPubTo')||{}).value||'';
-  var approved=nbRecords.filter(function(r){return r.status==='approved';})
+  return nbRecords.filter(function(r){return r.status==='approved';})
     .filter(function(r){
       if(!pubFrom&&!pubTo) return true;
       var dates=(r.entries&&r.entries.length)?r.entries.map(function(e){return e.date;}):[(r.date||'')];
@@ -6816,6 +6835,13 @@ function nbRenderPublic(){
       var db2=(b.entries&&b.entries[0]&&b.entries[0].date)||b.date||'';
       return da>db2?-1:1;
     });
+}
+function nbRenderPublic(){
+  var el=document.getElementById('nbPublicTable');
+  if(!el)return;
+  var pubFrom=(document.getElementById('nbPubFrom')||{}).value||'';
+  var pubTo=(document.getElementById('nbPubTo')||{}).value||'';
+  var approved=nbGetPublicFiltered();
   if(!approved.length){
     el.innerHTML='<div style="text-align:center;color:#aaa;padding:20px"><i class="ti ti-calendar-off" style="font-size:28px;display:block;margin-bottom:6px"></i>Chưa có phiếu nghỉ bù nào được duyệt'+((pubFrom||pubTo)?' trong khoảng thời gian này':'')+'</div>';
     return;
@@ -6833,6 +6859,7 @@ function nbRenderPublic(){
       '<td style="padding:8px 10px;font-size:12px;color:#555">'+esc(r.reason||'—')+'</td>'+
       '<td style="padding:8px 10px;font-weight:600;color:#2e7d32">'+esc(replacer)+'</td>'+
       '<td style="padding:8px 10px;font-size:11px;color:#888">'+fmtDT(r.approvedAt||r.createdAt||'')+'</td>'+
+      '<td style="padding:8px 10px;font-size:12px;color:#7a5800">'+esc(r.adminNote||'—')+'</td>'+
       '</tr>';
   }).join('');
   el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
@@ -6844,22 +6871,27 @@ function nbRenderPublic(){
     '<th style="padding:9px 10px;text-align:left">Lý do</th>'+
     '<th style="padding:9px 10px;text-align:left;color:#a5d6a7">👤 Người thay</th>'+
     '<th style="padding:9px 10px;text-align:left">Ngày duyệt</th>'+
+    '<th style="padding:9px 10px;text-align:left">Ghi chú</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<div style="font-size:11px;color:#aaa;text-align:right;margin-top:6px">Tổng: '+approved.length+' phiếu đã duyệt</div>';
 }
 
+function npGetPublicFiltered(){
+  var pubFrom=(document.getElementById('npPubFrom')||{}).value||'';
+  var pubTo=(document.getElementById('npPubTo')||{}).value||'';
+  return npRecords.filter(function(r){return r.status==='approved';})
+    .filter(function(r){
+      if(!pubFrom&&!pubTo) return true;
+      return (!pubFrom||(r.dateTo||r.dateFrom)>=pubFrom)&&(!pubTo||(r.dateFrom||r.dateTo)<=pubTo);
+    })
+    .sort(function(a,b){return (a.dateFrom||'')>(b.dateFrom||'')?-1:1;});
+}
 function npRenderPublic(){
   var el=document.getElementById('npPublicTable');
   if(!el)return;
   var pubFrom=(document.getElementById('npPubFrom')||{}).value||'';
   var pubTo=(document.getElementById('npPubTo')||{}).value||'';
-  var approved=npRecords.filter(function(r){return r.status==='approved';})
-    .filter(function(r){
-      if(!pubFrom&&!pubTo) return true;
-      // Khoảng nghỉ phép (dateFrom→dateTo) giao với khoảng lọc (pubFrom→pubTo)
-      return (!pubFrom||(r.dateTo||r.dateFrom)>=pubFrom)&&(!pubTo||(r.dateFrom||r.dateTo)<=pubTo);
-    })
-    .sort(function(a,b){return (a.dateFrom||'')>(b.dateFrom||'')?-1:1;});
+  var approved=npGetPublicFiltered();
   if(!approved.length){
     el.innerHTML='<div style="text-align:center;color:#aaa;padding:20px"><i class="ti ti-beach" style="font-size:28px;display:block;margin-bottom:6px"></i>Chưa có phiếu nghỉ phép nào được duyệt'+((pubFrom||pubTo)?' trong khoảng thời gian này':'')+'</div>';
     return;
@@ -6876,6 +6908,7 @@ function npRenderPublic(){
       '<td style="padding:8px 10px;font-size:12px">'+esc(typeLabel[r.type]||r.type||'—')+'</td>'+
       '<td style="padding:8px 10px;font-size:12px;color:#555">'+esc(r.reason||'—')+'</td>'+
       '<td style="padding:8px 10px;font-weight:600;color:#2e7d32">'+esc(replacer)+'</td>'+
+      '<td style="padding:8px 10px;font-size:12px;color:#7a5800">'+esc(r.adminNote||'—')+'</td>'+
       '</tr>';
   }).join('');
   el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
@@ -6887,6 +6920,7 @@ function npRenderPublic(){
     '<th style="padding:9px 10px;text-align:left">Loại phép</th>'+
     '<th style="padding:9px 10px;text-align:left">Lý do</th>'+
     '<th style="padding:9px 10px;text-align:left;color:#a5d6a7">👤 Người thay</th>'+
+    '<th style="padding:9px 10px;text-align:left">Ghi chú</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<div style="font-size:11px;color:#aaa;text-align:right;margin-top:6px">Tổng: '+approved.length+' phiếu đã duyệt</div>';
 }
@@ -7484,19 +7518,52 @@ function nbGetMyFiltered(){
   return mine;
 }
 function nbGetExportData(){
-  // Xuất Word/Excel luôn lấy TOÀN BỘ danh sách (như góc nhìn admin/quản lý),
-  // không bị giới hạn theo vai trò người đang đăng nhập, chỉ áp các bộ lọc tên/trạng thái/ngày nếu có chọn.
-  let list=[...nbRecords];
-  const nm=(document.getElementById('nbFName')||{}).value||'';
-  const st=(document.getElementById('nbFStatus')||{}).value||'';
-  const sh=(document.getElementById('nbFShift')||{}).value||'';
-  const fr=(document.getElementById('nbFFrom')||{}).value||'';
-  const to=(document.getElementById('nbFTo')||{}).value||'';
-  if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase()));
-  if(st)list=list.filter(r=>r.status===st);
-  if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
-  if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
-  return list.sort((a,b)=>b.id-a.id);
+  // Xuất theo ĐÚNG tab đang mở và ĐÚNG quy tắc hiển thị của tab đó —
+  // "Thống kê" và "Lịch nghỉ chung" vốn cho mọi vai trò xem toàn bộ nhân viên,
+  // chỉ riêng "Danh sách phiếu"/"Đăng ký" mới giới hạn nhân viên thường xem phiếu của chính mình.
+  var pane2=document.getElementById('nbPane2');
+  var pane3=document.getElementById('nbPane3');
+  var pane4=document.getElementById('nbPane4');
+  var onListTab = pane2 && pane2.style.display==='block';
+  var onStatTab = pane3 && pane3.style.display==='block';
+  var onPublicTab = pane4 && pane4.style.display==='block';
+
+  if(onPublicTab){
+    // Tab "Lịch nghỉ chung" → toàn bộ nhân viên, chỉ phiếu đã duyệt, theo đúng khoảng ngày đang lọc
+    return nbGetPublicFiltered();
+  }
+  if(onStatTab){
+    // Tab "Thống kê" → toàn bộ nhân viên, theo đúng bộ lọc khung Thống kê
+    var stFr=(document.getElementById('nbStatFrom')||{}).value||'';
+    var stTo=(document.getElementById('nbStatTo')||{}).value||'';
+    var stSt=(document.getElementById('nbStatStatus')||{}).value||'';
+    var statList=[...nbRecords];
+    if(stFr||stTo)statList=statList.filter(function(r){
+      var dates=(r.entries&&r.entries.length)?r.entries.map(function(e){return e.date;}):[(r.date||'')];
+      return dates.some(function(d){return (!stFr||d>=stFr)&&(!stTo||d<=stTo);});
+    });
+    if(stSt)statList=statList.filter(function(r){return r.status===stSt;});
+    return statList.sort((a,b)=>b.id-a.id);
+  }
+  if(onListTab){
+    // Tab "Danh sách phiếu" → nhân viên thường chỉ thấy đúng phiếu của mình (giống bảng đang hiển thị)
+    let list=[...nbRecords];
+    if(nbCurrentUser&&nbCurrentUser.role!=='admin'&&nbCurrentUser.role!=='viewer'){
+      list=list.filter(r=>(r.person||'').trim()===(nbCurrentUser.name||'').trim());
+    }
+    const nm=(document.getElementById('nbFName')||{}).value||'';
+    const st=(document.getElementById('nbFStatus')||{}).value||'';
+    const sh=(document.getElementById('nbFShift')||{}).value||'';
+    const fr=(document.getElementById('nbFFrom')||{}).value||'';
+    const to=(document.getElementById('nbFTo')||{}).value||'';
+    if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase()));
+    if(st)list=list.filter(r=>r.status===st);
+    if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
+    if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
+    return list.sort((a,b)=>b.id-a.id);
+  }
+  // Mặc định (tab "Đăng ký nghỉ bù" / khung "Phiếu đã đăng ký của tôi")
+  return nbGetMyFiltered();
 }
 function nbGetFiltered(){
   let list=[...nbRecords];
@@ -7874,8 +7941,10 @@ function nbRenderStat(){
 
 /* ── EXPORT EXCEL (XLSX thực, có định dạng) ── */
 function nbExportExcel(){
+  if(!nbRecords||!nbRecords.length){nbShowAl('Dữ liệu chưa tải xong từ máy chủ (hoặc chưa có phiếu nào) — vui lòng đợi vài giây tới khi thấy "Đã đồng bộ", hoặc bấm "Làm mới" rồi thử xuất lại!','warn');return;}
   const getFirstDate=function(r){return (r.entries&&r.entries[0]&&r.entries[0].date)||r.date||'';};
   let list=nbGetExportData().sort((a,b)=>(getFirstDate(a)).localeCompare(getFirstDate(b)));
+  if(!list.length){nbShowAl('Không có phiếu nào khớp với bộ lọc/tab đang xem — kiểm tra lại bộ lọc (tên/trạng thái/ngày) rồi thử lại!','warn');return;}
   const slbl={'ngay':'Cả ngày','ca-ngay':'Ca ngày (07h–19h)','ca-dem':'Ca đêm (19h–06h59 hôm sau)'};
   const slb={'pending':'Chờ duyệt','approved':'Đã duyệt','denied':'Từ chối'};
   const now=new Date();
@@ -7959,8 +8028,10 @@ function nbExportExcel(){
 
 /* ── EXPORT WORD – Xem trước, KHÔNG tự in ── */
 function nbExportWord(){
+  if(!nbRecords||!nbRecords.length){nbShowAl('Dữ liệu chưa tải xong từ máy chủ (hoặc chưa có phiếu nào) — vui lòng đợi vài giây tới khi thấy "Đã đồng bộ", hoặc bấm "Làm mới" rồi thử xuất lại!','warn');return;}
   const getFirstDate=function(r){return (r.entries&&r.entries[0]&&r.entries[0].date)||r.date||'';};
   let list=nbGetExportData().sort((a,b)=>getFirstDate(a).localeCompare(getFirstDate(b)));
+  if(!list.length){nbShowAl('Không có phiếu nào khớp với bộ lọc/tab đang xem — kiểm tra lại bộ lọc (tên/trạng thái/ngày) rồi thử lại!','warn');return;}
   const now=new Date();
   const printDate=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
   const printTime=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -8091,7 +8162,7 @@ function nbExportWord(){
           ${slb[r.status]||''}
         </td>
         <td>${esc(replStr2)}</td>
-        <td style="font-size:9pt">${fmtQTNote(r.adminNote)}</td>
+        <td style="font-size:9pt">${plainQTNote(r.adminNote)}</td>
       </tr>`;}).join('')}
       </tbody>
       <tfoot>
@@ -8783,19 +8854,49 @@ function npGetMyFiltered(){
   return mine;
 }
 function npGetExportData(){
-  // Xuất Word/Excel luôn lấy TOÀN BỘ danh sách (như góc nhìn admin/quản lý),
-  // không bị giới hạn theo vai trò người đang đăng nhập, chỉ áp các bộ lọc tên/trạng thái/ngày nếu có chọn.
-  let list=[...npRecords];
-  const nm=(document.getElementById('npFName')||{}).value||'';
-  const st=(document.getElementById('npFStatus')||{}).value||'';
-  const tp=(document.getElementById('npFType')||{}).value||'';
-  const fr=(document.getElementById('npFFrom')||{}).value||'';
-  const to=(document.getElementById('npFTo')||{}).value||'';
-  if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase()));
-  if(st)list=list.filter(r=>r.status===st);
-  if(tp)list=list.filter(r=>r.type===tp);
-  if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
-  return list.sort((a,b)=>b.id-a.id);
+  // Xuất theo ĐÚNG tab đang mở và ĐÚNG quy tắc hiển thị của tab đó —
+  // "Thống kê" và "Lịch nghỉ chung" vốn cho mọi vai trò xem toàn bộ nhân viên,
+  // chỉ riêng "Danh sách phiếu"/"Đăng ký" mới giới hạn nhân viên thường xem phiếu của chính mình.
+  var pane2=document.getElementById('npPane2');
+  var pane3=document.getElementById('npPane3');
+  var pane4=document.getElementById('npPane4');
+  var onListTab = pane2 && pane2.style.display==='block';
+  var onStatTab = pane3 && pane3.style.display==='block';
+  var onPublicTab = pane4 && pane4.style.display==='block';
+
+  if(onPublicTab){
+    // Tab "Lịch nghỉ chung" → toàn bộ nhân viên, chỉ phiếu đã duyệt, theo đúng khoảng ngày đang lọc
+    return npGetPublicFiltered();
+  }
+  if(onStatTab){
+    // Tab "Thống kê" → toàn bộ nhân viên, theo đúng bộ lọc khung Thống kê
+    var stFr=(document.getElementById('npStatFrom')||{}).value||'';
+    var stTo=(document.getElementById('npStatTo')||{}).value||'';
+    var stSt=(document.getElementById('npStatStatus')||{}).value||'';
+    var statList=[...npRecords];
+    if(stFr||stTo)statList=statList.filter(r=>(!stFr||r.dateTo>=stFr)&&(!stTo||r.dateFrom<=stTo));
+    if(stSt)statList=statList.filter(r=>r.status===stSt);
+    return statList.sort((a,b)=>b.id-a.id);
+  }
+  if(onListTab){
+    // Tab "Danh sách phiếu" → nhân viên thường chỉ thấy đúng phiếu của mình (giống bảng đang hiển thị)
+    let list=[...npRecords];
+    if(npCurrentUser&&npCurrentUser.role!=='admin'&&npCurrentUser.role!=='viewer'){
+      list=list.filter(r=>(r.person||'').trim()===(npCurrentUser.name||'').trim());
+    }
+    const nm=(document.getElementById('npFName')||{}).value||'';
+    const st=(document.getElementById('npFStatus')||{}).value||'';
+    const tp=(document.getElementById('npFType')||{}).value||'';
+    const fr=(document.getElementById('npFFrom')||{}).value||'';
+    const to=(document.getElementById('npFTo')||{}).value||'';
+    if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase()));
+    if(st)list=list.filter(r=>r.status===st);
+    if(tp)list=list.filter(r=>r.type===tp);
+    if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
+    return list.sort((a,b)=>b.id-a.id);
+  }
+  // Mặc định (tab "Đăng ký nghỉ phép" / khung "Phiếu đã đăng ký của tôi")
+  return npGetMyFiltered();
 }
 function npGetFiltered(){
   let list=[...npRecords];
@@ -9018,7 +9119,9 @@ function npRenderStat(){
 
 /* ── Export Excel ── */
 function npExportExcel(){
+  if(!npRecords||!npRecords.length){npShowAl('Dữ liệu chưa tải xong từ máy chủ (hoặc chưa có phiếu nào) — vui lòng đợi vài giây tới khi thấy "Đã đồng bộ", hoặc bấm "Làm mới" rồi thử xuất lại!','warn');return;}
   let list=npGetExportData().sort((a,b)=>(a.dateFrom||'').localeCompare(b.dateFrom||''));
+  if(!list.length){npShowAl('Không có phiếu nào khớp với bộ lọc/tab đang xem — kiểm tra lại bộ lọc (tên/trạng thái/ngày) rồi thử lại!','warn');return;}
   const now=new Date();
   const nowStr=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
   const slb={'pending':'Chờ duyệt','approved':'Đã duyệt','denied':'Từ chối'};
@@ -9072,7 +9175,9 @@ function npExportExcel(){
 
 /* ── Export Word (xem trước) ── */
 function npExportWord(){
+  if(!npRecords||!npRecords.length){npShowAl('Dữ liệu chưa tải xong từ máy chủ (hoặc chưa có phiếu nào) — vui lòng đợi vài giây tới khi thấy "Đã đồng bộ", hoặc bấm "Làm mới" rồi thử xuất lại!','warn');return;}
   let list=npGetExportData().sort((a,b)=>(a.dateFrom||'').localeCompare(b.dateFrom||''));
+  if(!list.length){npShowAl('Không có phiếu nào khớp với bộ lọc/tab đang xem — kiểm tra lại bộ lọc (tên/trạng thái/ngày) rồi thử lại!','warn');return;}
   const now=new Date();
   const printDate=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
   const printTime=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -9152,7 +9257,7 @@ function npExportWord(){
         <td>${esc(r.reason||'—')}</td>
         <td class="st-${r.status==='approved'?'ok':r.status==='denied'?'deny':'pend'}" style="text-align:center">${slb[r.status]||''}</td>
         <td>${esc(r.replacer||'—')}</td>
-        <td style="font-size:9pt">${fmtQTNote(r.adminNote)}</td>
+        <td style="font-size:9pt">${plainQTNote(r.adminNote)}</td>
       </tr>`).join('')}</tbody>
       <tfoot><tr>
         <td colspan="4" class="tot">TỔNG CỘNG</td>
