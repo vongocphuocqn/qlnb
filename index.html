@@ -1378,6 +1378,29 @@ font-size:10px;color:var(--tx3)}
   </div>
 </div>
 
+<!-- MODAL: CHỌN NGÀY CHUYỂN TRẠNG THÁI (để tính Downtime chính xác) -->
+<div class="modal-bg" id="moveTimeModal" onclick="if(event.target===this)closeMoveTimeModal()">
+  <div class="modal" style="max-width:380px">
+    <h3 id="moveTimeTitle"><i class="ti ti-clock-check"></i> Chuyển trạng thái</h3>
+    <div id="moveTimeInfo" style="background:#f8fbf4;border:1.5px solid var(--bd);
+      border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--tx2)"></div>
+    <div class="fg">
+      <label id="moveTimeLabel">Ngày thực tế</label>
+      <input type="date" id="moveTimeDate">
+      <div style="font-size:11px;color:var(--tx3);margin-top:4px">
+        <i class="ti ti-info-circle"></i> Chọn đúng ngày thực tế xảy ra (không nhất thiết là hôm nay) để Downtime tính chính xác hơn.
+      </div>
+    </div>
+    <div class="lerr" id="moveTimeErr" style="margin-bottom:10px">
+      <i class="ti ti-alert-circle"></i><span>Vui lòng chọn ngày hợp lệ!</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="confirmMoveTime()"><i class="ti ti-check"></i> Xác nhận</button>
+      <button class="btne" style="flex:1" onclick="closeMoveTimeModal()"><i class="ti ti-x"></i> Hủy</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: SỬA BÁO CÁO -->
 <div class="modal-bg" id="editModal" onclick="if(event.target===this)closeEditModal()">
   <div class="modal" style="max-width:540px">
@@ -5837,12 +5860,56 @@ function addCard(){
 }
 
 /* ── MOVE / DELETE ── */
-function moveCard(id,st){
+let moveTargetId=null, moveTargetStatus=null;
+function askMoveCard(id,st){
+  if(cu.role!=='admin'){showAl('Chỉ quản lý mới chuyển được trạng thái!','warn');return;}
+  // Quay lại "Chưa xử lý" thì không cần chọn ngày, xử lý ngay
+  if(st==='todo'){ moveCard(id,'todo'); return; }
+  const c=cards.find(x=>String(x.id)===String(id));
+  if(!c){showAl('Không tìm thấy báo cáo!','warn');return;}
+  moveTargetId=id; moveTargetStatus=st;
+  document.getElementById('moveTimeTitle').innerHTML = st==='doing'
+    ? '<i class="ti ti-clock-check"></i> Chuyển sang Đang xử lý'
+    : '<i class="ti ti-clock-check"></i> Chuyển sang Đã xong';
+  document.getElementById('moveTimeLabel').textContent = st==='doing'
+    ? 'Ngày bắt đầu xử lý'
+    : 'Ngày hoàn thành xử lý';
+  document.getElementById('moveTimeInfo').innerHTML =
+    `<b>${esc(c.person)}</b> · Ngày báo cáo: ${fmtD(c.date)}`;
+  const existing = st==='doing' ? c.doingAt : c.doneAt;
+  const dinput=document.getElementById('moveTimeDate');
+  dinput.value = existing || today();
+  dinput.min = c.date || '';
+  dinput.max = today();
+  document.getElementById('moveTimeErr').style.display='none';
+  document.getElementById('moveTimeModal').classList.add('on');
+}
+function closeMoveTimeModal(){
+  document.getElementById('moveTimeModal').classList.remove('on');
+  moveTargetId=null; moveTargetStatus=null;
+}
+function confirmMoveTime(){
+  const val=document.getElementById('moveTimeDate').value;
+  const errEl=document.getElementById('moveTimeErr');
+  if(!val){errEl.style.display='flex';return;}
+  errEl.style.display='none';
+  moveCard(moveTargetId, moveTargetStatus, val);
+  closeMoveTimeModal();
+}
+function moveCard(id,st,chosenDate){
   if(cu.role!=='admin'){showAl('Chỉ quản lý mới chuyển được trạng thái!','warn');return;}
   setSyncStatus('sync');
   const updates={status:st};
-  if(st==='done') updates.doneAt=new Date().toISOString().split('T')[0];
-  else updates.doneAt=null;
+  if(st==='done'){
+    updates.doneAt=chosenDate || new Date().toISOString().split('T')[0];
+  } else {
+    updates.doneAt=null;
+  }
+  if(st==='doing'){
+    updates.doingAt=chosenDate || new Date().toISOString().split('T')[0];
+  } else if(st==='todo'){
+    updates.doingAt=null;
+  }
   cardsRef.child(String(id)).update(updates)
     .then(()=>setSyncStatus('ok'))
     .catch(()=>setSyncStatus('err'));
@@ -6051,12 +6118,12 @@ function renderCard(c){
   const editable=canEdit(c);
   const hrs=Math.floor((Date.now()-c.id)/3600000);
   const mvMap=cu.role==='viewer'?{todo:'',doing:'',done:''}:{
-    todo:`<button class="bmv" onclick="moveCard(${c.id},'doing')">→ Đang xử lý</button>
-          <button class="bmv" onclick="moveCard(${c.id},'done')">✓ Xong</button>`,
-    doing:`<button class="bmv" onclick="moveCard(${c.id},'todo')">← Chưa xử lý</button>
-           <button class="bmv" onclick="moveCard(${c.id},'done')">✓ Xong</button>`,
-    done:`<button class="bmv" onclick="moveCard(${c.id},'todo')">↺ Làm lại</button>
-          <button class="bmv" onclick="moveCard(${c.id},'doing')">→ Đang xử lý</button>`
+    todo:`<button class="bmv" onclick="askMoveCard(${c.id},'doing')">→ Đang xử lý</button>
+          <button class="bmv" onclick="askMoveCard(${c.id},'done')">✓ Xong</button>`,
+    doing:`<button class="bmv" onclick="askMoveCard(${c.id},'todo')">← Chưa xử lý</button>
+           <button class="bmv" onclick="askMoveCard(${c.id},'done')">✓ Xong</button>`,
+    done:`<button class="bmv" onclick="askMoveCard(${c.id},'todo')">↺ Làm lại</button>
+          <button class="bmv" onclick="askMoveCard(${c.id},'doing')">→ Đang xử lý</button>`
   };
   var imgTags='';
   if(c.imgs&&c.imgs.length){
@@ -6088,6 +6155,8 @@ function renderCard(c){
     </div>
     <div class="cdate"><i class="ti ti-calendar" style="font-size:12px"></i> ${fmtD(c.date)}
       ${dtBadge(c)}
+      ${c.status==='doing'&&c.doingAt?`<span class="cedit-info"><i class="ti ti-player-play" style="font-size:10px"></i> Bắt đầu xử lý: ${fmtD(c.doingAt)}</span>`:''}
+      ${c.status==='done'&&c.doneAt?`<span class="cedit-info"><i class="ti ti-check" style="font-size:10px"></i> Hoàn thành: ${fmtD(c.doneAt)}</span>`:''}
       ${c.editedAt?`<span class="cedit-info"><i class="ti ti-edit" style="font-size:10px"></i> Đã sửa bởi ${esc(c.editedBy||'')} – ${fmtD(c.editedAt.split('T')[0])}</span>`:''}
     </div>
     ${c.content?`<div class="ctext">${esc(c.content)}</div>`:''}
@@ -6208,8 +6277,11 @@ function printWord(){
   const printTime=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
   function rows(arr){
-    if(!arr.length) return `<tr><td colspan="7" style="text-align:center;color:#888;font-style:italic">Không có dữ liệu</td></tr>`;
-    return arr.map((c,i)=>`
+    if(!arr.length) return `<tr><td colspan="9" style="text-align:center;color:#888;font-style:italic">Không có dữ liệu</td></tr>`;
+    return arr.map((c,i)=>{
+      const stDate = c.status==='done' ? c.doneAt : (c.status==='doing' ? c.doingAt : '');
+      const dtDays = calcDowntime(c);
+      return `
       <tr>
         <td style="text-align:center">${i+1}</td>
         <td>${esc(c.person||'')}</td>
@@ -6217,8 +6289,11 @@ function printWord(){
         <td>${pm[c.pri]||'🟡 Bình thường'}</td>
         <td>${esc(c.content||'')}</td>
         <td>${[c.todo&&`<b>Cần làm:</b> ${esc(c.todo)}`,c.doing&&`<b>Đang làm:</b> ${esc(c.doing)}`,c.done&&`<b>Hoàn thành:</b> ${esc(c.done)}`].filter(Boolean).join('<br>')}</td>
+        <td style="text-align:center">${stDate?fmtD(stDate):'—'}</td>
+        <td style="text-align:center">${dtDays!==null?dtDays+' ngày':'—'}</td>
         <td>${sm[c.status]||''}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   }
 
   function section(title,color,arr){
@@ -6229,6 +6304,8 @@ function printWord(){
           <th style="width:30pt">STT</th><th style="width:90pt">Họ tên</th>
           <th style="width:60pt">Ngày BC</th><th style="width:65pt">Mức độ</th>
           <th>Nội dung</th><th>Tiến độ công việc</th>
+          <th style="width:65pt">Ngày xử lý/<br>hoàn thành</th>
+          <th style="width:55pt">Downtime</th>
           <th style="width:65pt">Trạng thái</th>
         </tr></thead>
         <tbody>${rows(arr)}</tbody>
@@ -6323,12 +6400,12 @@ function exportCSV(){
     +'.pri-h{color:#b71c1c;font-weight:bold}.pri-l{color:#888}'
     +'</style></head><body>'
     +'<table border="0" cellpadding="0" cellspacing="0" width="100%">'
-    +'<tr><td colspan="11" class="org">SỞ Y TẾ TỈNH GIA LAI</td></tr>'
-    +'<tr><td colspan="11" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
-    +'<tr><td colspan="11" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
-    +'<tr><td colspan="11" class="title">DANH SÁCH BÁO CÁO CÔNG VIỆC</td></tr>'
-    +'<tr><td colspan="11" class="org">Xuất ngày: '+nowStr+' | Tổng: '+list.length+' thẻ</td></tr>'
-    +'<tr><td colspan="11"></td></tr>'
+    +'<tr><td colspan="13" class="org">SỞ Y TẾ TỈNH GIA LAI</td></tr>'
+    +'<tr><td colspan="13" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
+    +'<tr><td colspan="13" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
+    +'<tr><td colspan="13" class="title">DANH SÁCH BÁO CÁO CÔNG VIỆC</td></tr>'
+    +'<tr><td colspan="13" class="org">Xuất ngày: '+nowStr+' | Tổng: '+list.length+' thẻ</td></tr>'
+    +'<tr><td colspan="13"></td></tr>'
     +'<tr>'
     +'<td class="th" style="width:30pt">STT</td>'
     +'<td class="th" style="width:80pt">Họ và tên</td>'
@@ -6339,6 +6416,8 @@ function exportCSV(){
     +'<td class="th" style="width:100pt">Đang làm</td>'
     +'<td class="th" style="width:100pt">Hoàn thành</td>'
     +'<td class="th" style="width:70pt">Trạng thái</td>'
+    +'<td class="th" style="width:65pt">Ngày xử lý/hoàn thành</td>'
+    +'<td class="th" style="width:60pt">Downtime (ngày)</td>'
     +'<td class="th" style="width:100pt">Ghi chú QT</td>'
     +'<td class="th" style="width:40pt">Số ảnh</td>'
     +'</tr>';
@@ -6347,6 +6426,8 @@ function exportCSV(){
     var ev=i%2===1?' ev':'';
     var stCls=c.status==='done'?' st-done':c.status==='doing'?' st-doing':' st-todo';
     var priCls=c.pri==='h'?' pri-h':c.pri==='l'?' pri-l':'';
+    var stDate=c.status==='done'?c.doneAt:(c.status==='doing'?c.doingAt:'');
+    var dtDays=calcDowntime(c);
     html+='<tr>'
       +'<td class="td-c'+ev+'">'+( i+1)+'</td>'
       +'<td class="td'+ev+'" style="font-weight:bold">'+esc(c.person||'')+'</td>'
@@ -6357,6 +6438,8 @@ function exportCSV(){
       +'<td class="td'+ev+'" style="font-size:9pt">'+esc(c.doing||'')+'</td>'
       +'<td class="td'+ev+'" style="font-size:9pt">'+esc(c.done||'')+'</td>'
       +'<td class="td-c'+ev+stCls+'">'+(sm[c.status]||'')+'</td>'
+      +'<td class="td-c'+ev+'">'+(stDate?fmtD(stDate):'')+'</td>'
+      +'<td class="td-c'+ev+'" style="mso-number-format:General">'+(dtDays!==null?dtDays:'')+'</td>'
       +'<td class="td'+ev+'" style="font-size:9pt">'+esc(c.adminNote||'')+'</td>'
       +'<td class="td-c'+ev+'" style="mso-number-format:General">'+((c.imgs||[]).length||'')+'</td>'
       +'</tr>';
@@ -6368,7 +6451,7 @@ function exportCSV(){
     +'<td colspan="2" style="border:1px solid #c5cfe8;background:#f0f4ff;text-align:center;font-weight:bold">'+list.length+' thẻ</td>'
     +'<td colspan="2" style="border:1px solid #c5cfe8;background:#f0f4ff;text-align:center;color:#e65100;font-weight:bold">'+list.filter(function(c){return c.status==='todo';}).length+' Chưa xử lý</td>'
     +'<td colspan="2" style="border:1px solid #c5cfe8;background:#f0f4ff;text-align:center;color:#1565C0;font-weight:bold">'+list.filter(function(c){return c.status==='doing';}).length+' Đang làm</td>'
-    +'<td colspan="2" style="border:1px solid #c5cfe8;background:#f0f4ff;text-align:center;color:#1b5e20;font-weight:bold">'+list.filter(function(c){return c.status==='done';}).length+' Đã xong</td>'
+    +'<td colspan="4" style="border:1px solid #c5cfe8;background:#f0f4ff;text-align:center;color:#1b5e20;font-weight:bold">'+list.filter(function(c){return c.status==='done';}).length+' Đã xong</td>'
     +'</tr>'
     +'</table></body></html>';
 
