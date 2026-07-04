@@ -10010,6 +10010,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
         <option>Hành chính - Nhân sự</option><option>Khác</option>
       </select>
       <label>Ngày hiệu lực</label><input id="qt_ngay">
+      <label>Chu kỳ rà soát (năm) — mặc định 2 năm/lần theo quy định, hoặc để trống</label><input id="qt_chuky" type="number" min="1" placeholder="2">
+      <label style="display:flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" id="qt_hethieuluc" style="width:auto"> Đánh dấu văn bản này đã hết hiệu lực (bị thay thế sớm hơn chu kỳ)</label>
       <label>Mục đích (1-2 câu)</label><textarea id="qt_mucdich"></textarea>
       <label>Trách nhiệm chính (mỗi dòng: Vị trí — việc cần làm)</label><textarea id="qt_trachnhiem"></textarea>
       <label>Các bước cốt lõi (mỗi dòng 1 bước)</label><textarea id="qt_buoc"></textarea>
@@ -10027,10 +10029,28 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   </div>
 </div>
 
+<div class="qt-modal-ov" id="qtValidityOv">
+  <div class="qt-modal" style="max-width:420px">
+    <h3>Chỉnh hiệu lực quy trình</h3>
+    <p id="qtv_tenqt" style="font-size:12.5px;color:#5d4037;margin:2px 0 0"></p>
+    <label>Chu kỳ rà soát (năm) — mặc định 2 năm/lần</label>
+    <input id="qtv_chuky" type="number" min="1" placeholder="2">
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-top:12px">
+      <input type="checkbox" id="qtv_hethieuluc" style="width:auto"> Đánh dấu văn bản này đã hết hiệu lực (bị thay thế sớm hơn chu kỳ)
+    </label>
+    <div class="qt-modal-actions">
+      <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtValidityOv').classList.remove('open')">Hủy</button>
+      <button class="qt-btn solid" style="color:#fff" onclick="qtSaveValidity()">Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   var qtSops=[], qtReadLog=[], qtStaffNames=[];
   var qtActiveFilter='Tất cả', qtOpenId=null, qtGroupMode='khoa', qtActiveTab='manual';
+  var qtQuickFilter='all'; // 'all' | 'new' | 'review' | 'unread'
+  window.qtSetQuickFilter=function(mode){ qtQuickFilter = (qtQuickFilter===mode && mode!=='all') ? 'all' : mode; qtRender(); };
 
   var QT_NHOM_COLOR={
     'An toàn phẫu thuật':{bg:'#eaf3ee',fg:'#1f6b45',bd:'#bfe0cc'},
@@ -10092,6 +10112,33 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     luuy:'Từ 01/7/2026: KCB ngoại trú tại cơ sở cấp chuyên sâu đối với NB BHYT trái tuyến chỉ được BHYT thanh toán 50% mức hưởng — cần giải thích rõ cho NB/TNNB.'
   }];
 
+  function qtParseDate(s){
+    // Nhận dd/mm/yyyy hoặc d/m/yyyy
+    var m = (s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(!m) return null;
+    return new Date(parseInt(m[3],10), parseInt(m[2],10)-1, parseInt(m[1],10));
+  }
+  function qtValidityStatus(s){
+    if(s.hetHieuLuc===true){
+      return {key:'het', label:'Hết hiệu lực', bg:'#fdecea', fg:'#a33', bd:'#f0b8b8'};
+    }
+    var d = qtParseDate(s.ngay);
+    if(!d){
+      return {key:'khongro', label:'Chưa rõ hiệu lực', bg:'#f1f1ee', fg:'#54544a', bd:'#dcdcd3'};
+    }
+    var chuKy = (typeof s.chuKyNam==='number' && s.chuKyNam>0) ? s.chuKyNam : 2; // mặc định rà soát 2 năm/lần
+    var expiry = new Date(d.getFullYear()+chuKy, d.getMonth(), d.getDate());
+    var now = new Date();
+    var daysLeft = Math.round((expiry-now)/(24*3600*1000));
+    if(daysLeft < 0){
+      return {key:'het', label:'Hết hiệu lực (quá hạn rà soát)', bg:'#fdecea', fg:'#a33', bd:'#f0b8b8'};
+    } else if(daysLeft <= 60){
+      return {key:'sap', label:'Sắp hết hạn (còn '+daysLeft+' ngày)', bg:'#fff3e0', fg:'#a9631a', bd:'#f0d3a8'};
+    } else {
+      return {key:'con', label:'Còn hiệu lực', bg:'#eaf3ee', fg:'#1f6b45', bd:'#bfe0cc'};
+    }
+  }
+
   var QT_NEW_DAYS = 30; // số ngày hiển thị nhãn "MỚI" kể từ lúc thêm vào thư viện
   function qtIsNewRec(s){
     if(s.isNew===false) return false; // cho phép ép "cũ" thủ công nếu cần
@@ -10104,11 +10151,16 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var m = (s.ngay||'').match(/(\d{4})/);
     return m ? m[1] : 'Chưa rõ';
   }
-  function qtGroupField(){return qtGroupMode==='khoa'?'khoa':(qtGroupMode==='nam'?'__nam':'nhom');}
+  function qtGroupField(){
+    if(qtGroupMode==='khoa') return 'khoa';
+    if(qtGroupMode==='nam') return '__nam';
+    if(qtGroupMode==='hieuluc') return '__hieuluc';
+    return 'nhom';
+  }
   function qtGroupList(){
     var f=qtGroupField(),set={};
     qtSops.forEach(function(s){
-      var key = f==='__nam' ? qtYearOf(s) : (s[f]||'Chưa phân loại');
+      var key = f==='__nam' ? qtYearOf(s) : (f==='__hieuluc' ? qtValidityStatus(s).label.replace(/\s*\(.*\)/,'') : (s[f]||'Chưa phân loại'));
       set[key]=true;
     });
     var keys = Object.keys(set);
@@ -10116,14 +10168,20 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     return ['Tất cả'].concat(keys);
   }
 
-  function qtFieldValue(s,f){ return f==='__nam' ? qtYearOf(s) : (s[f]||'Chưa phân loại'); }
+  function qtFieldValue(s,f){
+    if(f==='__nam') return qtYearOf(s);
+    if(f==='__hieuluc') return qtValidityStatus(s).label.replace(/\s*\(.*\)/,'');
+    return (s[f]||'Chưa phân loại');
+  }
 
   function qtRenderSidebar(){
     var sb=document.getElementById('qtSidebar'), f=qtGroupField(), list=qtGroupList();
-    var html='<div class="qt-toggle"><button class="'+(qtGroupMode==='khoa'?'on':'')+'" onclick="qtSetGroup(\'khoa\')">Khoa/phòng</button>'+
-      '<button class="'+(qtGroupMode==='nhom'?'on':'')+'" onclick="qtSetGroup(\'nhom\')">Nhóm CM</button>'+
-      '<button class="'+(qtGroupMode==='nam'?'on':'')+'" onclick="qtSetGroup(\'nam\')">Năm</button></div>';
-    html+='<div class="eyebrow">'+(qtGroupMode==='khoa'?'Lọc theo khoa/phòng':(qtGroupMode==='nam'?'Lọc theo năm ban hành':'Lọc theo nhóm chuyên môn'))+'</div>';
+    var html='<div class="qt-toggle" style="flex-wrap:wrap"><button class="'+(qtGroupMode==='khoa'?'on':'')+'" onclick="qtSetGroup(\'khoa\')" style="flex-basis:48%">Khoa/phòng</button>'+
+      '<button class="'+(qtGroupMode==='nhom'?'on':'')+'" onclick="qtSetGroup(\'nhom\')" style="flex-basis:48%">Nhóm CM</button>'+
+      '<button class="'+(qtGroupMode==='nam'?'on':'')+'" onclick="qtSetGroup(\'nam\')" style="flex-basis:48%">Năm</button>'+
+      '<button class="'+(qtGroupMode==='hieuluc'?'on':'')+'" onclick="qtSetGroup(\'hieuluc\')" style="flex-basis:48%">Hiệu lực</button></div>';
+    var eyebrowMap={khoa:'Lọc theo khoa/phòng', nam:'Lọc theo năm ban hành', hieuluc:'Lọc theo trạng thái hiệu lực', nhom:'Lọc theo nhóm chuyên môn'};
+    html+='<div class="eyebrow">'+(eyebrowMap[qtGroupMode]||'Lọc theo nhóm chuyên môn')+'</div>';
     list.forEach(function(k){
       var count = k==='Tất cả'?qtSops.length:qtSops.filter(function(s){return qtFieldValue(s,f)===k;}).length;
       html+='<div class="qt-filter '+(k===qtActiveFilter?'on':'')+'" onclick="qtSetFilter(\''+k.replace(/'/g,"\\'")+'\')"><span>'+k+'</span><span class="c">'+count+'</span></div>';
@@ -10140,10 +10198,15 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       var readers={}; qtReadLog.filter(function(r){return r.sopId===s._id;}).forEach(function(r){readers[r.staffName]=true;});
       return totalStaff>0 && Object.keys(readers).length>=totalStaff;
     }).length;
+    var needReview=qtSops.filter(function(s){var st=qtValidityStatus(s).key; return st==='het'||st==='sap';}).length;
+    var notFullyRead = total - fullyRead;
+    function activeStyle(mode){ return qtQuickFilter===mode ? 'border-color:#5d4037;background:#efe6e2;' : ''; }
     document.getElementById('qtStats').innerHTML=
-      '<div class="qt-stat"><div class="n">'+total+'</div><div class="l">QUY TRÌNH ĐANG LƯU</div></div>'+
-      '<div class="qt-stat"><div class="n">'+newCount+'</div><div class="l">MỚI CẬP NHẬT</div></div>'+
-      '<div class="qt-stat"><div class="n">'+fullyRead+'/'+total+'</div><div class="l">100% NHÂN VIÊN ĐÃ ĐỌC</div></div>';
+      '<div class="qt-stat" style="cursor:pointer;'+activeStyle('all')+'" onclick="qtSetQuickFilter(\'all\')" title="Bấm để xem tất cả"><div class="n">'+total+'</div><div class="l">QUY TRÌNH ĐANG LƯU</div></div>'+
+      '<div class="qt-stat" style="cursor:pointer;'+activeStyle('new')+'" onclick="qtSetQuickFilter(\'new\')" title="Bấm để chỉ xem quy trình MỚI"><div class="n">'+newCount+'</div><div class="l">MỚI CẬP NHẬT</div></div>'+
+      '<div class="qt-stat" style="cursor:pointer;border-color:'+(needReview>0?'#f0b8b8':'#e0d2c8')+';'+activeStyle('review')+'" onclick="qtSetQuickFilter(\'review\')" title="Bấm để chỉ xem quy trình cần rà soát/hết hạn"><div class="n" style="color:'+(needReview>0?'#a33':'#4e342e')+'">'+needReview+'</div><div class="l">CẦN RÀ SOÁT/HẾT HẠN</div></div>'+
+      '<div class="qt-stat" style="cursor:pointer;'+activeStyle('unread')+'" onclick="qtSetQuickFilter(\'unread\')" title="Bấm để chỉ xem quy trình chưa đủ 100% người đọc"><div class="n">'+fullyRead+'/'+total+'</div><div class="l">100% NHÂN VIÊN ĐÃ ĐỌC</div></div>'+
+      (qtQuickFilter!=='all' ? '<div class="qt-stat" style="cursor:pointer;background:#fdecea;border-color:#f0b8b8" onclick="qtSetQuickFilter(\'all\')"><div class="n" style="color:#a33">✕</div><div class="l">BỎ LỌC NHANH</div></div>' : '');
   }
 
   function qtReadersFor(sopId){
@@ -10159,6 +10222,12 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var f=qtGroupField();
     var list=qtSops.filter(function(s){return qtActiveFilter==='Tất cả' || qtFieldValue(s,f)===qtActiveFilter;});
     if(q) list=list.filter(function(s){return (s.ten+s.ma+s.khoa+(s.nhom||'')+s.mucdich+' '+(s.ngay||'')+' '+qtYearOf(s)).toLowerCase().indexOf(q)>=0;});
+    if(qtQuickFilter==='new') list=list.filter(function(s){return qtIsNewRec(s);});
+    else if(qtQuickFilter==='review') list=list.filter(function(s){var st=qtValidityStatus(s).key; return st==='het'||st==='sap';});
+    else if(qtQuickFilter==='unread') list=list.filter(function(s){
+      var readers={}; qtReadLog.filter(function(r){return r.sopId===s._id;}).forEach(function(r){readers[r.staffName]=true;});
+      return !(qtStaffNames.length>0 && Object.keys(readers).length>=qtStaffNames.length);
+    });
     var wrap=document.getElementById('qtCardList');
     if(list.length===0){wrap.innerHTML='<div class="qt-empty">Không tìm thấy quy trình phù hợp.</div>';return;}
     wrap.innerHTML=list.map(function(s){
@@ -10174,6 +10243,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
             '<div class="qt-badges"><span class="qt-code">'+s.ma+'</span>'+
               '<span class="qt-nhom" style="'+qtNhomStyle(s.nhom)+'">'+(s.nhom||'Chưa phân loại')+'</span>'+
               '<span class="qt-nhom" style="background:#eef2f5;color:#37474f;border-color:#cfd8dc">Năm '+qtYearOf(s)+'</span>'+
+              '<span class="qt-nhom" style="background:'+qtValidityStatus(s).bg+';color:'+qtValidityStatus(s).fg+';border-color:'+qtValidityStatus(s).bd+'">'+qtValidityStatus(s).label+'</span>'+
+              (qtIsAdmin() ? '<button onclick="event.stopPropagation();qtOpenValidityModal(\''+s._id+'\')" style="font-size:10px;border:1px solid #bcaaa4;background:#fff;color:#5d4037;border-radius:4px;padding:1px 6px;cursor:pointer">✏️ Sửa hiệu lực</button>' : '')+
               (qtIsNewRec(s)?'<span class="qt-new">MỚI</span>':'')+'</div>'+
             '<p class="qt-title">'+s.ten+'</p>'+
             '<div class="qt-meta">'+s.khoa+' · hiệu lực '+s.ngay+' · '+readCount+'/'+qtStaffNames.length+' đã đọc</div>'+
@@ -10185,6 +10256,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
           '<div class="qt-sec"><h4>Các bước cốt lõi</h4><ol class="qt-steps">'+(s.buoc||[]).map(function(b){return '<li>'+b+'</li>';}).join('')+'</ol></div>'+
           '<div class="qt-sec"><h4>⚠ Lưu ý / rủi ro an toàn</h4><div class="qt-warn">'+s.luuy+'</div></div>'+
           '<div class="qt-foot"><span style="font-size:11.5px;color:#4e342e;font-weight:700">Đã đọc: '+readCount+'/'+qtStaffNames.length+'</span>'+
+            (qtIsAdmin() && qtStaffNames.length>0 && readCount<qtStaffNames.length ? '<button class="qt-readbtn" style="border-color:#a9631a;color:#a9631a" onclick="event.stopPropagation();qtRemindUnread(\''+s._id+'\')">📣 Nhắc đọc ('+(qtStaffNames.length-readCount)+' người)</button>' : '')+
             '<div class="qt-readctl"><input list="'+staffListId+'" id="qtSel_'+s._id+'" placeholder="Gõ để tìm tên nhân viên..." '+(qtStaffNames.length?'':'disabled')+' style="min-width:190px">'+
             '<button class="qt-readbtn" '+(qtStaffNames.length?'':'disabled')+' onclick="event.stopPropagation();qtConfirmRead(\''+s._id+'\')">Xác nhận đã đọc</button></div></div>'+
           '<div class="qt-readlist">'+readListHtml+'</div>'+
@@ -10246,6 +10318,50 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       cardsRef.on('value', function(snap){ qtUpdateHomeBroadcastBadge(snap.val()); });
     }
   }catch(e){ console.warn('Không gắn được listener cảnh báo quy trình:', e); }
+
+  window.qtOpenValidityModal=function(sopId){
+    var s = qtSops.find(function(x){return x._id===sopId;});
+    if(!s) return;
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được chỉnh hiệu lực quy trình.'); return; }
+    document.getElementById('qtv_tenqt').textContent = s.ma+' — '+s.ten;
+    document.getElementById('qtv_chuky').value = (typeof s.chuKyNam==='number') ? s.chuKyNam : 2;
+    document.getElementById('qtv_hethieuluc').checked = s.hetHieuLuc===true;
+    document.getElementById('qtValidityOv').dataset.sopid = sopId;
+    document.getElementById('qtValidityOv').classList.add('open');
+  };
+  window.qtSaveValidity=function(){
+    var sopId = document.getElementById('qtValidityOv').dataset.sopid;
+    if(!sopId) return;
+    var chuKy = parseInt(document.getElementById('qtv_chuky').value,10) || 2;
+    var het = document.getElementById('qtv_hethieuluc').checked;
+    db.ref('quyTrinh').child(sopId).update({chuKyNam:chuKy, hetHieuLuc:het});
+    document.getElementById('qtValidityOv').classList.remove('open');
+    try{ if(typeof showAl==='function') showAl('Đã cập nhật hiệu lực quy trình!'); }catch(e){}
+  };
+
+  window.qtRemindUnread=function(sopId){
+    var s = qtSops.find(function(x){return x._id===sopId;});
+    if(!s) return;
+    var readers = qtReadersFor(sopId);
+    var unread = readers.filter(function(r){return !r.read;}).map(function(r){return r.name;});
+    if(unread.length===0){ alert('Mọi người đã xác nhận đọc quy trình này rồi!'); return; }
+    try{
+      if(typeof cardsRef==='undefined' || typeof today!=='function') return;
+      var id = Date.now();
+      var listTxt = unread.slice(0,15).join(', ')+(unread.length>15?' và '+(unread.length-15)+' người khác':'');
+      var newCard = {
+        id: id,
+        person: 'Điều dưỡng trưởng khoa',
+        date: today(),
+        content: '📣 Nhắc đọc quy trình '+s.ma+': '+s.ten,
+        todo: 'Còn '+unread.length+' người chưa xác nhận đọc: '+listTxt+'. Nhắc trực tiếp hoặc trong họp giao ban.',
+        doing: '', done: '', pri: 'm', status: 'todo', imgs: []
+      };
+      cardsRef.child(String(id)).set(newCard);
+      if(typeof showAl==='function') showAl('Đã tạo thẻ nhắc đọc trên Kanban cho '+unread.length+' người!');
+      else alert('Đã tạo thẻ nhắc đọc trên Kanban!');
+    }catch(e){ alert('Không tạo được thẻ nhắc: '+e.message); }
+  };
 
   function qtIsAdmin(){
     try{ return (typeof adminSession!=='undefined') && adminSession.active===true; }catch(e){ return false; }
@@ -10362,14 +10478,17 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       rec={ten:ten, ma:document.getElementById('qt_ma').value.trim()||'—', khoa:document.getElementById('qt_khoa').value.trim()||'Chưa phân loại',
         nhom:document.getElementById('qt_nhom').value, ngay:document.getElementById('qt_ngay').value.trim()||'—',
         mucdich:document.getElementById('qt_mucdich').value.trim()||'—', trachnhiem: trachnhiem.length?trachnhiem:[['—','—']],
-        buoc:qtParseLines(document.getElementById('qt_buoc').value), luuy:document.getElementById('qt_luuy').value.trim()||'Chưa ghi nhận.'};
+        buoc:qtParseLines(document.getElementById('qt_buoc').value), luuy:document.getElementById('qt_luuy').value.trim()||'Chưa ghi nhận.',
+        chuKyNam: parseInt(document.getElementById('qt_chuky').value,10) || 2,
+        hetHieuLuc: document.getElementById('qt_hethieuluc').checked};
     }
     rec.createdAt = Date.now();
     db.ref('quyTrinh').push(rec);
     qtCreateBroadcastTask(rec);
     try{ if(typeof showAl==='function') showAl('Đã lưu quy trình và tạo thẻ nhắc việc "Phổ biến quy trình" trên Kanban!'); }catch(e){}
     document.getElementById('qtModalOv').classList.remove('open');
-    ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('qt_hethieuluc').checked=false;
+    ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
   };
 })();
 </script>
