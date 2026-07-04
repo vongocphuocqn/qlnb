@@ -519,13 +519,26 @@ font-size:10px;color:var(--tx3)}
       </div>
     </div>
 
+    <!-- THẺ QUY TRÌNH CHƯA PHỔ BIẾN -->
+    <div id="qtBroadcastBadge" style="display:none;margin-bottom:4px">
+      <div style="background:linear-gradient(135deg,#efe6e2,#e0d2c8);border:1.5px solid #bcaaa4;border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <i class="ti ti-book-2" style="font-size:20px;color:#4e342e;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#3e2723">📘 Quy trình chưa phổ biến</div>
+          <div id="qtBroadcastDetail" style="font-size:12px;color:#5d4037;margin-top:2px"></div>
+        </div>
+        <button onclick="openStaffAuthModalUser('kanban')" style="background:#5d4037;color:#fff;border:none;border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-layout-kanban" style="vertical-align:-1px"></i> Xử lý ngay</button>
+      </div>
+    </div>
+
     <!-- KHU NHÂN VIÊN -->
     <div class="home-divider" style="margin-top:18px">👤 Nhân viên – Chọn chức năng</div>
-    <div class="home-cards" style="grid-template-columns:1fr 1fr;gap:10px">
+    <div class="home-cards qt-staffgrid" style="grid-template-columns:1fr 1fr;gap:10px">
       <div class="home-card kanban-card" onclick="openStaffAuthModalUser('kanban')"><div class="home-card-badge">v6.0</div><i class="ti ti-layout-kanban"></i><div class="home-card-title">Báo cáo<br>Công việc</div><div class="home-card-sub">Bảng Kanban theo dõi tiến độ</div></div>
       <div class="home-card" onclick="goKanbanViewPublic()" style="background:linear-gradient(135deg,#558b2f,#33691e);color:#fff;border-color:#1b5e20"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Xem</div><i class="ti ti-eye"></i><div class="home-card-title">Xem Báo cáo<br>Công việc</div><div class="home-card-sub">Nhân viên xem (không sửa)</div></div>
       <div class="home-card nghibu-card" onclick="openStaffAuthModalUser('nghibu')"><div class="home-card-badge">Mới</div><i class="ti ti-calendar-off"></i><div class="home-card-title">Đăng ký<br>Nghỉ Bù</div><div class="home-card-sub">Đăng ký & theo dõi nghỉ bù ca trực</div></div>
       <div class="home-card" onclick="openStaffAuthModalUser('nghiphep')" style="background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-color:#004d40"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-beach"></i><div class="home-card-title">Đăng ký<br>Nghỉ Phép</div><div class="home-card-sub">Nghỉ phép theo ngày, theo đợt</div></div>
+      <div class="home-card" onclick="goQuyTrinh()" style="background:linear-gradient(135deg,#8d6e63,#5d4037);color:#fff;border-color:#3e2723"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-book-2"></i><div class="home-card-title">Thư viện<br>Quy trình</div><div class="home-card-sub">Tra cứu & xác nhận đọc quy trình</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -9868,6 +9881,496 @@ function pqPrintList(){
   } else {
     localStorage.setItem('appVersion', APP_VERSION);
   }
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════
+     BỔ SUNG: THƯ VIỆN QUY TRÌNH (module độc lập, không đụng code cũ)
+     Dùng chung Firebase 'db' và 'staffList' đã có sẵn trong app.
+     Prefix hàm/CSS: qt...  để không trùng với code hiện có.
+     ══════════════════════════════════════════════════════════ -->
+<style>
+.qt-hidden{display:none}
+#qtScreen{min-height:100vh;background:#f4f8f0;display:none;flex-direction:column}
+.qt-topbar{background:linear-gradient(135deg,#6d4c41,#3e2723 60%,#4e342e);padding:12px 16px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:120;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.qt-topbar h2{color:#fff;font-size:15px;font-weight:700;margin:0}
+.qt-topbar small{color:rgba(255,255,255,.75);font-size:11px;display:block}
+.qt-search{flex:1;max-width:380px;min-width:180px;display:flex;align-items:center;
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 11px}
+.qt-search input{background:transparent;border:none;outline:none;color:#fff;width:100%;font-size:13px}
+.qt-search input::placeholder{color:rgba(255,255,255,.7)}
+.qt-btn{padding:7px 13px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;
+  border:1.5px solid rgba(255,255,255,.45);background:transparent;color:#fff;display:flex;align-items:center;gap:5px;font-family:inherit}
+.qt-btn:hover{background:rgba(255,255,255,.18)}
+.qt-btn.solid{background:#ff8f00;border-color:#e65100}
+.qt-main{max-width:1100px;margin:0 auto;padding:16px 14px 60px;display:flex;gap:18px;align-items:flex-start;width:100%}
+.qt-sidebar{width:180px;flex-shrink:0}
+.qt-sidebar .eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#5d4037;opacity:.75;font-weight:700;margin:10px 0 6px}
+.qt-toggle{display:flex;gap:3px;background:#efe6e2;border-radius:8px;padding:3px}
+.qt-toggle button{flex:1;border:none;background:transparent;padding:6px 3px;font-size:10.8px;border-radius:6px;cursor:pointer;color:#4e342e;font-weight:600}
+.qt-toggle button.on{background:#6d4c41;color:#fff}
+.qt-filter{padding:7px 9px;border-radius:6px;font-size:12.8px;cursor:pointer;margin-bottom:2px;display:flex;justify-content:space-between;color:#3e2723}
+.qt-filter:hover{background:#efe6e2}
+.qt-filter.on{background:#6d4c41;color:#fff;font-weight:700}
+.qt-filter .c{opacity:.6;font-size:11px}
+.qt-body{flex:1;min-width:0}
+.qt-stats{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.qt-stat{background:#fff;border:1.5px solid #e0d2c8;border-radius:9px;padding:8px 14px;min-width:110px}
+.qt-stat .n{font-size:19px;font-weight:700;color:#4e342e}
+.qt-stat .l{font-size:10.5px;color:#795548;font-weight:600}
+.qt-card{background:#fff;border:1.5px solid #e0d2c8;border-radius:10px;overflow:hidden;margin-bottom:11px}
+.qt-chead{padding:12px 14px;display:flex;justify-content:space-between;gap:10px;cursor:pointer;align-items:flex-start}
+.qt-chead:hover{background:#faf6f3}
+.qt-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;align-items:center}
+.qt-code{font-family:monospace;font-size:10.5px;background:#efe6e2;color:#4e342e;padding:2px 6px;border-radius:4px;border:1px solid #e0d2c8}
+.qt-nhom{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;border:1px solid}
+.qt-new{font-size:10px;background:#ff8f00;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700}
+.qt-title{font-size:14.5px;font-weight:700;margin:0;color:#3e2723;line-height:1.3}
+.qt-meta{font-size:11px;color:#795548;margin-top:3px}
+.qt-chev{color:#6d4c41;font-size:12px;transition:transform .15s;flex-shrink:0;margin-top:3px}
+.qt-card.open .qt-chev{transform:rotate(90deg)}
+.qt-cbody{display:none;padding:0 14px 16px;border-top:1px solid #efe6e2}
+.qt-card.open .qt-cbody{display:block}
+.qt-sec{margin-top:12px}
+.qt-sec h4{font-size:10.8px;text-transform:uppercase;color:#5d4037;font-weight:700;margin:0 0 5px;letter-spacing:.05em}
+.qt-sec p{margin:0;font-size:13px;line-height:1.55;color:#333}
+table.qt-tb{width:100%;border-collapse:collapse;font-size:12.5px}
+table.qt-tb th,table.qt-tb td{border:1px solid #e0d2c8;padding:5px 7px;text-align:left;vertical-align:top}
+table.qt-tb th{background:#efe6e2;width:130px}
+ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
+.qt-warn{background:#fff3e0;border:1px solid #ffcc80;border-radius:6px;padding:7px 9px;font-size:12.5px}
+.qt-foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:8px}
+.qt-readctl{display:flex;gap:5px;align-items:center}
+.qt-readctl select{border:1px solid #e0d2c8;border-radius:6px;padding:4px 7px;font-size:11.5px}
+.qt-readbtn{border:1px solid #6d4c41;background:#fff;color:#6d4c41;border-radius:6px;padding:5px 10px;font-size:11.5px;cursor:pointer;font-weight:600}
+.qt-readlist{margin-top:8px;font-size:11.5px}
+.qt-who{display:inline-flex;background:#efe6e2;border-radius:5px;padding:2px 7px;margin:2px 3px 2px 0}
+.qt-who.no{background:#fce4ec;color:#a33}
+.qt-modal-ov{display:none;position:fixed;inset:0;background:rgba(30,15,10,.45);z-index:400;align-items:flex-start;justify-content:center;padding:36px 14px;overflow:auto}
+.qt-modal-ov.open{display:flex}
+.qt-modal{background:#fff;border-radius:11px;max-width:560px;width:100%;padding:20px}
+.qt-modal h3{margin:0 0 4px;font-size:16px;color:#3e2723}
+.qt-modal label{font-size:11.5px;font-weight:700;color:#5d4037;display:block;margin:9px 0 4px}
+.qt-modal input,.qt-modal textarea,.qt-modal select{width:100%;border:1.5px solid #e0d2c8;border-radius:7px;padding:7px 9px;font-size:12.8px;font-family:inherit}
+.qt-modal textarea{min-height:56px;resize:vertical}
+.qt-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.qt-tabrow{display:flex;gap:5px;margin-bottom:8px}
+.qt-tabbtn{border:1.5px solid #e0d2c8;background:#fff;padding:5px 11px;font-size:11.8px;border-radius:6px 6px 0 0;cursor:pointer;border-bottom:none;opacity:.6}
+.qt-tabbtn.on{opacity:1;background:#faf6f3;font-weight:700;border-color:#6d4c41;color:#4e342e}
+.qt-tabpane{display:none}
+.qt-tabpane.on{display:block}
+.qt-empty{text-align:center;padding:50px 16px;color:#795548;opacity:.7;font-size:13px}
+@media(max-width:720px){.qt-main{flex-direction:column}.qt-sidebar{width:100%}
+  .qt-topbar{padding:10px 12px}.qt-topbar h2{font-size:13.5px}.qt-topbar small{font-size:10px}
+  .qt-search{order:3;max-width:100%;flex-basis:100%}}
+@media(min-width:640px){.qt-staffgrid{grid-template-columns:1fr 1fr 1fr!important}}
+</style>
+
+<div id="qtScreen">
+  <div class="qt-topbar">
+    <button class="qt-btn" onclick="document.getElementById('qtScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';"><i class="ti ti-home"></i> Trang chủ</button>
+    <div style="flex:0 0 auto">
+      <h2 style="white-space:nowrap">📘 Thư viện Quy trình</h2>
+      <small>Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai</small>
+    </div>
+    <div class="qt-search">
+      <span style="margin-right:6px;opacity:.8">🔍</span>
+      <input id="qtSearchInput" placeholder="Tìm theo tên, mã số, từ khóa..." oninput="qtRender()">
+    </div>
+    <button class="qt-btn solid" id="qtAddBtn" style="display:none" onclick="qtOpenAddModal()"><i class="ti ti-plus"></i> Thêm quy trình</button>
+    <button class="qt-btn" id="qtLockBtn" onclick="qtRequestAdminLogin()"><i class="ti ti-lock"></i> Quản lý đăng nhập</button>
+  </div>
+
+  <div class="qt-main">
+    <div class="qt-sidebar" id="qtSidebar"></div>
+    <div class="qt-body">
+      <div class="qt-stats" id="qtStats"></div>
+      <div id="qtCardList"></div>
+      <datalist id="qtStaffDatalist"></datalist>
+    </div>
+  </div>
+</div>
+
+<div class="qt-modal-ov" id="qtModalOv">
+  <div class="qt-modal">
+    <h3>Thêm / rút gọn quy trình mới</h3>
+    <div class="qt-tabrow">
+      <button class="qt-tabbtn on" onclick="qtSwitchTab('manual')" id="qtTabManualBtn">Nhập từng ô</button>
+      <button class="qt-tabbtn" onclick="qtSwitchTab('quick')" id="qtTabQuickBtn">⚡ Dán nhanh (từ Claude)</button>
+    </div>
+    <div class="qt-tabpane on" id="qtPaneManual">
+      <label>Tên quy trình *</label><input id="qt_ten">
+      <label>Mã số</label><input id="qt_ma">
+      <label>Khoa/Phòng quản lý</label><input id="qt_khoa">
+      <label>Nhóm quy trình</label>
+      <select id="qt_nhom">
+        <option>An toàn phẫu thuật</option><option>Kiểm soát nhiễm khuẩn</option>
+        <option>Vật tư - Trang thiết bị</option><option>Hồi sức - Chăm sóc</option>
+        <option>Hành chính - Nhân sự</option><option>Khác</option>
+      </select>
+      <label>Ngày hiệu lực</label><input id="qt_ngay">
+      <label>Mục đích (1-2 câu)</label><textarea id="qt_mucdich"></textarea>
+      <label>Trách nhiệm chính (mỗi dòng: Vị trí — việc cần làm)</label><textarea id="qt_trachnhiem"></textarea>
+      <label>Các bước cốt lõi (mỗi dòng 1 bước)</label><textarea id="qt_buoc"></textarea>
+      <label>Lưu ý / rủi ro an toàn</label><textarea id="qt_luuy"></textarea>
+    </div>
+    <div class="qt-tabpane" id="qtPaneQuick">
+      <label>Dán nguyên khối kết quả Claude trả về</label>
+      <textarea id="qt_quick" style="min-height:200px;font-family:monospace;font-size:11.5px"
+        placeholder="Tên: ...&#10;Mã số: ...&#10;Khoa: ...&#10;Nhóm: ...&#10;Ngày hiệu lực: ...&#10;Mục đích: ...&#10;Trách nhiệm:&#10;- Vị trí — việc&#10;Các bước:&#10;- bước 1&#10;Lưu ý: ..."></textarea>
+    </div>
+    <div class="qt-modal-actions">
+      <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtModalOv').classList.remove('open')">Hủy</button>
+      <button class="qt-btn solid" style="color:#fff" onclick="qtSave()">Lưu vào thư viện</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var qtSops=[], qtReadLog=[], qtStaffNames=[];
+  var qtActiveFilter='Tất cả', qtOpenId=null, qtGroupMode='khoa', qtActiveTab='manual';
+
+  var QT_NHOM_COLOR={
+    'An toàn phẫu thuật':{bg:'#eaf3ee',fg:'#1f6b45',bd:'#bfe0cc'},
+    'Kiểm soát nhiễm khuẩn':{bg:'#eef1fb',fg:'#33469c',bd:'#c7cff2'},
+    'Vật tư - Trang thiết bị':{bg:'#fdf3e8',fg:'#a9631a',bd:'#f0d3a8'},
+    'Hồi sức - Chăm sóc':{bg:'#fbeaf0',fg:'#a32458',bd:'#f0c2d6'},
+    'Hành chính - Nhân sự':{bg:'#eef6f7',fg:'#296b74',bd:'#c3e0e3'},
+    'Khác':{bg:'#f1f1ee',fg:'#54544a',bd:'#dcdcd3'}
+  };
+  function qtNhomStyle(n){var c=QT_NHOM_COLOR[n]||QT_NHOM_COLOR['Khác'];return 'background:'+c.bg+';color:'+c.fg+';border-color:'+c.bd+';';}
+
+  var QT_SEED=[
+  { ma:'QT.15.QLCL', ten:'Quy trình chuẩn bị, vận chuyển, bàn giao người bệnh trước phẫu thuật',
+    khoa:'Khoa Gây mê Hồi sức', nhom:'An toàn phẫu thuật', ngay:'29/04/2026', isNew:false,
+    mucdich:'Đảm bảo an toàn người bệnh (đúng NB, đúng vị trí PT), chuẩn hóa trách nhiệm từng cá nhân và nâng cao phối hợp giữa khoa điều trị và khoa GMHS.',
+    trachnhiem:[['Trưởng khoa GMHS','Tổ chức thực hiện kế hoạch PT theo lịch đã duyệt'],
+      ['ĐD trưởng khoa GMHS','Cập nhật lịch mổ, phân công người nhận NB, sắp xếp buồng PT'],
+      ['BS gây mê trực tiếp','Đánh giá tình trạng NB chuyển đến, phối hợp PTV'],
+      ['Trưởng khoa điều trị','Rà soát NB đủ điều kiện PT, hoàn tất thủ tục trước chuyển'],
+      ['Phẫu thuật viên','Khám, đánh dấu vị trí PT, ký cam kết, hoàn thiện HSBA'],
+      ['ĐD chăm sóc','Thực hiện chuẩn bị NB, đối chiếu, bàn giao']],
+    buoc:['Chuẩn bị NB và hồ sơ tại khoa điều trị (lịch mổ đã duyệt, ký cam kết, đánh dấu vị trí mổ, đối chiếu vòng thông tin, ghi DHST)',
+      'Chuẩn bị phương tiện vận chuyển và dụng cụ cấp cứu cơ bản phù hợp tình trạng NB',
+      'Xác nhận y lệnh vận chuyển, đối chiếu thông tin NB trước khi rời khoa; nếu không khớp → dừng và báo ngay',
+      'Vận chuyển NB đến phòng mổ theo đúng thứ tự lịch mổ do khoa GMHS sắp xếp',
+      'Bàn giao NB và hồ sơ cho ĐD/KTV khoa GMHS',
+      'Khoa GMHS đối chiếu lại, kiểm tra nhịn ăn ≥6 giờ, ký sổ chuyển NB, tiếp nhận NB chờ PT'],
+    luuy:'Nếu NB chưa đánh dấu vị trí PT hoặc chưa hoàn tất chuẩn bị, khoa GMHS có quyền TẠM DỪNG tiếp nhận và chuyển NB về khoa điều trị để hoàn thiện.'
+  },
+  { ma:'QT.07.ĐD', ten:'Quy trình kỹ thuật tiêm/truyền bằng bơm tiêm điện',
+    khoa:'Phòng Điều dưỡng', nhom:'Hồi sức - Chăm sóc', ngay:'17/06/2026', isNew:true,
+    mucdich:'Thực hiện đúng kỹ thuật tiêm/truyền bằng bơm tiêm điện theo quy định Bộ Y tế; đảm bảo thuốc/dịch truyền được sử dụng chính xác, liên tục và an toàn.',
+    trachnhiem:[['ĐD/HS/KTY','Chuẩn bị dụng cụ vô khuẩn và phương tiện sạch'],
+      ['ĐD/HS/KTY','Kiểm tra chỉ định BS, xác định đúng NB, khai thác tiền sử dị ứng trước khi tiêm'],
+      ['ĐD/HS/KTY','Thực hiện kỹ thuật: 5 đúng, sát khuẩn, rút thuốc, lắp bơm tiêm điện, cài đặt tốc độ'],
+      ['ĐD/HS/KTY','Theo dõi phản ứng NB, ghi chép đầy đủ vào HSBA/HIS']],
+    buoc:['Chuẩn bị nhân viên (rửa tay/sát khuẩn) và dụng cụ vô khuẩn + phương tiện sạch',
+      'Chuẩn bị NB: kiểm tra chỉ định, đối chiếu đúng NB, dùng AIDET giải thích, khai thác tiền sử dị ứng',
+      'Tiến hành kỹ thuật: 5 đúng, sát khuẩn thuốc/lọ, rút thuốc, đuổi khí, gắn bơm tiêm vào cọc truyền',
+      'Sát khuẩn cổng tiêm hoặc đặt đường truyền mới, cố định kim luồn an toàn',
+      'Cài đặt tốc độ theo chỉ định, khởi động máy, quan sát vị trí tiêm và sắc mặt NB',
+      'Thu dọn dụng cụ, sát khuẩn tay; theo dõi phản ứng NB, ghi chép đầy đủ vào HSBA'],
+    luuy:'Bơm tiêm phải dán nhãn đủ 3 thông tin: họ tên NB, tên thuốc/liều, thời gian bắt đầu. NB có dị ứng phải đeo vòng đỏ. Sát khuẩn tối thiểu 2 lần, 15 giây và để khô 15 giây.'
+  },
+  { ma:'QT.21.QLCL', ten:'Quy trình khám chữa bệnh ngoại trú cho người bệnh có BHYT trái tuyến',
+    khoa:'Phòng Quản lý chất lượng', nhom:'Hành chính - Nhân sự', ngay:'29/06/2026', isNew:true,
+    mucdich:'Thống nhất các bước KCB ngoại trú cho NB có BHYT trái tuyến; giảm sai sót, rút ngắn thời gian chờ, đảm bảo minh bạch chi phí.',
+    trachnhiem:[['Phòng CTXH','Tiếp nhận đăng ký khám, hướng dẫn NB đến đúng phòng khám'],
+      ['Phòng TCKT','Thu phí khám/CLS/viện phí, đảm bảo minh bạch hóa đơn'],
+      ['ĐD phòng khám','Tiếp nhận NB, đo DHST, hướng dẫn làm CLS'],
+      ['BS phòng khám','Khám, chẩn đoán, kê đơn hoặc chỉ định CLS/nhập viện/chuyển tuyến'],
+      ['Quầy thuốc BHYT','Kiểm tra đơn thuốc, cấp phát và tư vấn sử dụng']],
+    buoc:['NB đăng ký khám tại Kiosk hoặc quầy đăng ký (ô 4,5,6 dành cho BHYT trái tuyến)',
+      'Thanh toán công khám tại Kiosk hoặc ô cửa 9-12',
+      'Khám bệnh: BS khám và ra 1 trong 4 hướng: kê đơn ngay / chỉ định CLS / chuyển tuyến / nhập viện',
+      'Nếu có chỉ định CLS: đóng tiền, thực hiện CLS, quay lại phòng khám để BS kết luận',
+      'NB mang đơn thuốc/giấy chuyển viện đến điểm thu viện phí để hoàn tất thủ tục',
+      'Nhận thuốc tại quầy BHYT hoặc hoàn tất thủ tục nhập viện/chuyển viện'],
+    luuy:'Từ 01/7/2026: KCB ngoại trú tại cơ sở cấp chuyên sâu đối với NB BHYT trái tuyến chỉ được BHYT thanh toán 50% mức hưởng — cần giải thích rõ cho NB/TNNB.'
+  }];
+
+  var QT_NEW_DAYS = 30; // số ngày hiển thị nhãn "MỚI" kể từ lúc thêm vào thư viện
+  function qtIsNewRec(s){
+    if(s.isNew===false) return false; // cho phép ép "cũ" thủ công nếu cần
+    if(typeof s.createdAt==='number'){
+      return (Date.now()-s.createdAt) < QT_NEW_DAYS*24*3600*1000;
+    }
+    return !!s.isNew; // fallback cho bản ghi cũ chưa có createdAt
+  }
+  function qtYearOf(s){
+    var m = (s.ngay||'').match(/(\d{4})/);
+    return m ? m[1] : 'Chưa rõ';
+  }
+  function qtGroupField(){return qtGroupMode==='khoa'?'khoa':(qtGroupMode==='nam'?'__nam':'nhom');}
+  function qtGroupList(){
+    var f=qtGroupField(),set={};
+    qtSops.forEach(function(s){
+      var key = f==='__nam' ? qtYearOf(s) : (s[f]||'Chưa phân loại');
+      set[key]=true;
+    });
+    var keys = Object.keys(set);
+    if(qtGroupMode==='nam') keys.sort().reverse();
+    return ['Tất cả'].concat(keys);
+  }
+
+  function qtFieldValue(s,f){ return f==='__nam' ? qtYearOf(s) : (s[f]||'Chưa phân loại'); }
+
+  function qtRenderSidebar(){
+    var sb=document.getElementById('qtSidebar'), f=qtGroupField(), list=qtGroupList();
+    var html='<div class="qt-toggle"><button class="'+(qtGroupMode==='khoa'?'on':'')+'" onclick="qtSetGroup(\'khoa\')">Khoa/phòng</button>'+
+      '<button class="'+(qtGroupMode==='nhom'?'on':'')+'" onclick="qtSetGroup(\'nhom\')">Nhóm CM</button>'+
+      '<button class="'+(qtGroupMode==='nam'?'on':'')+'" onclick="qtSetGroup(\'nam\')">Năm</button></div>';
+    html+='<div class="eyebrow">'+(qtGroupMode==='khoa'?'Lọc theo khoa/phòng':(qtGroupMode==='nam'?'Lọc theo năm ban hành':'Lọc theo nhóm chuyên môn'))+'</div>';
+    list.forEach(function(k){
+      var count = k==='Tất cả'?qtSops.length:qtSops.filter(function(s){return qtFieldValue(s,f)===k;}).length;
+      html+='<div class="qt-filter '+(k===qtActiveFilter?'on':'')+'" onclick="qtSetFilter(\''+k.replace(/'/g,"\\'")+'\')"><span>'+k+'</span><span class="c">'+count+'</span></div>';
+    });
+    sb.innerHTML=html;
+  }
+  window.qtSetGroup=function(m){qtGroupMode=m;qtActiveFilter='Tất cả';qtRender();};
+  window.qtSetFilter=function(k){qtActiveFilter=k;qtRender();};
+
+  function qtRenderStats(){
+    var total=qtSops.length, newCount=qtSops.filter(function(s){return qtIsNewRec(s);}).length;
+    var totalStaff=qtStaffNames.length;
+    var fullyRead=qtSops.filter(function(s){
+      var readers={}; qtReadLog.filter(function(r){return r.sopId===s._id;}).forEach(function(r){readers[r.staffName]=true;});
+      return totalStaff>0 && Object.keys(readers).length>=totalStaff;
+    }).length;
+    document.getElementById('qtStats').innerHTML=
+      '<div class="qt-stat"><div class="n">'+total+'</div><div class="l">QUY TRÌNH ĐANG LƯU</div></div>'+
+      '<div class="qt-stat"><div class="n">'+newCount+'</div><div class="l">MỚI CẬP NHẬT</div></div>'+
+      '<div class="qt-stat"><div class="n">'+fullyRead+'/'+total+'</div><div class="l">100% NHÂN VIÊN ĐÃ ĐỌC</div></div>';
+  }
+
+  function qtReadersFor(sopId){
+    var readSet={};
+    qtReadLog.filter(function(r){return r.sopId===sopId;}).forEach(function(r){readSet[r.staffName]=true;});
+    return qtStaffNames.map(function(n){return {name:n, read:!!readSet[n]};});
+  }
+
+  window.qtToggle=function(id){qtOpenId = qtOpenId===id?null:id; qtRender();};
+
+  function qtRenderCards(){
+    var q=(document.getElementById('qtSearchInput').value||'').trim().toLowerCase();
+    var f=qtGroupField();
+    var list=qtSops.filter(function(s){return qtActiveFilter==='Tất cả' || qtFieldValue(s,f)===qtActiveFilter;});
+    if(q) list=list.filter(function(s){return (s.ten+s.ma+s.khoa+(s.nhom||'')+s.mucdich+' '+(s.ngay||'')+' '+qtYearOf(s)).toLowerCase().indexOf(q)>=0;});
+    var wrap=document.getElementById('qtCardList');
+    if(list.length===0){wrap.innerHTML='<div class="qt-empty">Không tìm thấy quy trình phù hợp.</div>';return;}
+    wrap.innerHTML=list.map(function(s){
+      var open=qtOpenId===s._id?'open':'';
+      var readers=qtReadersFor(s._id);
+      var readCount=readers.filter(function(r){return r.read;}).length;
+      var staffListId = 'qtStaffDatalist';
+      var readListHtml = qtStaffNames.length ? readers.map(function(r){return '<span class="qt-who '+(r.read?'':'no')+'">'+(r.read?'✓':'✗')+' '+r.name+'</span>';}).join('')
+        : '<span style="opacity:.6">Chưa có danh sách nhân viên (staffList trống).</span>';
+      return '<div class="qt-card '+open+'" data-id="'+s._id+'">'+
+        '<div class="qt-chead" onclick="qtToggle(\''+s._id+'\')">'+
+          '<div style="flex:1;min-width:0">'+
+            '<div class="qt-badges"><span class="qt-code">'+s.ma+'</span>'+
+              '<span class="qt-nhom" style="'+qtNhomStyle(s.nhom)+'">'+(s.nhom||'Chưa phân loại')+'</span>'+
+              '<span class="qt-nhom" style="background:#eef2f5;color:#37474f;border-color:#cfd8dc">Năm '+qtYearOf(s)+'</span>'+
+              (qtIsNewRec(s)?'<span class="qt-new">MỚI</span>':'')+'</div>'+
+            '<p class="qt-title">'+s.ten+'</p>'+
+            '<div class="qt-meta">'+s.khoa+' · hiệu lực '+s.ngay+' · '+readCount+'/'+qtStaffNames.length+' đã đọc</div>'+
+          '</div><div class="qt-chev">▶</div></div>'+
+        '<div class="qt-cbody">'+
+          '<div class="qt-sec"><h4>Mục đích</h4><p>'+s.mucdich+'</p></div>'+
+          '<div class="qt-sec"><h4>Trách nhiệm chính</h4><table class="qt-tb">'+
+            (s.trachnhiem||[]).map(function(r){return '<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>';}).join('')+'</table></div>'+
+          '<div class="qt-sec"><h4>Các bước cốt lõi</h4><ol class="qt-steps">'+(s.buoc||[]).map(function(b){return '<li>'+b+'</li>';}).join('')+'</ol></div>'+
+          '<div class="qt-sec"><h4>⚠ Lưu ý / rủi ro an toàn</h4><div class="qt-warn">'+s.luuy+'</div></div>'+
+          '<div class="qt-foot"><span style="font-size:11.5px;color:#4e342e;font-weight:700">Đã đọc: '+readCount+'/'+qtStaffNames.length+'</span>'+
+            '<div class="qt-readctl"><input list="'+staffListId+'" id="qtSel_'+s._id+'" placeholder="Gõ để tìm tên nhân viên..." '+(qtStaffNames.length?'':'disabled')+' style="min-width:190px">'+
+            '<button class="qt-readbtn" '+(qtStaffNames.length?'':'disabled')+' onclick="event.stopPropagation();qtConfirmRead(\''+s._id+'\')">Xác nhận đã đọc</button></div></div>'+
+          '<div class="qt-readlist">'+readListHtml+'</div>'+
+        '</div></div>';
+    }).join('');
+  }
+
+  window.qtConfirmRead=function(sopId){
+    var sel=document.getElementById('qtSel_'+sopId);
+    if(!sel||!sel.value) return;
+    var name=sel.value.trim();
+    var validName = qtStaffNames.some(function(n){return n===name;});
+    if(!validName){ alert('Vui lòng chọn đúng tên trong danh sách gợi ý (gõ vài chữ để tìm).'); return; }
+    var already=qtReadLog.some(function(r){return r.sopId===sopId && r.staffName===name;});
+    if(!already){
+      db.ref('quyTrinhDoc').push({sopId:sopId, staffName:name, ts:new Date().toISOString()});
+    }
+    sel.value='';
+  };
+
+  function qtCreateBroadcastTask(rec){
+    try{
+      if(typeof cardsRef==='undefined' || typeof today!=='function') return; // an toàn nếu Kanban chưa tải xong
+      var id = Date.now();
+      var newCard = {
+        id: id,
+        person: 'Điều dưỡng trưởng khoa',
+        date: today(),
+        content: '📘 Phổ biến quy trình mới: '+rec.ten+' ('+rec.ma+')',
+        todo: 'Họp phổ biến quy trình cho toàn khoa/kíp trực liên quan; nhắc nhân viên vào "Thư viện Quy trình" xác nhận đã đọc.',
+        doing: '',
+        done: '',
+        pri: 'm',
+        status: 'todo',
+        imgs: []
+      };
+      cardsRef.child(String(id)).set(newCard);
+    }catch(e){ console.warn('Không tạo được thẻ nhắc việc Kanban:', e); }
+  }
+
+  // Lắng nghe riêng (không đụng listener cũ của Kanban) để cập nhật khung cảnh báo ở trang chủ
+  function qtUpdateHomeBroadcastBadge(cardsSnapVal){
+    var badge = document.getElementById('qtBroadcastBadge');
+    var detail = document.getElementById('qtBroadcastDetail');
+    if(!badge || !detail) return;
+    var data = cardsSnapVal || {};
+    var pending = Object.keys(data).map(function(k){return data[k];})
+      .filter(function(c){ return c && c.status==='todo' && typeof c.content==='string' && c.content.indexOf('Phổ biến quy trình mới')>=0; });
+    if(pending.length===0){ badge.style.display='none'; return; }
+    badge.style.display='block';
+    var names = pending.slice(0,3).map(function(c){
+      var m = c.content.match(/Phổ biến quy trình mới:\s*(.+?)(\s*\(|$)/);
+      return m ? m[1] : c.content;
+    }).join('; ');
+    detail.textContent = pending.length+' quy trình chưa họp phổ biến cho khoa: '+names+(pending.length>3?'...':'');
+  }
+  try{
+    if(typeof cardsRef!=='undefined'){
+      cardsRef.on('value', function(snap){ qtUpdateHomeBroadcastBadge(snap.val()); });
+    }
+  }catch(e){ console.warn('Không gắn được listener cảnh báo quy trình:', e); }
+
+  function qtIsAdmin(){
+    try{ return (typeof adminSession!=='undefined') && adminSession.active===true; }catch(e){ return false; }
+  }
+  function qtUpdateAdminUI(){
+    var isA = qtIsAdmin();
+    var addBtn=document.getElementById('qtAddBtn'), lockBtn=document.getElementById('qtLockBtn');
+    if(addBtn) addBtn.style.display = isA ? 'flex' : 'none';
+    if(lockBtn) lockBtn.style.display = isA ? 'none' : 'flex';
+  }
+  window.qtRequestAdminLogin=function(){
+    var pwd = window.prompt('Nhập mật khẩu Quản lý để thêm/sửa quy trình:');
+    if(pwd===null) return;
+    try{
+      if(typeof adminPwd!=='undefined' && pwd===adminPwd){
+        if(typeof adminSessionStart==='function') adminSessionStart();
+        else adminSession.active=true;
+        qtUpdateAdminUI();
+      } else {
+        alert('Mật khẩu không đúng!');
+      }
+    }catch(e){ alert('Không thể xác thực: '+e.message); }
+  };
+
+  function qtRenderStaffDatalist(){
+    var dl = document.getElementById('qtStaffDatalist');
+    if(!dl) return;
+    dl.innerHTML = qtStaffNames.map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');
+  }
+
+  function qtRender(){qtRenderSidebar();qtRenderStats();qtRenderCards();qtUpdateAdminUI();qtRenderStaffDatalist();}
+  window.qtRender = qtRender;
+
+  // ── Firebase load & live sync ──
+  function qtLoadStaff(){
+    db.ref('staffList').on('value', function(snap){
+      var data=snap.val()||[];
+      var list=[];
+      if(Array.isArray(data)) list=data.filter(Boolean);
+      else if(typeof data==='object') list=Object.values(data).filter(function(x){return typeof x==='string'&&x.trim();});
+      list.sort(function(a,b){return a.localeCompare(b,'vi');});
+      qtStaffNames=list;
+      qtRender();
+    });
+  }
+  function qtLoadSops(){
+    db.ref('quyTrinh').on('value', function(snap){
+      var data=snap.val();
+      if(!data){
+        // seed lần đầu
+        QT_SEED.forEach(function(rec){ db.ref('quyTrinh').push(rec); });
+        return;
+      }
+      qtSops=Object.keys(data).map(function(k){var r=data[k];r._id=k;return r;});
+      qtRender();
+    });
+  }
+  function qtLoadReadLog(){
+    db.ref('quyTrinhDoc').on('value', function(snap){
+      var data=snap.val()||{};
+      qtReadLog=Object.values(data);
+      qtRender();
+    });
+  }
+
+  var qtInited=false;
+  window.goQuyTrinh=function(){
+    document.getElementById('homeScreen').style.display='none';
+    document.getElementById('qtScreen').style.display='flex';
+    if(!qtInited){
+      qtInited=true;
+      qtLoadStaff();
+      qtLoadSops();
+      qtLoadReadLog();
+    }
+    qtRender();
+  };
+
+  // ── Add modal ──
+  window.qtSwitchTab=function(tab){
+    qtActiveTab=tab;
+    document.getElementById('qtTabManualBtn').classList.toggle('on', tab==='manual');
+    document.getElementById('qtTabQuickBtn').classList.toggle('on', tab==='quick');
+    document.getElementById('qtPaneManual').classList.toggle('on', tab==='manual');
+    document.getElementById('qtPaneQuick').classList.toggle('on', tab==='quick');
+  };
+  window.qtOpenAddModal=function(){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được thêm quy trình. Vui lòng đăng nhập.'); return; }
+    document.getElementById('qtModalOv').classList.add('open');
+  };
+
+  function qtParseLines(txt){return (txt||'').split('\n').map(function(x){return x.replace(/^-+\s*/,'').trim();}).filter(Boolean);}
+  function qtParseQuickBlock(text){
+    function grab(label){
+      var re=new RegExp(label+'\\s*:\\s*([\\s\\S]*?)(?=\\n(?:Tên|Mã số|Khoa|Nhóm|Ngày hiệu lực|Mục đích|Trách nhiệm|Các bước|Lưu ý)\\s*:|$)','i');
+      var m=text.match(re); return m?m[1].trim():'';
+    }
+    var trachnhiem=qtParseLines(grab('Trách nhiệm')).map(function(line){var p=line.split('—');return [(p[0]||'').trim(),(p.slice(1).join('—')||'').trim()];});
+    return {ten:grab('Tên')||'Quy trình chưa đặt tên', ma:grab('Mã số')||'—', khoa:grab('Khoa')||'Chưa phân loại',
+      nhom:grab('Nhóm')||'Khác', ngay:grab('Ngày hiệu lực')||'—', mucdich:grab('Mục đích')||'—',
+      trachnhiem: trachnhiem.length?trachnhiem:[['—','—']], buoc:qtParseLines(grab('Các bước')), luuy:grab('Lưu ý')||'Chưa ghi nhận.'};
+  }
+
+  window.qtSave=function(){
+    var rec;
+    if(qtActiveTab==='quick'){
+      var raw=document.getElementById('qt_quick').value.trim();
+      if(!raw){alert('Vui lòng dán nội dung vào ô Dán nhanh.');return;}
+      rec=qtParseQuickBlock(raw);
+    } else {
+      var ten=document.getElementById('qt_ten').value.trim();
+      if(!ten){alert('Vui lòng nhập tên quy trình.');return;}
+      var trachnhiem=qtParseLines(document.getElementById('qt_trachnhiem').value).map(function(line){var p=line.split('—');return [(p[0]||'').trim(),(p.slice(1).join('—')||'').trim()];});
+      rec={ten:ten, ma:document.getElementById('qt_ma').value.trim()||'—', khoa:document.getElementById('qt_khoa').value.trim()||'Chưa phân loại',
+        nhom:document.getElementById('qt_nhom').value, ngay:document.getElementById('qt_ngay').value.trim()||'—',
+        mucdich:document.getElementById('qt_mucdich').value.trim()||'—', trachnhiem: trachnhiem.length?trachnhiem:[['—','—']],
+        buoc:qtParseLines(document.getElementById('qt_buoc').value), luuy:document.getElementById('qt_luuy').value.trim()||'Chưa ghi nhận.'};
+    }
+    rec.createdAt = Date.now();
+    db.ref('quyTrinh').push(rec);
+    qtCreateBroadcastTask(rec);
+    try{ if(typeof showAl==='function') showAl('Đã lưu quy trình và tạo thẻ nhắc việc "Phổ biến quy trình" trên Kanban!'); }catch(e){}
+    document.getElementById('qtModalOv').classList.remove('open');
+    ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+  };
 })();
 </script>
 </body>
