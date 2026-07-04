@@ -539,6 +539,7 @@ font-size:10px;color:var(--tx3)}
       <div class="home-card nghibu-card" onclick="openStaffAuthModalUser('nghibu')"><div class="home-card-badge">Mới</div><i class="ti ti-calendar-off"></i><div class="home-card-title">Đăng ký<br>Nghỉ Bù</div><div class="home-card-sub">Đăng ký & theo dõi nghỉ bù ca trực</div></div>
       <div class="home-card" onclick="openStaffAuthModalUser('nghiphep')" style="background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-color:#004d40"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-beach"></i><div class="home-card-title">Đăng ký<br>Nghỉ Phép</div><div class="home-card-sub">Nghỉ phép theo ngày, theo đợt</div></div>
       <div class="home-card" onclick="goQuyTrinh()" style="background:linear-gradient(135deg,#8d6e63,#5d4037);color:#fff;border-color:#3e2723"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-book-2"></i><div class="home-card-title">Thư viện<br>Quy trình</div><div class="home-card-sub">Tra cứu & xác nhận đọc quy trình</div></div>
+      <div class="home-card" onclick="goThanhTichView()" style="background:linear-gradient(135deg,#c9a227,#8a6d1f);color:#fff;border-color:#5c4a15"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-award"></i><div class="home-card-title">Xem<br>Thành tích</div><div class="home-card-sub">Tập thể (mọi người) & Cá nhân (riêng từng người)</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -10031,10 +10032,17 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 
 <div class="qt-modal-ov" id="qtValidityOv">
   <div class="qt-modal" style="max-width:420px">
-    <h3>Chỉnh hiệu lực quy trình</h3>
+    <h3>Sửa hiệu lực / ngày ban hành</h3>
     <p id="qtv_tenqt" style="font-size:12.5px;color:#5d4037;margin:2px 0 0"></p>
-    <label>Chu kỳ rà soát (năm) — mặc định 2 năm/lần</label>
+    <label>Mã số quy trình — điền/sửa nếu trước đó để trống hoặc ghi "Chưa quy định"</label>
+    <input id="qtv_ma" placeholder="VD: QT.22.KSNK, hoặc số quyết định gốc như 3916/QĐ-BYT">
+    <label>Ngày hiệu lực (dd/mm/yyyy) — dùng để tính Năm và hạn rà soát</label>
+    <input id="qtv_ngay" placeholder="VD: 01/01/2024 (nếu quy trình dẫn theo Bộ Y tế, không có ngày BV ban hành, có thể điền năm ban hành của văn bản Bộ Y tế, hoặc ngày bệnh viện áp dụng)">
+    <label>Chu kỳ rà soát (năm) — mặc định 2 năm/lần, chỉ áp dụng cho quy trình nội bộ BV</label>
     <input id="qtv_chuky" type="number" min="1" placeholder="2">
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-top:12px;background:#eef6f3;padding:8px 10px;border-radius:6px">
+      <input type="checkbox" id="qtv_khonggh" style="width:auto"> Không áp dụng hạn rà soát tự động (dành cho văn bản cấp Bộ Y tế/Sở Y tế, luôn "Còn hiệu lực" trừ khi tự đánh dấu hết hiệu lực bên dưới)
+    </label>
     <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-top:12px">
       <input type="checkbox" id="qtv_hethieuluc" style="width:auto"> Đánh dấu văn bản này đã hết hiệu lực (bị thay thế sớm hơn chu kỳ)
     </label>
@@ -10121,6 +10129,9 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   function qtValidityStatus(s){
     if(s.hetHieuLuc===true){
       return {key:'het', label:'Hết hiệu lực', bg:'#fdecea', fg:'#a33', bd:'#f0b8b8'};
+    }
+    if(s.khongGioiHan===true){
+      return {key:'con', label:'Còn hiệu lực (không giới hạn thời gian)', bg:'#eaf3ee', fg:'#1f6b45', bd:'#bfe0cc'};
     }
     var d = qtParseDate(s.ngay);
     if(!d){
@@ -10324,7 +10335,10 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     if(!s) return;
     if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được chỉnh hiệu lực quy trình.'); return; }
     document.getElementById('qtv_tenqt').textContent = s.ma+' — '+s.ten;
+    document.getElementById('qtv_ma').value = (s.ma && s.ma!=='—') ? s.ma : '';
+    document.getElementById('qtv_ngay').value = (s.ngay && s.ngay!=='—') ? s.ngay : '';
     document.getElementById('qtv_chuky').value = (typeof s.chuKyNam==='number') ? s.chuKyNam : 2;
+    document.getElementById('qtv_khonggh').checked = s.khongGioiHan===true;
     document.getElementById('qtv_hethieuluc').checked = s.hetHieuLuc===true;
     document.getElementById('qtValidityOv').dataset.sopid = sopId;
     document.getElementById('qtValidityOv').classList.add('open');
@@ -10332,9 +10346,18 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   window.qtSaveValidity=function(){
     var sopId = document.getElementById('qtValidityOv').dataset.sopid;
     if(!sopId) return;
+    var ngayVal = document.getElementById('qtv_ngay').value.trim();
+    var maVal = document.getElementById('qtv_ma').value.trim();
     var chuKy = parseInt(document.getElementById('qtv_chuky').value,10) || 2;
+    var khongGh = document.getElementById('qtv_khonggh').checked;
     var het = document.getElementById('qtv_hethieuluc').checked;
-    db.ref('quyTrinh').child(sopId).update({chuKyNam:chuKy, hetHieuLuc:het});
+    var updates = {chuKyNam:chuKy, khongGioiHan:khongGh, hetHieuLuc:het};
+    if(maVal) updates.ma = maVal;
+    if(ngayVal){
+      if(!qtParseDate(ngayVal)){ alert('Ngày hiệu lực chưa đúng định dạng dd/mm/yyyy. Vui lòng nhập lại (VD: 01/01/2024).'); return; }
+      updates.ngay = ngayVal;
+    }
+    db.ref('quyTrinh').child(sopId).update(updates);
     document.getElementById('qtValidityOv').classList.remove('open');
     try{ if(typeof showAl==='function') showAl('Đã cập nhật hiệu lực quy trình!'); }catch(e){}
   };
@@ -10489,6 +10512,129 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     document.getElementById('qtModalOv').classList.remove('open');
     document.getElementById('qt_hethieuluc').checked=false;
     ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+  };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════
+     BỔ SUNG: XEM THÀNH TÍCH (CHỈ ĐỌC) — module độc lập
+     Tập thể: công khai cho mọi người xem (đọc từ 'thanhTich')
+     Cá nhân: chỉ xem đúng tên mình chọn (đọc từ 'thanhTichCaNhan/<tên>')
+     Không đụng đến code Quản lý Thành tích hiện có (tt.../pt...).
+     ══════════════════════════════════════════════════════════ -->
+<style>
+#tvScreen{min-height:100vh;background:#fdfaf0;display:none;flex-direction:column}
+.tv-topbar{background:linear-gradient(135deg,#c9a227,#8a6d1f 60%,#5c4a15);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tv-topbar h2{color:#fff;font-size:16px;font-weight:700;margin:0}
+.tv-topbar small{color:rgba(255,255,255,.8);font-size:11.5px}
+.tv-btn{padding:7px 13px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid rgba(255,255,255,.45);background:transparent;color:#fff;font-family:inherit}
+.tv-btn:hover{background:rgba(255,255,255,.18)}
+.tv-main{max-width:900px;margin:0 auto;padding:20px 16px 60px;width:100%}
+.tv-section{background:#fff;border:1.5px solid #e8dcb0;border-radius:12px;padding:18px 20px;margin-bottom:20px}
+.tv-section h3{font-size:15px;color:#5c4a15;margin:0 0 4px;font-weight:700}
+.tv-section .sub{font-size:12px;color:#8a7845;margin-bottom:14px}
+table.tv-tb{width:100%;border-collapse:collapse;font-size:13px}
+table.tv-tb th,table.tv-tb td{border:1px solid #ecdfb8;padding:7px 9px;text-align:left}
+table.tv-tb th{background:#fbf3d9;color:#5c4a15;font-weight:700}
+.tv-empty{padding:20px;text-align:center;color:#9a8a55;font-size:13px}
+.tv-search-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.tv-search-row input{flex:1;min-width:200px;border:1.5px solid #e8dcb0;border-radius:7px;padding:8px 10px;font-size:13px}
+.tv-current{font-size:12.5px;color:#5c4a15;font-weight:700;margin-bottom:8px;background:#fbf3d9;padding:6px 10px;border-radius:6px;display:none}
+.tv-privacy-note{font-size:11px;color:#9a8a55;margin-top:10px;line-height:1.5}
+</style>
+
+<div id="tvScreen">
+  <div class="tv-topbar">
+    <button class="tv-btn" onclick="document.getElementById('tvScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';"><i class="ti ti-home"></i> Trang chủ</button>
+    <div>
+      <h2>🏆 Thành tích Khoa Gây mê Hồi sức</h2>
+      <small>Chế độ chỉ xem — Tập thể công khai, Cá nhân riêng từng người</small>
+    </div>
+  </div>
+  <div class="tv-main">
+    <div class="tv-section">
+      <h3>🏆 Thành tích Tập thể</h3>
+      <div class="sub">Công khai cho toàn thể nhân viên khoa xem.</div>
+      <div id="tvTapTheBox"></div>
+    </div>
+    <div class="tv-section">
+      <h3>🏅 Thành tích Cá nhân</h3>
+      <div class="sub">Gõ đúng tên của bạn để xem — chỉ hiện thành tích của chính bạn, không xem được của người khác.</div>
+      <div class="tv-search-row">
+        <input id="tvStaffSearch" list="tvStaffDatalist" placeholder="Gõ tên của bạn..." oninput="tvOnSearchInput()">
+        <datalist id="tvStaffDatalist"></datalist>
+      </div>
+      <div class="tv-current" id="tvCurrentLabel"></div>
+      <div id="tvCaNhanBox"><div class="tv-empty">Nhập tên của bạn ở ô trên để xem thành tích cá nhân.</div></div>
+      <div class="tv-privacy-note">🔒 Vì lý do công bằng và tránh so sánh giữa các nhân viên, mỗi người chỉ xem được thành tích của chính mình. Nếu cần xem/điều chỉnh dữ liệu tổng hợp, vui lòng liên hệ Trưởng khoa/Điều dưỡng trưởng qua khu vực Quản lý.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function tvEsc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+  function tvRenderTable(items){
+    if(!items || !items.length) return '<div class="tv-empty">Chưa có dữ liệu.</div>';
+    var sorted = items.slice().sort(function(a,b){ return (b.year||0)-(a.year||0); });
+    return '<table class="tv-tb"><tr><th>Năm</th><th>Danh hiệu</th><th>Số quyết định</th><th>Cơ quan cấp</th><th>Ngày</th></tr>'+
+      sorted.map(function(it){
+        return '<tr><td>'+tvEsc(it.year)+'</td><td>'+tvEsc(it.title)+'</td><td>'+tvEsc(it.so)+'</td><td>'+tvEsc(it.coQuan)+'</td><td>'+tvEsc(it.ngay)+'</td></tr>';
+      }).join('')+'</table>';
+  }
+
+  var tvTapTheLoaded=false;
+  function tvLoadTapThe(){
+    try{
+      db.ref('thanhTich').on('value', function(snap){
+        var val = snap.val();
+        var items = (val && Array.isArray(val.items)) ? val.items : [];
+        document.getElementById('tvTapTheBox').innerHTML = tvRenderTable(items);
+      });
+    }catch(e){ document.getElementById('tvTapTheBox').innerHTML='<div class="tv-empty">Không tải được dữ liệu.</div>'; }
+  }
+
+  function tvRenderStaffDatalist(){
+    var dl = document.getElementById('tvStaffDatalist');
+    if(!dl) return;
+    var names = (typeof staffList!=='undefined' && staffList.length) ? staffList : [];
+    dl.innerHTML = names.map(function(n){ return '<option value="'+n.replace(/"/g,'&quot;')+'">'; }).join('');
+  }
+
+  var tvCurName = null;
+  window.tvOnSearchInput=function(){
+    var inp = document.getElementById('tvStaffSearch');
+    var typed = inp.value.trim();
+    var names = (typeof staffList!=='undefined') ? staffList : [];
+    if(!names.includes(typed)){
+      document.getElementById('tvCurrentLabel').style.display='none';
+      document.getElementById('tvCaNhanBox').innerHTML = '<div class="tv-empty">Nhập tên của bạn ở ô trên để xem thành tích cá nhân.</div>';
+      return;
+    }
+    if(typed===tvCurName) return;
+    tvCurName = typed;
+    document.getElementById('tvCurrentLabel').style.display='block';
+    document.getElementById('tvCurrentLabel').textContent = 'Đang xem thành tích của: '+typed;
+    document.getElementById('tvCaNhanBox').innerHTML = '<div class="tv-empty">Đang tải...</div>';
+    try{
+      db.ref('thanhTichCaNhan').child(typed).once('value').then(function(snap){
+        var val = snap.val();
+        var items = (val && Array.isArray(val.items)) ? val.items : [];
+        document.getElementById('tvCaNhanBox').innerHTML = tvRenderTable(items);
+      });
+    }catch(e){ document.getElementById('tvCaNhanBox').innerHTML='<div class="tv-empty">Không tải được dữ liệu.</div>'; }
+  };
+
+  var tvInited=false;
+  window.goThanhTichView=function(){
+    document.getElementById('homeScreen').style.display='none';
+    document.getElementById('tvScreen').style.display='flex';
+    if(!tvInited){
+      tvInited=true;
+      tvLoadTapThe();
+    }
+    tvRenderStaffDatalist();
   };
 })();
 </script>
