@@ -9965,6 +9965,11 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 .qt-tabpane{display:none}
 .qt-tabpane.on{display:block}
 .qt-empty{text-align:center;padding:50px 16px;color:#795548;opacity:.7;font-size:13px}
+.qt-myban{background:linear-gradient(135deg,#eef6f3,#dcece6);border:1.5px solid #bfe0cc;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.qt-myban.warn{background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#ffcc80}
+.qt-myban b{color:#1f6b45}
+.qt-myban.warn b{color:#a9631a}
+.qt-myban .clr{margin-left:auto;font-size:11px;color:#795548;cursor:pointer;text-decoration:underline;background:none;border:none;font-family:inherit}
 @media(max-width:720px){.qt-main{flex-direction:column}.qt-sidebar{width:100%}
   .qt-topbar{padding:10px 12px}.qt-topbar h2{font-size:13.5px}.qt-topbar small{font-size:10px}
   .qt-search{order:3;max-width:100%;flex-basis:100%}}
@@ -9994,6 +9999,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   <div class="qt-main">
     <div class="qt-sidebar" id="qtSidebar"></div>
     <div class="qt-body">
+      <div id="qtMyBanner"></div>
       <div class="qt-stats" id="qtStats"></div>
       <div id="qtCardList"></div>
       <datalist id="qtStaffDatalist"></datalist>
@@ -10143,6 +10149,18 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       <button class="qt-btn" style="background:#2b579a;color:#fff;border-color:#1e3f70" onclick="qtExportWord()">📄 Xuất Word (.doc)</button>
     </div>
     <div class="hint" style="margin-top:10px">File Excel dạng .csv mở được trực tiếp bằng Excel/Google Sheets. File Word dạng .doc mở được trực tiếp bằng Microsoft Word.</div>
+  </div>
+</div>
+
+<div class="qt-modal-ov" id="qtRemindTextOv">
+  <div class="qt-modal" style="max-width:520px">
+    <h3>📋 Nội dung nhắc — dán vào Zalo nhóm khoa</h3>
+    <p style="font-size:12px;color:#5d4037;margin:2px 0 10px">Copy đoạn dưới, dán thẳng vào nhóm Zalo/Messenger của khoa để nhắc nhân viên (đặc biệt hữu ích cho nhóm chuyên môn được tick áp dụng).</p>
+    <textarea id="qtRemindTextArea" readonly style="width:100%;min-height:140px;border:1.5px solid #e0d2c8;border-radius:7px;padding:10px;font-size:13px;font-family:inherit"></textarea>
+    <div class="qt-modal-actions">
+      <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtRemindTextOv').classList.remove('open')">Đóng</button>
+      <button class="qt-btn solid" style="color:#fff" onclick="qtCopyRemindText()">📋 Copy nội dung</button>
+    </div>
   </div>
 </div>
 
@@ -10463,6 +10481,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
           '<div class="qt-sec"><h4>⚠ Lưu ý / rủi ro an toàn</h4><div class="qt-warn">'+s.luuy+'</div></div>'+
           '<div class="qt-foot"><span style="font-size:11.5px;color:#4e342e;font-weight:700">Đã đọc: '+readCount+'/'+scopeTotal+'</span>'+
             (qtIsAdmin() && scopeTotal>0 && readCount<scopeTotal ? '<button class="qt-readbtn" style="border-color:#a9631a;color:#a9631a" onclick="event.stopPropagation();qtRemindUnread(\''+s._id+'\')">📣 Nhắc đọc ('+(scopeTotal-readCount)+' người)</button>' : '')+
+            (qtIsAdmin() ? '<button class="qt-readbtn" style="border-color:#0068ff;color:#0068ff" onclick="event.stopPropagation();qtShowRemindText(\''+s._id+'\')">📋 Nhắc Zalo</button>' : '')+
             '<div class="qt-readctl"><input list="'+staffListId+'" id="qtSel_'+s._id+'" placeholder="Gõ để tìm tên nhân viên..." '+(qtStaffNames.length?'':'disabled')+' style="min-width:190px">'+
             '<button class="qt-readbtn" '+(qtStaffNames.length?'':'disabled')+' onclick="event.stopPropagation();qtConfirmRead(\''+s._id+'\')">Xác nhận đã đọc</button></div></div>'+
           '<div class="qt-readlist">'+readListHtml+'</div>'+
@@ -10480,7 +10499,67 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     if(!already){
       db.ref('quyTrinhDoc').push({sopId:sopId, staffName:name, ts:new Date().toISOString()});
     }
+    try{ localStorage.setItem('qtMyName', name); }catch(e){}
     sel.value='';
+    qtRenderMyBanner();
+  };
+
+  window.qtClearMyName=function(){
+    try{ localStorage.removeItem('qtMyName'); }catch(e){}
+    qtRenderMyBanner();
+  };
+  function qtRenderMyBanner(){
+    var box = document.getElementById('qtMyBanner');
+    if(!box) return;
+    var name; try{ name = localStorage.getItem('qtMyName'); }catch(e){ name=null; }
+    if(!name || qtStaffNames.indexOf(name)<0){ box.innerHTML=''; return; }
+    var group = qtStaffGroups[name];
+    var mySops = qtSops.filter(function(s){return qtProcAppliesTo(s, group);});
+    var readIds = {};
+    qtReadLog.filter(function(r){return r.staffName===name;}).forEach(function(r){readIds[r.sopId]=true;});
+    var missing = mySops.filter(function(s){return !readIds[s._id];});
+    if(missing.length===0){
+      box.innerHTML = '<div class="qt-myban"><span>👋 Chào <b>'+name+'</b>! Bạn đã đọc đủ 100% quy trình thuộc phạm vi của mình. 🎉</span>'+
+        '<button class="clr" onclick="qtClearMyName()">Không phải tôi?</button></div>';
+    } else {
+      box.innerHTML = '<div class="qt-myban warn"><span>👋 Chào <b>'+name+'</b>! Bạn còn <b>'+missing.length+'</b> quy trình chưa đọc: '+
+        missing.slice(0,5).map(function(s){return s.ma;}).join(', ')+(missing.length>5?'...':'')+'</span>'+
+        '<button class="clr" onclick="qtClearMyName()">Không phải tôi?</button></div>';
+    }
+  }
+
+  function qtBuildRemindTextFromRec(rec, readCount, totalCount){
+    var scopeTxt = (rec.apDungNhom && rec.apDungNhom.length && rec.apDungNhom.indexOf('ALL')<0)
+      ? rec.apDungNhom.map(function(v){var g=QT_NHOM_CD.find(function(x){return x.v===v;}); return g?g.l:v;}).join(', ')
+      : 'toàn thể nhân viên khoa';
+    return '📘 THÔNG BÁO QUY TRÌNH MỚI\n\n'+
+      'Tên: '+rec.ten+'\n'+
+      'Mã số: '+rec.ma+' — Hiệu lực: '+rec.ngay+'\n'+
+      'Đối tượng áp dụng: '+scopeTxt+'\n\n'+
+      'Thông báo các anh/chị vào ứng dụng "Thư viện Quy trình" trên hệ thống Kanban khoa, đọc xong, gõ tên mình và bấm "Xác nhận đã đọc" trong tuần này.\n'+
+      '(Hiện đã có '+readCount+'/'+totalCount+' người xác nhận)';
+  }
+  function qtBuildRemindText(sopId){
+    var s = qtSops.find(function(x){return x._id===sopId;});
+    if(!s) return '';
+    var readers = qtReadersFor(sopId);
+    var readCount = readers.filter(function(r){return r.read;}).length;
+    return qtBuildRemindTextFromRec(s, readCount, readers.length);
+  }
+  window.qtShowRemindText=function(sopId){
+    var txt = qtBuildRemindText(sopId);
+    document.getElementById('qtRemindTextArea').value = txt;
+    document.getElementById('qtRemindTextOv').classList.add('open');
+  };
+  window.qtCopyRemindText=function(){
+    var ta = document.getElementById('qtRemindTextArea');
+    ta.select();
+    try{
+      navigator.clipboard.writeText(ta.value).then(function(){
+        if(typeof showAl==='function') showAl('Đã copy! Dán vào Zalo nhóm khoa.');
+        else alert('Đã copy nội dung!');
+      }).catch(function(){ document.execCommand('copy'); alert('Đã copy nội dung (chế độ dự phòng)!'); });
+    }catch(e){ document.execCommand('copy'); alert('Đã copy nội dung (chế độ dự phòng)!'); }
   };
 
   function qtCreateBroadcastTask(rec){
@@ -11180,7 +11259,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     dl.innerHTML = qtStaffNames.map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');
   }
 
-  function qtRender(){qtRenderSidebar();qtRenderStats();qtRenderCards();qtUpdateAdminUI();qtRenderStaffDatalist();}
+  function qtRender(){qtRenderSidebar();qtRenderStats();qtRenderCards();qtUpdateAdminUI();qtRenderStaffDatalist();qtRenderMyBanner();}
   window.qtRender = qtRender;
 
   // ── Firebase load & live sync ──
@@ -11286,10 +11365,18 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
         apDungNhom: qtReadApDungBox('qt')};
     }
     rec.createdAt = Date.now();
+    var newScopeCount = (function(){
+      if(rec.apDungNhom && rec.apDungNhom.length && rec.apDungNhom.indexOf('ALL')<0){
+        return qtStaffNames.filter(function(n){return rec.apDungNhom.indexOf(qtStaffGroups[n])>=0;}).length;
+      }
+      return qtStaffNames.length;
+    })();
     db.ref('quyTrinh').push(rec);
     qtCreateBroadcastTask(rec);
     try{ if(typeof showAl==='function') showAl('Đã lưu quy trình và tạo thẻ nhắc việc "Phổ biến quy trình" trên Kanban!'); }catch(e){}
     document.getElementById('qtModalOv').classList.remove('open');
+    document.getElementById('qtRemindTextArea').value = qtBuildRemindTextFromRec(rec, 0, newScopeCount);
+    document.getElementById('qtRemindTextOv').classList.add('open');
     document.getElementById('qt_hethieuluc').checked=false;
     ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
   };
