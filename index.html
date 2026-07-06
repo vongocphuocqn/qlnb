@@ -9950,7 +9950,10 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 .qt-who.no{background:#fce4ec;color:#a33}
 .qt-modal-ov{display:none;position:fixed;inset:0;background:rgba(30,15,10,.45);z-index:400;align-items:flex-start;justify-content:center;padding:36px 14px;overflow:auto}
 .qt-modal-ov.open{display:flex}
-.qt-modal{background:#fff;border-radius:11px;max-width:560px;width:100%;padding:20px}
+.qt-modal{background:#fff;border-radius:11px;max-width:560px;width:100%;padding:20px;position:relative}
+.qt-modal.qt-maximized{max-width:97vw!important;width:97vw!important;height:94vh!important;max-height:94vh!important}
+.qt-maxbtn{border:1.5px solid #e0d2c8;background:#faf6f3;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;color:#5d4037;font-family:inherit;white-space:nowrap}
+.qt-maxbtn:hover{background:#efe6e2}
 .qt-modal h3{margin:0 0 4px;font-size:16px;color:#3e2723}
 .qt-modal label{font-size:11.5px;font-weight:700;color:#5d4037;display:block;margin:9px 0 4px}
 .qt-modal input,.qt-modal textarea,.qt-modal select{width:100%;border:1.5px solid #e0d2c8;border-radius:7px;padding:7px 9px;font-size:12.8px;font-family:inherit}
@@ -9980,7 +9983,12 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       <input id="qtSearchInput" placeholder="Tìm theo tên, mã số, từ khóa..." oninput="qtRender()">
     </div>
     <button class="qt-btn solid" id="qtAddBtn" style="display:none" onclick="qtOpenAddModal()"><i class="ti ti-plus"></i> Thêm quy trình</button>
+    <button class="qt-btn" id="qtStatsBtn" style="display:none" onclick="qtOpenStatsModal()"><i class="ti ti-chart-bar"></i> Thống kê tuân thủ</button>
+    <button class="qt-btn" id="qtExportBtn" style="display:none" onclick="qtOpenExportModal()"><i class="ti ti-download"></i> Xuất dữ liệu</button>
+    <button class="qt-btn" id="qtNewStatsBtn" style="display:none" onclick="qtOpenNewStatsModal()"><i class="ti ti-trending-up"></i> Đọc quy trình mới</button>
+    <button class="qt-btn" id="qtGroupBtn" style="display:none" onclick="qtOpenGroupModal()"><i class="ti ti-users-group"></i> Nhóm CM nhân viên</button>
     <button class="qt-btn" id="qtLockBtn" onclick="qtRequestAdminLogin()"><i class="ti ti-lock"></i> Quản lý đăng nhập</button>
+    <button class="qt-btn" id="qtLogoutBtn" style="display:none;border-color:#e57373;color:#e57373" onclick="qtLogoutAdmin()"><i class="ti ti-lock-open"></i> Thoát Quản lý</button>
   </div>
 
   <div class="qt-main">
@@ -10013,6 +10021,10 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       <label>Ngày hiệu lực</label><input id="qt_ngay">
       <label>Chu kỳ rà soát (năm) — mặc định 2 năm/lần theo quy định, hoặc để trống</label><input id="qt_chuky" type="number" min="1" placeholder="2">
       <label style="display:flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" id="qt_hethieuluc" style="width:auto"> Đánh dấu văn bản này đã hết hiệu lực (bị thay thế sớm hơn chu kỳ)</label>
+      <label>Áp dụng cho nhóm chuyên môn (không tick gì = áp dụng mọi người)</label>
+      <div id="qt_apdungnhom_box" style="display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;font-weight:400;margin-bottom:6px">
+        <!-- checkbox nhóm sẽ được JS chèn vào -->
+      </div>
       <label>Mục đích (1-2 câu)</label><textarea id="qt_mucdich"></textarea>
       <label>Trách nhiệm chính (mỗi dòng: Vị trí — việc cần làm)</label><textarea id="qt_trachnhiem"></textarea>
       <label>Các bước cốt lõi (mỗi dòng 1 bước)</label><textarea id="qt_buoc"></textarea>
@@ -10026,6 +10038,129 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     <div class="qt-modal-actions">
       <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtModalOv').classList.remove('open')">Hủy</button>
       <button class="qt-btn solid" style="color:#fff" onclick="qtSave()">Lưu vào thư viện</button>
+    </div>
+  </div>
+</div>
+
+<div class="qt-modal-ov" id="qtCatalogOv">
+  <div class="qt-modal" style="max-width:460px">
+    <h3>⚙️ Danh mục Nhóm chuyên môn</h3>
+    <p style="font-size:12px;color:#5d4037;margin:2px 0 12px">Tự thêm/sửa/xóa nhóm chuyên môn dùng chung cho toàn hệ thống — không cần sửa code.</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input id="qtCat_ma" placeholder="Mã ngắn (VD: HL)" style="width:110px">
+      <input id="qtCat_ten" placeholder="Tên hiển thị (VD: Hộ lý)" style="flex:1">
+      <button class="qt-btn solid" style="color:#fff" onclick="qtAddCatalogItem()">+ Thêm</button>
+    </div>
+    <div id="qtCatalogTableBox"></div>
+    <div class="qt-modal-actions">
+      <button class="tbtn" style="color:#333;border-color:#ccc" onclick="qtCloseCatalogModal()">Đóng</button>
+    </div>
+    <div class="hint">Xóa 1 nhóm không tự động đổi nhóm của những nhân viên/quy trình đang gán mã đó — nếu xóa, nên gán lại nhóm khác cho họ trong màn hình "Gán nhóm chuyên môn".</div>
+  </div>
+</div>
+
+<div class="qt-modal-ov" id="qtGroupOv">
+  <div class="qt-modal" id="qtGroupBox" style="max-width:min(720px,92vw);max-height:86vh;overflow:auto">
+    <div style="position:absolute;top:16px;right:20px;display:flex;gap:6px">
+      <button class="qt-maxbtn" id="qtGroupMaxBtn" onclick="qtToggleMaximize3()">⛶ Phóng to</button>
+      <button class="qt-maxbtn" onclick="document.getElementById('qtGroupOv').classList.remove('open')" style="color:#a33">✕ Đóng</button>
+    </div>
+    <h3>👥 Gán nhóm chuyên môn cho nhân viên</h3>
+    <p style="font-size:12px;color:#5d4037;margin:2px 0 12px">Dùng để tính đúng thống kê "đã đọc/tổng" theo từng chuyên môn (BS/ĐD/GM/HS/KTV) khi quy trình chỉ áp dụng cho 1 nhóm cụ thể.</p>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+      <input id="qtGroupSearch" placeholder="Tìm tên..." oninput="qtRenderGroupTable()" style="flex:1;min-width:160px;border:1.5px solid #e0d2c8;border-radius:7px;padding:7px 10px;font-size:13px">
+      <select id="qtGroupBulkVal" style="border:1.5px solid #e0d2c8;border-radius:7px;padding:7px 8px;font-size:12.5px">
+        <option value="">— Gán hàng loạt cho kết quả đang lọc —</option>
+      </select>
+      <button class="qt-btn" style="background:#5d4037;color:#fff" onclick="qtBulkAssignGroup()">Áp dụng</button>
+      <button class="qt-btn" style="background:#2b579a;color:#fff;border-color:#1e3f70" onclick="qtExportStaffListWord()">📄 Xuất danh sách để in</button>
+      <button class="qt-btn" style="background:#8a6d1f;color:#fff;border-color:#5c4a15" onclick="qtOpenCatalogModal()">⚙️ Danh mục Nhóm CM</button>
+    </div>
+    <div class="hint" style="margin-top:-6px;margin-bottom:10px">File Word có sẵn cột "Nhóm chuyên môn hiện tại" + cột "Ghi chú/Điều chỉnh" để trống — in ra, điền tay khi cần, chụp ảnh gửi lại để cập nhật vào hệ thống.</div>
+
+    <div style="background:#faf6f3;border:1.5px solid #e8dcb0;border-radius:9px;padding:12px;margin-bottom:14px">
+      <label style="font-size:12.5px;font-weight:700;color:#5c4a15">📋 Dán nhanh khai báo hàng loạt (mỗi dòng: Họ tên, Mã nhóm)</label>
+      <p style="font-size:11px;color:#8a7845;margin:2px 0 6px">Mã nhóm hiện có: <span id="qtGroupCodeHint" style="font-weight:700"></span>. Ví dụ 1 dòng: <code>Cao Việt Thắng, BS</code></p>
+      <textarea id="qtGroupBulkPaste" placeholder="Cao Việt Thắng, BS&#10;Đào Thị Phương Thúy, ĐD&#10;Đặng Hồ Hồng Phi, GM" style="width:100%;min-height:110px;border:1.5px solid #e0d2c8;border-radius:7px;padding:8px 10px;font-size:12.5px;font-family:monospace"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
+        <span id="qtGroupPasteResult" style="font-size:11.5px;color:#5d4037"></span>
+        <button class="qt-btn solid" style="color:#fff" onclick="qtApplyBulkPasteGroups()">Áp dụng danh sách dán</button>
+      </div>
+    </div>
+
+    <div id="qtGroupTableBox"></div>
+  </div>
+</div>
+
+<div class="qt-modal-ov" id="qtNewStatsOv">
+  <div class="qt-modal" id="qtNewStatsBox" style="max-width:min(880px,92vw);max-height:86vh;overflow:auto">
+    <div style="position:absolute;top:16px;right:20px;display:flex;gap:6px">
+      <button class="qt-maxbtn" id="qtNewStatsMaxBtn" onclick="qtToggleMaximize2()">⛶ Phóng to</button>
+      <button class="qt-maxbtn" onclick="document.getElementById('qtNewStatsOv').classList.remove('open')" style="color:#a33">✕ Đóng</button>
+    </div>
+    <h3>📈 Thống kê đọc quy trình MỚI theo thời gian</h3>
+    <p style="font-size:12px;color:#5d4037;margin:2px 0 12px">Dùng để biết: tại 1 thời điểm, hoặc trong 1 đợt quy trình mới ban hành, bao nhiêu nhân viên đã đọc / chưa đọc.</p>
+
+    <label>Quy trình được coi là "MỚI" trong khoảng ngày hiệu lực (để trống = dùng đúng các quy trình đang gắn nhãn MỚI hiện tại)</label>
+    <div style="display:flex;gap:8px">
+      <input type="date" id="qtNsFrom" style="flex:1">
+      <input type="date" id="qtNsTo" style="flex:1">
+    </div>
+
+    <label style="margin-top:12px">Tính trạng thái "đã đọc" tính đến ngày (để trống = tính đến thời điểm hiện tại)</label>
+    <input type="date" id="qtNsAsOf">
+
+    <label style="margin-top:12px">Chỉ xem riêng 1 nhóm chuyên môn (để trống = xem tất cả)</label>
+    <select id="qtNsGroupFilter">
+      <option value="">— Tất cả nhóm —</option>
+    </select>
+
+    <div class="qt-modal-actions" style="justify-content:flex-start;margin-top:14px">
+      <button class="qt-btn solid" style="color:#fff" onclick="qtRunNewStats()">Xem thống kê</button>
+    </div>
+
+    <div id="qtNewStatsResult" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<div class="qt-modal-ov" id="qtExportOv">
+  <div class="qt-modal" style="max-width:460px">
+    <h3>📤 Xuất danh sách quy trình</h3>
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400">
+      <input type="radio" name="qtExpMode" value="filter" id="qtExpModeFilter" checked style="width:auto"> Theo bộ lọc/tìm kiếm đang hiển thị trên màn hình
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-top:8px">
+      <input type="radio" name="qtExpMode" value="range" id="qtExpModeRange" style="width:auto"> Theo khoảng ngày hiệu lực cụ thể
+    </label>
+    <div id="qtExpRangeBox" style="display:none;margin-top:10px">
+      <label>Từ ngày</label><input type="date" id="qtExpFrom">
+      <label>Đến ngày</label><input type="date" id="qtExpTo">
+    </div>
+    <p id="qtExpCount" style="font-size:12px;color:#5d4037;margin-top:12px;font-weight:700"></p>
+    <div class="qt-modal-actions" style="flex-wrap:wrap">
+      <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtExportOv').classList.remove('open')">Hủy</button>
+      <button class="qt-btn" style="background:#1d6f42;color:#fff;border-color:#155c34" onclick="qtExportExcel()">📊 Xuất Excel (.csv)</button>
+      <button class="qt-btn" style="background:#2b579a;color:#fff;border-color:#1e3f70" onclick="qtExportWord()">📄 Xuất Word (.doc)</button>
+    </div>
+    <div class="hint" style="margin-top:10px">File Excel dạng .csv mở được trực tiếp bằng Excel/Google Sheets. File Word dạng .doc mở được trực tiếp bằng Microsoft Word.</div>
+  </div>
+</div>
+
+<div class="qt-modal-ov" id="qtStatsOv">
+  <div class="qt-modal" id="qtStatsModalBox" style="max-width:min(960px,92vw);max-height:86vh;overflow:auto">
+    <div style="position:absolute;top:16px;right:20px;display:flex;gap:6px">
+      <button class="qt-maxbtn" id="qtMaxBtn" onclick="qtToggleMaximize()">⛶ Phóng to</button>
+      <button class="qt-maxbtn" onclick="document.getElementById('qtStatsOv').classList.remove('open')" style="color:#a33">✕ Đóng</button>
+    </div>
+    <h3>📊 Thống kê tuân thủ đọc quy trình</h3>
+    <p style="font-size:12px;color:#5d4037;margin:2px 0 12px">Xếp theo tỷ lệ hoàn thành từ thấp đến cao — ưu tiên nhắc những người còn thiếu nhiều.</p>
+    <label style="font-size:12px;font-weight:700;color:#5d4037">Chọn nhóm chuyên môn để xem riêng</label>
+    <select id="qtStatsGroupFilter" onchange="qtOpenStatsModal(true)" style="border:1.5px solid #e0d2c8;border-radius:7px;padding:6px 8px;font-size:12.5px;margin-bottom:10px">
+      <option value="">— Tất cả nhóm —</option>
+    </select>
+    <div id="qtStatsBody"></div>
+    <div class="qt-modal-actions">
+      <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtStatsOv').classList.remove('open')">Đóng</button>
     </div>
   </div>
 </div>
@@ -10046,6 +10181,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-top:12px">
       <input type="checkbox" id="qtv_hethieuluc" style="width:auto"> Đánh dấu văn bản này đã hết hiệu lực (bị thay thế sớm hơn chu kỳ)
     </label>
+    <label style="margin-top:12px">Áp dụng cho nhóm chuyên môn (không tick gì = áp dụng mọi người)</label>
+    <div id="qtv_apdungnhom_box" style="display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;font-weight:400;margin-bottom:6px"></div>
     <div class="qt-modal-actions">
       <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtValidityOv').classList.remove('open')">Hủy</button>
       <button class="qt-btn solid" style="color:#fff" onclick="qtSaveValidity()">Lưu thay đổi</button>
@@ -10056,6 +10193,41 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 <script>
 (function(){
   var qtSops=[], qtReadLog=[], qtStaffNames=[];
+  var qtStaffGroups={}; // {tenNV: 'BS'|'ĐD'|'GM'|'HS'|'KTV'|'Khác'}
+  var QT_NHOM_CD_SEED = [
+    {v:'BS', l:'Bác sĩ'},
+    {v:'ĐD', l:'Điều dưỡng'},
+    {v:'GM', l:'Gây mê'},
+    {v:'HS', l:'Hộ sinh'},
+    {v:'KTV', l:'Kỹ thuật viên'},
+    {v:'Khac', l:'Khác'}
+  ];
+  var QT_NHOM_CD = QT_NHOM_CD_SEED.slice(); // sẽ được thay bằng dữ liệu Firebase khi tải xong
+  try{
+    db.ref('nhomCMDanhMuc').on('value', function(snap){
+      var val = snap.val();
+      if(!val){
+        var seedObj={}; QT_NHOM_CD_SEED.forEach(function(g){seedObj[g.v]=g.l;});
+        db.ref('nhomCMDanhMuc').set(seedObj);
+        return;
+      }
+      QT_NHOM_CD = Object.keys(val).map(function(k){return {v:k, l:val[k]};}).sort(function(a,b){return a.l.localeCompare(b.l,'vi');});
+      qtRender();
+      if(document.getElementById('qtCatalogTableBox')) qtRenderCatalogTable();
+    });
+  }catch(e){ console.warn('Không tải được danh mục nhóm CM:', e); }
+  try{
+    db.ref('staffGroups').on('value', function(snap){
+      qtStaffGroups = snap.val() || {};
+      qtRender();
+    });
+  }catch(e){ console.warn('Không tải được nhóm chuyên môn nhân viên:', e); }
+  function qtProcAppliesTo(s, group){
+    var ap = s.apDungNhom;
+    if(!ap || !Array.isArray(ap) || ap.length===0 || ap.indexOf('ALL')>=0) return true; // chưa khai báo = áp dụng mọi người
+    if(!group) return true; // nhân viên chưa được gán nhóm = an toàn, coi như áp dụng
+    return ap.indexOf(group)>=0;
+  }
   var qtActiveFilter='Tất cả', qtOpenId=null, qtGroupMode='khoa', qtActiveTab='manual';
   var qtQuickFilter='all'; // 'all' | 'new' | 'review' | 'unread'
   window.qtSetQuickFilter=function(mode){ qtQuickFilter = (qtQuickFilter===mode && mode!=='all') ? 'all' : mode; qtRender(); };
@@ -10204,10 +10376,9 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 
   function qtRenderStats(){
     var total=qtSops.length, newCount=qtSops.filter(function(s){return qtIsNewRec(s);}).length;
-    var totalStaff=qtStaffNames.length;
     var fullyRead=qtSops.filter(function(s){
-      var readers={}; qtReadLog.filter(function(r){return r.sopId===s._id;}).forEach(function(r){readers[r.staffName]=true;});
-      return totalStaff>0 && Object.keys(readers).length>=totalStaff;
+      var readers = qtReadersFor(s._id);
+      return readers.length>0 && readers.every(function(r){return r.read;});
     }).length;
     var needReview=qtSops.filter(function(s){var st=qtValidityStatus(s).key; return st==='het'||st==='sap';}).length;
     var notFullyRead = total - fullyRead;
@@ -10221,14 +10392,31 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   }
 
   function qtReadersFor(sopId){
+    var s = qtSops.find(function(x){return x._id===sopId;});
     var readSet={};
     qtReadLog.filter(function(r){return r.sopId===sopId;}).forEach(function(r){readSet[r.staffName]=true;});
-    return qtStaffNames.map(function(n){return {name:n, read:!!readSet[n]};});
+    var scopedNames = s ? qtStaffNames.filter(function(n){return qtProcAppliesTo(s, qtStaffGroups[n]);}) : qtStaffNames;
+    return scopedNames.map(function(n){return {name:n, read:!!readSet[n]};});
   }
 
-  window.qtToggle=function(id){qtOpenId = qtOpenId===id?null:id; qtRender();};
+  var qtViews = {}; // {sopId: count}
+  try{
+    db.ref('quyTrinhViews').on('value', function(snap){
+      qtViews = snap.val() || {};
+      qtRenderCards();
+    });
+  }catch(e){ console.warn('Không tải được lượt tra cứu quy trình:', e); }
 
-  function qtRenderCards(){
+  window.qtToggle=function(id){
+    var wasOpen = qtOpenId===id;
+    qtOpenId = wasOpen?null:id;
+    if(!wasOpen){
+      try{ db.ref('quyTrinhViews').child(id).transaction(function(cur){ return (cur||0)+1; }); }catch(e){}
+    }
+    qtRender();
+  };
+
+  function qtGetFilteredList(){
     var q=(document.getElementById('qtSearchInput').value||'').trim().toLowerCase();
     var f=qtGroupField();
     var list=qtSops.filter(function(s){return qtActiveFilter==='Tất cả' || qtFieldValue(s,f)===qtActiveFilter;});
@@ -10236,18 +10424,24 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     if(qtQuickFilter==='new') list=list.filter(function(s){return qtIsNewRec(s);});
     else if(qtQuickFilter==='review') list=list.filter(function(s){var st=qtValidityStatus(s).key; return st==='het'||st==='sap';});
     else if(qtQuickFilter==='unread') list=list.filter(function(s){
-      var readers={}; qtReadLog.filter(function(r){return r.sopId===s._id;}).forEach(function(r){readers[r.staffName]=true;});
-      return !(qtStaffNames.length>0 && Object.keys(readers).length>=qtStaffNames.length);
+      var readers = qtReadersFor(s._id);
+      return !(readers.length>0 && readers.every(function(r){return r.read;}));
     });
+    return list;
+  }
+
+  function qtRenderCards(){
+    var list = qtGetFilteredList();
     var wrap=document.getElementById('qtCardList');
     if(list.length===0){wrap.innerHTML='<div class="qt-empty">Không tìm thấy quy trình phù hợp.</div>';return;}
     wrap.innerHTML=list.map(function(s){
       var open=qtOpenId===s._id?'open':'';
       var readers=qtReadersFor(s._id);
       var readCount=readers.filter(function(r){return r.read;}).length;
+      var scopeTotal = readers.length;
       var staffListId = 'qtStaffDatalist';
-      var readListHtml = qtStaffNames.length ? readers.map(function(r){return '<span class="qt-who '+(r.read?'':'no')+'">'+(r.read?'✓':'✗')+' '+r.name+'</span>';}).join('')
-        : '<span style="opacity:.6">Chưa có danh sách nhân viên (staffList trống).</span>';
+      var readListHtml = scopeTotal ? readers.map(function(r){return '<span class="qt-who '+(r.read?'':'no')+'">'+(r.read?'✓':'✗')+' '+r.name+'</span>';}).join('')
+        : '<span style="opacity:.6">Chưa có nhân viên phù hợp nhóm áp dụng của quy trình này.</span>';
       return '<div class="qt-card '+open+'" data-id="'+s._id+'">'+
         '<div class="qt-chead" onclick="qtToggle(\''+s._id+'\')">'+
           '<div style="flex:1;min-width:0">'+
@@ -10255,10 +10449,11 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
               '<span class="qt-nhom" style="'+qtNhomStyle(s.nhom)+'">'+(s.nhom||'Chưa phân loại')+'</span>'+
               '<span class="qt-nhom" style="background:#eef2f5;color:#37474f;border-color:#cfd8dc">Năm '+qtYearOf(s)+'</span>'+
               '<span class="qt-nhom" style="background:'+qtValidityStatus(s).bg+';color:'+qtValidityStatus(s).fg+';border-color:'+qtValidityStatus(s).bd+'">'+qtValidityStatus(s).label+'</span>'+
+              (s.apDungNhom && s.apDungNhom.length && s.apDungNhom.indexOf('ALL')<0 ? '<span class="qt-nhom" style="background:#ede7f6;color:#4527a0;border-color:#d1c4e9">Áp dụng: '+s.apDungNhom.join(', ')+'</span>' : '')+
               (qtIsAdmin() ? '<button onclick="event.stopPropagation();qtOpenValidityModal(\''+s._id+'\')" style="font-size:10px;border:1px solid #bcaaa4;background:#fff;color:#5d4037;border-radius:4px;padding:1px 6px;cursor:pointer">✏️ Sửa hiệu lực</button>' : '')+
               (qtIsNewRec(s)?'<span class="qt-new">MỚI</span>':'')+'</div>'+
             '<p class="qt-title">'+s.ten+'</p>'+
-            '<div class="qt-meta">'+s.khoa+' · hiệu lực '+s.ngay+' · '+readCount+'/'+qtStaffNames.length+' đã đọc</div>'+
+            '<div class="qt-meta">'+s.khoa+' · hiệu lực '+s.ngay+' · '+readCount+'/'+scopeTotal+' đã đọc · 👁 '+(qtViews[s._id]||0)+' lượt tra cứu</div>'+
           '</div><div class="qt-chev">▶</div></div>'+
         '<div class="qt-cbody">'+
           '<div class="qt-sec"><h4>Mục đích</h4><p>'+s.mucdich+'</p></div>'+
@@ -10266,8 +10461,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
             (s.trachnhiem||[]).map(function(r){return '<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>';}).join('')+'</table></div>'+
           '<div class="qt-sec"><h4>Các bước cốt lõi</h4><ol class="qt-steps">'+(s.buoc||[]).map(function(b){return '<li>'+b+'</li>';}).join('')+'</ol></div>'+
           '<div class="qt-sec"><h4>⚠ Lưu ý / rủi ro an toàn</h4><div class="qt-warn">'+s.luuy+'</div></div>'+
-          '<div class="qt-foot"><span style="font-size:11.5px;color:#4e342e;font-weight:700">Đã đọc: '+readCount+'/'+qtStaffNames.length+'</span>'+
-            (qtIsAdmin() && qtStaffNames.length>0 && readCount<qtStaffNames.length ? '<button class="qt-readbtn" style="border-color:#a9631a;color:#a9631a" onclick="event.stopPropagation();qtRemindUnread(\''+s._id+'\')">📣 Nhắc đọc ('+(qtStaffNames.length-readCount)+' người)</button>' : '')+
+          '<div class="qt-foot"><span style="font-size:11.5px;color:#4e342e;font-weight:700">Đã đọc: '+readCount+'/'+scopeTotal+'</span>'+
+            (qtIsAdmin() && scopeTotal>0 && readCount<scopeTotal ? '<button class="qt-readbtn" style="border-color:#a9631a;color:#a9631a" onclick="event.stopPropagation();qtRemindUnread(\''+s._id+'\')">📣 Nhắc đọc ('+(scopeTotal-readCount)+' người)</button>' : '')+
             '<div class="qt-readctl"><input list="'+staffListId+'" id="qtSel_'+s._id+'" placeholder="Gõ để tìm tên nhân viên..." '+(qtStaffNames.length?'':'disabled')+' style="min-width:190px">'+
             '<button class="qt-readbtn" '+(qtStaffNames.length?'':'disabled')+' onclick="event.stopPropagation();qtConfirmRead(\''+s._id+'\')">Xác nhận đã đọc</button></div></div>'+
           '<div class="qt-readlist">'+readListHtml+'</div>'+
@@ -10330,6 +10525,564 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     }
   }catch(e){ console.warn('Không gắn được listener cảnh báo quy trình:', e); }
 
+  window.qtToggleMaximize=function(){
+    var box = document.getElementById('qtStatsModalBox');
+    var btn = document.getElementById('qtMaxBtn');
+    var isMax = box.classList.toggle('qt-maximized');
+    btn.textContent = isMax ? '⛶ Thu nhỏ' : '⛶ Phóng to';
+  };
+
+  document.addEventListener('change', function(e){
+    if(e.target && (e.target.id==='qtExpModeFilter' || e.target.id==='qtExpModeRange')){
+      document.getElementById('qtExpRangeBox').style.display = document.getElementById('qtExpModeRange').checked ? 'block':'none';
+      qtUpdateExportCount();
+    }
+  });
+  document.addEventListener('input', function(e){
+    if(e.target && (e.target.id==='qtExpFrom' || e.target.id==='qtExpTo')) qtUpdateExportCount();
+  });
+
+  function qtResolveExportList(){
+    if(document.getElementById('qtExpModeRange').checked){
+      var fromV = document.getElementById('qtExpFrom').value;
+      var toV = document.getElementById('qtExpTo').value;
+      var fromD = fromV ? new Date(fromV) : null;
+      var toD = toV ? new Date(toV) : null;
+      return qtSops.filter(function(s){
+        var d = qtParseDate(s.ngay);
+        if(!d) return false;
+        if(fromD && d < fromD) return false;
+        if(toD && d > toD) return false;
+        return true;
+      });
+    }
+    return qtGetFilteredList();
+  }
+  function qtUpdateExportCount(){
+    var n = qtResolveExportList().length;
+    document.getElementById('qtExpCount').textContent = 'Sẽ xuất '+n+' quy trình.';
+  }
+  window.qtToggleMaximize2=function(){
+    var box = document.getElementById('qtNewStatsBox');
+    var btn = document.getElementById('qtNewStatsMaxBtn');
+    var isMax = box.classList.toggle('qt-maximized');
+    btn.textContent = isMax ? '⛶ Thu nhỏ' : '⛶ Phóng to';
+  };
+  window.qtToggleMaximize3=function(){
+    var box = document.getElementById('qtGroupBox');
+    var btn = document.getElementById('qtGroupMaxBtn');
+    var isMax = box.classList.toggle('qt-maximized');
+    btn.textContent = isMax ? '⛶ Thu nhỏ' : '⛶ Phóng to';
+  };
+  var qtCatalogReturnToGroup = false;
+  window.qtOpenCatalogModal=function(){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới chỉnh được danh mục.'); return; }
+    qtCatalogReturnToGroup = document.getElementById('qtGroupOv').classList.contains('open');
+    document.getElementById('qtGroupOv').classList.remove('open');
+    document.getElementById('qtCat_ma').value='';
+    document.getElementById('qtCat_ten').value='';
+    qtRenderCatalogTable();
+    document.getElementById('qtCatalogOv').classList.add('open');
+  };
+  window.qtCloseCatalogModal=function(){
+    document.getElementById('qtCatalogOv').classList.remove('open');
+    if(qtCatalogReturnToGroup){
+      qtCatalogReturnToGroup = false;
+      window.qtOpenGroupModal();
+    }
+  };
+  function qtRenderCatalogTable(){
+    var box = document.getElementById('qtCatalogTableBox');
+    if(!box) return;
+    if(QT_NHOM_CD.length===0){ box.innerHTML='<div class="qt-empty">Chưa có nhóm nào.</div>'; return; }
+    box.innerHTML = '<table class="qt-tb" style="font-size:12.5px"><tr><th style="width:70px">Mã</th><th>Tên hiển thị</th><th style="width:100px">Đang dùng</th><th style="width:50px"></th></tr>'+
+      QT_NHOM_CD.map(function(g){
+        var staffCount = Object.keys(qtStaffGroups).filter(function(n){return qtStaffGroups[n]===g.v;}).length;
+        var procCount = qtSops.filter(function(s){return Array.isArray(s.apDungNhom) && s.apDungNhom.indexOf(g.v)>=0;}).length;
+        var inUse = staffCount>0 || procCount>0;
+        var usageHtml = inUse
+          ? '<span style="color:#a9631a;font-size:11px">'+staffCount+' NV, '+procCount+' QT</span>'
+          : '<span style="color:#1f6b45;font-size:11px">Chưa dùng</span>';
+        return '<tr><td><code>'+g.v+'</code></td>'+
+          '<td><input value="'+g.l.replace(/"/g,'&quot;')+'" onchange="qtRenameCatalogItem(\''+g.v.replace(/'/g,"\\'")+'\', this.value)" style="width:100%;border:1px solid #e0d2c8;border-radius:5px;padding:3px 6px"></td>'+
+          '<td>'+usageHtml+'</td>'+
+          '<td><button onclick="qtDeleteCatalogItem(\''+g.v.replace(/'/g,"\\'")+'\')" style="border:none;background:none;color:#a33;cursor:pointer;font-size:14px">✕</button></td></tr>';
+      }).join('')+'</table>';
+  }
+  window.qtAddCatalogItem=function(){
+    var ma = document.getElementById('qtCat_ma').value.trim();
+    var ten = document.getElementById('qtCat_ten').value.trim();
+    if(!ma || !ten){ alert('Vui lòng nhập cả Mã và Tên hiển thị.'); return; }
+    if(QT_NHOM_CD.some(function(g){return g.v===ma;})){ alert('Mã "'+ma+'" đã tồn tại, vui lòng chọn mã khác.'); return; }
+    db.ref('nhomCMDanhMuc').child(ma).set(ten);
+    document.getElementById('qtCat_ma').value='';
+    document.getElementById('qtCat_ten').value='';
+  };
+  window.qtRenameCatalogItem=function(ma, tenMoi){
+    if(!tenMoi.trim()){ alert('Tên hiển thị không được để trống.'); qtRenderCatalogTable(); return; }
+    db.ref('nhomCMDanhMuc').child(ma).set(tenMoi.trim());
+  };
+  window.qtDeleteCatalogItem=function(ma){
+    var staffCount = Object.keys(qtStaffGroups).filter(function(n){return qtStaffGroups[n]===ma;}).length;
+    var procCount = qtSops.filter(function(s){return Array.isArray(s.apDungNhom) && s.apDungNhom.indexOf(ma)>=0;}).length;
+    var label = (QT_NHOM_CD.find(function(g){return g.v===ma;})||{}).l || ma;
+
+    if(staffCount===0 && procCount===0){
+      if(!confirm('Xóa nhóm "'+label+'" ('+ma+') khỏi danh mục? Hiện chưa có ai/quy trình nào dùng mã này, xóa an toàn.')) return;
+      db.ref('nhomCMDanhMuc').child(ma).remove();
+      return;
+    }
+
+    var msg = '⚠️ CẢNH BÁO: Nhóm "'+label+'" ('+ma+') đang được sử dụng bởi:\n'+
+      '- '+staffCount+' nhân viên\n'+
+      '- '+procCount+' quy trình (đã tick áp dụng riêng cho nhóm này)\n\n'+
+      'Nếu xóa: dữ liệu của những nhân viên/quy trình đó KHÔNG bị mất, nhưng mã "'+ma+'" sẽ không còn hiển thị tên trong danh mục nữa (chỉ còn lưu mã thô, không có tên), và không thể gán mới cho ai khác.\n\n'+
+      'Để xác nhận xóa, vui lòng gõ chính xác mã "'+ma+'" vào ô bên dưới:';
+    var typed = window.prompt(msg);
+    if(typed===null) return;
+    if(typed.trim()!==ma){ alert('Mã gõ vào không khớp ("'+typed+'" ≠ "'+ma+'") — đã HỦY xóa để an toàn.'); return; }
+    db.ref('nhomCMDanhMuc').child(ma).remove();
+    alert('Đã xóa nhóm "'+label+'" khỏi danh mục. Anh nên vào "Gán nhóm chuyên môn" để gán lại nhóm khác cho '+staffCount+' nhân viên còn đang treo mã cũ.');
+  };
+
+  window.qtOpenGroupModal=function(){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới gán được nhóm chuyên môn.'); return; }
+    document.getElementById('qtGroupBox').classList.remove('qt-maximized');
+    document.getElementById('qtGroupMaxBtn').textContent='⛶ Phóng to';
+    document.getElementById('qtGroupSearch').value='';
+    var bulkSel = document.getElementById('qtGroupBulkVal');
+    bulkSel.innerHTML = '<option value="">— Gán hàng loạt cho kết quả đang lọc —</option>'+
+      QT_NHOM_CD.map(function(g){return '<option value="'+g.v+'">'+g.l+' ('+g.v+')</option>';}).join('');
+    document.getElementById('qtGroupCodeHint').textContent = QT_NHOM_CD.map(function(g){return g.v+' = '+g.l;}).join(', ');
+    document.getElementById('qtGroupBulkPaste').value='';
+    document.getElementById('qtGroupPasteResult').textContent='';
+    qtRenderGroupTable();
+    document.getElementById('qtGroupOv').classList.add('open');
+  };
+  window.qtRenderGroupTable=function(){
+    var q = document.getElementById('qtGroupSearch').value.trim().toLowerCase();
+    var names = qtStaffNames.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
+    var opts = '<option value="">—</option>'+QT_NHOM_CD.map(function(g){return '<option value="'+g.v+'">'+g.l+'</option>';}).join('');
+    var html = '<table class="qt-tb" style="font-size:12.5px"><tr><th>Nhân viên</th><th style="width:160px">Nhóm chuyên môn</th></tr>'+
+      names.map(function(n){
+        var cur = qtStaffGroups[n]||'';
+        var rowOpts = opts.replace('value="'+cur+'"','value="'+cur+'" selected');
+        return '<tr><td>'+n+'</td><td><select onchange="qtAssignGroup(\''+n.replace(/'/g,"\\'")+'\', this.value)">'+rowOpts+'</select></td></tr>';
+      }).join('')+'</table>';
+    document.getElementById('qtGroupTableBox').innerHTML = html;
+  };
+  window.qtAssignGroup=function(name, val){
+    if(val) db.ref('staffGroups').child(name).set(val);
+    else db.ref('staffGroups').child(name).remove();
+  };
+  window.qtApplyBulkPasteGroups=function(){
+    var raw = document.getElementById('qtGroupBulkPaste').value.trim();
+    var resultEl = document.getElementById('qtGroupPasteResult');
+    if(!raw){ resultEl.textContent='Chưa dán nội dung nào.'; resultEl.style.color='#a33'; return; }
+    var validCodes = QT_NHOM_CD.map(function(g){return g.v;});
+    var lines = raw.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    var updates = {};
+    var okCount=0, errLines=[];
+    lines.forEach(function(line, idx){
+      var parts = line.split(',');
+      var name = (parts[0]||'').trim();
+      var code = (parts[1]||'').trim();
+      if(!name || !code){ errLines.push('Dòng '+(idx+1)+': thiếu tên hoặc mã nhóm'); return; }
+      if(qtStaffNames.indexOf(name)<0){ errLines.push('Dòng '+(idx+1)+': không tìm thấy tên "'+name+'" trong danh sách nhân viên'); return; }
+      if(validCodes.indexOf(code)<0){ errLines.push('Dòng '+(idx+1)+': mã nhóm "'+code+'" không có trong danh mục ('+validCodes.join(', ')+')'); return; }
+      updates[name] = code;
+      okCount++;
+    });
+    if(okCount>0) db.ref('staffGroups').update(updates);
+    if(errLines.length===0){
+      resultEl.style.color='#1f6b45';
+      resultEl.textContent = '✓ Đã gán thành công cho '+okCount+' nhân viên.';
+      document.getElementById('qtGroupBulkPaste').value='';
+    } else {
+      resultEl.style.color='#a33';
+      resultEl.innerHTML = '✓ Đã gán '+okCount+' dòng hợp lệ. ⚠ '+errLines.length+' dòng lỗi:<br>'+errLines.slice(0,10).join('<br>')+(errLines.length>10?'<br>...':'');
+    }
+  };
+
+  window.qtBulkAssignGroup=function(){
+    var val = document.getElementById('qtGroupBulkVal').value;
+    if(!val){ alert('Vui lòng chọn nhóm cần gán hàng loạt.'); return; }
+    var q = document.getElementById('qtGroupSearch').value.trim().toLowerCase();
+    var names = qtStaffNames.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
+    if(names.length===0) return;
+    if(!confirm('Gán nhóm "'+val+'" cho '+names.length+' nhân viên đang hiển thị (theo kết quả tìm kiếm)?')) return;
+    var updates = {};
+    names.forEach(function(n){ updates[n]=val; });
+    db.ref('staffGroups').update(updates);
+  };
+
+  window.qtExportStaffListWord=function(){
+    var q = document.getElementById('qtGroupSearch').value.trim().toLowerCase();
+    var names = qtStaffNames.filter(function(n){return n.toLowerCase().indexOf(q)>=0;}).slice().sort(function(a,b){return a.localeCompare(b,'vi');});
+    if(names.length===0){ alert('Không có nhân viên nào để xuất.'); return; }
+    var nhomLabel = {}; QT_NHOM_CD.forEach(function(g){nhomLabel[g.v]=g.l;});
+    var rowsHtml = names.map(function(n,i){
+      var g = qtStaffGroups[n];
+      var gLabel = g ? (nhomLabel[g]||g) : '……………………';
+      return '<tr><td style="text-align:center">'+(i+1)+'</td><td>'+n+'</td><td style="text-align:center">'+gLabel+'</td>'+
+        '<td>&nbsp;</td></tr>';
+    }).join('');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><title>Danh sách nhân viên - Nhóm chuyên môn</title>'+
+      '<style>@page{size:A4;margin:2cm}body{font-family:"Times New Roman",serif;font-size:13px}'+
+      'h2{text-align:center;margin-bottom:2px}h4{text-align:center;margin-top:0;font-weight:normal}'+
+      'table{border-collapse:collapse;width:100%;margin-top:14px}th,td{border:1px solid #000;padding:5px 8px;font-size:13px}'+
+      'th{background:#eee;text-align:center}thead{display:table-header-group}.sig{margin-top:40px;display:flex;justify-content:flex-end}'+
+      '.sig div{text-align:center;width:220px}</style></head><body>'+
+      '<h4>SỞ Y TẾ TỈNH GIA LAI<br>BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</h4>'+
+      '<h2>DANH SÁCH NHÂN VIÊN — NHÓM CHUYÊN MÔN</h2>'+
+      '<p style="text-align:center">Khoa Gây mê Hồi sức — Ngày lập: '+today()+' — Tổng số: '+names.length+' người</p>'+
+      '<table><thead><tr><th style="width:40px">STT</th><th>Họ và tên</th><th style="width:140px">Nhóm chuyên môn hiện tại</th><th style="width:160px">Ghi chú / Điều chỉnh</th></tr></thead><tbody>'+
+      rowsHtml+'</tbody></table>'+
+      '<p style="margin-top:10px;font-style:italic;font-size:12px">Ghi chú: cột "Nhóm chuyên môn hiện tại" hiển thị dữ liệu tại thời điểm xuất; dòng có dấu "…" là chưa được gán, đề nghị điền tay vào cột Ghi chú (BS/ĐD/GM/HS/KTV/Khác) rồi gửi lại để cập nhật hệ thống.</p>'+
+      '<div class="sig"><div><b>Gia Lai, ngày ….. tháng ….. năm……</b><br>Người lập danh sách<br><br><br><br>………………………………</div></div>'+
+      '</body></html>';
+    qtDownloadBlob(html, 'danh_sach_nhan_vien_nhom_cm_'+today()+'.doc', 'application/msword;charset=utf-8;');
+  };
+
+  window.qtOpenNewStatsModal=function(){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới xem được báo cáo này.'); return; }
+    document.getElementById('qtNewStatsBox').classList.remove('qt-maximized');
+    document.getElementById('qtNewStatsMaxBtn').textContent='⛶ Phóng to';
+    document.getElementById('qtNsFrom').value='';
+    document.getElementById('qtNsTo').value='';
+    document.getElementById('qtNsAsOf').value='';
+    var gsel = document.getElementById('qtNsGroupFilter');
+    gsel.innerHTML = '<option value="">— Tất cả nhóm —</option>'+
+      QT_NHOM_CD.map(function(g){return '<option value="'+g.v+'">'+g.l+' ('+g.v+')</option>';}).join('')+
+      '<option value="__none__">— Chưa được gán nhóm —</option>';
+    document.getElementById('qtNewStatsResult').innerHTML='';
+    document.getElementById('qtNewStatsOv').classList.add('open');
+  };
+
+  var qtNsLastReport = null; // lưu kết quả lần chạy gần nhất để dùng khi xuất
+  var qtComplianceLastReport = null;
+  window.qtExportComplianceExcel=function(){
+    if(!qtComplianceLastReport) return;
+    var rep = qtComplianceLastReport;
+    var rows = ['Nhân viên;Nhóm;Tổng đã đọc;Tổng quy trình áp dụng;Tỷ lệ (%);Quy trình MỚI đã đọc;Tổng MỚI;Quy trình CŨ đã đọc;Tổng CŨ;Còn thiếu (mã số)'];
+    rep.rows.forEach(function(r){
+      rows.push([qtCsvEscape(r.name), qtCsvEscape(r.group||''), r.readCount, r.total, r.pct,
+        r.readNew, r.newTotal, r.readOld, r.oldTotal, qtCsvEscape(r.missing.join('; '))].join(';'));
+    });
+    var csv = '\uFEFF'+rows.join('\r\n');
+    qtDownloadBlob(csv, 'thong_ke_tuan_thu_'+today()+'.csv', 'text/csv;charset=utf-8;');
+  };
+  window.qtExportComplianceWord=function(){
+    if(!qtComplianceLastReport) return;
+    var rep = qtComplianceLastReport;
+    var groupRowsHtml = rep.groupSummary.map(function(g){
+      return '<tr><td>'+g.label+' ('+g.code+')</td><td>'+g.memberCount+'</td><td>'+g.fullCount+'/'+g.memberCount+'</td><td>'+g.avgPct+'%</td></tr>';
+    }).join('');
+    var rowsHtml = rep.rows.map(function(r,i){
+      return '<tr><td>'+(i+1)+'</td><td>'+r.name+'</td><td>'+(r.group||'—')+'</td><td>'+r.readCount+'/'+r.total+'</td><td>'+r.pct+'%</td>'+
+        '<td>'+r.readNew+'/'+r.newTotal+'</td><td>'+r.readOld+'/'+r.oldTotal+'</td><td>'+(r.missing.join(', ')||'—')+'</td></tr>';
+    }).join('');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><title>Thống kê tuân thủ đọc quy trình</title>'+
+      '<style>body{font-family:"Times New Roman",serif;font-size:13px}h2{text-align:center}table{border-collapse:collapse;width:100%;margin-bottom:16px}'+
+      'th,td{border:1px solid #333;padding:5px 7px;font-size:12px}th{background:#eee}thead{display:table-header-group}</style></head><body>'+
+      '<h2>THỐNG KÊ TUÂN THỦ ĐỌC QUY TRÌNH<br>KHOA GÂY MÊ HỒI SỨC — BVĐK TRUNG TÂM TỈNH GIA LAI</h2>'+
+      '<p>Ngày lập báo cáo: '+today()+(rep.groupFilter?(' — Nhóm đang lọc: '+(rep.groupFilter==='__none__'?'Chưa gán':rep.groupFilter)):'')+'</p>'+
+      '<h3>Tổng hợp theo nhóm chuyên môn</h3>'+
+      '<table><thead><tr><th>Nhóm</th><th>Số người</th><th>Đã đọc đủ 100%</th><th>Tỷ lệ TB</th></tr></thead><tbody>'+groupRowsHtml+'</tbody></table>'+
+      '<h3>Chi tiết từng người</h3>'+
+      '<table><thead><tr><th>STT</th><th>Họ và tên</th><th>Nhóm</th><th>Tổng đã đọc</th><th>Tỷ lệ</th><th>MỚI đã đọc</th><th>CŨ đã đọc</th><th>Còn thiếu (mã số)</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'+
+      '</body></html>';
+    qtDownloadBlob(html, 'thong_ke_tuan_thu_'+today()+'.doc', 'application/msword;charset=utf-8;');
+  };
+
+  function qtComputeNewStats(){
+    var fromV = document.getElementById('qtNsFrom').value;
+    var toV = document.getElementById('qtNsTo').value;
+    var asOfV = document.getElementById('qtNsAsOf').value;
+
+    var targetSops;
+    if(fromV || toV){
+      var fromD = fromV ? new Date(fromV) : null;
+      var toD = toV ? new Date(toV) : null;
+      targetSops = qtSops.filter(function(s){
+        var d = qtParseDate(s.ngay);
+        if(!d) return false;
+        if(fromD && d < fromD) return false;
+        if(toD && d > toD) return false;
+        return true;
+      });
+    } else {
+      targetSops = qtSops.filter(function(s){ return qtIsNewRec(s); });
+    }
+
+    var cutoff = null;
+    if(asOfV){ cutoff = new Date(asOfV); cutoff.setHours(23,59,59,999); }
+
+    var groupFilter = document.getElementById('qtNsGroupFilter').value;
+    var namesToUse = qtStaffNames.filter(function(n){
+      if(!groupFilter) return true;
+      if(groupFilter==='__none__') return !qtStaffGroups[n];
+      return qtStaffGroups[n]===groupFilter;
+    });
+
+    var rows = namesToUse.map(function(name){
+      var group = qtStaffGroups[name];
+      var myTargetSops = targetSops.filter(function(s){return qtProcAppliesTo(s, group);});
+      var readSet = {};
+      qtReadLog.filter(function(r){
+        if(r.staffName!==name) return false;
+        if(cutoff){ var ts=new Date(r.ts); if(ts>cutoff) return false; }
+        return true;
+      }).forEach(function(r){ readSet[r.sopId]=true; });
+      var readCount = myTargetSops.filter(function(s){return readSet[s._id];}).length;
+      var missing = myTargetSops.filter(function(s){return !readSet[s._id];}).map(function(s){return s.ma;});
+      var pct = myTargetSops.length>0 ? Math.round(readCount/myTargetSops.length*100) : 100;
+      return {name:name, group:group, readCount:readCount, total:myTargetSops.length, pct:pct, missing:missing};
+    });
+    rows.sort(function(a,b){return a.pct-b.pct;});
+
+    // Tổng hợp theo nhóm (tính trên toàn bộ nhân viên đã gán nhóm, không phụ thuộc bộ lọc groupFilter)
+    var groupSummary = QT_NHOM_CD.map(function(g){
+      var members = qtStaffNames.filter(function(n){return qtStaffGroups[n]===g.v;});
+      if(members.length===0) return null;
+      var fullCount=0, pctSum=0;
+      members.forEach(function(name){
+        var myTargetSops = targetSops.filter(function(s){return qtProcAppliesTo(s, g.v);});
+        var readSet={}; qtReadLog.filter(function(r){
+          if(r.staffName!==name) return false;
+          if(cutoff){ var ts=new Date(r.ts); if(ts>cutoff) return false; }
+          return true;
+        }).forEach(function(r){readSet[r.sopId]=true;});
+        var rc = myTargetSops.filter(function(s){return readSet[s._id];}).length;
+        var p = myTargetSops.length>0 ? Math.round(rc/myTargetSops.length*100) : 100;
+        if(p===100) fullCount++;
+        pctSum += p;
+      });
+      return {label:g.l, code:g.v, memberCount:members.length, fullCount:fullCount, avgPct:Math.round(pctSum/members.length)};
+    }).filter(Boolean);
+
+    return {targetSops:targetSops, rows:rows, fromV:fromV, toV:toV, asOfV:asOfV, groupFilter:groupFilter, groupSummary:groupSummary};
+  }
+
+  window.qtRunNewStats=function(){
+    var rep = qtComputeNewStats();
+    qtNsLastReport = rep;
+    var box = document.getElementById('qtNewStatsResult');
+    if(rep.targetSops.length===0){
+      box.innerHTML = '<div class="qt-empty">Không có quy trình nào phù hợp với khoảng ngày đã chọn.</div>';
+      return;
+    }
+    var fullCount = rep.rows.filter(function(r){return r.pct===100;}).length;
+    var scopeTxt = (rep.fromV||rep.toV) ? ('Quy trình có ngày hiệu lực từ '+(rep.fromV||'...')+' đến '+(rep.toV||'...')) : 'Các quy trình đang gắn nhãn MỚI hiện tại (≤30 ngày)';
+    var asOfTxt = rep.asOfV ? ('Tính đến ngày '+rep.asOfV) : 'Tính đến thời điểm hiện tại';
+    var html = '<p style="font-size:12px;color:#5d4037"><b>Phạm vi:</b> '+scopeTxt+' — <b>'+rep.targetSops.length+' quy trình</b>. <b>'+asOfTxt+'.</b></p>';
+    html += '<div style="display:flex;gap:10px;margin:8px 0 12px;flex-wrap:wrap">'+
+      '<div class="qt-stat"><div class="n">'+rep.targetSops.length+'</div><div class="l">SỐ QUY TRÌNH TRONG PHẠM VI</div></div>'+
+      '<div class="qt-stat"><div class="n">'+fullCount+'/'+rep.rows.length+'</div><div class="l">NHÂN VIÊN ĐÃ ĐỌC ĐỦ 100%</div></div>'+
+      '<div class="qt-stat"><div class="n">'+(rep.rows.length-fullCount)+'</div><div class="l">NHÂN VIÊN CÒN THIẾU</div></div>'+
+      '</div>';
+    html += '<h4 style="font-size:13px;color:#4e342e;margin:12px 0 6px">Tổng hợp theo nhóm chuyên môn</h4>';
+    html += '<table class="qt-tb" style="font-size:12.5px;margin-bottom:14px"><tr><th>Nhóm</th><th style="width:80px">Số người</th><th style="width:100px">Đã đọc đủ 100%</th><th style="width:80px">Tỷ lệ TB</th></tr>';
+    rep.groupSummary.forEach(function(g){
+      var color = g.avgPct===100 ? '#1f6b45' : (g.avgPct>=50 ? '#a9631a' : '#a33');
+      html += '<tr><td>'+g.label+' ('+g.code+')</td><td>'+g.memberCount+'</td><td>'+g.fullCount+'/'+g.memberCount+'</td>'+
+        '<td style="color:'+color+';font-weight:700">'+g.avgPct+'%</td></tr>';
+    });
+    html += '</table>';
+    html += '<h4 style="font-size:13px;color:#4e342e;margin:10px 0 6px">Chi tiết từng người'+(rep.groupFilter?(' — nhóm đang lọc: '+(rep.groupFilter==='__none__'?'Chưa gán':rep.groupFilter)):'')+'</h4>';
+    html += '<table class="qt-tb" style="font-size:12.5px"><tr><th>Nhân viên</th><th style="width:60px">Nhóm</th><th style="width:90px">Đã đọc</th><th style="width:65px">Tỷ lệ</th><th>Còn thiếu (mã số)</th></tr>';
+    rep.rows.forEach(function(r){
+      var color = r.pct===100 ? '#1f6b45' : (r.pct>=50 ? '#a9631a' : '#a33');
+      html += '<tr><td>'+r.name+'</td><td>'+(r.group||'—')+'</td><td>'+r.readCount+'/'+r.total+'</td>'+
+        '<td style="color:'+color+';font-weight:700">'+r.pct+'%</td>'+
+        '<td style="font-size:11px;color:#795548">'+(r.missing.length? r.missing.join(', ') : '—')+'</td></tr>';
+    });
+    html += '</table>';
+    html += '<div class="qt-modal-actions" style="justify-content:flex-start;margin-top:14px">'+
+      '<button class="qt-btn" style="background:#1d6f42;color:#fff;border-color:#155c34" onclick="qtExportNewStatsExcel()">📊 Xuất Excel (.csv)</button>'+
+      '<button class="qt-btn" style="background:#2b579a;color:#fff;border-color:#1e3f70" onclick="qtExportNewStatsWord()">📄 Xuất Word (.doc)</button></div>';
+    box.innerHTML = html;
+  };
+
+  window.qtExportNewStatsExcel=function(){
+    if(!qtNsLastReport) return;
+    var rep = qtNsLastReport;
+    var rows = ['Nhân viên;Nhóm;Đã đọc;Tổng;Tỷ lệ (%);Còn thiếu (mã số)'];
+    rep.rows.forEach(function(r){
+      rows.push([qtCsvEscape(r.name), qtCsvEscape(r.group||''), r.readCount, r.total, r.pct, qtCsvEscape(r.missing.join('; '))].join(';'));
+    });
+    var csv = '\uFEFF'+rows.join('\r\n');
+    qtDownloadBlob(csv, 'bao_cao_doc_quy_trinh_moi_'+today()+'.csv', 'text/csv;charset=utf-8;');
+  };
+  window.qtExportNewStatsWord=function(){
+    if(!qtNsLastReport) return;
+    var rep = qtNsLastReport;
+    var scopeTxt = (rep.fromV||rep.toV) ? ('Quy trình có ngày hiệu lực từ '+(rep.fromV||'...')+' đến '+(rep.toV||'...')) : 'Các quy trình đang gắn nhãn MỚI (≤30 ngày tính đến hôm nay)';
+    var asOfTxt = rep.asOfV ? ('Tính đến ngày '+rep.asOfV) : 'Tính đến thời điểm hiện tại';
+    var rowsHtml = rep.rows.map(function(r,i){
+      return '<tr><td>'+(i+1)+'</td><td>'+r.name+'</td><td>'+r.readCount+'/'+r.total+'</td><td>'+r.pct+'%</td><td>'+(r.missing.join(', ')||'—')+'</td></tr>';
+    }).join('');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><title>Báo cáo đọc quy trình mới</title>'+
+      '<style>body{font-family:"Times New Roman",serif;font-size:13px}h2{text-align:center}table{border-collapse:collapse;width:100%}'+
+      'th,td{border:1px solid #333;padding:5px 7px;font-size:12px}th{background:#eee}thead{display:table-header-group}</style></head><body>'+
+      '<h2>BÁO CÁO TÌNH HÌNH ĐỌC QUY TRÌNH MỚI<br>KHOA GÂY MÊ HỒI SỨC — BVĐK TRUNG TÂM TỈNH GIA LAI</h2>'+
+      '<p><b>Phạm vi:</b> '+scopeTxt+' ('+rep.targetSops.length+' quy trình)<br><b>'+asOfTxt+'.</b><br>Ngày lập báo cáo: '+today()+'</p>'+
+      '<table><thead><tr><th>STT</th><th>Họ và tên</th><th>Đã đọc/Tổng</th><th>Tỷ lệ</th><th>Còn thiếu (mã số quy trình)</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'+
+      '</body></html>';
+    qtDownloadBlob(html, 'bao_cao_doc_quy_trinh_moi_'+today()+'.doc', 'application/msword;charset=utf-8;');
+  };
+
+  window.qtOpenExportModal=function(){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới xuất được dữ liệu.'); return; }
+    document.getElementById('qtExpModeFilter').checked = true;
+    document.getElementById('qtExpRangeBox').style.display = 'none';
+    document.getElementById('qtExpFrom').value = '';
+    document.getElementById('qtExpTo').value = '';
+    qtUpdateExportCount();
+    document.getElementById('qtExportOv').classList.add('open');
+  };
+
+  function qtCsvEscape(v){
+    v = (v==null?'':String(v));
+    if(/["\n;]/.test(v)) return '"'+v.replace(/"/g,'""')+'"';
+    return v;
+  }
+  function qtDownloadBlob(content, filename, mime){
+    var blob = new Blob([content], {type:mime});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);}, 2000);
+  }
+  window.qtExportExcel=function(){
+    var list = qtResolveExportList();
+    if(list.length===0){ alert('Không có quy trình nào phù hợp để xuất.'); return; }
+    var header=['Mã số','Tên quy trình','Khoa/Phòng','Nhóm chuyên môn','Ngày hiệu lực','Trạng thái hiệu lực','Đã đọc','Tổng nhân viên','Lượt tra cứu'];
+    var rows=[header.join(';')];
+    list.forEach(function(s){
+      var readers=qtReadersFor(s._id);
+      var readCount=readers.filter(function(r){return r.read;}).length;
+      rows.push([qtCsvEscape(s.ma),qtCsvEscape(s.ten),qtCsvEscape(s.khoa),qtCsvEscape(s.nhom),qtCsvEscape(s.ngay),
+        qtCsvEscape(qtValidityStatus(s).label),readCount,readers.length,(qtViews[s._id]||0)].join(';'));
+    });
+    var csv = '\uFEFF'+rows.join('\r\n'); // BOM để Excel hiển thị đúng tiếng Việt; dùng ; làm phân cách theo mặc định Excel vùng miền VN
+    qtDownloadBlob(csv, 'danh_sach_quy_trinh_'+today()+'.csv', 'text/csv;charset=utf-8;');
+  };
+  window.qtExportWord=function(){
+    var list = qtResolveExportList();
+    if(list.length===0){ alert('Không có quy trình nào phù hợp để xuất.'); return; }
+    var rowsHtml = list.map(function(s,i){
+      var readers=qtReadersFor(s._id);
+      var readCount=readers.filter(function(r){return r.read;}).length;
+      return '<tr><td>'+(i+1)+'</td><td>'+s.ma+'</td><td>'+s.ten+'</td><td>'+s.khoa+'</td><td>'+(s.nhom||'')+'</td>'+
+        '<td>'+s.ngay+'</td><td>'+qtValidityStatus(s).label+'</td><td>'+readCount+'/'+readers.length+'</td></tr>';
+    }).join('');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><title>Danh sách Quy trình</title>'+
+      '<style>body{font-family:"Times New Roman",serif;font-size:13px}h2{text-align:center}table{border-collapse:collapse;width:100%}'+
+      'th,td{border:1px solid #333;padding:5px 7px;font-size:12px}th{background:#eee}thead{display:table-header-group}</style></head><body>'+
+      '<h2>DANH SÁCH QUY TRÌNH — KHOA GÂY MÊ HỒI SỨC<br>BVĐK TRUNG TÂM TỈNH GIA LAI</h2>'+
+      '<p>Ngày xuất: '+today()+' — Tổng số: '+list.length+' quy trình</p>'+
+      '<table><thead><tr><th>STT</th><th>Mã số</th><th>Tên quy trình</th><th>Khoa/Phòng</th><th>Nhóm CM</th><th>Ngày hiệu lực</th><th>Trạng thái</th><th>Đã đọc</th></tr></thead><tbody>'+
+      rowsHtml+'</tbody></table></body></html>';
+    qtDownloadBlob(html, 'danh_sach_quy_trinh_'+today()+'.doc', 'application/msword;charset=utf-8;');
+  };
+
+  window.qtOpenStatsModal=function(keepFilter){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới xem được thống kê tuân thủ.'); return; }
+    if(!keepFilter){
+      document.getElementById('qtStatsModalBox').classList.remove('qt-maximized');
+      document.getElementById('qtMaxBtn').textContent = '⛶ Phóng to';
+      var gsel = document.getElementById('qtStatsGroupFilter');
+      gsel.innerHTML = '<option value="">— Tất cả nhóm —</option>'+
+        QT_NHOM_CD.map(function(g){return '<option value="'+g.v+'">'+g.l+' ('+g.v+')</option>';}).join('')+
+        '<option value="__none__">— Chưa được gán nhóm —</option>';
+    }
+    var groupFilter = document.getElementById('qtStatsGroupFilter').value;
+    var newSopsAll = qtSops.filter(function(s){return qtIsNewRec(s);});
+    var oldSopsAll = qtSops.filter(function(s){return !qtIsNewRec(s);});
+    var namesToUse = qtStaffNames.filter(function(n){
+      if(!groupFilter) return true;
+      if(groupFilter==='__none__') return !qtStaffGroups[n];
+      return qtStaffGroups[n]===groupFilter;
+    });
+    var rows = namesToUse.map(function(name){
+      var group = qtStaffGroups[name];
+      var mySops = qtSops.filter(function(s){return qtProcAppliesTo(s, group);});
+      var myNewSops = newSopsAll.filter(function(s){return qtProcAppliesTo(s, group);});
+      var myOldSops = oldSopsAll.filter(function(s){return qtProcAppliesTo(s, group);});
+      var readIds = {};
+      qtReadLog.filter(function(r){return r.staffName===name;}).forEach(function(r){readIds[r.sopId]=true;});
+      var readCount = mySops.filter(function(s){return readIds[s._id];}).length;
+      var readNew = myNewSops.filter(function(s){return readIds[s._id];}).length;
+      var readOld = myOldSops.filter(function(s){return readIds[s._id];}).length;
+      var total = mySops.length;
+      var pct = total>0 ? Math.round(readCount/total*100) : 100;
+      var missing = mySops.filter(function(s){return !readIds[s._id];}).map(function(s){return s.ma;});
+      return {name:name, group:group, readCount:readCount, total:total, pct:pct, missing:missing, readNew:readNew, readOld:readOld, newTotal:myNewSops.length, oldTotal:myOldSops.length};
+    });
+    rows.sort(function(a,b){return a.pct-b.pct;});
+    var totalViews = Object.keys(qtViews).reduce(function(sum,k){return sum+(qtViews[k]||0);},0);
+
+    // Tổng hợp theo từng nhóm (luôn tính trên TOÀN BỘ nhân viên, không phụ thuộc bộ lọc đang chọn)
+    var groupSummary = QT_NHOM_CD.map(function(g){
+      var members = qtStaffNames.filter(function(n){return qtStaffGroups[n]===g.v;});
+      if(members.length===0) return null;
+      var fullCount = 0, pctSum = 0;
+      members.forEach(function(name){
+        var mySops = qtSops.filter(function(s){return qtProcAppliesTo(s, g.v);});
+        var readIds = {}; qtReadLog.filter(function(r){return r.staffName===name;}).forEach(function(r){readIds[r.sopId]=true;});
+        var rc = mySops.filter(function(s){return readIds[s._id];}).length;
+        var p = mySops.length>0 ? Math.round(rc/mySops.length*100) : 100;
+        if(p===100) fullCount++;
+        pctSum += p;
+      });
+      return {label:g.l, code:g.v, memberCount:members.length, fullCount:fullCount, avgPct:Math.round(pctSum/members.length)};
+    }).filter(Boolean);
+    var unassignedCount = qtStaffNames.filter(function(n){return !qtStaffGroups[n];}).length;
+
+    var html = '<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+
+      '<div class="qt-stat"><div class="n">'+totalViews+'</div><div class="l">TỔNG LƯỢT TRA CỨU (mọi quy trình)</div></div>'+
+      '<div class="qt-stat"><div class="n">'+newSopsAll.length+'</div><div class="l">SỐ QUY TRÌNH MỚI (≤30 NGÀY)</div></div>'+
+      '<div class="qt-stat"><div class="n">'+(rows.filter(function(r){return r.pct===100;}).length)+'/'+rows.length+'</div><div class="l">ĐANG XEM: ĐÃ ĐỌC 100%</div></div>'+
+      '</div>';
+
+    html += '<h4 style="font-size:13px;color:#4e342e;margin:14px 0 6px">Tổng hợp theo nhóm chuyên môn</h4>';
+    html += '<table class="qt-tb" style="font-size:12.5px;margin-bottom:16px"><tr><th>Nhóm</th><th style="width:90px">Số người</th><th style="width:110px">Đã đọc đủ 100%</th><th style="width:90px">Tỷ lệ TB</th></tr>';
+    groupSummary.forEach(function(g){
+      var color = g.avgPct===100 ? '#1f6b45' : (g.avgPct>=50 ? '#a9631a' : '#a33');
+      html += '<tr><td>'+g.label+' ('+g.code+')</td><td>'+g.memberCount+'</td><td>'+g.fullCount+'/'+g.memberCount+'</td>'+
+        '<td style="color:'+color+';font-weight:700">'+g.avgPct+'%</td></tr>';
+    });
+    if(unassignedCount>0){
+      html += '<tr><td style="font-style:italic;color:#795548">Chưa được gán nhóm</td><td>'+unassignedCount+'</td><td colspan="2" style="font-size:11px;color:#795548">Tạm tính như áp dụng mọi quy trình</td></tr>';
+    }
+    html += '</table>';
+
+    html += '<p style="font-size:11px;color:#8a7845;margin:-4px 0 10px">⚠ Mẫu số "Tổng đã đọc/Mới/Cũ" của mỗi người tính riêng theo <b>nhóm chuyên môn</b> họ được gán — quy trình không áp dụng cho nhóm đó sẽ không tính vào. Nhân viên chưa được gán nhóm sẽ tạm tính như áp dụng mọi quy trình. "Lượt tra cứu" vẫn là số xem ẩn danh chung, không tách theo nhóm được.</p>';
+    html += '<h4 style="font-size:13px;color:#4e342e;margin:10px 0 6px">Chi tiết từng người'+(groupFilter?(' — nhóm đang lọc: '+(groupFilter==='__none__'?'Chưa gán':groupFilter)):'')+'</h4>';
+    html += '<table class="qt-tb" style="font-size:12.5px"><tr><th style="width:auto">Nhân viên</th><th style="width:70px">Nhóm</th><th style="width:85px">Tổng đã đọc</th><th style="width:65px">Tỷ lệ</th><th style="width:90px">Quy trình MỚI đã đọc</th><th style="width:90px">Quy trình CŨ đã đọc</th><th>Còn thiếu (mã số)</th></tr>';
+    rows.forEach(function(r){
+      var color = r.pct===100 ? '#1f6b45' : (r.pct>=50 ? '#a9631a' : '#a33');
+      html += '<tr><td>'+r.name+'</td><td>'+(r.group||'—')+'</td><td>'+r.readCount+'/'+r.total+'</td>'+
+        '<td style="color:'+color+';font-weight:700">'+r.pct+'%</td>'+
+        '<td>'+r.readNew+'/'+r.newTotal+'</td>'+
+        '<td>'+r.readOld+'/'+r.oldTotal+'</td>'+
+        '<td style="font-size:11px;color:#795548">'+(r.missing.length? r.missing.slice(0,6).join(', ')+(r.missing.length>6?'...':'') : '—')+'</td></tr>';
+    });
+    html += '</table>';
+    html += '<div class="qt-modal-actions" style="justify-content:flex-start;margin-top:14px">'+
+      '<button class="qt-btn" style="background:#1d6f42;color:#fff;border-color:#155c34" onclick="qtExportComplianceExcel()">📊 Xuất Excel (.csv)</button>'+
+      '<button class="qt-btn" style="background:#2b579a;color:#fff;border-color:#1e3f70" onclick="qtExportComplianceWord()">📄 Xuất Word (.doc)</button></div>';
+    document.getElementById('qtStatsBody').innerHTML = html;
+    qtComplianceLastReport = {rows:rows, groupSummary:groupSummary, groupFilter:groupFilter};
+    document.getElementById('qtStatsOv').classList.add('open');
+  };
+
   window.qtOpenValidityModal=function(sopId){
     var s = qtSops.find(function(x){return x._id===sopId;});
     if(!s) return;
@@ -10340,6 +11093,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     document.getElementById('qtv_chuky').value = (typeof s.chuKyNam==='number') ? s.chuKyNam : 2;
     document.getElementById('qtv_khonggh').checked = s.khongGioiHan===true;
     document.getElementById('qtv_hethieuluc').checked = s.hetHieuLuc===true;
+    qtRenderApDungBox('qtv', s.apDungNhom||[]);
     document.getElementById('qtValidityOv').dataset.sopid = sopId;
     document.getElementById('qtValidityOv').classList.add('open');
   };
@@ -10351,7 +11105,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var chuKy = parseInt(document.getElementById('qtv_chuky').value,10) || 2;
     var khongGh = document.getElementById('qtv_khonggh').checked;
     var het = document.getElementById('qtv_hethieuluc').checked;
-    var updates = {chuKyNam:chuKy, khongGioiHan:khongGh, hetHieuLuc:het};
+    var updates = {chuKyNam:chuKy, khongGioiHan:khongGh, hetHieuLuc:het, apDungNhom:qtReadApDungBox('qtv')};
     if(maVal) updates.ma = maVal;
     if(ngayVal){
       if(!qtParseDate(ngayVal)){ alert('Ngày hiệu lực chưa đúng định dạng dd/mm/yyyy. Vui lòng nhập lại (VD: 01/01/2024).'); return; }
@@ -10391,10 +11145,21 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   }
   function qtUpdateAdminUI(){
     var isA = qtIsAdmin();
-    var addBtn=document.getElementById('qtAddBtn'), lockBtn=document.getElementById('qtLockBtn');
+    var addBtn=document.getElementById('qtAddBtn'), lockBtn=document.getElementById('qtLockBtn'), statsBtn=document.getElementById('qtStatsBtn'), exportBtn=document.getElementById('qtExportBtn'), newStatsBtn=document.getElementById('qtNewStatsBtn'), groupBtn=document.getElementById('qtGroupBtn'), logoutBtn=document.getElementById('qtLogoutBtn');
     if(addBtn) addBtn.style.display = isA ? 'flex' : 'none';
+    if(statsBtn) statsBtn.style.display = isA ? 'flex' : 'none';
+    if(exportBtn) exportBtn.style.display = isA ? 'flex' : 'none';
+    if(newStatsBtn) newStatsBtn.style.display = isA ? 'flex' : 'none';
+    if(groupBtn) groupBtn.style.display = isA ? 'flex' : 'none';
     if(lockBtn) lockBtn.style.display = isA ? 'none' : 'flex';
+    if(logoutBtn) logoutBtn.style.display = isA ? 'flex' : 'none';
   }
+  window.qtLogoutAdmin=function(){
+    if(!confirm('Thoát chế độ Quản lý ngay bây giờ? (Áp dụng cho toàn bộ ứng dụng, không chỉ riêng Thư viện Quy trình)')) return;
+    try{ if(typeof adminSessionExpire==='function') adminSessionExpire(); else adminSession.active=false; }catch(e){}
+    qtUpdateAdminUI();
+    if(typeof showAl==='function') showAl('Đã thoát chế độ Quản lý.');
+  };
   window.qtRequestAdminLogin=function(){
     var pwd = window.prompt('Nhập mật khẩu Quản lý để thêm/sửa quy trình:');
     if(pwd===null) return;
@@ -10471,8 +11236,22 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     document.getElementById('qtPaneManual').classList.toggle('on', tab==='manual');
     document.getElementById('qtPaneQuick').classList.toggle('on', tab==='quick');
   };
+  function qtRenderApDungBox(prefix, checkedList){
+    var box = document.getElementById(prefix+'_apdungnhom_box');
+    if(!box) return;
+    box.innerHTML = QT_NHOM_CD.map(function(g){
+      var checked = checkedList && checkedList.indexOf(g.v)>=0 ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:4px"><input type="checkbox" class="'+prefix+'_apnhom_cb" value="'+g.v+'" '+checked+' style="width:auto"> '+g.l+'</label>';
+    }).join('');
+  }
+  function qtReadApDungBox(prefix){
+    var checked = Array.prototype.slice.call(document.querySelectorAll('.'+prefix+'_apnhom_cb:checked')).map(function(el){return el.value;});
+    return checked; // rỗng = áp dụng tất cả
+  }
+
   window.qtOpenAddModal=function(){
     if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được thêm quy trình. Vui lòng đăng nhập.'); return; }
+    qtRenderApDungBox('qt', []);
     document.getElementById('qtModalOv').classList.add('open');
   };
 
@@ -10503,7 +11282,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
         mucdich:document.getElementById('qt_mucdich').value.trim()||'—', trachnhiem: trachnhiem.length?trachnhiem:[['—','—']],
         buoc:qtParseLines(document.getElementById('qt_buoc').value), luuy:document.getElementById('qt_luuy').value.trim()||'Chưa ghi nhận.',
         chuKyNam: parseInt(document.getElementById('qt_chuky').value,10) || 2,
-        hetHieuLuc: document.getElementById('qt_hethieuluc').checked};
+        hetHieuLuc: document.getElementById('qt_hethieuluc').checked,
+        apDungNhom: qtReadApDungBox('qt')};
     }
     rec.createdAt = Date.now();
     db.ref('quyTrinh').push(rec);
