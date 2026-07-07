@@ -540,6 +540,7 @@ font-size:10px;color:var(--tx3)}
       <div class="home-card" onclick="openStaffAuthModalUser('nghiphep')" style="background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-color:#004d40"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-beach"></i><div class="home-card-title">Đăng ký<br>Nghỉ Phép</div><div class="home-card-sub">Nghỉ phép theo ngày, theo đợt</div></div>
       <div class="home-card" onclick="goQuyTrinh()" style="background:linear-gradient(135deg,#8d6e63,#5d4037);color:#fff;border-color:#3e2723"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-book-2"></i><div class="home-card-title">Thư viện<br>Quy trình</div><div class="home-card-sub">Tra cứu & xác nhận đọc quy trình</div></div>
       <div class="home-card" onclick="goThanhTichView()" style="background:linear-gradient(135deg,#c9a227,#8a6d1f);color:#fff;border-color:#5c4a15"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-award"></i><div class="home-card-title">Xem<br>Thành tích</div><div class="home-card-sub">Tập thể (mọi người) & Cá nhân (riêng từng người)</div></div>
+      <div class="home-card" onclick="goKpiView()" style="background:linear-gradient(135deg,#0d47a1,#082a5e);color:#fff;border-color:#06214a"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-chart-bar"></i><div class="home-card-title">Đánh giá<br>KPI</div><div class="home-card-sub">Tự động tổng hợp từ Kanban + sự kiện KPI</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -11505,5 +11506,843 @@ table.tv-tb th{background:#fbf3d9;color:#5c4a15;font-weight:700}
   };
 })();
 </script>
+
+<!-- ══════════════════════════════════════════════════════════
+     BỔ SUNG: ĐÁNH GIÁ KPI TỰ ĐỘNG — module độc lập
+     Lấy dữ liệu năng suất từ 'cards' (Kanban đã có sẵn) + ghi nhận
+     thêm sự kiện KPI (giao ban trễ, giao nhận trực, mất vật tư,
+     tủ trực, không hoàn thành theo Bảng mô tả VTVL) tại 'kpiEvents'.
+     KHÔNG chỉnh sửa bất kỳ hàm nào của Kanban/Nghỉ bù hiện có.
+     Điểm số chỉ mang tính THAM KHẢO, hỗ trợ Trưởng khoa/ĐD trưởng
+     đối chiếu khi chấm KPI chính thức theo Quy chế của khoa.
+     ══════════════════════════════════════════════════════════ -->
+<style>
+#kpiScreen{min-height:100vh;background:#eef2f9;display:none;flex-direction:column}
+.kpi-topbar{background:linear-gradient(135deg,#0d47a1,#082a5e 60%,#0a1f3d);padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.kpi-topbar h2{color:#fff;font-size:16px;font-weight:700;margin:0}
+.kpi-topbar small{color:rgba(255,255,255,.78);font-size:11.5px}
+.kpi-btn{padding:7px 13px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid rgba(255,255,255,.45);background:transparent;color:#fff;font-family:inherit}
+.kpi-btn:hover{background:rgba(255,255,255,.18)}
+.kpi-btn-solid{background:#fff;color:#0d47a1;border:none}
+.kpi-main{max-width:1100px;margin:0 auto;padding:18px 16px 60px;width:100%}
+.kpi-section{background:#fff;border:1.5px solid #dbe3f0;border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.kpi-section h3{font-size:14.5px;color:#0d3c78;margin:0 0 4px;font-weight:700;display:flex;align-items:center;gap:6px}
+.kpi-section .sub{font-size:12px;color:#5b7ba8;margin-bottom:12px}
+.kpi-gate{max-width:420px;margin:60px auto;background:#fff;border-radius:14px;padding:24px;border:1.5px solid #dbe3f0;box-shadow:0 8px 24px rgba(13,71,161,.12)}
+.kpi-gate input{width:100%;border:1.5px solid #cdd8ea;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px;font-family:inherit}
+.kpi-gate-err{font-size:12px;color:#c62828;display:none;margin-bottom:8px}
+.kpi-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end}
+.kpi-f{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}
+.kpi-f label{font-size:11px;font-weight:600;color:#3a5a85;text-transform:uppercase;letter-spacing:.03em}
+.kpi-f input,.kpi-f select,.kpi-f textarea{border:1.5px solid #cdd8ea;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;width:100%}
+table.kpi-tb{width:100%;border-collapse:collapse;font-size:12.5px}
+table.kpi-tb th,table.kpi-tb td{border:1px solid #e3e9f3;padding:7px 8px;text-align:left}
+table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:nowrap}
+.kpi-empty{padding:18px;text-align:center;color:#8098bb;font-size:13px}
+.kpi-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
+.kpi-b-a{background:#e6f4ea;color:#1b6b3a}
+.kpi-b-b{background:#e3f0fc;color:#0d5aa7}
+.kpi-b-c{background:#fff6e0;color:#8a6d00}
+.kpi-b-d{background:#fdeae0;color:#b5490a}
+.kpi-b-e{background:#fce4e4;color:#a11d1d}
+.kpi-note{font-size:11px;color:#8098bb;margin-top:8px;line-height:1.5}
+.kpi-toggle-head{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.kpi-collapse-icon{transition:transform .2s;font-size:14px}
+.kpi-evimg-thumb{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:1.5px solid #dbe3f0}
+.kpi-evimg-thumb img{width:100%;height:100%;object-fit:cover}
+.kpi-evimg-rm{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:12px;cursor:pointer;line-height:1}
+.kpi-modal-overlay{position:fixed;inset:0;background:rgba(13,30,60,.55);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px}
+.kpi-modal-box{background:#fff;border-radius:14px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.kpi-modal-head{padding:14px 16px;border-bottom:1.5px solid #e3e9f3;display:flex;align-items:center;gap:10px}
+.kpi-modal-head input{flex:1;border:1.5px solid #cdd8ea;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit}
+.kpi-modal-close{background:none;border:none;font-size:18px;color:#8098bb;cursor:pointer;line-height:1}
+.kpi-modal-list{overflow-y:auto;padding:6px 0}
+.kpi-modal-item{padding:10px 16px;font-size:13.5px;cursor:pointer;border-bottom:1px solid #f1f4f9}
+.kpi-modal-item:hover{background:#eef3fb}
+.kpi-modal-empty{padding:20px;text-align:center;color:#aab8cf;font-size:13px}
+.kpi-del{background:none;border:none;color:#c62828;cursor:pointer;font-size:12px}
+.kpi-search-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.kpi-search-row input{flex:1;min-width:200px;border:1.5px solid #cdd8ea;border-radius:7px;padding:8px 10px;font-size:13px;font-family:inherit}
+</style>
+
+<div id="kpiScreen">
+  <div class="kpi-topbar">
+    <button class="kpi-btn" onclick="kpiGoHome()"><i class="ti ti-home"></i> Trang chủ</button>
+    <div>
+      <h2>📊 Đánh giá KPI — Khoa Gây mê Hồi sức</h2>
+      <small>Tổng hợp tự động từ Kanban + sự kiện KPI ghi nhận (chỉ mang tính tham khảo)</small>
+    </div>
+  </div>
+  <div class="kpi-main">
+    <div id="kpiGateBox" class="kpi-gate">
+      <div style="font-weight:700;font-size:15px;color:#0d3c78;margin-bottom:4px;text-align:center">Xem đánh giá KPI</div>
+      <div style="font-size:12px;color:#5b7ba8;margin-bottom:14px;text-align:center">Xem công khai toàn khoa, gõ tên để xem KPI cá nhân, hoặc Quản lý đăng nhập để ghi nhận sự kiện</div>
+      <button class="kpi-btn" style="background:#1b6b3a;color:#fff;width:100%;justify-content:center;display:flex;margin-bottom:10px" onclick="kpiTryPublic()"><i class="ti ti-eye"></i> Xem công khai toàn khoa (mọi người)</button>
+      <div style="text-align:center;font-size:11px;color:#aab8cf;margin:6px 0">— hoặc —</div>
+      <label style="font-size:11px;font-weight:600;color:#3a5a85">Xem KPI cá nhân</label>
+      <div style="display:flex;gap:6px">
+        <input list="kpiStaffDatalist" id="kpiPersonalNameInput" placeholder="Gõ đúng tên của bạn..." style="flex:1">
+        <button type="button" class="kpi-btn" style="background:#fff;color:#0d47a1;border:1.5px solid #0d47a1;padding:7px 10px" onclick="kpiOpenStaffPicker('kpiPersonalNameInput')"><i class="ti ti-search"></i></button>
+      </div>
+      <datalist id="kpiStaffDatalist"></datalist>
+      <button class="kpi-btn" style="background:#fff;color:#0d47a1;border:1.5px solid #0d47a1;width:100%;justify-content:center;display:flex;margin-top:8px;margin-bottom:14px" onclick="kpiTryPersonal()"><i class="ti ti-user"></i> Xem KPI của tôi</button>
+      <div style="text-align:center;font-size:11px;color:#aab8cf;margin:6px 0">— hoặc —</div>
+      <label style="font-size:11px;font-weight:600;color:#3a5a85">Mật khẩu quản lý (để ghi nhận/sửa sự kiện)</label>
+      <input type="password" id="kpiPwdInput" placeholder="Mật khẩu quản lý...">
+      <div class="kpi-gate-err" id="kpiGateErr">Mật khẩu không đúng!</div>
+      <button class="kpi-btn" style="background:#0d47a1;color:#fff;width:100%;justify-content:center;display:flex" onclick="kpiTryAdmin()"><i class="ti ti-shield-lock"></i> Đăng nhập Quản lý</button>
+    </div>
+
+    <div id="kpiGateTypesPreview" style="max-width:640px;margin:14px auto 0;background:#fff;border:1.5px solid #dbe3f0;border-radius:12px;padding:16px 18px">
+      <h3 style="font-size:13.5px;color:#0d3c78;margin:0 0 4px;font-weight:700"><i class="ti ti-list-check"></i> Danh mục loại sự kiện KPI &amp; thang điểm trừ <span style="font-weight:400;color:#5b7ba8;font-size:11.5px">(công khai)</span></h3>
+      <div class="sub" style="margin-bottom:10px">Nhân viên xem trước tại đây để biết rõ loại vi phạm nào bị trừ bao nhiêu điểm, không cần đăng nhập.</div>
+      <div id="kpiGateTypesTableWrap"></div>
+    </div>
+
+    <div id="kpiContentBox" style="display:none">
+      <div class="kpi-row" style="background:#fff;border:1.5px solid #dbe3f0;border-radius:12px;padding:12px 16px">
+        <div class="kpi-f" style="max-width:150px">
+          <label>Chế độ xem</label>
+          <select id="kpiPeriodMode" onchange="kpiOnPeriodModeChange()">
+            <option value="month">Theo tháng</option>
+            <option value="year">Tổng hợp cả năm</option>
+          </select>
+        </div>
+        <div class="kpi-f" style="max-width:180px" id="kpiMonthFieldWrap">
+          <label>Tháng đánh giá</label>
+          <input type="month" id="kpiMonth" onchange="kpiRefresh()">
+        </div>
+        <div class="kpi-f" style="max-width:140px;display:none" id="kpiYearFieldWrap">
+          <label>Năm đánh giá</label>
+          <input type="number" id="kpiYear" min="2020" max="2100" onchange="kpiRefresh()">
+        </div>
+        <div style="flex:1"></div>
+        <button class="kpi-btn kpi-btn-solid" style="border:1.5px solid #0d47a1" onclick="kpiRefresh()"><i class="ti ti-refresh"></i> Làm mới</button>
+      </div>
+
+      <div class="kpi-section" id="kpiTypesSection">
+        <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiTypesBody')"><i class="ti ti-chevron-down kpi-collapse-icon"></i> <i class="ti ti-list-check"></i> Danh mục loại sự kiện KPI &amp; thang điểm trừ <span style="font-weight:400;color:#5b7ba8;font-size:12px">(công khai — mọi nhân viên đều xem được)</span></h3>
+        <div id="kpiTypesBody" style="display:none">
+        <div class="sub">Đây là danh mục chính thức các loại sự kiện ảnh hưởng KPI và mức điểm trừ tương ứng do Quản lý khai báo. Ô "Loại sự kiện" ở phần ghi nhận bên dưới sẽ tự lấy đúng danh mục này.</div>
+        <div id="kpiTypesTableWrap"></div>
+
+        <div id="kpiTypesAddBox" style="display:none;margin-top:14px;padding-top:14px;border-top:1.5px dashed #dbe3f0">
+          <div class="kpi-row">
+            <div class="kpi-f" style="flex:2">
+              <label>Tên loại sự kiện mới</label>
+              <input type="text" id="kpiTypeNewName" placeholder="Ví dụ: Không đeo bảng tên khi làm việc...">
+            </div>
+            <div class="kpi-f" style="max-width:140px">
+              <label>Mức độ</label>
+              <select id="kpiTypeNewSeverity" onchange="kpiTypeNewSeverityChange()">
+                <option value="nhe">Nhẹ (-2đ/lần)</option>
+                <option value="vua" selected>Vừa (-5đ/lần)</option>
+                <option value="nang">Nặng (-10đ/lần)</option>
+              </select>
+            </div>
+            <div class="kpi-f" style="max-width:120px">
+              <label>Điểm trừ/lần</label>
+              <input type="number" id="kpiTypeNewPoints" value="-5" step="1">
+            </div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-f" style="flex:2">
+              <label>Ghi chú / căn cứ áp dụng</label>
+              <input type="text" id="kpiTypeNewNote" placeholder="Căn cứ, ghi chú thêm (không bắt buộc)...">
+            </div>
+          </div>
+          <button class="kpi-btn" id="kpiTypeSubmitBtn" style="background:#0d47a1;color:#fff" onclick="kpiAddType()"><i class="ti ti-plus"></i> Thêm vào danh mục</button>
+          <button class="kpi-btn" id="kpiTypeCancelBtn" style="display:none;background:#fff;color:#5b7ba8;border:1.5px solid #cdd8ea" onclick="kpiCancelEditType()"><i class="ti ti-x"></i> Hủy sửa</button>
+          <div id="kpiTypeAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px"></div>
+        </div>
+        </div>
+      </div>
+
+      <div class="kpi-section" id="kpiEventFormSection" style="display:none">
+        <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiEventFormBody')"><i class="ti ti-chevron-down kpi-collapse-icon"></i> <i class="ti ti-clipboard-plus"></i> Ghi nhận sự kiện KPI</h3>
+        <div id="kpiEventFormBody">
+        <div class="sub">Ghi nhận các sự kiện ảnh hưởng KPI: giao ban trễ, giao nhận trực chưa đầy đủ, mất mát/hư hỏng vật tư - tài sản, tủ trực không đạt, không hoàn thành nhiệm vụ theo Bảng mô tả VTVL...</div>
+        <div class="kpi-row">
+          <div class="kpi-f">
+            <label>Nhân viên liên quan</label>
+            <div style="display:flex;gap:6px">
+              <input list="kpiStaffDatalist2" id="kpiEvPerson" placeholder="Chọn/gõ tên nhân viên..." style="flex:1">
+              <button type="button" class="kpi-btn" style="background:#0d47a1;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('kpiEvPerson')"><i class="ti ti-search"></i></button>
+            </div>
+            <datalist id="kpiStaffDatalist2"></datalist>
+          </div>
+          <div class="kpi-f" style="max-width:150px">
+            <label>Ngày xảy ra</label>
+            <input type="date" id="kpiEvDate">
+          </div>
+          <div class="kpi-f">
+            <label>Loại sự kiện <span style="font-weight:400;color:#8098bb">(chọn có sẵn hoặc gõ mới)</span></label>
+            <input list="kpiEventTypeDatalist" id="kpiEvType" oninput="kpiOnTypeChange()" placeholder="Chọn hoặc gõ loại sự kiện mới...">
+            <datalist id="kpiEventTypeDatalist"></datalist>
+          </div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-f" style="max-width:140px">
+            <label>Mức độ</label>
+            <select id="kpiEvSeverity" onchange="kpiOnSeverityChange()">
+              <option value="nhe">Nhẹ (-2đ/lần)</option>
+              <option value="vua" selected>Vừa (-5đ/lần)</option>
+              <option value="nang">Nặng (-10đ/lần)</option>
+            </select>
+          </div>
+          <div class="kpi-f" style="max-width:100px">
+            <label>Số lần</label>
+            <input type="number" id="kpiEvCount" value="1" min="1" step="1" oninput="kpiRecalcPoints()">
+          </div>
+          <div class="kpi-f" style="max-width:130px">
+            <label>Tổng điểm trừ</label>
+            <input type="number" id="kpiEvPoints" value="-5" step="1">
+          </div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-f" style="flex:2">
+            <label>Ghi chú / diễn giải</label>
+            <textarea id="kpiEvNote" rows="2" placeholder="Mô tả cụ thể sự việc..."></textarea>
+          </div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-f" style="flex:2">
+            <label>Minh chứng ảnh <span style="font-weight:400;color:#8098bb">(tối đa 2 ảnh — chụp trực tiếp hoặc chọn từ máy)</span></label>
+            <input type="file" id="kpiEvImgInput" accept="image/*" capture="environment" multiple onchange="kpiPreviewEvImgs(event)">
+            <div id="kpiEvImgPrev" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"></div>
+          </div>
+          <div class="kpi-f" style="flex:1">
+            <label>Link minh chứng <span style="font-weight:400;color:#8098bb">(camera, Drive, Zalo...)</span></label>
+            <input type="text" id="kpiEvLink" placeholder="Dán link minh chứng (nếu có)...">
+          </div>
+        </div>
+        <button class="kpi-btn" style="background:#0d47a1;color:#fff" onclick="kpiAddEvent()"><i class="ti ti-plus"></i> Lưu sự kiện</button>
+        <div id="kpiEvAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px"></div>
+        </div>
+      </div>
+
+      <div class="kpi-section">
+        <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiTableBody')"><i class="ti ti-chevron-down kpi-collapse-icon" style="transform:rotate(0deg)"></i> <i class="ti ti-table"></i> Bảng tổng hợp KPI <span id="kpiScopeLabel"></span></h3>
+        <div id="kpiTableBody">
+        <div class="sub" id="kpiTableFormulaDesc">Điểm KPI = 100 + điểm trừ sự kiện (tối đa -40) − phạt tỷ lệ hoàn thành thấp (tối đa -15) − phạt tồn đọng &gt;30 ngày (tối đa -10). Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.</div>
+        <div id="kpiTableWrap"></div>
+        </div>
+      </div>
+
+      <div class="kpi-section" id="kpiEventListSection">
+        <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiEventListBody')"><i class="ti ti-chevron-down kpi-collapse-icon" style="transform:rotate(-90deg)"></i> <i class="ti ti-list-details"></i> Danh sách sự kiện KPI trong tháng</h3>
+        <div id="kpiEventListBody" style="display:none">
+        <div id="kpiEventListWrap"></div>
+        </div>
+      </div>
+
+      <div class="kpi-note">
+        ⚠️ Đây là bảng tính tham khảo tự động, dùng để hỗ trợ theo dõi; kết quả chính thức vẫn căn cứ Quy chế/Bảng chấm điểm KPI đã được khoa/Bệnh viện phê duyệt. Số liệu "hiệu suất" lấy từ số công việc trên Kanban trong tháng được chọn — cần đối chiếu thêm với các chỉ số an toàn người bệnh, KSNK... không có sẵn trên Kanban.
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-modal-overlay" id="kpiStaffModalOverlay">
+    <div class="kpi-modal-box">
+      <div class="kpi-modal-head">
+        <input type="text" id="kpiStaffModalSearch" placeholder="Gõ để tìm tên nhân viên..." oninput="kpiFilterStaffModal()">
+        <button class="kpi-modal-close" onclick="kpiCloseStaffPicker()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="kpi-modal-list" id="kpiStaffModalList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var kpiEvents = [];
+  var kpiEventTypes = []; // {id, name, severity, points, note}
+  var kpiAdminMode = false;
+  var kpiAllStaffMode = false; // true for admin OR public (both see the full-department table)
+  var kpiPersonalName = null;
+  var kpiEventsRef = null;
+  var kpiTypesRef = null;
+  try{ kpiEventsRef = db.ref('kpiEvents'); }catch(e){ console.warn('Không khởi tạo được Firebase cho kpiEvents.', e); }
+  try{ kpiTypesRef = db.ref('kpiEventTypes'); }catch(e){ console.warn('Không khởi tạo được Firebase cho kpiEventTypes.', e); }
+
+  var KPI_DEFAULT_TYPES_SEED = [
+    {name:'Chưa cập nhật/xác nhận đọc quy trình mới', severity:'nhe', points:-2, note:''},
+    {name:'Giao ban không đúng giờ', severity:'vua', points:-5, note:''},
+    {name:'Bỏ vị trí trực', severity:'nang', points:-10, note:''},
+    {name:'Thiếu đồ (thiếu vật tư/dụng cụ chuẩn bị)', severity:'vua', points:-5, note:''},
+    {name:'Tự ý ra ngoài khi chưa được kíp phẫu thuật đồng ý', severity:'nang', points:-10, note:''},
+    {name:'Xảy ra sai sót chuyên môn do lỗi chủ quan', severity:'nang', points:-10, note:''},
+    {name:'Không thực hiện giao nhận trực đúng giờ', severity:'vua', points:-5, note:''},
+    {name:'Không có mặt trong giờ làm việc', severity:'vua', points:-5, note:''},
+    {name:'Sổ sách bàn giao không rõ ràng', severity:'nhe', points:-2, note:''},
+    {name:'Khác', severity:'vua', points:-5, note:''}
+  ];
+
+  function kpiEsc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function kpiCurMonth(){
+    var d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  }
+  function kpiFmtD(s){
+    if(!s) return '';
+    var p = s.split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : s;
+  }
+
+  window.goKpiView = function(){
+    document.getElementById('homeScreen').style.display='none';
+    document.getElementById('kpiScreen').style.display='flex';
+    document.getElementById('kpiGateBox').style.display='block';
+    document.getElementById('kpiGateTypesPreview').style.display='block';
+    document.getElementById('kpiContentBox').style.display='none';
+    document.getElementById('kpiGateErr').style.display='none';
+    document.getElementById('kpiPwdInput').value='';
+    document.getElementById('kpiPersonalNameInput').value='';
+    kpiAdminMode=false; kpiAllStaffMode=false; kpiPersonalName=null;
+    kpiRenderStaffDatalists();
+    kpiLoadTypesThenRender();
+    if(typeof cu!=='undefined' && cu && cu.role==='admin'){
+      kpiEnter('admin', null);
+    }
+  };
+  window.kpiGoHome = function(){
+    document.getElementById('kpiScreen').style.display='none';
+    document.getElementById('homeScreen').style.display='flex';
+  };
+
+  function kpiRenderStaffDatalists(){
+    var names = (typeof staffList!=='undefined' && staffList.length) ? staffList : [];
+    var opts = names.map(function(n){ return '<option value="'+n.replace(/"/g,'&quot;')+'">'; }).join('');
+    var dl1=document.getElementById('kpiStaffDatalist'); if(dl1) dl1.innerHTML=opts;
+    var dl2=document.getElementById('kpiStaffDatalist2'); if(dl2) dl2.innerHTML=opts;
+  }
+
+  window.kpiTryPublic = function(){
+    kpiEnter('public', null);
+  };
+  window.kpiTryAdmin = function(){
+    var pwd = document.getElementById('kpiPwdInput').value;
+    var real = (typeof adminPwd!=='undefined' && adminPwd) ? adminPwd : null;
+    if(!pwd || (real && pwd!==real)){
+      document.getElementById('kpiGateErr').textContent='Mật khẩu không đúng!';
+      document.getElementById('kpiGateErr').style.display='block';
+      return;
+    }
+    document.getElementById('kpiGateErr').style.display='none';
+    kpiEnter('admin', null);
+  };
+  window.kpiTryPersonal = function(){
+    var typed = document.getElementById('kpiPersonalNameInput').value.trim();
+    var names = (typeof staffList!=='undefined') ? staffList : [];
+    if(!names.includes(typed)){
+      document.getElementById('kpiGateErr').textContent='Không tìm thấy tên này trong danh sách nhân viên!';
+      document.getElementById('kpiGateErr').style.display='block';
+      return;
+    }
+    document.getElementById('kpiGateErr').style.display='none';
+    kpiEnter('personal', typed);
+  };
+
+  function kpiEnter(mode, personName){
+    kpiAdminMode = (mode==='admin');
+    kpiAllStaffMode = (mode==='admin' || mode==='public');
+    kpiPersonalName = personName;
+    document.getElementById('kpiGateBox').style.display='none';
+    document.getElementById('kpiGateTypesPreview').style.display='none';
+    document.getElementById('kpiContentBox').style.display='block';
+    document.getElementById('kpiEventFormSection').style.display = kpiAdminMode ? 'block' : 'none';
+    document.getElementById('kpiTypesAddBox').style.display = kpiAdminMode ? 'block' : 'none';
+    document.getElementById('kpiScopeLabel').textContent =
+      mode==='admin' ? '— Toàn khoa (Quản lý)' : (mode==='public' ? '— Toàn khoa (Xem công khai)' : ('— Cá nhân: '+personName));
+    var mEl=document.getElementById('kpiMonth');
+    if(!mEl.value) mEl.value = kpiCurMonth();
+    var yEl=document.getElementById('kpiYear');
+    if(!yEl.value) yEl.value = new Date().getFullYear();
+    var todayEl=document.getElementById('kpiEvDate');
+    if(todayEl && !todayEl.value && typeof today==='function') todayEl.value = today();
+    kpiLoadTypesThenRender();
+    kpiLoadEventsThenRender();
+  }
+
+  window.kpiOnPeriodModeChange = function(){
+    var mode = document.getElementById('kpiPeriodMode').value;
+    document.getElementById('kpiMonthFieldWrap').style.display = (mode==='month') ? '' : 'none';
+    document.getElementById('kpiYearFieldWrap').style.display = (mode==='year') ? '' : 'none';
+    kpiRefresh();
+  };
+
+  function kpiLoadTypesThenRender(){
+    if(!kpiTypesRef){ kpiEventTypes = KPI_DEFAULT_TYPES_SEED.map(function(t,i){return Object.assign({id:'seed'+i},t);}); kpiRenderTypes(); return; }
+    kpiTypesRef.once('value').then(function(snap){
+      var val = snap.val();
+      if(!val){
+        // Chua co danh muc -> khoi tao mac dinh 1 lan (chi khi la admin de tranh ghi tu phia khong co quyen)
+        if(kpiAdminMode){
+          var updates = {};
+          KPI_DEFAULT_TYPES_SEED.forEach(function(t){
+            var id = Date.now()+'_'+Math.floor(Math.random()*10000);
+            updates[id] = Object.assign({id:id}, t);
+          });
+          kpiTypesRef.update(updates).then(function(){ kpiLoadTypesThenRender(); });
+          return;
+        } else {
+          kpiEventTypes = KPI_DEFAULT_TYPES_SEED.map(function(t,i){return Object.assign({id:'seed'+i},t);});
+        }
+      } else {
+        kpiEventTypes = Object.values(val);
+      }
+      kpiRenderTypes();
+    }).catch(function(){
+      kpiEventTypes = KPI_DEFAULT_TYPES_SEED.map(function(t,i){return Object.assign({id:'seed'+i},t);});
+      kpiRenderTypes();
+    });
+  }
+
+  function kpiRenderTypes(){
+    kpiEventTypes.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'', 'vi'); });
+    var sevLabel = {nhe:'Nhẹ', vua:'Vừa', nang:'Nặng'};
+    var wrap = document.getElementById('kpiTypesTableWrap');
+    if(wrap){
+      var html = '<div style="overflow-x:auto"><table class="kpi-tb"><tr><th>Loại sự kiện</th><th>Mức độ</th><th>Điểm trừ/lần</th><th>Ghi chú</th>'+(kpiAdminMode?'<th></th>':'')+'</tr>';
+      kpiEventTypes.forEach(function(t){
+        html += '<tr><td>'+kpiEsc(t.name)+'</td><td>'+(sevLabel[t.severity]||t.severity||'')+'</td><td><b>'+(parseFloat(t.points)||0).toFixed(1)+'</b></td><td>'+kpiEsc(t.note||'')+'</td>'+
+          (kpiAdminMode?('<td style="white-space:nowrap"><button class="kpi-del" style="color:#0d47a1" onclick="kpiEditType(\''+t.id+'\')"><i class="ti ti-pencil"></i></button> <button class="kpi-del" onclick="kpiDeleteType(\''+t.id+'\')"><i class="ti ti-trash"></i></button></td>'):'')+
+          '</tr>';
+      });
+      html += '</table></div>';
+      wrap.innerHTML = html;
+    }
+    var gateWrap = document.getElementById('kpiGateTypesTableWrap');
+    if(gateWrap){
+      if(!kpiEventTypes.length){
+        gateWrap.innerHTML = '<div class="kpi-empty">Chưa có dữ liệu danh mục.</div>';
+      } else {
+        var gh = '<div style="overflow-x:auto"><table class="kpi-tb"><tr><th>Loại sự kiện</th><th>Mức độ</th><th>Điểm trừ/lần</th></tr>';
+        kpiEventTypes.forEach(function(t){
+          gh += '<tr><td>'+kpiEsc(t.name)+'</td><td>'+(sevLabel[t.severity]||t.severity||'')+'</td><td><b>'+(parseFloat(t.points)||0).toFixed(1)+'</b></td></tr>';
+        });
+        gh += '</table></div>';
+        gateWrap.innerHTML = gh;
+      }
+    }
+    kpiRenderEventTypeDatalist();
+  }
+
+  function kpiRenderEventTypeDatalist(){
+    var dl = document.getElementById('kpiEventTypeDatalist');
+    if(!dl) return;
+    dl.innerHTML = kpiEventTypes.map(function(t){ return '<option value="'+kpiEsc(t.name)+'">'; }).join('');
+  }
+
+  window.kpiTypeNewSeverityChange = function(){
+    var sv = document.getElementById('kpiTypeNewSeverity').value;
+    document.getElementById('kpiTypeNewPoints').value = KPI_SEV_PTS[sv];
+  };
+
+  var kpiEditingTypeId = null;
+
+  window.kpiEditType = function(id){
+    if(!kpiAdminMode) return;
+    var t = kpiEventTypes.find(function(x){ return String(x.id)===String(id); });
+    if(!t) return;
+    kpiEditingTypeId = id;
+    document.getElementById('kpiTypeNewName').value = t.name;
+    document.getElementById('kpiTypeNewSeverity').value = t.severity;
+    document.getElementById('kpiTypeNewPoints').value = t.points;
+    document.getElementById('kpiTypeNewNote').value = t.note || '';
+    document.getElementById('kpiTypeSubmitBtn').innerHTML = '<i class="ti ti-device-floppy"></i> Lưu chỉnh sửa';
+    document.getElementById('kpiTypeCancelBtn').style.display = 'inline-flex';
+    document.getElementById('kpiTypeNewName').scrollIntoView({behavior:'smooth', block:'center'});
+    document.getElementById('kpiTypeNewName').focus();
+  };
+
+  window.kpiCancelEditType = function(){
+    kpiEditingTypeId = null;
+    document.getElementById('kpiTypeNewName').value = '';
+    document.getElementById('kpiTypeNewSeverity').value = 'vua';
+    document.getElementById('kpiTypeNewPoints').value = -5;
+    document.getElementById('kpiTypeNewNote').value = '';
+    document.getElementById('kpiTypeSubmitBtn').innerHTML = '<i class="ti ti-plus"></i> Thêm vào danh mục';
+    document.getElementById('kpiTypeCancelBtn').style.display = 'none';
+  };
+
+  window.kpiAddType = function(){
+    if(!kpiAdminMode) return;
+    var name = document.getElementById('kpiTypeNewName').value.trim();
+    var severity = document.getElementById('kpiTypeNewSeverity').value;
+    var points = parseFloat(document.getElementById('kpiTypeNewPoints').value)||0;
+    var note = document.getElementById('kpiTypeNewNote').value.trim();
+    var alertEl = document.getElementById('kpiTypeAlert');
+    function showAl(msg,cls){
+      alertEl.style.display='block';
+      alertEl.style.background = cls==='err' ? '#fce4e4' : '#e6f4ea';
+      alertEl.style.color = cls==='err' ? '#a11d1d' : '#1b6b3a';
+      alertEl.textContent = msg;
+    }
+    if(!name){ showAl('Vui lòng nhập tên loại sự kiện!','err'); return; }
+    var dup = kpiEventTypes.some(function(t){ return t.name.toLowerCase()===name.toLowerCase() && String(t.id)!==String(kpiEditingTypeId); });
+    if(dup){ showAl('Loại sự kiện này đã có trong danh mục!','err'); return; }
+    if(!kpiTypesRef){ showAl('Chưa kết nối được Firebase!','err'); return; }
+
+    if(kpiEditingTypeId){
+      var id0 = kpiEditingTypeId;
+      var rec0 = {id:id0, name:name, severity:severity, points:points, note:note};
+      kpiTypesRef.child(id0).set(rec0).then(function(){
+        showAl('Đã cập nhật loại sự kiện!','ok');
+        kpiCancelEditType();
+        kpiLoadTypesThenRender();
+      }).catch(function(e){ showAl('Lỗi lưu dữ liệu: '+e.message,'err'); });
+      return;
+    }
+    var id = Date.now()+'_'+Math.floor(Math.random()*10000);
+    var rec = {id:id, name:name, severity:severity, points:points, note:note};
+    kpiTypesRef.child(id).set(rec).then(function(){
+      showAl('Đã thêm loại sự kiện vào danh mục!','ok');
+      document.getElementById('kpiTypeNewName').value='';
+      document.getElementById('kpiTypeNewNote').value='';
+      kpiLoadTypesThenRender();
+    }).catch(function(e){ showAl('Lỗi lưu dữ liệu: '+e.message,'err'); });
+  };
+
+  window.kpiDeleteType = function(id){
+    if(!kpiAdminMode) return;
+    if(!confirm('Xóa loại sự kiện này khỏi danh mục? (Các sự kiện đã ghi nhận trước đó vẫn giữ nguyên, chỉ không còn hiện trong danh sách chọn)')) return;
+    if(String(kpiEditingTypeId)===String(id)) kpiCancelEditType();
+    kpiTypesRef.child(id).remove().then(kpiLoadTypesThenRender);
+  };
+
+  var KPI_SEV_PTS = {nhe:-2, vua:-5, nang:-10};
+  function kpiGetUnitPoints(){
+    var tp = document.getElementById('kpiEvType').value.trim();
+    var found = kpiEventTypes.find(function(t){ return t.name.toLowerCase()===tp.toLowerCase(); });
+    if(found) return parseFloat(found.points)||0;
+    var sv = document.getElementById('kpiEvSeverity').value;
+    return KPI_SEV_PTS[sv];
+  }
+  window.kpiRecalcPoints = function(){
+    var cnt = parseInt(document.getElementById('kpiEvCount').value, 10);
+    if(!cnt || cnt < 1) cnt = 1;
+    document.getElementById('kpiEvPoints').value = kpiGetUnitPoints() * cnt;
+  };
+  window.kpiOnSeverityChange = function(){ kpiRecalcPoints(); };
+  var KPI_TYPE_DEFAULT = {
+    'Chưa cập nhật/xác nhận đọc quy trình mới':'nhe',
+    'Giao ban không đúng giờ':'vua',
+    'Bỏ vị trí trực':'nang',
+    'Thiếu đồ (thiếu vật tư/dụng cụ chuẩn bị)':'vua',
+    'Tự ý ra ngoài khi chưa được kíp phẫu thuật đồng ý':'nang',
+    'Xảy ra sai sót chuyên môn do lỗi chủ quan':'nang',
+    'Không thực hiện giao nhận trực đúng giờ':'vua',
+    'Không có mặt trong giờ làm việc':'vua',
+    'Sổ sách bàn giao không rõ ràng':'nhe',
+    'Khác':'vua',
+    // giữ tương thích ngược với dữ liệu cũ dùng mã ngắn
+    cap_nhat_quy_trinh:'nhe', giao_ban_tre:'vua', bo_vi_tri_truc:'nang', thieu_do:'vua',
+    ra_ngoai_chua_dong_y:'nang', sai_sot_chu_quan:'nang', giao_nhan_truc_tre:'vua',
+    vang_gio_lam_viec:'vua', so_sach_khong_ro:'nhe', khac:'vua'
+  };
+  window.kpiOnTypeChange = function(){
+    var tp = document.getElementById('kpiEvType').value.trim();
+    var found = kpiEventTypes.find(function(t){ return t.name.toLowerCase()===tp.toLowerCase(); });
+    var sv = found ? found.severity : (KPI_TYPE_DEFAULT[tp] || 'vua');
+    document.getElementById('kpiEvSeverity').value = sv;
+    kpiRecalcPoints();
+  };
+
+  var kpiEvPendingImgs = [];
+  window.kpiPreviewEvImgs = function(e){
+    var files=[...e.target.files], MAX=2;
+    if(kpiEvPendingImgs.length+files.length>MAX){
+      var alertEl = document.getElementById('kpiEvAlert');
+      alertEl.style.display='block'; alertEl.style.background='#fff3cd'; alertEl.style.color='#7a5b00';
+      alertEl.textContent = 'Tối đa '+MAX+' ảnh minh chứng!';
+      e.target.value=''; return;
+    }
+    files.forEach(function(f){
+      var r = new FileReader();
+      r.onload = function(ev){
+        var img = new Image();
+        img.onload = function(){
+          var MD=600, w=img.width, h=img.height;
+          if(w>MD||h>MD){ if(w>h){h=Math.round(h*MD/w);w=MD;} else {w=Math.round(w*MD/h);h=MD;} }
+          var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          kpiEvPendingImgs.push(cv.toDataURL('image/jpeg',0.6));
+          kpiRefreshEvImgPrev();
+        };
+        img.src = ev.target.result;
+      };
+      r.readAsDataURL(f);
+    });
+    e.target.value='';
+  };
+  function kpiRefreshEvImgPrev(){
+    document.getElementById('kpiEvImgPrev').innerHTML = kpiEvPendingImgs.map(function(b,i){
+      return '<div class="kpi-evimg-thumb"><img src="'+b+'"><button type="button" class="kpi-evimg-rm" onclick="kpiRmEvImg('+i+')">×</button></div>';
+    }).join('');
+  }
+  window.kpiRmEvImg = function(i){ kpiEvPendingImgs.splice(i,1); kpiRefreshEvImgPrev(); };
+
+  window.kpiToggleSection = function(headerEl, bodyId){
+    var body = document.getElementById(bodyId);
+    var icon = headerEl.querySelector('.kpi-collapse-icon');
+    var isHidden = (body.style.display === 'none');
+    body.style.display = isHidden ? '' : 'none';
+    if(icon) icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+  };
+
+  window.kpiAddEvent = function(){
+    if(!kpiAdminMode){ return; }
+    var person = document.getElementById('kpiEvPerson').value.trim();
+    var date = document.getElementById('kpiEvDate').value;
+    var type = document.getElementById('kpiEvType').value.trim();
+    var severity = document.getElementById('kpiEvSeverity').value;
+    var count = parseInt(document.getElementById('kpiEvCount').value, 10) || 1;
+    var points = parseFloat(document.getElementById('kpiEvPoints').value)||0;
+    var note = document.getElementById('kpiEvNote').value.trim();
+    var link = document.getElementById('kpiEvLink').value.trim();
+    var alertEl = document.getElementById('kpiEvAlert');
+    function showKpiAl(msg,cls){
+      alertEl.style.display='block';
+      alertEl.style.background = cls==='err' ? '#fce4e4' : '#e6f4ea';
+      alertEl.style.color = cls==='err' ? '#a11d1d' : '#1b6b3a';
+      alertEl.textContent = msg;
+    }
+    if(!person){ showKpiAl('Vui lòng chọn/nhập tên nhân viên!','err'); return; }
+    if(!date){ showKpiAl('Vui lòng chọn ngày xảy ra!','err'); return; }
+    if(!type){ showKpiAl('Vui lòng chọn hoặc nhập loại sự kiện!','err'); return; }
+    if(!kpiEventsRef){ showKpiAl('Chưa kết nối được Firebase!','err'); return; }
+    var id = Date.now();
+    var rec = {id:id, person:person, date:date, type:type, severity:severity, count:count, points:points,
+      note:note, imgs:(kpiEvPendingImgs.length?[...kpiEvPendingImgs]:[]), link:link,
+      createdAt:new Date().toISOString(), createdBy:(typeof cu!=='undefined'&&cu&&cu.name)||'Quản lý'};
+    kpiEventsRef.child(String(id)).set(rec).then(function(){
+      showKpiAl('Đã lưu sự kiện KPI! ('+count+' lần × '+(points/count).toFixed(1)+'đ = '+points.toFixed(1)+'đ)','ok');
+      document.getElementById('kpiEvPerson').value='';
+      document.getElementById('kpiEvNote').value='';
+      document.getElementById('kpiEvLink').value='';
+      document.getElementById('kpiEvCount').value='1';
+      kpiEvPendingImgs=[]; kpiRefreshEvImgPrev();
+      kpiRecalcPoints();
+      kpiLoadEventsThenRender();
+    }).catch(function(e){ showKpiAl('Lỗi lưu dữ liệu: '+e.message,'err'); });
+  };
+
+  window.kpiDeleteEvent = function(id){
+    if(!kpiAdminMode) return;
+    if(!confirm('Xóa sự kiện KPI này?')) return;
+    kpiEventsRef.child(String(id)).remove().then(kpiLoadEventsThenRender);
+  };
+
+  function kpiLoadEventsThenRender(){
+    if(!kpiEventsRef){ kpiEvents=[]; kpiRenderAll(); return; }
+    kpiEventsRef.once('value').then(function(snap){
+      var val = snap.val()||{};
+      kpiEvents = Object.values(val);
+      kpiRenderAll();
+    }).catch(function(){ kpiEvents=[]; kpiRenderAll(); });
+  }
+
+  window.kpiRefresh = function(){ kpiLoadEventsThenRender(); };
+
+  var KPI_TYPE_LABEL = {
+    cap_nhat_quy_trinh:'Chưa cập nhật/xác nhận đọc quy trình mới',
+    giao_ban_tre:'Giao ban không đúng giờ',
+    bo_vi_tri_truc:'Bỏ vị trí trực',
+    thieu_do:'Thiếu đồ (thiếu vật tư/dụng cụ chuẩn bị)',
+    ra_ngoai_chua_dong_y:'Tự ý ra ngoài khi chưa được kíp phẫu thuật đồng ý',
+    sai_sot_chu_quan:'Xảy ra sai sót chuyên môn do lỗi chủ quan',
+    giao_nhan_truc_tre:'Không thực hiện giao nhận trực đúng giờ',
+    vang_gio_lam_viec:'Không có mặt trong giờ làm việc',
+    so_sach_khong_ro:'Sổ sách bàn giao không rõ ràng',
+    khac:'Khác'
+  };
+
+  function kpiRankOf(score){
+    if(score>=90) return {cls:'kpi-b-a', label:'A - Xuất sắc'};
+    if(score>=75) return {cls:'kpi-b-b', label:'B - Tốt'};
+    if(score>=60) return {cls:'kpi-b-c', label:'C - Đạt yêu cầu'};
+    if(score>=40) return {cls:'kpi-b-d', label:'D - Chưa đạt'};
+    return {cls:'kpi-b-e', label:'E - Yếu kém'};
+  }
+
+  function kpiComputeForPerson(name, monthStr){
+    var all = (typeof cards!=='undefined') ? cards : [];
+    var cardsInMonth = all.filter(function(c){ return c.person===name && c.date && c.date.slice(0,7)===monthStr; });
+    var total = cardsInMonth.length;
+    var done = cardsInMonth.filter(function(c){ return c.status==='done'; }).length;
+    var overdue = 0;
+    cardsInMonth.forEach(function(c){
+      if(c.status!=='done' && typeof calcDowntime==='function'){
+        var d = calcDowntime(c);
+        if(d!==null && d>=30) overdue++;
+      }
+    });
+    var evs = kpiEvents.filter(function(e){ return e.person===name && e.date && e.date.slice(0,7)===monthStr; });
+    var eventPenaltyRaw = evs.reduce(function(s,e){ return s + (parseFloat(e.points)||0); }, 0);
+    var eventPenalty = Math.max(eventPenaltyRaw, -40);
+    var completionRate = total>0 ? done/total : null;
+    var complPenalty = 0;
+    if(total>=3 && completionRate!==null && completionRate<0.9){
+      complPenalty = Math.min(15, (0.9-completionRate)*100*0.3);
+    }
+    var overduePenalty = Math.min(10, overdue*2);
+    var score = 100 + eventPenalty - complPenalty - overduePenalty;
+    score = Math.max(0, Math.min(100, Math.round(score*10)/10));
+    var rank = kpiRankOf(score);
+    return {total:total, done:done, completionRate:completionRate, overdue:overdue,
+      events:evs, eventPenalty:eventPenalty, complPenalty:complPenalty, overduePenalty:overduePenalty,
+      score:score, rank:rank};
+  }
+
+  function kpiComputeYearForPerson(name, year){
+    var monthsCounted = 0;
+    var totalDone=0, totalTasks=0, totalOverdue=0, totalEvents=0, totalEventPenalty=0;
+    var scoreSum = 0;
+    var allEvsYear = [];
+    for(var m=1; m<=12; m++){
+      var monthStr = year+'-'+String(m).padStart(2,'0');
+      var r = kpiComputeForPerson(name, monthStr);
+      totalDone += r.done; totalTasks += r.total; totalOverdue += r.overdue;
+      totalEvents += r.events.length; totalEventPenalty += r.eventPenalty;
+      allEvsYear = allEvsYear.concat(r.events);
+      if(r.total>0 || r.events.length>0){ monthsCounted++; scoreSum += r.score; }
+    }
+    var avgScore = monthsCounted ? (scoreSum/monthsCounted) : 100;
+    avgScore = Math.round(avgScore*10)/10;
+    var rank = kpiRankOf(avgScore);
+    var completionRate = totalTasks>0 ? totalDone/totalTasks : null;
+    return {total:totalTasks, done:totalDone, completionRate:completionRate, overdue:totalOverdue,
+      events:allEvsYear, eventPenalty:totalEventPenalty, score:avgScore, rank:rank, monthsCounted:monthsCounted};
+  }
+
+  function kpiRenderAll(){
+    var periodMode = document.getElementById('kpiPeriodMode').value;
+    var monthStr = document.getElementById('kpiMonth').value || kpiCurMonth();
+    var yearVal = document.getElementById('kpiYear').value || new Date().getFullYear();
+    var isYear = (periodMode === 'year');
+    var wrap = document.getElementById('kpiTableWrap');
+    var listWrap = document.getElementById('kpiEventListWrap');
+    var names = kpiAllStaffMode ? ((typeof staffList!=='undefined')?[...staffList].sort(function(a,b){return a.localeCompare(b,'vi');}):[]) : [kpiPersonalName];
+
+    var formulaDesc = isYear
+      ? 'Điểm KPI trung bình/năm = trung bình cộng điểm KPI ước tính của các tháng có dữ liệu trong năm (mỗi tháng tính theo công thức: 100 + điểm trừ sự kiện − phạt hoàn thành thấp − phạt tồn đọng). Dùng để tổng hợp, xét thi đua cuối năm.'
+      : 'Điểm KPI = 100 + điểm trừ sự kiện (tối đa -40) − phạt tỷ lệ hoàn thành thấp (tối đa -15) − phạt tồn đọng &gt;30 ngày (tối đa -10). Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.';
+    document.getElementById('kpiTableFormulaDesc').innerHTML = formulaDesc;
+    var scopePrefix = kpiAdminMode ? 'Toàn khoa (Quản lý)' : (kpiAllStaffMode ? 'Toàn khoa (Xem công khai)' : ('Cá nhân: '+kpiPersonalName));
+    document.getElementById('kpiScopeLabel').textContent = '— '+scopePrefix+' — '+(isYear ? ('Cả năm '+yearVal) : ('Tháng '+monthStr));
+
+    var rows = names.map(function(n){ return {name:n, r: isYear ? kpiComputeYearForPerson(n, yearVal) : kpiComputeForPerson(n, monthStr)}; });
+    if(kpiAllStaffMode) rows.sort(function(a,b){ return b.r.score - a.r.score; });
+
+    if(!rows.length){
+      wrap.innerHTML = '<div class="kpi-empty">Chưa có dữ liệu.</div>';
+    } else {
+      var colScoreLabel = isYear ? 'Điểm KPI trung bình/năm' : 'Điểm KPI ước tính';
+      var html = '<div style="overflow-x:auto"><table class="kpi-tb"><tr>'+
+        '<th>Nhân viên</th><th>Việc hoàn thành / Tổng'+(isYear?' (cả năm)':'')+'</th><th>Tỷ lệ hoàn thành</th>'+
+        '<th>Tồn đọng &gt;30 ngày</th><th>Số sự kiện KPI'+(isYear?' (cả năm)':'')+'</th><th>Điểm trừ sự kiện'+(isYear?' (cộng dồn)':'')+'</th>'+
+        '<th>'+colScoreLabel+'</th><th>Xếp loại</th></tr>';
+      rows.forEach(function(x){
+        var r = x.r;
+        var pct = r.completionRate===null ? '—' : Math.round(r.completionRate*100)+'%';
+        html += '<tr><td>'+kpiEsc(x.name)+'</td><td>'+r.done+' / '+r.total+'</td><td>'+pct+'</td>'+
+          '<td>'+r.overdue+'</td><td>'+r.events.length+'</td><td>'+r.eventPenalty.toFixed(1)+'</td>'+
+          '<td><b>'+r.score.toFixed(1)+'</b></td><td><span class="kpi-badge '+r.rank.cls+'">'+r.rank.label+'</span></td></tr>';
+      });
+      html += '</table></div>';
+      wrap.innerHTML = html;
+    }
+
+    // Event list (admin/public: all in period; personal: own only)
+    var evList = kpiEvents.filter(function(e){
+      if(!e.date) return false;
+      var matchPeriod = isYear ? (e.date.slice(0,4)===String(yearVal)) : (e.date.slice(0,7)===monthStr);
+      if(!matchPeriod) return false;
+      if(!kpiAllStaffMode) return e.person===kpiPersonalName;
+      return true;
+    }).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+
+    document.getElementById('kpiEventListSection').style.display = (kpiAllStaffMode || evList.length) ? 'block' : 'none';
+    if(!evList.length){
+      listWrap.innerHTML = '<div class="kpi-empty">Chưa có sự kiện KPI nào trong '+(isYear?'năm':'tháng')+' này.</div>';
+    } else {
+      var h2 = '<div style="overflow-x:auto"><table class="kpi-tb"><tr><th>Ngày</th><th>Nhân viên</th><th>Loại sự kiện</th><th>Số lần</th><th>Điểm trừ</th><th>Ghi chú</th><th>Minh chứng</th>'+(kpiAdminMode?'<th></th>':'')+'</tr>';
+      evList.forEach(function(e){
+        var proofBits = [];
+        if(e.imgs && e.imgs.length){
+          e.imgs.forEach(function(src, i){
+            proofBits.push('<img src="'+src+'" style="width:32px;height:32px;object-fit:cover;border-radius:5px;cursor:pointer;margin-right:3px" onclick="kpiViewEvImg(\''+e.id+'\','+i+')">');
+          });
+        }
+        if(e.link){
+          proofBits.push('<a href="'+kpiEsc(e.link)+'" target="_blank" rel="noopener" style="color:#0d47a1"><i class="ti ti-link"></i> Link</a>');
+        }
+        h2 += '<tr><td>'+kpiFmtD(e.date)+'</td><td>'+kpiEsc(e.person)+'</td><td>'+kpiEsc(KPI_TYPE_LABEL[e.type]||e.type)+'</td>'+
+          '<td>'+(e.count||1)+'</td><td>'+(parseFloat(e.points)||0).toFixed(1)+'</td><td>'+kpiEsc(e.note||'')+'</td>'+
+          '<td>'+(proofBits.length?proofBits.join(' '):'—')+'</td>'+
+          (kpiAdminMode?('<td><button class="kpi-del" onclick="kpiDeleteEvent('+e.id+')"><i class="ti ti-trash"></i></button></td>'):'')+
+          '</tr>';
+      });
+      h2 += '</table></div>';
+      listWrap.innerHTML = h2;
+      window.kpiEventsCache = evList;
+    }
+  }
+
+  window.kpiViewEvImg = function(eventId, imgIdx){
+    var ev = (window.kpiEventsCache||[]).find(function(x){ return String(x.id)===String(eventId); });
+    if(!ev || !ev.imgs || !ev.imgs[imgIdx]) return;
+    var w = window.open('');
+    if(w){ w.document.write('<title>Minh chứng KPI</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+ev.imgs[imgIdx]+'" style="max-width:100%;max-height:100vh"></body>'); }
+  };
+
+  // ===== Modal tim nhan vien =====
+  var kpiStaffPickerTarget = null;
+  window.kpiOpenStaffPicker = function(targetInputId){
+    kpiStaffPickerTarget = targetInputId;
+    var overlay = document.getElementById('kpiStaffModalOverlay');
+    var searchEl = document.getElementById('kpiStaffModalSearch');
+    searchEl.value = '';
+    overlay.style.display = 'flex';
+    kpiFilterStaffModal();
+    setTimeout(function(){ searchEl.focus(); }, 50);
+  };
+  window.kpiCloseStaffPicker = function(){
+    document.getElementById('kpiStaffModalOverlay').style.display = 'none';
+    kpiStaffPickerTarget = null;
+  };
+  window.kpiFilterStaffModal = function(){
+    var q = document.getElementById('kpiStaffModalSearch').value.trim().toLowerCase();
+    var names = (typeof staffList!=='undefined') ? staffList : [];
+    function stripDiacritics(s){
+      return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
+    }
+    var qNorm = stripDiacritics(q);
+    var filtered = names.filter(function(n){ return !q || stripDiacritics(n).indexOf(qNorm)>=0; })
+      .sort(function(a,b){ return a.localeCompare(b,'vi'); });
+    var listEl = document.getElementById('kpiStaffModalList');
+    if(!filtered.length){
+      listEl.innerHTML = '<div class="kpi-modal-empty">Không tìm thấy nhân viên phù hợp.</div>';
+      return;
+    }
+    listEl.innerHTML = filtered.map(function(n){
+      return '<div class="kpi-modal-item" onclick="kpiPickStaff(\''+n.replace(/'/g,"\\'")+'\')">'+kpiEsc(n)+'</div>';
+    }).join('');
+  };
+  window.kpiPickStaff = function(name){
+    if(kpiStaffPickerTarget){
+      var el = document.getElementById(kpiStaffPickerTarget);
+      if(el) el.value = name;
+    }
+    kpiCloseStaffPicker();
+  };
+  // Dong modal khi bam ra ngoai
+  document.addEventListener('click', function(ev){
+    var overlay = document.getElementById('kpiStaffModalOverlay');
+    if(overlay && ev.target === overlay) kpiCloseStaffPicker();
+  });
+})();
+</script>
+
 </body>
 </html>
