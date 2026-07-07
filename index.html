@@ -541,6 +541,7 @@ font-size:10px;color:var(--tx3)}
       <div class="home-card" onclick="goQuyTrinh()" style="background:linear-gradient(135deg,#8d6e63,#5d4037);color:#fff;border-color:#3e2723"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-book-2"></i><div class="home-card-title">Thư viện<br>Quy trình</div><div class="home-card-sub">Tra cứu & xác nhận đọc quy trình</div></div>
       <div class="home-card" onclick="goThanhTichView()" style="background:linear-gradient(135deg,#c9a227,#8a6d1f);color:#fff;border-color:#5c4a15"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-award"></i><div class="home-card-title">Xem<br>Thành tích</div><div class="home-card-sub">Tập thể (mọi người) & Cá nhân (riêng từng người)</div></div>
       <div class="home-card" onclick="goKpiView()" style="background:linear-gradient(135deg,#0d47a1,#082a5e);color:#fff;border-color:#06214a"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-chart-bar"></i><div class="home-card-title">Đánh giá<br>KPI</div><div class="home-card-sub">Tự động tổng hợp từ Kanban + sự kiện KPI</div></div>
+      <div class="home-card" onclick="goDoiTrucView()" style="background:linear-gradient(135deg,#7b1fa2,#4a0d5e);color:#fff;border-color:#38096b"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-replace"></i><div class="home-card-title">Đổi<br>Trực</div><div class="home-card-sub">Đăng ký đổi ca trực & theo dõi thống kê</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -11618,6 +11619,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         </div>
         <div style="flex:1"></div>
         <button class="kpi-btn kpi-btn-solid" style="border:1.5px solid #0d47a1" onclick="kpiRefresh()"><i class="ti ti-refresh"></i> Làm mới</button>
+        <button class="kpi-btn" style="background:#1b6b3a;color:#fff" onclick="kpiExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+        <button class="kpi-btn" style="background:#0d47a1;color:#fff" onclick="kpiExportWord()"><i class="ti ti-file-word"></i> Xuất Word</button>
       </div>
 
       <div class="kpi-section" id="kpiTypesSection">
@@ -11725,6 +11728,13 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiTableBody')"><i class="ti ti-chevron-down kpi-collapse-icon" style="transform:rotate(0deg)"></i> <i class="ti ti-table"></i> Bảng tổng hợp KPI <span id="kpiScopeLabel"></span></h3>
         <div id="kpiTableBody">
         <div class="sub" id="kpiTableFormulaDesc">Điểm KPI = 100 + điểm trừ sự kiện (tối đa -40) − phạt tỷ lệ hoàn thành thấp (tối đa -15) − phạt tồn đọng &gt;30 ngày (tối đa -10). Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:220px">
+            <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#8098bb;font-size:14px;pointer-events:none"></i>
+            <input type="text" id="kpiTableFilter" placeholder="Lọc/tìm theo tên nhân viên trong bảng..." oninput="kpiRenderAll()" style="width:100%;padding:8px 10px 8px 30px;border:1.5px solid #cdd8ea;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box">
+          </div>
+          <button class="kpi-btn" style="border:1.5px solid #5b7ba8;color:#5b7ba8" onclick="kpiPrintNow()"><i class="ti ti-printer"></i> In</button>
+        </div>
         <div id="kpiTableWrap"></div>
         </div>
       </div>
@@ -11775,6 +11785,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     {name:'Không thực hiện giao nhận trực đúng giờ', severity:'vua', points:-5, note:''},
     {name:'Không có mặt trong giờ làm việc', severity:'vua', points:-5, note:''},
     {name:'Sổ sách bàn giao không rõ ràng', severity:'nhe', points:-2, note:''},
+    {name:'Tự ý đổi trực khi chưa có đồng ý lãnh đạo khoa', severity:'nang', points:-10, note:'Tự động ghi nhận từ module Đổi trực khi Quản lý đánh dấu vi phạm'},
     {name:'Khác', severity:'vua', points:-5, note:''}
   ];
 
@@ -11979,8 +11990,18 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       alertEl.textContent = msg;
     }
     if(!name){ showAl('Vui lòng nhập tên loại sự kiện!','err'); return; }
-    var dup = kpiEventTypes.some(function(t){ return t.name.toLowerCase()===name.toLowerCase() && String(t.id)!==String(kpiEditingTypeId); });
-    if(dup){ showAl('Loại sự kiện này đã có trong danh mục!','err'); return; }
+    name = name.replace(/\s+/g,' ').trim();
+    function kpiNormForCompare(s){
+      return (s||'').replace(/\s+/g,' ').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
+    }
+    var nameNorm = kpiNormForCompare(name);
+    var exactDup = kpiEventTypes.some(function(t){ return t.name.toLowerCase().replace(/\s+/g,' ').trim()===name.toLowerCase() && String(t.id)!==String(kpiEditingTypeId); });
+    if(exactDup){ showAl('Loại sự kiện này đã có trong danh mục!','err'); return; }
+    var similar = kpiEventTypes.find(function(t){ return kpiNormForCompare(t.name)===nameNorm && String(t.id)!==String(kpiEditingTypeId); });
+    if(similar){
+      var ok = confirm('Đã có 1 loại rất giống trong danh mục: "'+similar.name+'"\n\nBạn có chắc vẫn muốn thêm "'+name+'" như một loại RIÊNG BIỆT không? (Nên bấm Hủy và dùng lại loại đã có để tránh trùng lặp dữ liệu)');
+      if(!ok) return;
+    }
     if(!kpiTypesRef){ showAl('Chưa kết nối được Firebase!','err'); return; }
 
     if(kpiEditingTypeId){
@@ -12215,6 +12236,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       events:allEvsYear, eventPenalty:totalEventPenalty, score:avgScore, rank:rank, monthsCounted:monthsCounted};
   }
 
+  var _kpiCurrentRows = [];
+  var _kpiCurrentIsYear = false;
+  var _kpiCurrentPeriodLabel = '';
+
   function kpiRenderAll(){
     var periodMode = document.getElementById('kpiPeriodMode').value;
     var monthStr = document.getElementById('kpiMonth').value || kpiCurMonth();
@@ -12229,20 +12254,33 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       : 'Điểm KPI = 100 + điểm trừ sự kiện (tối đa -40) − phạt tỷ lệ hoàn thành thấp (tối đa -15) − phạt tồn đọng &gt;30 ngày (tối đa -10). Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.';
     document.getElementById('kpiTableFormulaDesc').innerHTML = formulaDesc;
     var scopePrefix = kpiAdminMode ? 'Toàn khoa (Quản lý)' : (kpiAllStaffMode ? 'Toàn khoa (Xem công khai)' : ('Cá nhân: '+kpiPersonalName));
-    document.getElementById('kpiScopeLabel').textContent = '— '+scopePrefix+' — '+(isYear ? ('Cả năm '+yearVal) : ('Tháng '+monthStr));
+    var periodLbl = isYear ? ('Cả năm '+yearVal) : ('Tháng '+monthStr);
+    document.getElementById('kpiScopeLabel').textContent = '— '+scopePrefix+' — '+periodLbl;
+    _kpiCurrentIsYear = isYear;
+    _kpiCurrentPeriodLabel = scopePrefix+' — '+periodLbl;
 
     var rows = names.map(function(n){ return {name:n, r: isYear ? kpiComputeYearForPerson(n, yearVal) : kpiComputeForPerson(n, monthStr)}; });
     if(kpiAllStaffMode) rows.sort(function(a,b){ return b.r.score - a.r.score; });
+    _kpiCurrentRows = rows;
+
+    // Bo loc hien thi theo ten (khong anh huong du lieu xuat file - xuat luon day du)
+    var filterEl = document.getElementById('kpiTableFilter');
+    var filterQ = filterEl ? filterEl.value.trim() : '';
+    function stripDiac(s){ return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase(); }
+    var filterQNorm = stripDiac(filterQ);
+    var rows_display = filterQNorm ? rows.filter(function(x){ return stripDiac(x.name).indexOf(filterQNorm)>=0; }) : rows;
 
     if(!rows.length){
       wrap.innerHTML = '<div class="kpi-empty">Chưa có dữ liệu.</div>';
+    } else if(!rows_display.length){
+      wrap.innerHTML = '<div class="kpi-empty">Không tìm thấy nhân viên nào khớp với từ khóa lọc.</div>';
     } else {
       var colScoreLabel = isYear ? 'Điểm KPI trung bình/năm' : 'Điểm KPI ước tính';
       var html = '<div style="overflow-x:auto"><table class="kpi-tb"><tr>'+
         '<th>Nhân viên</th><th>Việc hoàn thành / Tổng'+(isYear?' (cả năm)':'')+'</th><th>Tỷ lệ hoàn thành</th>'+
         '<th>Tồn đọng &gt;30 ngày</th><th>Số sự kiện KPI'+(isYear?' (cả năm)':'')+'</th><th>Điểm trừ sự kiện'+(isYear?' (cộng dồn)':'')+'</th>'+
         '<th>'+colScoreLabel+'</th><th>Xếp loại</th></tr>';
-      rows.forEach(function(x){
+      rows_display.forEach(function(x){
         var r = x.r;
         var pct = r.completionRate===null ? '—' : Math.round(r.completionRate*100)+'%';
         html += '<tr><td>'+kpiEsc(x.name)+'</td><td>'+r.done+' / '+r.total+'</td><td>'+pct+'</td>'+
@@ -12341,6 +12379,906 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var overlay = document.getElementById('kpiStaffModalOverlay');
     if(overlay && ev.target === overlay) kpiCloseStaffPicker();
   });
+
+  /* ── XUAT EXCEL - Bang tong hop KPI (theo pham vi dang xem) ── */
+  window.kpiExportExcel = function(){
+    var rows = _kpiCurrentRows;
+    if(!rows || !rows.length){ alert('Không có dữ liệu KPI để xuất trong phạm vi đang xem!'); return; }
+    var now = new Date();
+    var nowStr = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var colScoreLabel = _kpiCurrentIsYear ? 'Điểm KPI TB/năm' : 'Điểm KPI ước tính';
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>'+
+      '<x:ExcelWorksheet><x:Name>KPI GMHS</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>'+
+      '</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--><style>'+
+      'body{font-family:"Times New Roman";font-size:11pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}'+
+      '.org2{font-size:10pt;text-align:center;color:#222;font-weight:700}'+
+      '.th{background:#0d47a1;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #082a5e;padding:5px}'+
+      '.td{border:1px solid #c5cfe8;padding:4px 6px;font-size:10pt;vertical-align:top}'+
+      '.td-c{border:1px solid #c5cfe8;padding:4px 6px;text-align:center;font-size:10pt;vertical-align:middle}'+
+      '.ev{background:#f0f4ff}'+
+      '.rA{color:#1b6b3a;font-weight:bold}.rB{color:#0d5aa7;font-weight:bold}.rC{color:#8a6d00;font-weight:bold}'+
+      '.rD{color:#b5490a;font-weight:bold}.rE{color:#a11d1d;font-weight:bold}'+
+      '</style></head><body><table>'+
+      '<tr><td colspan="8" class="org">SỞ Y TẾ TỈNH GIA LAI</td></tr>'+
+      '<tr><td colspan="8" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'+
+      '<tr><td colspan="8" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="8" class="title">BẢNG TỔNG HỢP ĐÁNH GIÁ KPI</td></tr>'+
+      '<tr><td colspan="8" class="org">Xuất ngày: '+nowStr+' | Phạm vi: '+kpiEsc(_kpiCurrentPeriodLabel)+' | Số nhân viên: '+rows.length+'</td></tr>'+
+      '<tr></tr><tr><td class="th">STT</td><td class="th">Nhân viên</td><td class="th">Việc hoàn thành/Tổng</td>'+
+      '<td class="th">Tỷ lệ hoàn thành</td><td class="th">Tồn đọng &gt;30 ngày</td><td class="th">Số sự kiện KPI</td>'+
+      '<td class="th">Điểm trừ sự kiện</td><td class="th">'+colScoreLabel+'</td><td class="th">Xếp loại</td></tr>';
+    rows.forEach(function(x, i){
+      var r = x.r; var ev = (i%2===1) ? ' ev' : '';
+      var pct = r.completionRate===null ? '—' : Math.round(r.completionRate*100)+'%';
+      var rc = r.rank.cls.replace('kpi-b-','r').toUpperCase();
+      html += '<tr><td class="td-c'+ev+'">'+(i+1)+'</td><td class="td'+ev+'" style="font-weight:bold">'+kpiEsc(x.name)+'</td>'+
+        '<td class="td-c'+ev+'">'+r.done+' / '+r.total+'</td><td class="td-c'+ev+'">'+pct+'</td>'+
+        '<td class="td-c'+ev+'">'+r.overdue+'</td><td class="td-c'+ev+'">'+r.events.length+'</td>'+
+        '<td class="td-c'+ev+'">'+r.eventPenalty.toFixed(1)+'</td><td class="td-c'+ev+'" style="font-weight:bold">'+r.score.toFixed(1)+'</td>'+
+        '<td class="td-c'+ev+' '+rc+'">'+r.rank.label+'</td></tr>';
+    });
+    html += '</table></body></html>';
+    var blob = new Blob(['\ufeff'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'KPI_GMHS_'+(typeof today==='function'?today():nowStr.replace(/\//g,'-'))+'.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  /* ── IN NHANH - dung lai noi dung Xuat Word, tu dong bam In ── */
+  window.kpiPrintNow = function(){
+    kpiExportWord(true);
+  };
+
+  /* ── XUAT WORD - Xem truoc, khong tu in ── */
+  window.kpiExportWord = function(autoPrint){
+    var rows = _kpiCurrentRows;
+    if(!rows || !rows.length){ alert('Không có dữ liệu KPI để xuất trong phạm vi đang xem!'); return; }
+    var now = new Date();
+    var printDate = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var printTime = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    var colScoreLabel = _kpiCurrentIsYear ? 'Điểm KPI TB/năm' : 'Điểm KPI ước tính';
+    var xsCount = rows.filter(function(x){ return x.r.rank.label.indexOf('Xuất sắc')>=0; }).length;
+    var eKemCount = rows.filter(function(x){ return x.r.rank.label.indexOf('Yếu kém')>=0; }).length;
+    var docFileName = 'KPI_GMHS_'+(typeof today==='function'?today():printDate.replace(/\//g,'-'))+'.doc';
+
+    var rowsHtml = rows.map(function(x, i){
+      var r = x.r; var ev = (i%2===1) ? ' ev' : '';
+      var pct = r.completionRate===null ? '—' : Math.round(r.completionRate*100)+'%';
+      var rc = r.rank.cls.replace('kpi-b-','st-');
+      return '<tr class="'+(ev?'ev':'')+'"><td style="text-align:center">'+(i+1)+'</td><td style="font-weight:700">'+kpiEsc(x.name)+'</td>'+
+        '<td style="text-align:center">'+r.done+' / '+r.total+'</td><td style="text-align:center">'+pct+'</td>'+
+        '<td style="text-align:center">'+r.overdue+'</td><td style="text-align:center">'+r.events.length+'</td>'+
+        '<td style="text-align:center">'+r.eventPenalty.toFixed(1)+'</td><td style="text-align:center;font-weight:700">'+r.score.toFixed(1)+'</td>'+
+        '<td class="'+rc+'" style="text-align:center">'+r.rank.label+'</td></tr>';
+    }).join('');
+
+    var html = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">'+
+      '<title>Bảng tổng hợp KPI – Khoa GMHS – '+printDate+'</title><style>'+
+      '@media print{.no-print{display:none!important}@page{size:A4 landscape;margin:1.5cm 2cm}}'+
+      'body{font-family:"Times New Roman",serif;font-size:11pt;color:#111;margin:0;background:#f5f5f5}'+
+      '.preview-wrap{max-width:1100px;margin:0 auto;padding:20px}'+
+      '.toolbar{background:#0d47a1;color:#fff;padding:12px 20px;border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:20px}'+
+      '.toolbar span{font-size:14px;font-weight:700;flex:1}'+
+      '.tbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:#fff;font-family:inherit}'+
+      '.tbtn.print{background:#2e7d32;border-color:#2e7d32}.tbtn.dl{background:#fff;color:#0d47a1;border-color:#fff}'+
+      '.page{background:#fff;border-radius:8px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}'+
+      '.hdr-top{text-align:center;margin-bottom:4pt}.org{font-size:10pt;color:#444;font-style:italic}'+
+      '.dep{font-size:11pt;font-weight:700;color:#0d47a1}'+
+      '.doc-title{text-align:center;font-size:15pt;font-weight:700;text-transform:uppercase;margin:12pt 0 4pt;color:#082a5e;letter-spacing:.5pt}'+
+      '.doc-sub{text-align:center;font-size:10pt;color:#555;margin-bottom:14pt}'+
+      '.sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10pt;margin-bottom:16pt}'+
+      '.sum-box{border:1pt solid #c5cfe8;border-radius:4pt;padding:8pt 10pt;text-align:center}'+
+      '.sn{font-size:18pt;font-weight:700;color:#0d47a1}.sl{font-size:9pt;text-transform:uppercase;color:#555;margin-top:2pt}'+
+      'table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt}'+
+      'th{background:#0d47a1;color:#fff;padding:6pt 7pt;font-size:9.5pt;font-weight:700;text-align:center;border:1pt solid #082a5e}'+
+      'td{padding:5pt 7pt;border:0.5pt solid #c5cfe8;vertical-align:middle}.ev{background:#f7f9ff}'+
+      '.st-a{color:#1b6b3a;font-weight:700}.st-b{color:#0d5aa7;font-weight:700}.st-c{color:#8a6d00;font-weight:700}'+
+      '.st-d{color:#b5490a;font-weight:700}.st-e{color:#a11d1d;font-weight:700}'+
+      '.foot{text-align:center;font-size:9pt;color:#777;border-top:0.5pt solid #ccc;padding-top:8pt;margin-top:14pt}'+
+      '.sig-row{display:grid;grid-template-columns:1fr 1fr;gap:30pt;margin-top:20pt;text-align:center;font-size:10pt}'+
+      '.sig-box{border-top:0.5pt solid #ccc;padding-top:6pt}'+
+      '</style></head><body><div class="preview-wrap">'+
+      '<div class="toolbar no-print"><span>📄 Xem trước – Bảng tổng hợp KPI Khoa GMHS ('+printDate+')</span>'+
+      '<button class="tbtn" onclick="window.close()">✕ Đóng</button>'+
+      '<button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>'+
+      '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button></div>'+
+      '<div class="page"><div class="hdr-top"><div class="org">SỞ Y TẾ TỈNH GIA LAI</div>'+
+      '<div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div><div class="dep">KHOA GÂY MÊ HỒI SỨC</div></div>'+
+      '<div class="doc-title">Bảng tổng hợp đánh giá KPI</div>'+
+      '<div class="doc-sub">Ngày xuất: '+printDate+' | Giờ xuất: '+printTime+' | Phạm vi: '+kpiEsc(_kpiCurrentPeriodLabel)+'</div>'+
+      '<div class="sum-grid">'+
+      '<div class="sum-box"><div class="sn">'+rows.length+'</div><div class="sl">Tổng nhân viên</div></div>'+
+      '<div class="sum-box"><div class="sn" style="color:#1b6b3a">'+xsCount+'</div><div class="sl">Xuất sắc</div></div>'+
+      '<div class="sum-box"><div class="sn" style="color:#a11d1d">'+eKemCount+'</div><div class="sl">Yếu kém</div></div>'+
+      '<div class="sum-box"><div class="sn">'+colScoreLabel+'</div><div class="sl">Cách tính điểm</div></div>'+
+      '</div><table><tr><th>STT</th><th>Nhân viên</th><th>Việc hoàn thành/Tổng</th><th>Tỷ lệ hoàn thành</th>'+
+      '<th>Tồn đọng &gt;30 ngày</th><th>Số sự kiện KPI</th><th>Điểm trừ sự kiện</th><th>'+colScoreLabel+'</th><th>Xếp loại</th></tr>'+
+      rowsHtml+'</table>'+
+      '<div class="sig-row"><div class="sig-box"><div><b>Người lập báo cáo</b></div>'+
+      '<div style="font-style:italic;color:#888;font-size:9pt">(Ký, ghi rõ họ tên)</div><div style="margin-top:40pt"></div></div>'+
+      '<div class="sig-box"><div><b>Trưởng khoa Gây mê Hồi sức</b></div>'+
+      '<div style="font-style:italic;color:#888;font-size:9pt">(Ký, đóng dấu)</div><div style="margin-top:40pt"></div></div></div>'+
+      '<div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Hệ thống đánh giá KPI nội bộ (chỉ mang tính tham khảo)</div>'+
+      '</div></div><script>'+
+      'function downloadWordDoc(){'+
+      'var styleTag=document.querySelector("style").outerHTML;'+
+      'var pageHtml=document.querySelector(".page").outerHTML;'+
+      'var docHtml=\'<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+docFileName+'</title>\'+styleTag+\'</head><body>\'+pageHtml+\'</body></html>\';'+
+      'var blob=new Blob(["\\ufeff"+docHtml],{type:"application/msword"});'+
+      'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="'+docFileName+'";'+
+      'document.body.appendChild(a);a.click();document.body.removeChild(a);'+
+      '}'+
+      '<\/script></body></html>';
+
+    var w = window.open('', '_blank', 'width=1100,height=780,scrollbars=yes,resizable=yes');
+    if(!w){ alert('Trình duyệt chặn popup! Vui lòng cho phép popup.'); return; }
+    w.document.write(html);
+    w.document.close();
+    if(autoPrint){ setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 400); }
+  };
+})();
+</script>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     BỔ SUNG: ĐỔI TRỰC — module độc lập, không sửa code cũ.
+     Cấu trúc: Đăng ký / Danh sách phiếu / Thống kê — giống
+     tinh thần Nghỉ Bù, Nghỉ Phép. Dữ liệu lưu tại nhánh Firebase
+     mới hoàn toàn: 'doiTruc'. Dùng lại modal tìm nhân viên đã có
+     ở module KPI (kpiOpenStaffPicker) — chỉ GỌI hàm có sẵn, không
+     sửa hàm đó.
+     ══════════════════════════════════════════════════════════ -->
+<style>
+#doiTrucScreen{min-height:100vh;background:#f5eefc;display:none;flex-direction:column}
+.dt-topbar{background:linear-gradient(135deg,#7b1fa2,#4a0d5e 60%,#2c0742);padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dt-topbar h2{color:#fff;font-size:16px;font-weight:700;margin:0}
+.dt-topbar small{color:rgba(255,255,255,.78);font-size:11.5px}
+.dt-main{max-width:1000px;margin:0 auto;padding:18px 16px 60px;width:100%}
+.dt-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.dt-tab{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid #d9c2ea;background:#fff;color:#6a1e7e}
+.dt-tab.active{background:#7b1fa2;color:#fff;border-color:#4a0d5e}
+.dt-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
+.dt-b-cho{background:#fff6e0;color:#8a6d00}
+.dt-b-duyet{background:#e6f4ea;color:#1b6b3a}
+.dt-b-tuchoi{background:#fce4e4;color:#a11d1d}
+.dt-b-vipham{background:#7a1414;color:#fff}
+</style>
+
+<div id="doiTrucScreen">
+  <div class="dt-topbar">
+    <button class="kpi-btn" onclick="dtGoHome()"><i class="ti ti-home"></i> Trang chủ</button>
+    <div>
+      <h2>🔄 Đổi Trực — Khoa Gây mê Hồi sức</h2>
+      <small>Đăng ký đổi ca trực giữa nhân viên, theo dõi duyệt phiếu & thống kê</small>
+    </div>
+  </div>
+  <div class="dt-main">
+    <div id="dtGateBox" class="kpi-gate">
+      <div style="font-weight:700;font-size:15px;color:#4a0d5e;margin-bottom:4px;text-align:center">Đổi Trực</div>
+      <div style="font-size:12px;color:#8a6ea8;margin-bottom:14px;text-align:center">Xem thống kê chung, đăng ký/xem phiếu của tôi, hoặc Quản lý duyệt phiếu</div>
+      <button class="kpi-btn" style="background:#1b6b3a;color:#fff;width:100%;justify-content:center;display:flex;margin-bottom:10px" onclick="dtTryPublic()"><i class="ti ti-chart-bar"></i> Xem thống kê chung (mọi người)</button>
+      <div style="text-align:center;font-size:11px;color:#c1a6d6;margin:6px 0">— hoặc —</div>
+      <label style="font-size:11px;font-weight:600;color:#6a1e7e">Đăng ký / xem phiếu của tôi</label>
+      <div style="display:flex;gap:6px">
+        <input list="kpiStaffDatalist" id="dtPersonalNameInput" placeholder="Gõ đúng tên của bạn..." style="flex:1">
+        <button type="button" class="kpi-btn" style="background:#fff;color:#7b1fa2;border:1.5px solid #7b1fa2;padding:7px 10px" onclick="kpiOpenStaffPicker('dtPersonalNameInput')"><i class="ti ti-search"></i></button>
+      </div>
+      <button class="kpi-btn" style="background:#fff;color:#7b1fa2;border:1.5px solid #7b1fa2;width:100%;justify-content:center;display:flex;margin-top:8px;margin-bottom:14px" onclick="dtTryPersonal()"><i class="ti ti-user"></i> Vào với tên này</button>
+      <div style="text-align:center;font-size:11px;color:#c1a6d6;margin:6px 0">— hoặc —</div>
+      <label style="font-size:11px;font-weight:600;color:#6a1e7e">Mật khẩu quản lý (để duyệt phiếu)</label>
+      <input type="password" id="dtPwdInput" placeholder="Mật khẩu quản lý...">
+      <div class="kpi-gate-err" id="dtGateErr">Mật khẩu không đúng!</div>
+      <button class="kpi-btn" style="background:#7b1fa2;color:#fff;width:100%;justify-content:center;display:flex" onclick="dtTryAdmin()"><i class="ti ti-shield-lock"></i> Đăng nhập Quản lý</button>
+    </div>
+
+    <div id="dtContentBox" style="display:none">
+      <div class="kpi-row" style="background:#fff;border:1.5px solid #e3d3ef;border-radius:12px;padding:12px 16px">
+        <div style="font-size:13px;color:#6a1e7e;font-weight:700" id="dtScopeLabel"></div>
+        <div style="flex:1"></div>
+        <div class="kpi-f" style="max-width:150px;margin:0">
+          <label style="color:#6a1e7e">Tháng xem</label>
+          <input type="month" id="dtMonth" onchange="dtRenderAll()">
+        </div>
+        <button class="kpi-btn" style="border:1.5px solid #7b1fa2;color:#7b1fa2;align-self:flex-end" onclick="dtRenderAll()"><i class="ti ti-refresh"></i> Làm mới</button>
+        <button class="kpi-btn" style="background:#1b6b3a;color:#fff;align-self:flex-end" onclick="dtExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+        <button class="kpi-btn" style="background:#0d47a1;color:#fff;align-self:flex-end" onclick="dtExportWord()"><i class="ti ti-file-word"></i> Xuất Word</button>
+      </div>
+
+      <div class="dt-tabs">
+        <div class="dt-tab active" id="dtTabBtn1" onclick="dtSwitchTab(1)"><i class="ti ti-file-plus"></i> Đăng ký đổi trực</div>
+        <div class="dt-tab" id="dtTabBtn2" onclick="dtSwitchTab(2)"><i class="ti ti-list"></i> Danh sách phiếu</div>
+        <div class="dt-tab" id="dtTabBtn3" onclick="dtSwitchTab(3)"><i class="ti ti-chart-bar"></i> Thống kê</div>
+      </div>
+
+      <!-- TAB 1: DANG KY -->
+      <div class="kpi-section" id="dtPane1">
+        <h3><i class="ti ti-file-plus"></i> Phiếu đăng ký đổi trực</h3>
+        <div class="sub">Nhân viên đang có ca trực muốn đổi lập phiếu, chọn người nhận trực thay — phiếu sẽ ở trạng thái "Chờ duyệt" cho đến khi Quản lý xác nhận.</div>
+        <div class="kpi-row">
+          <div class="kpi-f" style="max-width:220px">
+            <label>Thời điểm lập phiếu <span style="font-weight:400;color:#8a6ea8">(tự động, không sửa được)</span></label>
+            <input type="text" id="dtRegCreateTime" readonly style="background:#f3ebf8;font-weight:600;color:#4a0d5e">
+          </div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-f">
+            <label>Người đăng ký (đang có ca trực) <span style="color:red">*</span></label>
+            <div style="display:flex;gap:6px">
+              <input list="kpiStaffDatalist" id="dtRegPerson" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
+              <button type="button" class="kpi-btn" style="background:#7b1fa2;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('dtRegPerson')"><i class="ti ti-search"></i></button>
+            </div>
+          </div>
+          <div class="kpi-f">
+            <label>Người nhận trực thay <span style="color:red">*</span></label>
+            <div style="display:flex;gap:6px">
+              <input list="kpiStaffDatalist" id="dtRegPersonNew" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
+              <button type="button" class="kpi-btn" style="background:#7b1fa2;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('dtRegPersonNew')"><i class="ti ti-search"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-f" style="max-width:170px">
+            <label>Ngày trực cần đổi <span style="color:red">*</span></label>
+            <input type="date" id="dtRegDate" onchange="dtCheckFrequency()">
+          </div>
+          <div class="kpi-f" style="max-width:170px">
+            <label>Ca trực</label>
+            <select id="dtRegCa">
+              <option value="Ca hành chính">Ca hành chính</option>
+              <option value="Trực 24h" selected>Trực 24h</option>
+              <option value="Ca sáng">Ca sáng</option>
+              <option value="Ca chiều">Ca chiều</option>
+              <option value="Ca đêm">Ca đêm</option>
+            </select>
+          </div>
+          <div class="kpi-f">
+            <label>Lý do đổi trực</label>
+            <input type="text" id="dtRegReason" placeholder="Lý do đổi trực (việc gia đình, ốm...)...">
+          </div>
+        </div>
+        <div id="dtFreqWarning" style="display:none;margin:2px 0 14px;padding:10px 14px;background:#fdeaea;border:1.5px solid #e8b4b4;border-radius:8px;font-size:12.5px;color:#a11d1d;font-weight:600"></div>
+        <div id="dtViolationCheckWrap" style="display:none;margin:6px 0 14px;padding:10px 14px;background:#fdeaea;border:1.5px solid #e8b4b4;border-radius:8px">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#a11d1d;font-weight:600;cursor:pointer">
+            <input type="checkbox" id="dtViolationCheck" style="margin-top:3px" onchange="dtOnViolationCheckChange()">
+            <span>Đây là trường hợp <u>TỰ Ý ĐỔI TRỰC khi chưa có đồng ý của lãnh đạo khoa</u> — phiếu sẽ lưu ở trạng thái "Vi phạm" và <b>tự động ghi nhận sự kiện KPI (-10đ)</b> cho cả 2 người liên quan, không cần nhập lại ở màn KPI.</span>
+          </label>
+        </div>
+        <button class="kpi-btn" id="dtSubmitBtn" style="background:#7b1fa2;color:#fff" onclick="dtSubmit()"><i class="ti ti-send"></i> Gửi phiếu đăng ký</button>
+        <div id="dtSubmitAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px"></div>
+      </div>
+
+      <!-- TAB 2: DANH SACH -->
+      <div class="kpi-section" id="dtPane2" style="display:none">
+        <h3><i class="ti ti-list"></i> Danh sách phiếu đổi trực <span id="dtListScopeLabel"></span></h3>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:220px">
+            <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#8098bb;font-size:14px;pointer-events:none"></i>
+            <input type="text" id="dtListFilter" placeholder="Lọc/tìm theo tên (người đăng ký hoặc nhận thay)..." oninput="dtRenderAll()" style="width:100%;padding:8px 10px 8px 30px;border:1.5px solid #d9c2ea;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box">
+          </div>
+          <button class="kpi-btn" style="border:1.5px solid #7b1fa2;color:#7b1fa2" onclick="dtPrintNow()"><i class="ti ti-printer"></i> In</button>
+        </div>
+        <div id="dtListWrap"></div>
+      </div>
+
+      <!-- TAB 3: THONG KE -->
+      <div class="kpi-section" id="dtPane3" style="display:none">
+        <h3><i class="ti ti-chart-bar"></i> Thống kê đổi trực</h3>
+        <div class="sub">Số lượt đổi trực theo từng người (cả vai trò xin đổi và nhận thay) — giúp theo dõi ai đổi trực nhiều để cân đối phân công.</div>
+        <div class="kpi-row" style="margin-bottom:10px">
+          <div class="kpi-f" style="max-width:190px">
+            <label>Phạm vi thống kê</label>
+            <select id="dtStatScope" onchange="dtOnStatScopeChange()">
+              <option value="month">Theo tháng đang chọn</option>
+              <option value="range">Theo khoảng ngày (tùy chọn)</option>
+              <option value="all">Lũy kế toàn bộ dữ liệu</option>
+            </select>
+          </div>
+          <div class="kpi-f" style="max-width:150px;display:none" id="dtStatFromWrap">
+            <label>Từ ngày</label>
+            <input type="date" id="dtStatFromDate" onchange="dtRenderAll()">
+          </div>
+          <div class="kpi-f" style="max-width:150px;display:none" id="dtStatToWrap">
+            <label>Đến ngày</label>
+            <input type="date" id="dtStatToDate" onchange="dtRenderAll()">
+          </div>
+          <div class="kpi-f" style="max-width:260px">
+            <label>Ngưỡng cảnh báo "thường xuyên" <span style="font-weight:400;color:#8a6ea8">(dùng chung cho cả cảnh báo lúc lập phiếu)</span></label>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="dtStatThreshold" value="2" min="1" step="1" style="width:70px" onchange="dtRenderAll()">
+              <span style="font-size:12px;color:#8a6ea8" id="dtStatThresholdUnit">lần/tháng trở lên</span>
+            </div>
+          </div>
+        </div>
+        <div id="dtStatOverview" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div id="dtStatTableWrap"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var dtRecords = [];
+  var dtAdminMode = false;
+  var dtAllMode = false; // admin or public-stat mode
+  var dtPersonalName = null;
+  var dtRef = null;
+  try{ dtRef = db.ref('doiTruc'); }catch(e){ console.warn('Không khởi tạo được Firebase cho doiTruc.', e); }
+
+  function dtEsc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function dtCurMonth(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+  function dtFmtD(s){ if(!s) return ''; var p=s.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):s; }
+  function dtFmtDT(iso){
+    if(!iso) return '—';
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return '—';
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+
+  function dtRenderStaffDatalists(){
+    var names = (typeof staffList!=='undefined' && staffList.length) ? staffList : [];
+    var opts = names.map(function(n){ return '<option value="'+n.replace(/"/g,'&quot;')+'">'; }).join('');
+    var dl1 = document.getElementById('kpiStaffDatalist'); if(dl1) dl1.innerHTML = opts;
+    var dl2 = document.getElementById('kpiStaffDatalist2'); if(dl2) dl2.innerHTML = opts;
+  }
+
+  var _dtClockTimer = null;
+  function dtUpdateCreateTimeClock(){
+    var el = document.getElementById('dtRegCreateTime');
+    if(!el) return;
+    var d = new Date();
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    el.value = pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' — '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+  }
+  function dtStartClock(){
+    dtUpdateCreateTimeClock();
+    if(_dtClockTimer) clearInterval(_dtClockTimer);
+    _dtClockTimer = setInterval(dtUpdateCreateTimeClock, 1000);
+  }
+
+  window.goDoiTrucView = function(){
+    document.getElementById('homeScreen').style.display='none';
+    document.getElementById('doiTrucScreen').style.display='flex';
+    document.getElementById('dtGateBox').style.display='block';
+    document.getElementById('dtContentBox').style.display='none';
+    document.getElementById('dtGateErr').style.display='none';
+    document.getElementById('dtPwdInput').value='';
+    document.getElementById('dtPersonalNameInput').value='';
+    dtAdminMode=false; dtAllMode=false; dtPersonalName=null;
+    dtRenderStaffDatalists();
+    dtStartClock();
+  };
+  window.dtGoHome = function(){
+    document.getElementById('doiTrucScreen').style.display='none';
+    document.getElementById('homeScreen').style.display='flex';
+    if(_dtClockTimer){ clearInterval(_dtClockTimer); _dtClockTimer=null; }
+  };
+
+  window.dtTryPublic = function(){ dtEnter('public', null); };
+  window.dtTryAdmin = function(){
+    var pwd = document.getElementById('dtPwdInput').value;
+    var real = (typeof adminPwd!=='undefined' && adminPwd) ? adminPwd : null;
+    if(!pwd || (real && pwd!==real)){
+      document.getElementById('dtGateErr').textContent='Mật khẩu không đúng!';
+      document.getElementById('dtGateErr').style.display='block';
+      return;
+    }
+    document.getElementById('dtGateErr').style.display='none';
+    dtEnter('admin', null);
+  };
+  window.dtTryPersonal = function(){
+    var typed = document.getElementById('dtPersonalNameInput').value.trim();
+    var names = (typeof staffList!=='undefined') ? staffList : [];
+    if(!names.includes(typed)){
+      document.getElementById('dtGateErr').textContent='Không tìm thấy tên này trong danh sách nhân viên!';
+      document.getElementById('dtGateErr').style.display='block';
+      return;
+    }
+    document.getElementById('dtGateErr').style.display='none';
+    dtEnter('personal', typed);
+  };
+
+  function dtGetThreshold(){
+    var el = document.getElementById('dtStatThreshold');
+    return (el && parseInt(el.value, 10)) || 2;
+  }
+
+  function dtCountInMonth(name, monthStr, excludeId){
+    if(!name || !monthStr) return 0;
+    return dtRecords.filter(function(r){
+      if(excludeId && String(r.id)===String(excludeId)) return false;
+      if(r.trangThai==='tu_choi') return false; // phieu bi tu choi thi khong tinh la 1 lan doi truc thuc te
+      if(!r.ngayTruc || r.ngayTruc.slice(0,7)!==monthStr) return false;
+      return r.nguoiDangKy===name || r.nguoiNhanThay===name;
+    }).length;
+  }
+
+  window.dtCheckFrequency = function(){
+    var person = document.getElementById('dtRegPerson').value.trim();
+    var personNew = document.getElementById('dtRegPersonNew').value.trim();
+    var date = document.getElementById('dtRegDate').value;
+    var warnEl = document.getElementById('dtFreqWarning');
+    if(!date || (!person && !personNew)){ warnEl.style.display='none'; return; }
+    var monthStr = date.slice(0,7);
+    var threshold = dtGetThreshold();
+    var msgs = [];
+    [person, personNew].forEach(function(n){
+      if(!n) return;
+      var cnt = dtCountInMonth(n, monthStr);
+      var afterThis = cnt + 1; // neu gui phieu nay se thanh lan thu afterThis
+      if(afterThis >= threshold){
+        msgs.push('⚠ '+dtEsc(n)+' đã có '+cnt+' lần đổi trực trong tháng '+monthStr.split('-')[1]+'/'+monthStr.split('-')[0]+' — phiếu này sẽ là lần thứ '+afterThis+', vượt ngưỡng cảnh báo ('+threshold+' lần/tháng).');
+      }
+    });
+    if(msgs.length){
+      warnEl.style.display='block';
+      warnEl.innerHTML = msgs.join('<br>');
+    } else {
+      warnEl.style.display='none';
+    }
+  };
+
+  function dtEnter(mode, personName){
+    dtAdminMode = (mode==='admin');
+    dtAllMode = (mode==='admin' || mode==='public');
+    dtPersonalName = personName;
+    dtRenderStaffDatalists();
+    document.getElementById('dtGateBox').style.display='none';
+    document.getElementById('dtContentBox').style.display='block';
+    document.getElementById('dtScopeLabel').textContent =
+      mode==='admin' ? '🛡 Chế độ Quản lý — duyệt phiếu toàn khoa' : (mode==='public' ? '📊 Xem thống kê chung toàn khoa' : ('👤 Cá nhân: '+personName));
+    // Neu la public-stat mode: an tab dang ky, chuyen thang Thong ke
+    document.getElementById('dtTabBtn1').style.display = (mode==='public') ? 'none' : '';
+    document.getElementById('dtViolationCheckWrap').style.display = dtAdminMode ? 'block' : 'none';
+    if(!dtAdminMode){
+      document.getElementById('dtViolationCheck').checked = false;
+      dtOnViolationCheckChange();
+    }
+    if(mode==='public'){ dtSwitchTab(3); } else { dtSwitchTab(1); }
+    var mEl=document.getElementById('dtMonth');
+    if(!mEl.value) mEl.value = dtCurMonth();
+    if(!dtAdminMode && personName){ document.getElementById('dtRegPerson').value = personName; }
+    dtLoadThenRender();
+  }
+
+  window.dtOnStatScopeChange = function(){
+    var scope = document.getElementById('dtStatScope').value;
+    var showRange = (scope === 'range');
+    document.getElementById('dtStatFromWrap').style.display = showRange ? '' : 'none';
+    document.getElementById('dtStatToWrap').style.display = showRange ? '' : 'none';
+    if(showRange){
+      var fEl = document.getElementById('dtStatFromDate');
+      var tEl = document.getElementById('dtStatToDate');
+      if(!tEl.value){ tEl.value = today ? today() : new Date().toISOString().slice(0,10); }
+      if(!fEl.value){
+        var d = new Date(); d.setDate(d.getDate()-30);
+        fEl.value = d.toISOString().slice(0,10);
+      }
+    }
+    dtRenderAll();
+  };
+
+  window.dtSwitchTab = function(n){
+    for(var i=1;i<=3;i++){
+      document.getElementById('dtPane'+i).style.display = (i===n) ? '' : 'none';
+      document.getElementById('dtTabBtn'+i).classList.toggle('active', i===n);
+    }
+    dtRenderAll();
+  };
+
+  function dtLoadThenRender(){
+    if(!dtRef){ dtRecords=[]; dtRenderAll(); return; }
+    dtRef.once('value').then(function(snap){
+      var val = snap.val()||{};
+      dtRecords = Object.values(val);
+      dtRenderAll();
+    }).catch(function(){ dtRecords=[]; dtRenderAll(); });
+  }
+
+  var KPI_VIOLATION_TYPE_NAME = 'Tự ý đổi trực khi chưa có đồng ý lãnh đạo khoa';
+  var KPI_VIOLATION_DEFAULT = {severity:'nang', points:-10};
+
+  window.dtOnViolationCheckChange = function(){
+    var checked = document.getElementById('dtViolationCheck') && document.getElementById('dtViolationCheck').checked;
+    var btn = document.getElementById('dtSubmitBtn');
+    if(checked){
+      btn.style.background = '#a11d1d';
+      btn.innerHTML = '<i class="ti ti-alert-triangle"></i> Ghi nhận VI PHẠM (tự ý đổi trực)';
+    } else {
+      btn.style.background = '#7b1fa2';
+      btn.innerHTML = '<i class="ti ti-send"></i> Gửi phiếu đăng ký';
+    }
+  };
+
+  function dtEnsureKpiTypeExists(){
+    var typesRef = db.ref('kpiEventTypes');
+    return typesRef.once('value').then(function(snap){
+      var val = snap.val()||{};
+      var list = Object.values(val);
+      var found = list.some(function(t){ return (t.name||'').toLowerCase()===KPI_VIOLATION_TYPE_NAME.toLowerCase(); });
+      if(found) return;
+      var tid = Date.now()+'_'+Math.floor(Math.random()*10000);
+      return typesRef.child(tid).set({id:tid, name:KPI_VIOLATION_TYPE_NAME,
+        severity:KPI_VIOLATION_DEFAULT.severity, points:KPI_VIOLATION_DEFAULT.points,
+        note:'Tự động ghi nhận từ module Đổi trực khi Quản lý đánh dấu vi phạm'});
+    }).catch(function(){});
+  }
+
+  function dtSyncKpiViolation(rec){
+    // Ghi 1 su kien KPI cho ca 2 nguoi lien quan (ca 2 cung khong xin phep lanh dao truoc khi doi truc)
+    var kpiEventsRef = db.ref('kpiEvents');
+    return dtEnsureKpiTypeExists().then(function(){
+      var noteTxt = 'Tự động từ Đổi trực ngày '+dtFmtD(rec.ngayTruc)+' ('+(rec.caTruc||'')+') — phiếu #'+rec.id;
+      var people = [rec.nguoiDangKy, rec.nguoiNhanThay];
+      var promises = people.map(function(person){
+        var evId = Date.now()+'_'+Math.floor(Math.random()*10000)+'_'+person.replace(/\s+/g,'');
+        return kpiEventsRef.child(evId).set({
+          id:evId, person:person, date:rec.ngayTruc, type:KPI_VIOLATION_TYPE_NAME,
+          severity:KPI_VIOLATION_DEFAULT.severity, count:1, points:KPI_VIOLATION_DEFAULT.points,
+          note:noteTxt, imgs:[], link:'', createdAt:new Date().toISOString(),
+          createdBy:(typeof cu!=='undefined'&&cu&&cu.name)||'Quản lý'
+        });
+      });
+      return Promise.all(promises);
+    }).then(function(){
+      return dtRef.child(String(rec.id)).update({kpiSynced:true});
+    });
+  }
+
+  window.dtSubmit = function(){
+    var person = document.getElementById('dtRegPerson').value.trim();
+    var personNew = document.getElementById('dtRegPersonNew').value.trim();
+    var date = document.getElementById('dtRegDate').value;
+    var ca = document.getElementById('dtRegCa').value;
+    var reason = document.getElementById('dtRegReason').value.trim();
+    var isViolation = dtAdminMode && document.getElementById('dtViolationCheck') && document.getElementById('dtViolationCheck').checked;
+    var alertEl = document.getElementById('dtSubmitAlert');
+    function showAl(msg,cls){
+      alertEl.style.display='block';
+      alertEl.style.background = cls==='err' ? '#fce4e4' : '#e6f4ea';
+      alertEl.style.color = cls==='err' ? '#a11d1d' : '#1b6b3a';
+      alertEl.textContent = msg;
+    }
+    if(!person){ showAl('Vui lòng chọn người đăng ký!','err'); return; }
+    if(!personNew){ showAl('Vui lòng chọn người nhận trực thay!','err'); return; }
+    if(person===personNew){ showAl('Người đăng ký và người nhận thay không được trùng nhau!','err'); return; }
+    if(!date){ showAl('Vui lòng chọn ngày trực cần đổi!','err'); return; }
+    if(!dtRef){ showAl('Chưa kết nối được Firebase!','err'); return; }
+
+    if(!isViolation){
+      var monthStr0 = date.slice(0,7);
+      var threshold0 = dtGetThreshold();
+      var overNames = [person, personNew].filter(function(n){ return (dtCountInMonth(n, monthStr0) + 1) >= threshold0; });
+      if(overNames.length){
+        var ok = confirm('⚠ Cảnh báo tần suất đổi trực:\n\n'+
+          overNames.map(function(n){ return '- '+n+': đã '+dtCountInMonth(n, monthStr0)+' lần trong tháng, đây sẽ là lần thứ '+(dtCountInMonth(n, monthStr0)+1)+' (ngưỡng: '+threshold0+' lần/tháng).'; }).join('\n')+
+          '\n\nBạn có chắc chắn vẫn muốn lập phiếu này không?');
+        if(!ok) return;
+      }
+    }
+
+    var id = Date.now();
+    var rec = {id:id, ngayTruc:date, caTruc:ca, nguoiDangKy:person, nguoiNhanThay:personNew,
+      lyDo: isViolation ? (reason || 'Tự ý đổi trực khi chưa có đồng ý lãnh đạo khoa') : reason,
+      trangThai: isViolation ? 'vi_pham' : 'cho_duyet', ngayTao:new Date().toISOString()};
+    if(isViolation){
+      rec.nguoiDuyet = (typeof cu!=='undefined'&&cu&&cu.name)||'Quản lý';
+      rec.ngayDuyet = new Date().toISOString();
+    }
+    dtRef.child(String(id)).set(rec).then(function(){
+      if(isViolation){
+        return dtSyncKpiViolation(rec).then(function(){
+          showAl('Đã ghi nhận VI PHẠM và tự động trừ điểm KPI (-10đ) cho cả 2 người liên quan!','ok');
+        });
+      } else {
+        showAl('Đã gửi phiếu đăng ký đổi trực! Chờ Quản lý duyệt.','ok');
+      }
+    }).then(function(){
+      document.getElementById('dtRegPersonNew').value='';
+      document.getElementById('dtRegReason').value='';
+      document.getElementById('dtViolationCheck').checked = false;
+      document.getElementById('dtFreqWarning').style.display = 'none';
+      dtOnViolationCheckChange();
+      dtLoadThenRender();
+    }).catch(function(e){ showAl('Lỗi lưu dữ liệu: '+e.message,'err'); });
+  };
+
+  window.dtSetStatus = function(id, status){
+    if(!dtAdminMode) return;
+    var rec = dtRecords.find(function(r){ return String(r.id)===String(id); });
+    if(!rec) return;
+    dtRef.child(String(id)).update({trangThai:status, nguoiDuyet:(typeof cu!=='undefined'&&cu&&cu.name)||'Quản lý', ngayDuyet:new Date().toISOString()})
+      .then(function(){
+        if(status==='vi_pham' && !rec.kpiSynced){
+          return dtSyncKpiViolation(rec);
+        }
+      })
+      .then(dtLoadThenRender);
+  };
+  window.dtDeleteRec = function(id){
+    if(!dtAdminMode) return;
+    if(!confirm('Xóa phiếu đổi trực này?')) return;
+    dtRef.child(String(id)).remove().then(dtLoadThenRender);
+  };
+
+  function dtStatusBadge(st){
+    if(st==='da_duyet') return '<span class="dt-badge dt-b-duyet">Đã duyệt</span>';
+    if(st==='tu_choi') return '<span class="dt-badge dt-b-tuchoi">Từ chối</span>';
+    if(st==='vi_pham') return '<span class="dt-badge dt-b-vipham">⚠ Vi phạm - Tự ý đổi</span>';
+    return '<span class="dt-badge dt-b-cho">Chờ duyệt</span>';
+  }
+
+  var _dtCurrentListInScope = [];
+  var _dtCurrentMonthStr = '';
+
+  function dtRenderAll(){
+    var monthStr = document.getElementById('dtMonth').value || dtCurMonth();
+    _dtCurrentMonthStr = monthStr;
+
+    var listInScope = dtRecords.filter(function(r){
+      if(!r.ngayTruc || r.ngayTruc.slice(0,7)!==monthStr) return false;
+      if(dtAllMode) return true;
+      return r.nguoiDangKy===dtPersonalName || r.nguoiNhanThay===dtPersonalName;
+    }).sort(function(a,b){ return (b.ngayTruc||'').localeCompare(a.ngayTruc||''); });
+    _dtCurrentListInScope = listInScope;
+
+    // TAB 2: danh sach
+    var listWrap = document.getElementById('dtListWrap');
+    document.getElementById('dtListScopeLabel').textContent = dtAllMode ? '— Toàn khoa' : '— Của tôi';
+
+    var listFilterEl = document.getElementById('dtListFilter');
+    var listFilterQ = listFilterEl ? listFilterEl.value.trim() : '';
+    function dtStripDiac(s){ return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase(); }
+    var listFilterQNorm = dtStripDiac(listFilterQ);
+    var listDisplay = listFilterQNorm ? listInScope.filter(function(r){
+      return dtStripDiac(r.nguoiDangKy).indexOf(listFilterQNorm)>=0 || dtStripDiac(r.nguoiNhanThay).indexOf(listFilterQNorm)>=0;
+    }) : listInScope;
+
+    if(!listInScope.length){
+      listWrap.innerHTML = '<div class="kpi-empty">Chưa có phiếu đổi trực nào trong tháng này.</div>';
+    } else if(!listDisplay.length){
+      listWrap.innerHTML = '<div class="kpi-empty">Không tìm thấy phiếu nào khớp với tên đang lọc.</div>';
+    } else {
+      var h = '<div style="overflow-x:auto"><table class="kpi-tb"><tr><th>Ngày trực</th><th>Ca trực</th><th>Người đăng ký</th><th>Người nhận thay</th><th>Lý do</th><th>Trạng thái</th><th>Thời điểm lập phiếu</th>'+(dtAdminMode?'<th>Duyệt</th>':'')+'</tr>';
+      listDisplay.forEach(function(r){
+        h += '<tr><td>'+dtFmtD(r.ngayTruc)+'</td><td>'+dtEsc(r.caTruc||'')+'</td><td>'+dtEsc(r.nguoiDangKy)+'</td><td>'+dtEsc(r.nguoiNhanThay)+'</td><td>'+dtEsc(r.lyDo||'')+'</td><td>'+dtStatusBadge(r.trangThai)+'</td><td style="white-space:nowrap;font-size:11.5px;color:#8a6ea8">'+dtFmtDT(r.ngayTao)+'</td>';
+        if(dtAdminMode){
+          h += '<td style="white-space:nowrap">';
+          if(r.trangThai!=='da_duyet') h += '<button class="kpi-del" style="color:#1b6b3a" title="Duyệt" onclick="dtSetStatus(\''+r.id+'\',\'da_duyet\')"><i class="ti ti-check"></i></button> ';
+          if(r.trangThai!=='tu_choi') h += '<button class="kpi-del" style="color:#a11d1d" title="Từ chối" onclick="dtSetStatus(\''+r.id+'\',\'tu_choi\')"><i class="ti ti-x"></i></button> ';
+          if(r.trangThai!=='vi_pham') h += '<button class="kpi-del" style="color:#7a1414" title="Đánh dấu VI PHẠM - tự ý đổi (tự động trừ KPI)" onclick="dtSetStatus(\''+r.id+'\',\'vi_pham\')"><i class="ti ti-alert-triangle"></i></button> ';
+          h += '<button class="kpi-del" onclick="dtDeleteRec(\''+r.id+'\')"><i class="ti ti-trash"></i></button></td>';
+        }
+        h += '</tr>';
+      });
+      h += '</table></div>';
+      listWrap.innerHTML = h;
+    }
+
+    // TAB 3: thong ke — theo thang dang chon, theo khoang ngay, hoac luy ke toan bo du lieu
+    var statScope = (document.getElementById('dtStatScope') && document.getElementById('dtStatScope').value) || 'month';
+    var threshold = parseInt(document.getElementById('dtStatThreshold') && document.getElementById('dtStatThreshold').value, 10) || 3;
+    var thresholdUnitEl = document.getElementById('dtStatThresholdUnit');
+    var isAllScope = (statScope === 'all');
+    var isRangeScope = (statScope === 'range');
+    if(thresholdUnitEl) thresholdUnitEl.textContent = (isAllScope||isRangeScope) ? 'lần/tháng (trung bình) trở lên' : 'lần/tháng trở lên';
+
+    var fromDate = document.getElementById('dtStatFromDate') && document.getElementById('dtStatFromDate').value;
+    var toDate = document.getElementById('dtStatToDate') && document.getElementById('dtStatToDate').value;
+
+    var statRecs;
+    var scopeLabelTxt;
+    if(isAllScope){
+      statRecs = dtRecords.slice();
+      scopeLabelTxt = ' (toàn bộ)';
+    } else if(isRangeScope){
+      statRecs = dtRecords.filter(function(r){
+        if(!r.ngayTruc) return false;
+        if(fromDate && r.ngayTruc < fromDate) return false;
+        if(toDate && r.ngayTruc > toDate) return false;
+        return true;
+      });
+      scopeLabelTxt = (fromDate||toDate) ? ' ('+(fromDate?dtFmtD(fromDate):'…')+' → '+(toDate?dtFmtD(toDate):'…')+')' : ' (chưa chọn khoảng ngày)';
+    } else {
+      statRecs = dtRecords.filter(function(r){ return r.ngayTruc && r.ngayTruc.slice(0,7)===monthStr; });
+      scopeLabelTxt = '';
+    }
+    var choDuyet = statRecs.filter(function(r){ return r.trangThai==='cho_duyet' || !r.trangThai; }).length;
+    var daDuyet = statRecs.filter(function(r){ return r.trangThai==='da_duyet'; }).length;
+    var tuChoi = statRecs.filter(function(r){ return r.trangThai==='tu_choi'; }).length;
+    var viPham = statRecs.filter(function(r){ return r.trangThai==='vi_pham'; }).length;
+    var ovWrap = document.getElementById('dtStatOverview');
+    function ovCard(label, val, color){
+      return '<div style="flex:1;min-width:110px;background:#fff;border:1.5px solid #e3d3ef;border-radius:10px;padding:12px;text-align:center">'+
+        '<div style="font-size:22px;font-weight:800;color:'+color+'">'+val+'</div>'+
+        '<div style="font-size:11.5px;color:#8a6ea8">'+label+'</div></div>';
+    }
+    ovWrap.innerHTML = ovCard('Tổng phiếu'+scopeLabelTxt, statRecs.length, '#4a0d5e') +
+      ovCard('Chờ duyệt', choDuyet, '#8a6d00') + ovCard('Đã duyệt', daDuyet, '#1b6b3a') + ovCard('Từ chối', tuChoi, '#a11d1d') + ovCard('Vi phạm', viPham, '#7a1414');
+
+    var useAvg = isAllScope || isRangeScope;
+    // So thang co du lieu (dung lam mau so tinh trung binh khi xem luy ke / khoang ngay)
+    var monthSet = {};
+    statRecs.forEach(function(r){ if(r.ngayTruc) monthSet[r.ngayTruc.slice(0,7)] = true; });
+    var numMonths = Math.max(1, Object.keys(monthSet).length);
+
+    var perPerson = {};
+    statRecs.forEach(function(r){
+      perPerson[r.nguoiDangKy] = perPerson[r.nguoiDangKy] || {xin:0, nhan:0};
+      perPerson[r.nguoiDangKy].xin++;
+      perPerson[r.nguoiNhanThay] = perPerson[r.nguoiNhanThay] || {xin:0, nhan:0};
+      perPerson[r.nguoiNhanThay].nhan++;
+    });
+    var rowsArr = Object.keys(perPerson).map(function(n){
+      var d = perPerson[n];
+      var total = d.xin + d.nhan;
+      var avgPerMonth = useAvg ? (total / numMonths) : total;
+      return {name:n, xin:d.xin, nhan:d.nhan, total:total, avgPerMonth:avgPerMonth, flagged: avgPerMonth >= threshold};
+    });
+    rowsArr.sort(function(a,b){ return b.total - a.total || a.name.localeCompare(b.name,'vi'); });
+
+    var stWrap = document.getElementById('dtStatTableWrap');
+    if(!rowsArr.length){
+      stWrap.innerHTML = '<div class="kpi-empty">Chưa có dữ liệu thống kê.</div>';
+    } else {
+      var flaggedCount = rowsArr.filter(function(r){ return r.flagged; }).length;
+      var sh = '';
+      if(flaggedCount){
+        sh += '<div style="background:#fdeaea;border:1.5px solid #e8b4b4;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12.5px;color:#a11d1d;font-weight:600">'+
+          '⚠ Có '+flaggedCount+' nhân viên đổi trực từ '+threshold+' lần/tháng trở lên'+(useAvg?' (trung bình)':'')+' — nên rà soát, cân đối lại phân công trực.</div>';
+      }
+      sh += '<div style="overflow-x:auto"><table class="kpi-tb"><tr><th>Nhân viên</th><th>Số lần xin đổi trực</th><th>Số lần nhận trực thay</th><th>Tổng lượt liên quan</th>'+
+        (useAvg ? '<th>Trung bình/tháng ('+numMonths+' tháng)</th>' : '')+'<th>Mức độ</th></tr>';
+      rowsArr.forEach(function(r){
+        var rowStyle = r.flagged ? ' style="background:#fdf1f1"' : '';
+        sh += '<tr'+rowStyle+'><td>'+dtEsc(r.name)+'</td><td>'+r.xin+'</td><td>'+r.nhan+'</td><td><b>'+r.total+'</b></td>'+
+          (useAvg ? '<td>'+r.avgPerMonth.toFixed(1)+'</td>' : '')+
+          '<td>'+(r.flagged ? '<span class="dt-badge dt-b-vipham">⚠ Thường xuyên</span>' : '<span class="dt-badge dt-b-duyet">Bình thường</span>')+'</td></tr>';
+      });
+      sh += '</table></div>';
+      stWrap.innerHTML = sh;
+    }
+  }
+
+  /* ── XUAT EXCEL - Danh sach phieu Doi Truc (theo bo loc dang xem) ── */
+  window.dtExportExcel = function(){
+    var list = _dtCurrentListInScope;
+    if(!list || !list.length){ alert('Không có phiếu nào để xuất trong phạm vi đang xem!'); return; }
+    var now = new Date();
+    var nowStr = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>'+
+      '<x:ExcelWorksheet><x:Name>Doi Truc GMHS</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>'+
+      '</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--><style>'+
+      'body{font-family:"Times New Roman";font-size:11pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}'+
+      '.org2{font-size:10pt;text-align:center;color:#222;font-weight:700}'+
+      '.th{background:#6A1E7E;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #4a0d5e;padding:5px}'+
+      '.td{border:1px solid #d9c2ea;padding:4px 6px;font-size:10pt;vertical-align:top}'+
+      '.td-c{border:1px solid #d9c2ea;padding:4px 6px;text-align:center;font-size:10pt;vertical-align:middle}'+
+      '.ev{background:#f8f2fc}.tot{background:#6A1E7E;color:#fff;font-weight:bold;text-align:center}'+
+      '.ok{color:#1b5e20;font-weight:bold}.pend{color:#e65100}.deny{color:#880e4f}.vipham{color:#7a1414;font-weight:bold}'+
+      '</style></head><body><table>'+
+      '<tr><td colspan="8" class="org">SỞ Y TẾ TỈNH GIA LAI</td></tr>'+
+      '<tr><td colspan="8" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'+
+      '<tr><td colspan="8" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="8" class="title">DANH SÁCH PHIẾU ĐỔI TRỰC</td></tr>'+
+      '<tr><td colspan="8" class="org">Xuất ngày: '+nowStr+' | Phạm vi: '+dtEsc(document.getElementById('dtScopeLabel').textContent)+' | Tổng phiếu: '+list.length+'</td></tr>'+
+      '<tr></tr><tr><td class="th">STT</td><td class="th">Ngày trực</td><td class="th">Ca trực</td>'+
+      '<td class="th">Người đăng ký</td><td class="th">Người nhận thay</td><td class="th">Lý do</td>'+
+      '<td class="th">Trạng thái</td><td class="th">Thời điểm lập phiếu</td></tr>';
+    list.forEach(function(r, i){
+      var ev = (i%2===1) ? ' ev' : '';
+      var stCls = r.trangThai==='da_duyet' ? ' ok' : r.trangThai==='tu_choi' ? ' deny' : r.trangThai==='vi_pham' ? ' vipham' : ' pend';
+      var stLabel = r.trangThai==='da_duyet' ? 'Đã duyệt' : r.trangThai==='tu_choi' ? 'Từ chối' : r.trangThai==='vi_pham' ? 'Vi phạm' : 'Chờ duyệt';
+      html += '<tr><td class="td-c'+ev+'">'+(i+1)+'</td><td class="td-c'+ev+'">'+dtFmtD(r.ngayTruc)+'</td>'+
+        '<td class="td'+ev+'">'+dtEsc(r.caTruc||'')+'</td><td class="td'+ev+'" style="font-weight:bold">'+dtEsc(r.nguoiDangKy)+'</td>'+
+        '<td class="td'+ev+'">'+dtEsc(r.nguoiNhanThay)+'</td><td class="td'+ev+'">'+dtEsc(r.lyDo||'')+'</td>'+
+        '<td class="td-c'+ev+stCls+'">'+stLabel+'</td><td class="td-c'+ev+'">'+dtFmtDT(r.ngayTao)+'</td></tr>';
+    });
+    html += '</table></body></html>';
+    var blob = new Blob(['\ufeff'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'DoiTruc_GMHS_'+(typeof today==='function'?today():nowStr.replace(/\//g,'-'))+'.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  /* ── XUAT WORD - Xem truoc, khong tu in ── */
+  window.dtPrintNow = function(){
+    dtExportWord(true);
+  };
+
+  window.dtExportWord = function(autoPrint){
+    var list = _dtCurrentListInScope;
+    if(!list || !list.length){ alert('Không có phiếu nào để xuất trong phạm vi đang xem!'); return; }
+    var now = new Date();
+    var printDate = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var printTime = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    var choDuyet = list.filter(function(r){ return r.trangThai==='cho_duyet'||!r.trangThai; }).length;
+    var daDuyet = list.filter(function(r){ return r.trangThai==='da_duyet'; }).length;
+    var tuChoi = list.filter(function(r){ return r.trangThai==='tu_choi'; }).length;
+    var viPham = list.filter(function(r){ return r.trangThai==='vi_pham'; }).length;
+    var scopeTxt = dtEsc(document.getElementById('dtScopeLabel').textContent);
+    var docFileName = 'DoiTruc_GMHS_'+(typeof today==='function'?today():printDate.replace(/\//g,'-'))+'.doc';
+
+    var rowsHtml = list.map(function(r, i){
+      var ev = (i%2===1) ? ' ev' : '';
+      var stCls = r.trangThai==='da_duyet' ? 'st-ok' : r.trangThai==='tu_choi' ? 'st-deny' : r.trangThai==='vi_pham' ? 'st-vipham' : 'st-pend';
+      var stLabel = r.trangThai==='da_duyet' ? 'Đã duyệt' : r.trangThai==='tu_choi' ? 'Từ chối' : r.trangThai==='vi_pham' ? 'Vi phạm' : 'Chờ duyệt';
+      return '<tr class="'+(ev?'ev':'')+'"><td style="text-align:center">'+(i+1)+'</td><td style="text-align:center">'+dtFmtD(r.ngayTruc)+'</td>'+
+        '<td>'+dtEsc(r.caTruc||'')+'</td><td style="font-weight:700">'+dtEsc(r.nguoiDangKy)+'</td><td>'+dtEsc(r.nguoiNhanThay)+'</td>'+
+        '<td>'+dtEsc(r.lyDo||'')+'</td><td class="'+stCls+'" style="text-align:center">'+stLabel+'</td>'+
+        '<td style="text-align:center;white-space:nowrap">'+dtFmtDT(r.ngayTao)+'</td></tr>';
+    }).join('');
+
+    var html = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">'+
+      '<title>Danh sách Đổi Trực – Khoa GMHS – '+printDate+'</title><style>'+
+      '@media print{.no-print{display:none!important}@page{size:A4 landscape;margin:1.5cm 2cm}}'+
+      'body{font-family:"Times New Roman",serif;font-size:11pt;color:#111;margin:0;background:#f5f5f5}'+
+      '.preview-wrap{max-width:1100px;margin:0 auto;padding:20px}'+
+      '.toolbar{background:#6A1E7E;color:#fff;padding:12px 20px;border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:20px}'+
+      '.toolbar span{font-size:14px;font-weight:700;flex:1}'+
+      '.tbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:#fff;font-family:inherit}'+
+      '.tbtn.print{background:#2e7d32;border-color:#2e7d32}.tbtn.dl{background:#fff;color:#6A1E7E;border-color:#fff}'+
+      '.page{background:#fff;border-radius:8px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}'+
+      '.hdr-top{text-align:center;margin-bottom:4pt}.org{font-size:10pt;color:#444;font-style:italic}'+
+      '.dep{font-size:11pt;font-weight:700;color:#6A1E7E}'+
+      '.doc-title{text-align:center;font-size:15pt;font-weight:700;text-transform:uppercase;margin:12pt 0 4pt;color:#4a0d5e;letter-spacing:.5pt}'+
+      '.doc-sub{text-align:center;font-size:10pt;color:#555;margin-bottom:14pt}'+
+      '.sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10pt;margin-bottom:16pt}'+
+      '.sum-box{border:1pt solid #d9c2ea;border-radius:4pt;padding:8pt 10pt;text-align:center}'+
+      '.sn{font-size:18pt;font-weight:700;color:#6A1E7E}.sl{font-size:9pt;text-transform:uppercase;color:#555;margin-top:2pt}'+
+      'table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt}'+
+      'th{background:#6A1E7E;color:#fff;padding:6pt 7pt;font-size:9.5pt;font-weight:700;text-align:center;border:1pt solid #4a0d5e}'+
+      'td{padding:5pt 7pt;border:0.5pt solid #d9c2ea;vertical-align:middle}.ev{background:#f8f2fc}'+
+      '.st-ok{color:#1b5e20;font-weight:700}.st-pend{color:#e65100;font-weight:700}.st-deny{color:#880e4f;font-weight:700}.st-vipham{color:#7a1414;font-weight:700}'+
+      '.section-title{font-size:12pt;font-weight:700;color:#6A1E7E;margin:14pt 0 8pt;border-bottom:1.5pt solid #6A1E7E;padding-bottom:4pt}'+
+      '.foot{text-align:center;font-size:9pt;color:#777;border-top:0.5pt solid #ccc;padding-top:8pt;margin-top:14pt}'+
+      '.sig-row{display:grid;grid-template-columns:1fr 1fr;gap:30pt;margin-top:20pt;text-align:center;font-size:10pt}'+
+      '.sig-box{border-top:0.5pt solid #ccc;padding-top:6pt}'+
+      '</style></head><body><div class="preview-wrap">'+
+      '<div class="toolbar no-print"><span>📄 Xem trước – Danh sách Đổi Trực Khoa GMHS ('+printDate+')</span>'+
+      '<button class="tbtn" onclick="window.close()">✕ Đóng</button>'+
+      '<button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>'+
+      '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button></div>'+
+      '<div class="page"><div class="hdr-top"><div class="org">SỞ Y TẾ TỈNH GIA LAI</div>'+
+      '<div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div><div class="dep">KHOA GÂY MÊ HỒI SỨC</div></div>'+
+      '<div class="doc-title">Danh sách Đổi Trực</div>'+
+      '<div class="doc-sub">Ngày xuất: '+printDate+' | Giờ xuất: '+printTime+' | Phạm vi: '+scopeTxt+'</div>'+
+      '<div class="sum-grid">'+
+      '<div class="sum-box"><div class="sn">'+list.length+'</div><div class="sl">Tổng phiếu</div></div>'+
+      '<div class="sum-box"><div class="sn" style="color:#1b5e20">'+daDuyet+'</div><div class="sl">Đã duyệt</div></div>'+
+      '<div class="sum-box"><div class="sn" style="color:#e65100">'+choDuyet+'</div><div class="sl">Chờ duyệt</div></div>'+
+      '<div class="sum-box"><div class="sn" style="color:#7a1414">'+viPham+'</div><div class="sl">Vi phạm</div></div>'+
+      '</div><table><tr><th>STT</th><th>Ngày trực</th><th>Ca trực</th><th>Người đăng ký</th><th>Người nhận thay</th>'+
+      '<th>Lý do</th><th>Trạng thái</th><th>Thời điểm lập phiếu</th></tr>'+rowsHtml+'</table>'+
+      '<div class="sig-row"><div class="sig-box"><div><b>Người lập danh sách</b></div>'+
+      '<div style="font-style:italic;color:#888;font-size:9pt">(Ký, ghi rõ họ tên)</div><div style="margin-top:40pt"></div></div>'+
+      '<div class="sig-box"><div><b>Trưởng khoa Gây mê Hồi sức</b></div>'+
+      '<div style="font-style:italic;color:#888;font-size:9pt">(Ký, đóng dấu)</div><div style="margin-top:40pt"></div></div></div>'+
+      '<div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Hệ thống quản lý Đổi Trực nội bộ</div>'+
+      '</div></div><script>'+
+      'function downloadWordDoc(){'+
+      'var styleTag=document.querySelector("style").outerHTML;'+
+      'var pageHtml=document.querySelector(".page").outerHTML;'+
+      'var docHtml=\'<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+docFileName+'</title>\'+styleTag+\'</head><body>\'+pageHtml+\'</body></html>\';'+
+      'var blob=new Blob(["\\ufeff"+docHtml],{type:"application/msword"});'+
+      'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="'+docFileName+'";'+
+      'document.body.appendChild(a);a.click();document.body.removeChild(a);'+
+      '}'+
+      '<\/script></body></html>';
+
+    var w = window.open('', '_blank', 'width=1100,height=780,scrollbars=yes,resizable=yes');
+    if(!w){ alert('Trình duyệt chặn popup! Vui lòng cho phép popup.'); return; }
+    w.document.write(html);
+    w.document.close();
+    if(autoPrint){ setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 400); }
+  };
 })();
 </script>
 
