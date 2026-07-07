@@ -9653,15 +9653,18 @@ function homeTBRender(){
   // Lấy dữ liệu từ Firebase
   var promises=[
     db.ref('nghiBu').once('value'),
-    db.ref('nghiPhep').once('value')
+    db.ref('nghiPhep').once('value'),
+    db.ref('doiTruc').once('value')
   ];
 
   Promise.all(promises).then(function(snaps){
     var buData=snaps[0].val()||{};
     var phepData=snaps[1].val()||{};
+    var dtData=snaps[2].val()||{};
 
     var buRecords=Array.isArray(buData)?buData:Object.values(buData);
     var phepRecords=Array.isArray(phepData)?phepData:Object.values(phepData);
+    var dtRecordsHome=Array.isArray(dtData)?dtData:Object.values(dtData);
 
     // Nghỉ bù hôm nay (đã duyệt + chờ duyệt)
     var buHom={caNgay:[],caDem:[],caNgayPending:[],caDemPending:[],cuNgay:[],cuNgayPending:[]};
@@ -9699,6 +9702,16 @@ function homeTBRender(){
       }
     });
 
+    // Đổi trực hôm nay (đã duyệt + chờ duyệt) - khong tinh vao "Vang" vi nhan vien van lam viec, chi doi ca
+    var dtHom={approved:[],pending:[]};
+    dtRecordsHome.forEach(function(r){
+      if(!r||!r.nguoiDangKy||!r.ngayTruc)return;
+      if(r.ngayTruc!==todayStr)return;
+      var item={name:r.nguoiDangKy, repl:r.nguoiNhanThay||'', ca:r.caTruc||''};
+      if(r.trangThai==='da_duyet')dtHom.approved.push(item);
+      else if(r.trangThai==='cho_duyet'||!r.trangThai)dtHom.pending.push(item);
+    });
+
     var tongVang=phepHom.approved.length+buHom.caNgay.length+buHom.caDem.length+buHom.cuNgay.length;
     var tongCho=phepHom.pending.length+buHom.caNgayPending.length+buHom.caDemPending.length+buHom.cuNgayPending.length;
 
@@ -9728,6 +9741,7 @@ function homeTBRender(){
           html+='<span style="font-size:11px;color:#bbb;font-style:italic">→ Chưa phân thay thế</span>';
         }
         if(it.days)html+='<span style="font-size:10px;color:#888;margin-left:4px">('+it.days+' ngày)</span>';
+        if(it.ca)html+='<span style="font-size:10px;color:#888;margin-left:4px">('+it.ca+')</span>';
         html+='</div>';
       });
       html+='</div></div>';
@@ -9742,10 +9756,12 @@ function homeTBRender(){
     body+=renderGroup('Nghỉ bù – Cả ngày','#2e7d32','🔄',buHom.cuNgay,false);
     body+=renderGroup('Nghỉ bù ca ngày (chờ duyệt)','#e65100','☀️',buHom.caNgayPending,true);
     body+=renderGroup('Nghỉ bù ca đêm (chờ duyệt)','#e65100','🌙',buHom.caDemPending,true);
+    body+=renderGroup('Đổi trực – Đã duyệt','#6a1e7e','🔀',dtHom.approved,false);
+    body+=renderGroup('Đổi trực (chờ duyệt)','#e65100','🔀',dtHom.pending,true);
 
     if(!body){
       body='<div style="text-align:center;color:#4caf50;font-weight:600;padding:6px 0">'
-        +'<i class="ti ti-circle-check"></i> Hôm nay không có nhân viên nghỉ phép/bù</div>';
+        +'<i class="ti ti-circle-check"></i> Hôm nay không có nhân viên nghỉ phép/bù/đổi trực</div>';
     }
 
     if(elBody)elBody.innerHTML=body;
@@ -9770,7 +9786,7 @@ function homeUpdatePendingBadge(){
   var badge=document.getElementById('homePendingBadge');
   var detail=document.getElementById('homePendingDetail');
   if(!badge||!detail)return;
-  // Đọc song song nghỉ phép và nghỉ bù
+  // Đọc song song nghỉ phép, nghỉ bù và đổi trực
   var nbProm=db.ref('nghiBu').once('value').then(function(s){
     var d=s.val()||{};var arr=Object.values(d);
     return arr.filter(function(r){return r&&r.status==='pending';}).length;
@@ -9779,14 +9795,19 @@ function homeUpdatePendingBadge(){
     var d=s.val()||{};var arr=Object.values(d);
     return arr.filter(function(r){return r&&r.status==='pending';}).length;
   }).catch(function(){return 0;});
-  Promise.all([nbProm,npProm]).then(function(res){
-    var nbPend=res[0],npPend=res[1],total=nbPend+npPend;
+  var dtProm=db.ref('doiTruc').once('value').then(function(s){
+    var d=s.val()||{};var arr=Object.values(d);
+    return arr.filter(function(r){return r&&(r.trangThai==='cho_duyet'||!r.trangThai);}).length;
+  }).catch(function(){return 0;});
+  Promise.all([nbProm,npProm,dtProm]).then(function(res){
+    var nbPend=res[0],npPend=res[1],dtPend=res[2],total=nbPend+npPend+dtPend;
     if(total>0){
       badge.style.display='block';
       var parts=[];
       if(npPend>0)parts.push(npPend+' phiếu <b>Nghỉ Phép</b>');
       if(nbPend>0)parts.push(nbPend+' phiếu <b>Nghỉ Bù</b>');
-      detail.innerHTML='Có '+parts.join(' và ')+' chưa được duyệt';
+      if(dtPend>0)parts.push(dtPend+' phiếu <b>Đổi Trực</b>');
+      detail.innerHTML='Có '+parts.join(', ').replace(/,([^,]*)$/,' và$1')+' chưa được duyệt';
     } else {
       badge.style.display='none';
     }
@@ -11627,6 +11648,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiTypesBody')"><i class="ti ti-chevron-down kpi-collapse-icon"></i> <i class="ti ti-list-check"></i> Danh mục loại sự kiện KPI &amp; thang điểm trừ <span style="font-weight:400;color:#5b7ba8;font-size:12px">(công khai — mọi nhân viên đều xem được)</span></h3>
         <div id="kpiTypesBody" style="display:none">
         <div class="sub">Đây là danh mục chính thức các loại sự kiện ảnh hưởng KPI và mức điểm trừ tương ứng do Quản lý khai báo. Ô "Loại sự kiện" ở phần ghi nhận bên dưới sẽ tự lấy đúng danh mục này.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">
+          <button class="kpi-btn" style="background:#1b6b3a;color:#fff;padding:6px 12px;font-size:12px" onclick="kpiTypesExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+          <button class="kpi-btn" style="background:#0d47a1;color:#fff;padding:6px 12px;font-size:12px" onclick="kpiTypesExportWord()"><i class="ti ti-file-word"></i> Xuất Word</button>
+          <button class="kpi-btn" style="border:1.5px solid #5b7ba8;color:#5b7ba8;padding:6px 12px;font-size:12px" onclick="kpiTypesExportWord(true)"><i class="ti ti-printer"></i> In</button>
+        </div>
         <div id="kpiTypesTableWrap"></div>
 
         <div id="kpiTypesAddBox" style="display:none;margin-top:14px;padding-top:14px;border-top:1.5px dashed #dbe3f0">
@@ -11721,13 +11747,40 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         </div>
         <button class="kpi-btn" style="background:#0d47a1;color:#fff" onclick="kpiAddEvent()"><i class="ti ti-plus"></i> Lưu sự kiện</button>
         <div id="kpiEvAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px"></div>
+
+        <div style="margin-top:16px;padding-top:14px;border-top:1.5px dashed #dbe3f0">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:700;color:#0d3c78;font-size:13px"><i class="ti ti-scan"></i> Tự động quét quy trình chưa xác nhận đọc</div>
+              <div style="font-size:11.5px;color:#5b7ba8;margin-top:2px">Tự động trừ KPI (mục "Chưa cập nhật/xác nhận đọc quy trình mới") cho nhân viên chưa xác nhận đọc quy trình mới sau số ngày quy định kể từ khi ban hành.</div>
+            </div>
+            <div class="kpi-f" style="max-width:150px;margin:0">
+              <label>Chỉ áp dụng từ ngày</label>
+              <input type="date" id="kpiQtScanFromDate">
+              <div style="font-size:10.5px;color:#aab8cf;margin-top:3px">Bỏ qua quy trình ban hành trước ngày này</div>
+            </div>
+            <div class="kpi-f" style="max-width:130px;margin:0">
+              <label>Số ngày cho phép</label>
+              <input type="number" id="kpiQtScanDays" value="3" min="0" step="1">
+              <div style="font-size:10.5px;color:#aab8cf;margin-top:3px">Đặt 0 để kiểm thử ngay</div>
+            </div>
+            <button class="kpi-btn" style="background:#8a6d00;color:#fff;align-self:flex-end" onclick="kpiScanQuyTrinhViolations()"><i class="ti ti-scan"></i> Quét ngay</button>
+          </div>
+          <div id="kpiQtScanAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px"></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px dotted #dbe3f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px;font-size:11.5px;color:#a11d1d">
+              <i class="ti ti-eraser"></i> <b>Mới triển khai, nhân viên phản ứng vì bị trừ điểm quy trình cũ?</b> Dùng nút này để xóa các sự kiện KPI loại "quy trình chưa đọc" mà hệ thống <b>đã tự động</b> tạo ra trước đây (không xóa các sự kiện Quản lý tự tay nhập).
+            </div>
+            <button class="kpi-btn" style="background:#fff;color:#a11d1d;border:1.5px solid #a11d1d" onclick="kpiCleanupAutoQtEvents()"><i class="ti ti-eraser"></i> Dọn dẹp đợt đầu</button>
+          </div>
+        </div>
         </div>
       </div>
 
       <div class="kpi-section">
         <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiTableBody')"><i class="ti ti-chevron-down kpi-collapse-icon" style="transform:rotate(0deg)"></i> <i class="ti ti-table"></i> Bảng tổng hợp KPI <span id="kpiScopeLabel"></span></h3>
         <div id="kpiTableBody">
-        <div class="sub" id="kpiTableFormulaDesc">Điểm KPI = 100 + điểm trừ sự kiện (tối đa -40) − phạt tỷ lệ hoàn thành thấp (tối đa -15) − phạt tồn đọng &gt;30 ngày (tối đa -10). Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.</div>
+        <div class="sub" id="kpiTableFormulaDesc">Điểm KPI = 100 + điểm trừ sự kiện KPI thực tế (tối đa -40) — từ quy trình chưa đọc, đổi trực vi phạm, và Quản lý ghi nhận tay. Số liệu Kanban (việc hoàn thành, tồn đọng) chỉ hiển thị tham khảo, không dùng để trừ điểm. Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.</div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:220px">
             <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#8098bb;font-size:14px;pointer-events:none"></i>
@@ -11742,6 +11795,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div class="kpi-section" id="kpiEventListSection">
         <h3 class="kpi-toggle-head" onclick="kpiToggleSection(this,'kpiEventListBody')"><i class="ti ti-chevron-down kpi-collapse-icon" style="transform:rotate(-90deg)"></i> <i class="ti ti-list-details"></i> Danh sách sự kiện KPI trong tháng</h3>
         <div id="kpiEventListBody" style="display:none">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">
+          <button class="kpi-btn" style="background:#1b6b3a;color:#fff;padding:6px 12px;font-size:12px" onclick="kpiEventsExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+          <button class="kpi-btn" style="background:#0d47a1;color:#fff;padding:6px 12px;font-size:12px" onclick="kpiEventsExportWord()"><i class="ti ti-file-word"></i> Xuất Word</button>
+          <button class="kpi-btn" style="border:1.5px solid #5b7ba8;color:#5b7ba8;padding:6px 12px;font-size:12px" onclick="kpiEventsExportWord(true)"><i class="ti ti-printer"></i> In</button>
+        </div>
         <div id="kpiEventListWrap"></div>
         </div>
       </div>
@@ -11761,6 +11819,16 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div class="kpi-modal-list" id="kpiStaffModalList"></div>
     </div>
   </div>
+
+  <div class="kpi-modal-overlay" id="kpiCardsDetailOverlay">
+    <div class="kpi-modal-box" style="max-width:640px">
+      <div class="kpi-modal-head">
+        <div id="kpiCardsDetailTitle" style="font-weight:700;color:#0d3c78;font-size:14px;flex:1"></div>
+        <button class="kpi-modal-close" onclick="kpiCloseCardsDetail()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="kpi-modal-list" id="kpiCardsDetailList" style="max-height:60vh"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -11776,7 +11844,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   try{ kpiTypesRef = db.ref('kpiEventTypes'); }catch(e){ console.warn('Không khởi tạo được Firebase cho kpiEventTypes.', e); }
 
   var KPI_DEFAULT_TYPES_SEED = [
-    {name:'Chưa cập nhật/xác nhận đọc quy trình mới', severity:'nhe', points:-2, note:''},
+    {name:'Chưa cập nhật/xác nhận đọc quy trình mới (sau thông báo ≥ 3 ngày)', severity:'nhe', points:-2, note:'Có thể tự động ghi nhận qua chức năng "Quét quy trình chưa đọc"'},
     {name:'Giao ban không đúng giờ', severity:'vua', points:-5, note:''},
     {name:'Bỏ vị trí trực', severity:'nang', points:-10, note:''},
     {name:'Thiếu đồ (thiếu vật tư/dụng cụ chuẩn bị)', severity:'vua', points:-5, note:''},
@@ -11872,6 +11940,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(todayEl && !todayEl.value && typeof today==='function') todayEl.value = today();
     kpiLoadTypesThenRender();
     kpiLoadEventsThenRender();
+    if(kpiAdminMode){
+      // Tu dong quet quy trinh chua xac nhan doc moi khi Quan ly vao man KPI (cham 1.5s de UI on dinh truoc)
+      setTimeout(function(){ try{ kpiScanQuyTrinhViolations(); }catch(e){ console.warn('Loi quet quy trinh tu dong:', e); } }, 1500);
+    }
   }
 
   window.kpiOnPeriodModeChange = function(){
@@ -12111,6 +12183,140 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(icon) icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
   };
 
+  var QT_TYPE_PREFIX = 'Chưa cập nhật/xác nhận đọc quy trình mới';
+  var QT_TYPE_DEFAULT = {severity:'nhe', points:-2};
+
+  function kpiFindOrCreateQtType(daysAllowed){
+    return kpiTypesRef.once('value').then(function(snap){
+      var val = snap.val() || {};
+      var list = Object.values(val);
+      var found = list.find(function(t){ return (t.name||'').indexOf(QT_TYPE_PREFIX) === 0; });
+      if(found) return found;
+      var defaultName = QT_TYPE_PREFIX + ' (sau thông báo ≥ '+daysAllowed+' ngày)';
+      var tid = Date.now()+'_'+Math.floor(Math.random()*10000);
+      var rec = {id:tid, name:defaultName, severity:QT_TYPE_DEFAULT.severity, points:QT_TYPE_DEFAULT.points,
+        note:'Tự động tạo bởi chức năng quét quy trình chưa xác nhận đọc'};
+      return kpiTypesRef.child(tid).set(rec).then(function(){ return rec; });
+    });
+  }
+
+  window.kpiCleanupAutoQtEvents = function(){
+    if(!kpiAdminMode) return;
+    var toDelete = kpiEvents.filter(function(e){
+      return e.createdBy==='Hệ thống (tự động)' && (e.type||'').indexOf(QT_TYPE_PREFIX)===0;
+    });
+    if(!toDelete.length){ alert('Không có sự kiện tự động nào (loại "quy trình chưa đọc") để dọn dẹp.'); return; }
+    var byPerson = {};
+    toDelete.forEach(function(e){ byPerson[e.person] = (byPerson[e.person]||0)+1; });
+    var ok = confirm('Sẽ XÓA '+toDelete.length+' sự kiện KPI tự động (loại "quy trình chưa đọc") của '+Object.keys(byPerson).length+' nhân viên — bao gồm cả các tháng trước.\n\n'+
+      'Việc này KHÔNG xóa các sự kiện Quản lý tự tay nhập, và KHÔNG xóa dữ liệu xác nhận đọc quy trình.\n\n'+
+      'Bạn có chắc chắn muốn dọn dẹp không?');
+    if(!ok) return;
+    var alertEl = document.getElementById('kpiQtScanAlert');
+    alertEl.style.display='block'; alertEl.style.background='#fff3cd'; alertEl.style.color='#7a5b00';
+    alertEl.textContent = 'Đang xóa '+toDelete.length+' sự kiện, vui lòng đợi...';
+    var proms = toDelete.map(function(e){ return kpiEventsRef.child(String(e.id)).remove(); });
+    var flagKeysToRemove = {};
+    toDelete.forEach(function(e){
+      // co gang doan lai flag key tu ghi chu (khong bat buoc chinh xac, chi la don dep phu; neu khong xoa duoc flag,
+      // lan quet tiep theo van an toan vi sop cu se bi loai boi "Chi ap dung tu ngay" o tren)
+    });
+    Promise.all(proms).then(function(){
+      alertEl.style.background='#e6f4ea'; alertEl.style.color='#1b6b3a';
+      alertEl.textContent = 'Đã xóa '+toDelete.length+' sự kiện tự động. Nhắc nhân viên vào Thư viện Quy trình xác nhận đọc các quy trình còn thiếu, sau đó dùng ô "Chỉ áp dụng từ ngày" để tránh bị trừ điểm hồi tố nữa.';
+      kpiLoadEventsThenRender();
+    }).catch(function(e){
+      alertEl.style.background='#fce4e4'; alertEl.style.color='#a11d1d';
+      alertEl.textContent = 'Lỗi khi xóa: '+e.message;
+    });
+  };
+
+  window.kpiScanQuyTrinhViolations = function(){
+    if(!kpiAdminMode) return;
+    var daysAllowedRaw = parseInt(document.getElementById('kpiQtScanDays').value, 10);
+    var daysAllowed = isNaN(daysAllowedRaw) ? 3 : daysAllowedRaw;
+    var fromDateEl = document.getElementById('kpiQtScanFromDate');
+    if(fromDateEl && !fromDateEl.value){ fromDateEl.value = (typeof today==='function') ? today() : new Date().toISOString().slice(0,10); }
+    var fromDateStr = fromDateEl ? fromDateEl.value : null;
+    var fromDateMs = fromDateStr ? new Date(fromDateStr+'T00:00:00').getTime() : null;
+    var alertEl = document.getElementById('kpiQtScanAlert');
+    function showAl(msg, cls){
+      alertEl.style.display = 'block';
+      alertEl.style.background = cls==='err' ? '#fce4e4' : (cls==='warn' ? '#fff3cd' : '#e6f4ea');
+      alertEl.style.color = cls==='err' ? '#a11d1d' : (cls==='warn' ? '#7a5b00' : '#1b6b3a');
+      alertEl.innerHTML = msg;
+    }
+    showAl('Đang quét dữ liệu quy trình, vui lòng đợi...', 'warn');
+
+    var qtProm = db.ref('quyTrinh').once('value').then(function(s){ return s.val() || {}; });
+    var docProm = db.ref('quyTrinhDoc').once('value').then(function(s){ return Object.values(s.val() || {}); });
+    var grpProm = db.ref('staffGroups').once('value').then(function(s){ return s.val() || {}; });
+    var flagProm = db.ref('quyTrinhKpiFlags').once('value').then(function(s){ return s.val() || {}; });
+
+    Promise.all([qtProm, docProm, grpProm, flagProm]).then(function(res){
+      var qtData = res[0], docList = res[1], staffGroups = res[2], flags = res[3];
+      var sopList = Object.keys(qtData).map(function(k){ var r = qtData[k]; r._id = k; return r; });
+      var names = (typeof staffList!=='undefined') ? staffList : [];
+      var now = Date.now();
+
+      function applies(sop, group){
+        var ap = sop.apDungNhom;
+        if(!ap || !Array.isArray(ap) || ap.length===0 || ap.indexOf('ALL')>=0) return true;
+        if(!group) return true;
+        return ap.indexOf(group)>=0;
+      }
+      function flagKey(sopId, person){ return sopId+'__'+person.replace(/[.#$/\[\]\s]/g,'_'); }
+
+      var toCreate = []; // {person, sop}
+      var skippedOld = 0;
+      sopList.forEach(function(sop){
+        if(sop.hetHieuLuc) return;
+        if(!sop.createdAt) return;
+        if(fromDateMs!==null && sop.createdAt < fromDateMs){ skippedOld++; return; }
+        var deadline = sop.createdAt + daysAllowed*24*60*60*1000;
+        if(now < deadline) return;
+        names.forEach(function(person){
+          if(!applies(sop, staffGroups[person])) return;
+          var confirmed = docList.some(function(d){ return d.sopId===sop._id && d.staffName===person; });
+          if(confirmed) return;
+          var fk = flagKey(sop._id, person);
+          if(flags[fk]) return;
+          toCreate.push({person:person, sop:sop, flagKey:fk});
+        });
+      });
+
+      if(!toCreate.length){
+        var fromDateDisp = fromDateStr ? fromDateStr.split('-').reverse().join('/') : '';
+        showAl('Đã quét xong — không có trường hợp mới nào cần trừ KPI (mọi người đã xác nhận đọc đúng hạn, hoặc chưa quá hạn)'+(skippedOld?('. Đã bỏ qua '+skippedOld+' quy trình ban hành trước ngày '+fromDateDisp+'.'):'.'), 'ok');
+        return;
+      }
+
+      kpiFindOrCreateQtType(daysAllowed).then(function(qtType){
+        var todayStr = (typeof today==='function') ? today() : new Date().toISOString().slice(0,10);
+        var flagUpdates = {};
+        var evPromises = toCreate.map(function(item){
+          var evId = Date.now()+'_'+Math.floor(Math.random()*100000)+'_'+item.person.replace(/\s+/g,'');
+          flagUpdates[item.flagKey] = true;
+          return kpiEventsRef.child(evId).set({
+            id:evId, person:item.person, date:todayStr, type:qtType.name,
+            severity:qtType.severity, count:1, points:parseFloat(qtType.points)||-2,
+            note:'Tự động: chưa xác nhận đọc quy trình "'+(item.sop.ten||'')+'" sau '+daysAllowed+' ngày kể từ khi ban hành.',
+            imgs:[], link:'', createdAt:new Date().toISOString(), createdBy:'Hệ thống (tự động)'
+          });
+        });
+        Promise.all(evPromises).then(function(){
+          return db.ref('quyTrinhKpiFlags').update(flagUpdates);
+        }).then(function(){
+          var byPerson = {};
+          toCreate.forEach(function(item){ byPerson[item.person] = (byPerson[item.person]||0)+1; });
+          var summary = Object.keys(byPerson).map(function(n){ return n+' ('+byPerson[n]+' quy trình)'; }).join(', ');
+          showAl('Đã tự động trừ KPI cho '+toCreate.length+' trường hợp — '+Object.keys(byPerson).length+' nhân viên: '+summary, 'ok');
+          kpiLoadEventsThenRender();
+        }).catch(function(e){ showAl('Lỗi khi ghi dữ liệu: '+e.message, 'err'); });
+      });
+    }).catch(function(e){ showAl('Lỗi khi quét dữ liệu: '+e.message, 'err'); });
+  };
+
   window.kpiAddEvent = function(){
     if(!kpiAdminMode){ return; }
     var person = document.getElementById('kpiEvPerson').value.trim();
@@ -12202,17 +12408,18 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var eventPenaltyRaw = evs.reduce(function(s,e){ return s + (parseFloat(e.points)||0); }, 0);
     var eventPenalty = Math.max(eventPenaltyRaw, -40);
     var completionRate = total>0 ? done/total : null;
+    // LUU Y: khong con tru diem theo ty le hoan thanh / ton dong Kanban nua — Kanban chi la
+    // bao cao tam thoi, chua co quy dinh ro rang de tru diem. Diem KPI tu dong CHI tinh theo
+    // su kien KPI thuc te (vi pham/thanh tich da ghi nhan: quy trinh, doi truc, Quan ly nhap tay).
+    // Cac so lieu completionRate/overdue van tra ve de HIEN THI THAM KHAO, khong dua vao cong thuc.
     var complPenalty = 0;
-    if(total>=3 && completionRate!==null && completionRate<0.9){
-      complPenalty = Math.min(15, (0.9-completionRate)*100*0.3);
-    }
-    var overduePenalty = Math.min(10, overdue*2);
+    var overduePenalty = 0;
     var score = 100 + eventPenalty - complPenalty - overduePenalty;
     score = Math.max(0, Math.min(100, Math.round(score*10)/10));
     var rank = kpiRankOf(score);
     return {total:total, done:done, completionRate:completionRate, overdue:overdue,
       events:evs, eventPenalty:eventPenalty, complPenalty:complPenalty, overduePenalty:overduePenalty,
-      score:score, rank:rank};
+      score:score, rank:rank, cardsInMonth:cardsInMonth};
   }
 
   function kpiComputeYearForPerson(name, year){
@@ -12237,6 +12444,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   }
 
   var _kpiCurrentRows = [];
+  var _kpiCurrentEvList = [];
+  var _kpiCurrentEvPeriodLabel = '';
   var _kpiCurrentIsYear = false;
   var _kpiCurrentPeriodLabel = '';
 
@@ -12250,8 +12459,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var names = kpiAllStaffMode ? ((typeof staffList!=='undefined')?[...staffList].sort(function(a,b){return a.localeCompare(b,'vi');}):[]) : [kpiPersonalName];
 
     var formulaDesc = isYear
-      ? 'Điểm KPI trung bình/năm = trung bình cộng điểm KPI ước tính của các tháng có dữ liệu trong năm (mỗi tháng tính theo công thức: 100 + điểm trừ sự kiện − phạt hoàn thành thấp − phạt tồn đọng). Dùng để tổng hợp, xét thi đua cuối năm.'
-      : 'Điểm KPI = 100 + điểm trừ sự kiện (tối đa -40) − phạt tỷ lệ hoàn thành thấp (tối đa -15) − phạt tồn đọng &gt;30 ngày (tối đa -10). Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.';
+      ? 'Điểm KPI trung bình/năm = trung bình cộng điểm KPI của các tháng có dữ liệu trong năm (mỗi tháng: 100 + điểm trừ sự kiện KPI thực tế, tối đa -40). Số liệu Kanban chỉ tham khảo, không dùng để trừ điểm. Dùng để tổng hợp, xét thi đua cuối năm.'
+      : 'Điểm KPI = 100 + điểm trừ sự kiện KPI thực tế (tối đa -40) — từ quy trình chưa đọc, đổi trực vi phạm, và Quản lý ghi nhận tay. Số liệu Kanban (việc hoàn thành, tồn đọng) chỉ hiển thị tham khảo, không dùng để trừ điểm. Xếp loại theo mốc: A≥90, B≥75, C≥60, D≥40, còn lại E.';
     document.getElementById('kpiTableFormulaDesc').innerHTML = formulaDesc;
     var scopePrefix = kpiAdminMode ? 'Toàn khoa (Quản lý)' : (kpiAllStaffMode ? 'Toàn khoa (Xem công khai)' : ('Cá nhân: '+kpiPersonalName));
     var periodLbl = isYear ? ('Cả năm '+yearVal) : ('Tháng '+monthStr);
@@ -12280,10 +12489,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<th>Nhân viên</th><th>Việc hoàn thành / Tổng'+(isYear?' (cả năm)':'')+'</th><th>Tỷ lệ hoàn thành</th>'+
         '<th>Tồn đọng &gt;30 ngày</th><th>Số sự kiện KPI'+(isYear?' (cả năm)':'')+'</th><th>Điểm trừ sự kiện'+(isYear?' (cộng dồn)':'')+'</th>'+
         '<th>'+colScoreLabel+'</th><th>Xếp loại</th></tr>';
-      rows_display.forEach(function(x){
+      rows_display.forEach(function(x, idx){
         var r = x.r;
         var pct = r.completionRate===null ? '—' : Math.round(r.completionRate*100)+'%';
-        html += '<tr><td>'+kpiEsc(x.name)+'</td><td>'+r.done+' / '+r.total+'</td><td>'+pct+'</td>'+
+        var detailBtn = (!isYear && r.total>0) ? ' <button class="kpi-del" style="color:#5b7ba8" title="Xem chi tiết thẻ Kanban" onclick="kpiShowCardsDetail(\''+x.name.replace(/'/g,"\\'")+'\')"><i class="ti ti-list-search"></i></button>' : '';
+        html += '<tr><td>'+kpiEsc(x.name)+'</td><td>'+r.done+' / '+r.total+detailBtn+'</td><td>'+pct+'</td>'+
           '<td>'+r.overdue+'</td><td>'+r.events.length+'</td><td>'+r.eventPenalty.toFixed(1)+'</td>'+
           '<td><b>'+r.score.toFixed(1)+'</b></td><td><span class="kpi-badge '+r.rank.cls+'">'+r.rank.label+'</span></td></tr>';
       });
@@ -12299,6 +12509,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       if(!kpiAllStaffMode) return e.person===kpiPersonalName;
       return true;
     }).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    _kpiCurrentEvList = evList;
+    _kpiCurrentEvPeriodLabel = _kpiCurrentPeriodLabel;
 
     document.getElementById('kpiEventListSection').style.display = (kpiAllStaffMode || evList.length) ? 'block' : 'none';
     if(!evList.length){
@@ -12318,7 +12530,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         h2 += '<tr><td>'+kpiFmtD(e.date)+'</td><td>'+kpiEsc(e.person)+'</td><td>'+kpiEsc(KPI_TYPE_LABEL[e.type]||e.type)+'</td>'+
           '<td>'+(e.count||1)+'</td><td>'+(parseFloat(e.points)||0).toFixed(1)+'</td><td>'+kpiEsc(e.note||'')+'</td>'+
           '<td>'+(proofBits.length?proofBits.join(' '):'—')+'</td>'+
-          (kpiAdminMode?('<td><button class="kpi-del" onclick="kpiDeleteEvent('+e.id+')"><i class="ti ti-trash"></i></button></td>'):'')+
+          (kpiAdminMode?('<td><button class="kpi-del" onclick="kpiDeleteEvent(\''+e.id+'\')"><i class="ti ti-trash"></i></button></td>'):'')+
           '</tr>';
       });
       h2 += '</table></div>';
@@ -12378,7 +12590,36 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   document.addEventListener('click', function(ev){
     var overlay = document.getElementById('kpiStaffModalOverlay');
     if(overlay && ev.target === overlay) kpiCloseStaffPicker();
+    var overlay2 = document.getElementById('kpiCardsDetailOverlay');
+    if(overlay2 && ev.target === overlay2) kpiCloseCardsDetail();
   });
+
+  window.kpiShowCardsDetail = function(name){
+    var rowEntry = _kpiCurrentRows.find(function(x){ return x.name===name; });
+    var overlay = document.getElementById('kpiCardsDetailOverlay');
+    var titleEl = document.getElementById('kpiCardsDetailTitle');
+    var listEl = document.getElementById('kpiCardsDetailList');
+    var cardsInMonth = (rowEntry && rowEntry.r && rowEntry.r.cardsInMonth) ? rowEntry.r.cardsInMonth : [];
+    titleEl.textContent = 'Chi tiết thẻ Kanban — '+name+' ('+cardsInMonth.length+' thẻ trong tháng)';
+    if(!cardsInMonth.length){
+      listEl.innerHTML = '<div class="kpi-empty">Không có thẻ Kanban nào trong tháng này.</div>';
+    } else {
+      var statusLabel = {done:'✅ Đã xong', doing:'🔄 Đang làm', todo:'⏳ Chờ làm'};
+      var sorted = cardsInMonth.slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+      listEl.innerHTML = sorted.map(function(c){
+        var content = c.done || c.doing || c.todo || c.content || '(không có nội dung)';
+        var st = statusLabel[c.status] || c.status || '';
+        return '<div class="kpi-modal-item" style="cursor:default;display:flex;justify-content:space-between;gap:10px;align-items:flex-start">'+
+          '<div style="flex:1"><div style="font-size:12px;color:#8098bb">'+kpiEsc(c.date||'')+'</div>'+
+          '<div style="font-size:13.5px">'+kpiEsc(content)+'</div></div>'+
+          '<div style="white-space:nowrap;font-size:12.5px;font-weight:700">'+st+'</div></div>';
+      }).join('');
+    }
+    overlay.style.display = 'flex';
+  };
+  window.kpiCloseCardsDetail = function(){
+    document.getElementById('kpiCardsDetailOverlay').style.display = 'none';
+  };
 
   /* ── XUAT EXCEL - Bang tong hop KPI (theo pham vi dang xem) ── */
   window.kpiExportExcel = function(){
@@ -12455,6 +12696,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<td class="'+rc+'" style="text-align:center">'+r.rank.label+'</td></tr>';
     }).join('');
 
+    var printBtnHtml = autoPrint ? '' : '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>';
     var html = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">'+
       '<title>Bảng tổng hợp KPI – Khoa GMHS – '+printDate+'</title><style>'+
       '@media print{.no-print{display:none!important}@page{size:A4 landscape;margin:1.5cm 2cm}}'+
@@ -12484,7 +12726,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '<div class="toolbar no-print"><span>📄 Xem trước – Bảng tổng hợp KPI Khoa GMHS ('+printDate+')</span>'+
       '<button class="tbtn" onclick="window.close()">✕ Đóng</button>'+
       '<button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>'+
-      '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button></div>'+
+      printBtnHtml+'</div>'+
       '<div class="page"><div class="hdr-top"><div class="org">SỞ Y TẾ TỈNH GIA LAI</div>'+
       '<div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div><div class="dep">KHOA GÂY MÊ HỒI SỨC</div></div>'+
       '<div class="doc-title">Bảng tổng hợp đánh giá KPI</div>'+
@@ -12511,13 +12753,134 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="'+docFileName+'";'+
       'document.body.appendChild(a);a.click();document.body.removeChild(a);'+
       '}'+
+      (autoPrint ? 'var _printed=false;function _doAutoPrint(){if(_printed)return;_printed=true;window.print();}window.addEventListener("load",function(){setTimeout(_doAutoPrint,300);});' : '')+
       '<\/script></body></html>';
 
     var w = window.open('', '_blank', 'width=1100,height=780,scrollbars=yes,resizable=yes');
     if(!w){ alert('Trình duyệt chặn popup! Vui lòng cho phép popup.'); return; }
     w.document.write(html);
     w.document.close();
-    if(autoPrint){ setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 400); }
+  };
+
+  function kpiGenericExcel(filenamePrefix, title, columns, dataRows){
+    var now = new Date();
+    var nowStr = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>'+
+      'body{font-family:"Times New Roman";font-size:11pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}'+
+      '.th{background:#0d47a1;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #082a5e;padding:5px}'+
+      '.td{border:1px solid #c5cfe8;padding:4px 6px;font-size:10pt}.td-c{border:1px solid #c5cfe8;padding:4px 6px;text-align:center;font-size:10pt}'+
+      '.ev{background:#f0f4ff}</style></head><body><table>'+
+      '<tr><td colspan="'+columns.length+'" class="org">SỞ Y TẾ TỈNH GIA LAI</td></tr>'+
+      '<tr><td colspan="'+columns.length+'" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM - KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="'+columns.length+'" class="title">'+title+'</td></tr>'+
+      '<tr><td colspan="'+columns.length+'" class="org">Xuất ngày: '+nowStr+'</td></tr><tr></tr>'+
+      '<tr>'+columns.map(function(c){return '<td class="th">'+c+'</td>';}).join('')+'</tr>';
+    dataRows.forEach(function(row, i){
+      var ev = (i%2===1) ? ' ev' : '';
+      html += '<tr>'+row.map(function(v){ return '<td class="td'+ev+'">'+v+'</td>'; }).join('')+'</tr>';
+    });
+    html += '</table></body></html>';
+    var blob = new Blob(['\ufeff'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filenamePrefix+'_'+(typeof today==='function'?today():nowStr.replace(/\//g,'-'))+'.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  function kpiGenericWordPreview(opts){
+    var now = new Date();
+    var printDate = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var printTime = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    var docFileName = opts.filePrefix+'_'+(typeof today==='function'?today():printDate.replace(/\//g,'-'))+'.doc';
+    var theadHtml = '<tr>'+opts.columns.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
+    var rowsHtml = opts.dataRows.map(function(row, i){
+      return '<tr class="'+((i%2===1)?'ev':'')+'">'+row.map(function(v){return '<td>'+v+'</td>';}).join('')+'</tr>';
+    }).join('');
+    var printBtnHtml = opts.autoPrint ? '' : '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>';
+    var html = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>'+opts.title+' – '+printDate+'</title><style>'+
+      '@media print{.no-print{display:none!important}@page{size:A4 '+(opts.landscape?'landscape':'portrait')+';margin:1.5cm 2cm}}'+
+      'body{font-family:"Times New Roman",serif;font-size:11pt;color:#111;margin:0;background:#f5f5f5}'+
+      '.preview-wrap{max-width:1000px;margin:0 auto;padding:20px}'+
+      '.toolbar{background:#0d47a1;color:#fff;padding:12px 20px;border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:20px}'+
+      '.toolbar span{font-size:14px;font-weight:700;flex:1}'+
+      '.tbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:#fff;font-family:inherit}'+
+      '.tbtn.print{background:#2e7d32;border-color:#2e7d32}.tbtn.dl{background:#fff;color:#0d47a1;border-color:#fff}'+
+      '.page{background:#fff;border-radius:8px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}'+
+      '.hdr-top{text-align:center;margin-bottom:4pt}.org{font-size:10pt;color:#444;font-style:italic}'+
+      '.dep{font-size:11pt;font-weight:700;color:#0d47a1}'+
+      '.doc-title{text-align:center;font-size:15pt;font-weight:700;text-transform:uppercase;margin:12pt 0 4pt;color:#082a5e}'+
+      '.doc-sub{text-align:center;font-size:10pt;color:#555;margin-bottom:14pt}'+
+      'table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt}'+
+      'th{background:#0d47a1;color:#fff;padding:6pt 7pt;font-size:9.5pt;font-weight:700;text-align:center;border:1pt solid #082a5e}'+
+      'td{padding:5pt 7pt;border:0.5pt solid #c5cfe8;vertical-align:middle}.ev{background:#f7f9ff}'+
+      '.foot{text-align:center;font-size:9pt;color:#777;border-top:0.5pt solid #ccc;padding-top:8pt;margin-top:14pt}'+
+      '</style></head><body><div class="preview-wrap">'+
+      '<div class="toolbar no-print"><span>📄 '+opts.title+' ('+printDate+')</span>'+
+      '<button class="tbtn" onclick="window.close()">✕ Đóng</button>'+
+      '<button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>'+
+      printBtnHtml+'</div>'+
+      '<div class="page"><div class="hdr-top"><div class="org">SỞ Y TẾ TỈNH GIA LAI</div>'+
+      '<div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div><div class="dep">KHOA GÂY MÊ HỒI SỨC</div></div>'+
+      '<div class="doc-title">'+opts.title+'</div>'+
+      '<div class="doc-sub">Ngày xuất: '+printDate+' | Giờ xuất: '+printTime+(opts.subLabel?(' | '+opts.subLabel):'')+'</div>'+
+      '<table>'+theadHtml+rowsHtml+'</table>'+
+      '<div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Chỉ mang tính tham khảo</div>'+
+      '</div></div><script>'+
+      'function downloadWordDoc(){'+
+      'var styleTag=document.querySelector("style").outerHTML;'+
+      'var pageHtml=document.querySelector(".page").outerHTML;'+
+      'var docHtml=\'<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+docFileName+'</title>\'+styleTag+\'</head><body>\'+pageHtml+\'</body></html>\';'+
+      'var blob=new Blob(["\\ufeff"+docHtml],{type:"application/msword"});'+
+      'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="'+docFileName+'";'+
+      'document.body.appendChild(a);a.click();document.body.removeChild(a);'+
+      '}'+
+      (opts.autoPrint ? 'var _printed=false;function _doAutoPrint(){if(_printed)return;_printed=true;window.print();}window.addEventListener("load",function(){setTimeout(_doAutoPrint,300);});' : '')+
+      '<\/script></body></html>';
+    var w = window.open('', '_blank', 'width=1000,height=780,scrollbars=yes,resizable=yes');
+    if(!w){ alert('Trình duyệt chặn popup! Vui lòng cho phép popup.'); return; }
+    w.document.write(html);
+    w.document.close();
+  }
+
+  window.kpiTypesExportExcel = function(){
+    if(!kpiEventTypes.length){ alert('Chưa có dữ liệu danh mục để xuất!'); return; }
+    var sevLabel = {nhe:'Nhẹ', vua:'Vừa', nang:'Nặng'};
+    var rows = kpiEventTypes.map(function(t){
+      return [kpiEsc(t.name), sevLabel[t.severity]||t.severity||'', (parseFloat(t.points)||0).toFixed(1), kpiEsc(t.note||'')];
+    });
+    kpiGenericExcel('DanhMucKPI_GMHS', 'DANH MỤC LOẠI SỰ KIỆN KPI & THANG ĐIỂM TRỪ', ['Loại sự kiện','Mức độ','Điểm trừ/lần','Ghi chú'], rows);
+  };
+  window.kpiTypesExportWord = function(autoPrint){
+    if(!kpiEventTypes.length){ alert('Chưa có dữ liệu danh mục để xuất!'); return; }
+    var sevLabel = {nhe:'Nhẹ', vua:'Vừa', nang:'Nặng'};
+    var rows = kpiEventTypes.map(function(t){
+      return [kpiEsc(t.name), sevLabel[t.severity]||t.severity||'', '<b>'+(parseFloat(t.points)||0).toFixed(1)+'</b>', kpiEsc(t.note||'')];
+    });
+    kpiGenericWordPreview({title:'Danh mục loại sự kiện KPI & thang điểm trừ', filePrefix:'DanhMucKPI_GMHS',
+      columns:['Loại sự kiện','Mức độ','Điểm trừ/lần','Ghi chú'], dataRows:rows, landscape:false, autoPrint:autoPrint});
+  };
+
+  window.kpiEventsExportExcel = function(){
+    var list = _kpiCurrentEvList;
+    if(!list.length){ alert('Không có sự kiện KPI nào để xuất trong phạm vi đang xem!'); return; }
+    var rows = list.map(function(e){
+      return [kpiFmtD(e.date), kpiEsc(e.person), kpiEsc(KPI_TYPE_LABEL[e.type]||e.type), (e.count||1),
+        (parseFloat(e.points)||0).toFixed(1), kpiEsc(e.note||'')];
+    });
+    kpiGenericExcel('SuKienKPI_GMHS', 'DANH SÁCH SỰ KIỆN KPI — '+_kpiCurrentEvPeriodLabel,
+      ['Ngày','Nhân viên','Loại sự kiện','Số lần','Điểm trừ','Ghi chú'], rows);
+  };
+  window.kpiEventsExportWord = function(autoPrint){
+    var list = _kpiCurrentEvList;
+    if(!list.length){ alert('Không có sự kiện KPI nào để xuất trong phạm vi đang xem!'); return; }
+    var rows = list.map(function(e){
+      return [kpiFmtD(e.date), '<b>'+kpiEsc(e.person)+'</b>', kpiEsc(KPI_TYPE_LABEL[e.type]||e.type), (e.count||1),
+        '<b>'+(parseFloat(e.points)||0).toFixed(1)+'</b>', kpiEsc(e.note||'')];
+    });
+    kpiGenericWordPreview({title:'Danh sách sự kiện KPI', filePrefix:'SuKienKPI_GMHS', subLabel:'Phạm vi: '+_kpiCurrentEvPeriodLabel,
+      columns:['Ngày','Nhân viên','Loại sự kiện','Số lần','Điểm trừ','Ghi chú'], dataRows:rows, landscape:true, autoPrint:autoPrint});
   };
 })();
 </script>
@@ -12647,6 +13010,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           </label>
         </div>
         <button class="kpi-btn" id="dtSubmitBtn" style="background:#7b1fa2;color:#fff" onclick="dtSubmit()"><i class="ti ti-send"></i> Gửi phiếu đăng ký</button>
+        <button class="kpi-btn" id="dtCancelEditBtn" style="display:none;background:#fff;color:#5b7ba8;border:1.5px solid #cdd8ea" onclick="dtCancelEdit()"><i class="ti ti-x"></i> Hủy sửa</button>
         <div id="dtSubmitAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px"></div>
       </div>
 
@@ -12693,6 +13057,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           </div>
         </div>
         <div id="dtStatOverview" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">
+          <button class="kpi-btn" style="background:#1b6b3a;color:#fff;padding:6px 12px;font-size:12px" onclick="dtStatExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+          <button class="kpi-btn" style="background:#0d47a1;color:#fff;padding:6px 12px;font-size:12px" onclick="dtStatExportWord()"><i class="ti ti-file-word"></i> Xuất Word</button>
+          <button class="kpi-btn" style="border:1.5px solid #7b1fa2;color:#7b1fa2;padding:6px 12px;font-size:12px" onclick="dtStatExportWord(true)"><i class="ti ti-printer"></i> In</button>
+        </div>
         <div id="dtStatTableWrap"></div>
       </div>
     </div>
@@ -12929,13 +13298,46 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     });
   }
 
+  var dtEditingId = null;
+
+  window.dtEditRecord = function(id){
+    var rec = dtRecords.find(function(r){ return String(r.id)===String(id); });
+    if(!rec) return;
+    var canEdit = dtAdminMode || (dtPersonalName && rec.nguoiDangKy===dtPersonalName && (rec.trangThai==='cho_duyet'||!rec.trangThai));
+    if(!canEdit){ alert('Bạn không có quyền sửa phiếu này! (Chỉ sửa được phiếu của chính mình khi còn "Chờ duyệt")'); return; }
+    dtEditingId = id;
+    dtSwitchTab(1);
+    document.getElementById('dtRegPerson').value = rec.nguoiDangKy || '';
+    document.getElementById('dtRegPersonNew').value = rec.nguoiNhanThay || '';
+    document.getElementById('dtRegDate').value = rec.ngayTruc || '';
+    document.getElementById('dtRegCa').value = rec.caTruc || 'Trực 24h';
+    document.getElementById('dtRegReason').value = rec.lyDo || '';
+    document.getElementById('dtSubmitBtn').innerHTML = '<i class="ti ti-device-floppy"></i> Lưu chỉnh sửa phiếu';
+    document.getElementById('dtSubmitBtn').style.background = '#0d47a1';
+    document.getElementById('dtCancelEditBtn').style.display = 'inline-flex';
+    if(document.getElementById('dtViolationCheckWrap')) document.getElementById('dtViolationCheckWrap').style.display = 'none';
+    dtCheckFrequency();
+  };
+
+  window.dtCancelEdit = function(){
+    dtEditingId = null;
+    document.getElementById('dtRegPerson').value = '';
+    document.getElementById('dtRegPersonNew').value = '';
+    document.getElementById('dtRegReason').value = '';
+    document.getElementById('dtSubmitBtn').innerHTML = '<i class="ti ti-send"></i> Gửi phiếu đăng ký';
+    document.getElementById('dtSubmitBtn').style.background = '#7b1fa2';
+    document.getElementById('dtCancelEditBtn').style.display = 'none';
+    document.getElementById('dtFreqWarning').style.display = 'none';
+    if(dtAdminMode && document.getElementById('dtViolationCheckWrap')) document.getElementById('dtViolationCheckWrap').style.display = 'block';
+  };
+
   window.dtSubmit = function(){
     var person = document.getElementById('dtRegPerson').value.trim();
     var personNew = document.getElementById('dtRegPersonNew').value.trim();
     var date = document.getElementById('dtRegDate').value;
     var ca = document.getElementById('dtRegCa').value;
     var reason = document.getElementById('dtRegReason').value.trim();
-    var isViolation = dtAdminMode && document.getElementById('dtViolationCheck') && document.getElementById('dtViolationCheck').checked;
+    var isViolation = (!dtEditingId) && dtAdminMode && document.getElementById('dtViolationCheck') && document.getElementById('dtViolationCheck').checked;
     var alertEl = document.getElementById('dtSubmitAlert');
     function showAl(msg,cls){
       alertEl.style.display='block';
@@ -12948,6 +13350,20 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(person===personNew){ showAl('Người đăng ký và người nhận thay không được trùng nhau!','err'); return; }
     if(!date){ showAl('Vui lòng chọn ngày trực cần đổi!','err'); return; }
     if(!dtRef){ showAl('Chưa kết nối được Firebase!','err'); return; }
+
+    // Che do SUA phieu co san
+    if(dtEditingId){
+      var editId = dtEditingId;
+      dtRef.child(String(editId)).update({
+        ngayTruc:date, caTruc:ca, nguoiDangKy:person, nguoiNhanThay:personNew, lyDo:reason,
+        editedAt:new Date().toISOString(), editedBy:(typeof cu!=='undefined'&&cu&&cu.name)||person
+      }).then(function(){
+        showAl('Đã lưu chỉnh sửa phiếu!','ok');
+        dtCancelEdit();
+        dtLoadThenRender();
+      }).catch(function(e){ showAl('Lỗi lưu dữ liệu: '+e.message,'err'); });
+      return;
+    }
 
     if(!isViolation){
       var monthStr0 = date.slice(0,7);
@@ -13013,6 +13429,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   }
 
   var _dtCurrentListInScope = [];
+  var _dtCurrentStatRows = [];
+  var _dtCurrentStatMeta = {};
   var _dtCurrentMonthStr = '';
 
   function dtRenderAll(){
@@ -13043,9 +13461,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     } else if(!listDisplay.length){
       listWrap.innerHTML = '<div class="kpi-empty">Không tìm thấy phiếu nào khớp với tên đang lọc.</div>';
     } else {
-      var h = '<div style="overflow-x:auto"><table class="kpi-tb"><tr><th>Ngày trực</th><th>Ca trực</th><th>Người đăng ký</th><th>Người nhận thay</th><th>Lý do</th><th>Trạng thái</th><th>Thời điểm lập phiếu</th>'+(dtAdminMode?'<th>Duyệt</th>':'')+'</tr>';
+      var showEditCol = dtAdminMode || !!dtPersonalName;
+      var h = '<div style="overflow-x:auto"><table class="kpi-tb"><tr><th>Ngày trực</th><th>Ca trực</th><th>Người đăng ký</th><th>Người nhận thay</th><th>Lý do</th><th>Trạng thái</th><th>Thời điểm lập phiếu</th>'+(showEditCol?'<th>Sửa</th>':'')+(dtAdminMode?'<th>Duyệt</th>':'')+'</tr>';
       listDisplay.forEach(function(r){
         h += '<tr><td>'+dtFmtD(r.ngayTruc)+'</td><td>'+dtEsc(r.caTruc||'')+'</td><td>'+dtEsc(r.nguoiDangKy)+'</td><td>'+dtEsc(r.nguoiNhanThay)+'</td><td>'+dtEsc(r.lyDo||'')+'</td><td>'+dtStatusBadge(r.trangThai)+'</td><td style="white-space:nowrap;font-size:11.5px;color:#8a6ea8">'+dtFmtDT(r.ngayTao)+'</td>';
+        if(showEditCol){
+          var canEditRow = dtAdminMode || (dtPersonalName && r.nguoiDangKy===dtPersonalName && (r.trangThai==='cho_duyet'||!r.trangThai));
+          h += '<td style="text-align:center">'+(canEditRow ? '<button class="kpi-del" style="color:#0d47a1" title="Sửa phiếu" onclick="dtEditRecord(\''+r.id+'\')"><i class="ti ti-pencil"></i></button>' : '—')+'</td>';
+        }
         if(dtAdminMode){
           h += '<td style="white-space:nowrap">';
           if(r.trangThai!=='da_duyet') h += '<button class="kpi-del" style="color:#1b6b3a" title="Duyệt" onclick="dtSetStatus(\''+r.id+'\',\'da_duyet\')"><i class="ti ti-check"></i></button> ';
@@ -13120,6 +13543,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       return {name:n, xin:d.xin, nhan:d.nhan, total:total, avgPerMonth:avgPerMonth, flagged: avgPerMonth >= threshold};
     });
     rowsArr.sort(function(a,b){ return b.total - a.total || a.name.localeCompare(b.name,'vi'); });
+    _dtCurrentStatRows = rowsArr;
+    _dtCurrentStatMeta = {useAvg:useAvg, numMonths:numMonths, threshold:threshold, scopeLabel:scopeLabelTxt,
+      total:statRecs.length, choDuyet:choDuyet, daDuyet:daDuyet, tuChoi:tuChoi, viPham:viPham};
 
     var stWrap = document.getElementById('dtStatTableWrap');
     if(!rowsArr.length){
@@ -13245,7 +13671,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '<div class="toolbar no-print"><span>📄 Xem trước – Danh sách Đổi Trực Khoa GMHS ('+printDate+')</span>'+
       '<button class="tbtn" onclick="window.close()">✕ Đóng</button>'+
       '<button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>'+
-      '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button></div>'+
+      (autoPrint ? '' : '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>')+'</div>'+
       '<div class="page"><div class="hdr-top"><div class="org">SỞ Y TẾ TỈNH GIA LAI</div>'+
       '<div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div><div class="dep">KHOA GÂY MÊ HỒI SỨC</div></div>'+
       '<div class="doc-title">Danh sách Đổi Trực</div>'+
@@ -13271,13 +13697,128 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="'+docFileName+'";'+
       'document.body.appendChild(a);a.click();document.body.removeChild(a);'+
       '}'+
+      (autoPrint ? 'var _printed=false;function _doAutoPrint(){if(_printed)return;_printed=true;window.print();}window.addEventListener("load",function(){setTimeout(_doAutoPrint,300);});' : '')+
       '<\/script></body></html>';
 
     var w = window.open('', '_blank', 'width=1100,height=780,scrollbars=yes,resizable=yes');
     if(!w){ alert('Trình duyệt chặn popup! Vui lòng cho phép popup.'); return; }
     w.document.write(html);
     w.document.close();
-    if(autoPrint){ setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 400); }
+  };
+
+  function dtGenericExcel(filenamePrefix, title, columns, dataRows){
+    var now = new Date();
+    var nowStr = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>'+
+      'body{font-family:"Times New Roman";font-size:11pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}'+
+      '.th{background:#6A1E7E;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #4a0d5e;padding:5px}'+
+      '.td{border:1px solid #d9c2ea;padding:4px 6px;font-size:10pt}.td-c{border:1px solid #d9c2ea;padding:4px 6px;text-align:center;font-size:10pt}'+
+      '.ev{background:#f8f2fc}</style></head><body><table>'+
+      '<tr><td colspan="'+columns.length+'" class="org">SỞ Y TẾ TỈNH GIA LAI</td></tr>'+
+      '<tr><td colspan="'+columns.length+'" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM - KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="'+columns.length+'" class="title">'+title+'</td></tr>'+
+      '<tr><td colspan="'+columns.length+'" class="org">Xuất ngày: '+nowStr+'</td></tr><tr></tr>'+
+      '<tr>'+columns.map(function(c){return '<td class="th">'+c+'</td>';}).join('')+'</tr>';
+    dataRows.forEach(function(row, i){
+      var ev = (i%2===1) ? ' ev' : '';
+      html += '<tr>'+row.map(function(v){ return '<td class="td'+ev+'">'+v+'</td>'; }).join('')+'</tr>';
+    });
+    html += '</table></body></html>';
+    var blob = new Blob(['\ufeff'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filenamePrefix+'_'+(typeof today==='function'?today():nowStr.replace(/\//g,'-'))+'.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  function dtGenericWordPreview(opts){
+    var now = new Date();
+    var printDate = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+    var printTime = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    var docFileName = opts.filePrefix+'_'+(typeof today==='function'?today():printDate.replace(/\//g,'-'))+'.doc';
+    var theadHtml = '<tr>'+opts.columns.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
+    var rowsHtml = opts.dataRows.map(function(row, i){
+      return '<tr class="'+((i%2===1)?'ev':'')+'">'+row.map(function(v){return '<td>'+v+'</td>';}).join('')+'</tr>';
+    }).join('');
+    var printBtnHtml = opts.autoPrint ? '' : '<button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>';
+    var html = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>'+opts.title+' – '+printDate+'</title><style>'+
+      '@media print{.no-print{display:none!important}@page{size:A4 '+(opts.landscape?'landscape':'portrait')+';margin:1.5cm 2cm}}'+
+      'body{font-family:"Times New Roman",serif;font-size:11pt;color:#111;margin:0;background:#f5f5f5}'+
+      '.preview-wrap{max-width:1000px;margin:0 auto;padding:20px}'+
+      '.toolbar{background:#6A1E7E;color:#fff;padding:12px 20px;border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:20px}'+
+      '.toolbar span{font-size:14px;font-weight:700;flex:1}'+
+      '.tbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:#fff;font-family:inherit}'+
+      '.tbtn.print{background:#2e7d32;border-color:#2e7d32}.tbtn.dl{background:#fff;color:#6A1E7E;border-color:#fff}'+
+      '.page{background:#fff;border-radius:8px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}'+
+      '.hdr-top{text-align:center;margin-bottom:4pt}.org{font-size:10pt;color:#444;font-style:italic}'+
+      '.dep{font-size:11pt;font-weight:700;color:#6A1E7E}'+
+      '.doc-title{text-align:center;font-size:15pt;font-weight:700;text-transform:uppercase;margin:12pt 0 4pt;color:#4a0d5e}'+
+      '.doc-sub{text-align:center;font-size:10pt;color:#555;margin-bottom:14pt}'+
+      'table{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt}'+
+      'th{background:#6A1E7E;color:#fff;padding:6pt 7pt;font-size:9.5pt;font-weight:700;text-align:center;border:1pt solid #4a0d5e}'+
+      'td{padding:5pt 7pt;border:0.5pt solid #d9c2ea;vertical-align:middle}.ev{background:#f8f2fc}'+
+      '.foot{text-align:center;font-size:9pt;color:#777;border-top:0.5pt solid #ccc;padding-top:8pt;margin-top:14pt}'+
+      '</style></head><body><div class="preview-wrap">'+
+      '<div class="toolbar no-print"><span>📄 '+opts.title+' ('+printDate+')</span>'+
+      '<button class="tbtn" onclick="window.close()">✕ Đóng</button>'+
+      '<button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>'+
+      printBtnHtml+'</div>'+
+      '<div class="page"><div class="hdr-top"><div class="org">SỞ Y TẾ TỈNH GIA LAI</div>'+
+      '<div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div><div class="dep">KHOA GÂY MÊ HỒI SỨC</div></div>'+
+      '<div class="doc-title">'+opts.title+'</div>'+
+      '<div class="doc-sub">Ngày xuất: '+printDate+' | Giờ xuất: '+printTime+(opts.subLabel?(' | '+opts.subLabel):'')+'</div>'+
+      '<table>'+theadHtml+rowsHtml+'</table>'+
+      '<div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Chỉ mang tính tham khảo</div>'+
+      '</div></div><script>'+
+      'function downloadWordDoc(){'+
+      'var styleTag=document.querySelector("style").outerHTML;'+
+      'var pageHtml=document.querySelector(".page").outerHTML;'+
+      'var docHtml=\'<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+docFileName+'</title>\'+styleTag+\'</head><body>\'+pageHtml+\'</body></html>\';'+
+      'var blob=new Blob(["\\ufeff"+docHtml],{type:"application/msword"});'+
+      'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="'+docFileName+'";'+
+      'document.body.appendChild(a);a.click();document.body.removeChild(a);'+
+      '}'+
+      (opts.autoPrint ? 'var _printed=false;function _doAutoPrint(){if(_printed)return;_printed=true;window.print();}window.addEventListener("load",function(){setTimeout(_doAutoPrint,300);});' : '')+
+      '<\/script></body></html>';
+    var w = window.open('', '_blank', 'width=1000,height=780,scrollbars=yes,resizable=yes');
+    if(!w){ alert('Trình duyệt chặn popup! Vui lòng cho phép popup.'); return; }
+    w.document.write(html);
+    w.document.close();
+  }
+
+  window.dtStatExportExcel = function(){
+    var rows0 = _dtCurrentStatRows;
+    if(!rows0.length){ alert('Chưa có dữ liệu thống kê để xuất!'); return; }
+    var meta = _dtCurrentStatMeta;
+    var cols = ['Nhân viên','Số lần xin đổi trực','Số lần nhận trực thay','Tổng lượt liên quan'];
+    if(meta.useAvg) cols.push('Trung bình/tháng ('+meta.numMonths+' tháng)');
+    cols.push('Mức độ');
+    var rows = rows0.map(function(r){
+      var row = [dtEsc(r.name), r.xin, r.nhan, r.total];
+      if(meta.useAvg) row.push(r.avgPerMonth.toFixed(1));
+      row.push(r.flagged ? 'Thường xuyên' : 'Bình thường');
+      return row;
+    });
+    dtGenericExcel('ThongKeDoiTruc_GMHS', 'THỐNG KÊ ĐỔI TRỰC — '+dtEsc(meta.scopeLabel||''), cols, rows);
+  };
+  window.dtStatExportWord = function(autoPrint){
+    var rows0 = _dtCurrentStatRows;
+    if(!rows0.length){ alert('Chưa có dữ liệu thống kê để xuất!'); return; }
+    var meta = _dtCurrentStatMeta;
+    var cols = ['Nhân viên','Số lần xin đổi trực','Số lần nhận trực thay','Tổng lượt liên quan'];
+    if(meta.useAvg) cols.push('Trung bình/tháng ('+meta.numMonths+' tháng)');
+    cols.push('Mức độ');
+    var rows = rows0.map(function(r){
+      var row = ['<b>'+dtEsc(r.name)+'</b>', r.xin, r.nhan, '<b>'+r.total+'</b>'];
+      if(meta.useAvg) row.push(r.avgPerMonth.toFixed(1));
+      row.push(r.flagged ? '<b style="color:#7a1414">⚠ Thường xuyên</b>' : 'Bình thường');
+      return row;
+    });
+    dtGenericWordPreview({title:'Thống kê Đổi Trực', filePrefix:'ThongKeDoiTruc_GMHS',
+      subLabel:'Phạm vi: '+dtEsc(meta.scopeLabel||'')+' | Tổng phiếu: '+meta.total+' (Chờ duyệt: '+meta.choDuyet+', Đã duyệt: '+meta.daDuyet+', Từ chối: '+meta.tuChoi+', Vi phạm: '+meta.viPham+')',
+      columns:cols, dataRows:rows, landscape:false, autoPrint:autoPrint});
   };
 })();
 </script>
