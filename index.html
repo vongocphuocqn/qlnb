@@ -571,40 +571,25 @@ font-size:10px;color:var(--tx3)}
         Họ và tên nhân viên <span style="color:red">*</span>
         <span style="font-weight:400;font-size:10px;color:#888;text-transform:none"> — Gõ tên để lọc, rồi bấm chọn</span>
       </label>
-      <!-- Searchable picker inside modal -->
+      <!-- Searchable picker inside modal (custom dropdown — không dùng <select> gốc của hệ điều hành
+           để tránh lỗi trên iPhone: danh sách bung full màn hình che mất ô lọc/nút Xuất Word phía sau) -->
       <div style="position:relative">
-        <select id="authSelectNative" size="6"
-          style="width:100%;padding:8px;border:1.5px solid var(--g400);border-radius:9px;
-            font-size:15px;font-family:inherit;color:var(--tx);background:#fff;
-            box-sizing:border-box;cursor:pointer;min-height:140px;
-            -webkit-appearance:listbox;"
-          onchange="authNativeSelect(this.value)"
-          ondblclick="if(this.value){authPickStaff(this.value);}"
-          onkeydown="if(event.key==='Enter'&&this.value){event.preventDefault();authPickStaff(this.value);}"
-          ontouchend="if(this.value){setTimeout(function(){authNativeSelect(document.getElementById('authSelectNative').value);},50);}"
-        >
-        </select>
-        <button id="authConfirmSelBtn"
-          onclick="authConfirmFromSelect()"
-          style="display:none;width:100%;margin-top:8px;padding:10px;background:var(--g800);
-            color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;
-            font-family:inherit;cursor:pointer;align-items:center;justify-content:center;gap:6px">
-          <i class="ti ti-check"></i> Xác nhận — Vào
-        </button>
-        <div style="margin-top:8px;position:relative">
-          <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:14px;pointer-events:none"></i>
-          <input type="text" id="authSearchInp" placeholder="🔍 Gõ tên để lọc..."
-            autocomplete="off"
-            oninput="authFilterNative()"
-            onkeydown="if(event.key==='Enter'&&document.getElementById('authSelectNative').value){authPickStaff(document.getElementById('authSelectNative').value);}"
-            style="width:100%;padding:10px 11px 10px 34px;border-radius:9px;
-              border:1.5px solid var(--bd);font-size:14px;font-family:inherit;
-              color:var(--tx);background:#fff;box-sizing:border-box">
-        </div>
+        <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:14px;pointer-events:none;z-index:2"></i>
+        <input type="text" id="authSearchInp" placeholder="🔍 Gõ tên để lọc, hoặc bấm vào ô để xem cả danh sách..."
+          autocomplete="off"
+          oninput="authFilterStaff()"
+          onfocus="authShowDrop()"
+          onblur="setTimeout(authHideDrop,180)"
+          onkeydown="authNavDrop(event)"
+          style="width:100%;padding:10px 11px 10px 34px;border-radius:9px;
+            border:1.5px solid var(--g400);font-size:15px;font-family:inherit;
+            color:var(--tx);background:#fff;box-sizing:border-box">
         <input type="hidden" id="authSelVal">
-        <div id="authStaffDrop" style="display:none"></div>
+        <div id="authStaffDrop" style="display:none;position:absolute;top:100%;left:0;right:0;
+          max-height:240px;overflow-y:auto;background:#fff;border:1.5px solid var(--bd2);
+          border-top:none;border-radius:0 0 9px 9px;z-index:500;box-shadow:0 8px 22px rgba(0,0,0,.16)"></div>
       </div>
-      <p style="font-size:12px;color:#888;margin-top:6px"><i class="ti ti-info-circle"></i> Chọn tên trong danh sách, sau đó nhấn <b>Xác nhận</b></p></div>
+      <p style="font-size:12px;color:#888;margin-top:6px"><i class="ti ti-info-circle"></i> Gõ tên hoặc bấm chọn ngay trong danh sách hiện bên dưới ô tìm.</p></div>
       <div id="authErr" style="display:none;background:#fce4ec;border:1px solid #f48fb1;
         border-radius:7px;padding:7px 10px;font-size:12px;color:#880e4f;margin-top:8px">
         <i class="ti ti-alert-circle"></i> Vui lòng chọn tên từ danh sách!
@@ -1855,7 +1840,7 @@ font-size:10px;color:var(--tx3)}
       <!-- Chọn nhân viên -->
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
         <label style="font-size:12px;font-weight:600;color:#4a148c;text-transform:uppercase;white-space:nowrap">Xem thành tích của</label>
-        <input type="text" id="ptStaffSearch" list="ptStaffDatalist" placeholder="Gõ để tìm tên nhân viên..." onchange="ptOnStaffSearchChange()" oninput="ptOnStaffSearchInput()" autocomplete="off" style="flex:1;min-width:200px;max-width:320px;padding:8px 12px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:#333">
+        <input type="text" id="ptStaffSearch" placeholder="Gõ để tìm tên nhân viên..." onchange="ptOnStaffSearchChange()" oninput="ptOnStaffSearchInput()" autocomplete="off" style="flex:1;min-width:200px;max-width:320px;padding:8px 12px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:#333">
         <datalist id="ptStaffDatalist"></datalist>
         <button onclick="ptViewAllStaff()" style="padding:8px 14px;background:#f3e8fd;color:#4a148c;border:1.5px solid #ce93d8;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;white-space:nowrap"><i class="ti ti-users-group"></i> Xem tất cả</button>
       </div>
@@ -2065,7 +2050,7 @@ font-size:10px;color:var(--tx3)}
           </div>
           <div>
             <label style="display:block;font-size:11px;font-weight:600;color:#0E5A78;margin-bottom:4px;text-transform:uppercase">Lĩnh vực áp dụng</label>
-            <input type="text" id="rcField" list="rcFieldDatalist" placeholder="VD: Gây mê hồi sức, Kiểm soát nhiễm khuẩn..." autocomplete="off" style="width:100%;padding:7px 10px;border:1.5px solid #8FD3EA;border-radius:7px;font-size:13px;font-family:inherit">
+            <input type="text" id="rcField" placeholder="VD: Gây mê hồi sức, Kiểm soát nhiễm khuẩn..." autocomplete="off" style="width:100%;padding:7px 10px;border:1.5px solid #8FD3EA;border-radius:7px;font-size:13px;font-family:inherit">
             <datalist id="rcFieldDatalist"></datalist>
           </div>
           <div>
@@ -4523,7 +4508,7 @@ function rcRender(){
             <div><label style="font-size:10px;font-weight:600;color:#0E5A78;display:block;margin-bottom:3px">TRẠNG THÁI</label>
               <select id="rcEST_${idx}" style="width:100%;padding:5px 8px;border:1.5px solid #8FD3EA;border-radius:6px;font-size:12px;font-family:inherit;background:#fff">${stOpts}</select></div>
             <div><label style="font-size:10px;font-weight:600;color:#0E5A78;display:block;margin-bottom:3px">LĨNH VỰC</label>
-              <input type="text" id="rcEFIELD_${idx}" list="rcFieldDatalist" value="${ptEsc(r.field||'')}" autocomplete="off" style="width:100%;padding:5px 8px;border:1.5px solid #8FD3EA;border-radius:6px;font-size:12px;font-family:inherit"></div>
+              <input type="text" id="rcEFIELD_${idx}" value="${ptEsc(r.field||'')}" autocomplete="off" style="width:100%;padding:5px 8px;border:1.5px solid #8FD3EA;border-radius:6px;font-size:12px;font-family:inherit"></div>
             <div><label style="font-size:10px;font-weight:600;color:#0E5A78;display:block;margin-bottom:3px">ĐỒNG TÁC GIẢ</label>
               <input type="text" id="rcECOAU_${idx}" value="${ptEsc(r.coAuthor||'')}" style="width:100%;padding:5px 8px;border:1.5px solid #8FD3EA;border-radius:6px;font-size:12px;font-family:inherit"></div>
             <div><label style="font-size:10px;font-weight:600;color:#0E5A78;display:block;margin-bottom:3px">SỐ QĐ</label>
@@ -6644,10 +6629,8 @@ function openStaffAuthModal_inner(dest){
   document.getElementById('authSelVal').value='';
   document.getElementById('authErr').style.display='none';
   authHi=-1; authRenderDrop('');
-  authPopulateSelect();
   document.getElementById('authSearchInp').value='';
   document.getElementById('authSelVal').value='';
-  var cb=document.getElementById('authConfirmSelBtn');if(cb)cb.style.display='none';
   document.getElementById('staffAuthModal').classList.add('on');
   setTimeout(function(){var el=document.getElementById('authSearchInp');if(el)el.focus();},50);
   }catch(e){alert('Lỗi mở modal: '+e.message);}
@@ -6793,7 +6776,7 @@ function authPickStaff(name){
 function authNavDrop(e){
   const box=document.getElementById('authStaffDrop');
   if(!box||box.style.display==='none'){if(e.key==='ArrowDown')authShowDrop();return;}
-  const items=box.querySelectorAll('[data-auth-idx]');if(!items.length)return;
+  const items=box.querySelectorAll('[data-idx]');if(!items.length)return;
   if(e.key==='ArrowDown'){e.preventDefault();authHi=Math.min(authHi+1,items.length-1);}
   else if(e.key==='ArrowUp'){e.preventDefault();authHi=Math.max(authHi-1,0);}
   else if(e.key==='Enter'){e.preventDefault();
@@ -7793,7 +7776,7 @@ function nbBuildReplSelect(idx, currentVal){
   var src=(staffList&&staffList.length>0)?staffList:(typeof STAFF_DEFAULT!=='undefined'?STAFF_DEFAULT:[]);
   var opts=src.map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');
   return '<div style="position:relative">'+
-    '<input id="'+cid+'" list="'+dlid+'" value="'+(currentVal||'').replace(/"/g,'&quot;')+'" '+
+    '<input id="'+cid+'" value="'+(currentVal||'').replace(/"/g,'&quot;')+'" '+
     'placeholder="🔍 Tìm hoặc chọn người thay thế..." autocomplete="off" '+
     'style="width:100%;border:1.5px solid #c5cfe8;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;color:#1a237e;background:#fff;box-sizing:border-box">'+
     '<datalist id="'+dlid+'"><option value="">— Không phân thay thế —</option>'+opts+'</datalist>'+
@@ -9127,7 +9110,7 @@ function npBuildReplSelect(idx, currentVal){
   var opts='';
   sorted.forEach(function(n){ opts+='<option value="'+n.replace(/"/g,'&quot;')+'">'; });
   return '<datalist id="'+dlId+'">'+opts+'</datalist>'
-    +'<input id="npRepl_'+idx+'" list="'+dlId+'" value="'+(currentVal||'').replace(/"/g,'&quot;')+'" '
+    +'<input id="npRepl_'+idx+'" value="'+(currentVal||'').replace(/"/g,'&quot;')+'" '
     +'placeholder="🔍 Gõ tên để tìm nhanh..." autocomplete="off" '
     +'style="width:100%;border:1.5px solid #a7d4ce;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;color:#00695c;background:#fff;box-sizing:border-box">';
 }
@@ -10505,7 +10488,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
           '<div class="qt-foot"><span style="font-size:11.5px;color:#4e342e;font-weight:700">Đã đọc: '+readCount+'/'+scopeTotal+'</span>'+
             (qtIsAdmin() && scopeTotal>0 && readCount<scopeTotal ? '<button class="qt-readbtn" style="border-color:#a9631a;color:#a9631a" onclick="event.stopPropagation();qtRemindUnread(\''+s._id+'\')">📣 Nhắc đọc ('+(scopeTotal-readCount)+' người)</button>' : '')+
             (qtIsAdmin() ? '<button class="qt-readbtn" style="border-color:#0068ff;color:#0068ff" onclick="event.stopPropagation();qtShowRemindText(\''+s._id+'\')">📋 Nhắc Zalo</button>' : '')+
-            '<div class="qt-readctl"><input list="'+staffListId+'" id="qtSel_'+s._id+'" placeholder="Gõ để tìm tên nhân viên..." '+(qtStaffNames.length?'':'disabled')+' style="min-width:190px">'+
+            '<div class="qt-readctl"><input id="qtSel_'+s._id+'" placeholder="Gõ để tìm tên nhân viên..." '+(qtStaffNames.length?'':'disabled')+' style="min-width:190px">'+
             '<button class="qt-readbtn" '+(qtStaffNames.length?'':'disabled')+' onclick="event.stopPropagation();qtConfirmRead(\''+s._id+'\')">Xác nhận đã đọc</button></div></div>'+
           '<div class="qt-readlist">'+readListHtml+'</div>'+
         '</div></div>';
@@ -11451,7 +11434,7 @@ table.tv-tb th{background:#fbf3d9;color:#5c4a15;font-weight:700}
       <h3>🏅 Thành tích Cá nhân</h3>
       <div class="sub">Gõ đúng tên của bạn để xem — chỉ hiện thành tích của chính bạn, không xem được của người khác.</div>
       <div class="tv-search-row">
-        <input id="tvStaffSearch" list="tvStaffDatalist" placeholder="Gõ tên của bạn..." oninput="tvOnSearchInput()">
+        <input id="tvStaffSearch" placeholder="Gõ tên của bạn..." oninput="tvOnSearchInput()">
         <datalist id="tvStaffDatalist"></datalist>
       </div>
       <div class="tv-current" id="tvCurrentLabel"></div>
@@ -11603,7 +11586,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div style="text-align:center;font-size:11px;color:#aab8cf;margin:6px 0">— hoặc —</div>
       <label style="font-size:11px;font-weight:600;color:#3a5a85">Xem KPI cá nhân</label>
       <div style="display:flex;gap:6px">
-        <input list="kpiStaffDatalist" id="kpiPersonalNameInput" placeholder="Gõ đúng tên của bạn..." style="flex:1">
+        <input id="kpiPersonalNameInput" placeholder="Gõ đúng tên của bạn..." style="flex:1">
         <button type="button" class="kpi-btn" style="background:#fff;color:#0d47a1;border:1.5px solid #0d47a1;padding:7px 10px" onclick="kpiOpenStaffPicker('kpiPersonalNameInput')"><i class="ti ti-search"></i></button>
       </div>
       <datalist id="kpiStaffDatalist"></datalist>
@@ -11695,7 +11678,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <div class="kpi-f">
             <label>Nhân viên liên quan</label>
             <div style="display:flex;gap:6px">
-              <input list="kpiStaffDatalist2" id="kpiEvPerson" placeholder="Chọn/gõ tên nhân viên..." style="flex:1">
+              <input id="kpiEvPerson" placeholder="Chọn/gõ tên nhân viên..." style="flex:1">
               <button type="button" class="kpi-btn" style="background:#0d47a1;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('kpiEvPerson')"><i class="ti ti-search"></i></button>
             </div>
             <datalist id="kpiStaffDatalist2"></datalist>
@@ -11706,8 +11689,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           </div>
           <div class="kpi-f">
             <label>Loại sự kiện <span style="font-weight:400;color:#8098bb">(chọn có sẵn hoặc gõ mới)</span></label>
-            <input list="kpiEventTypeDatalist" id="kpiEvType" oninput="kpiOnTypeChange()" placeholder="Chọn hoặc gõ loại sự kiện mới...">
-            <datalist id="kpiEventTypeDatalist"></datalist>
+            <div style="display:flex;gap:6px">
+              <input id="kpiEvType" oninput="kpiOnTypeChange()" placeholder="Chọn hoặc gõ loại sự kiện mới..." style="flex:1">
+              <button type="button" class="kpi-btn" style="background:#0d47a1;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('kpiEvType','type')"><i class="ti ti-search"></i></button>
+            </div>
           </div>
         </div>
         <div class="kpi-row">
@@ -12546,12 +12531,15 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(w){ w.document.write('<title>Minh chứng KPI</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+ev.imgs[imgIdx]+'" style="max-width:100%;max-height:100vh"></body>'); }
   };
 
-  // ===== Modal tim nhan vien =====
+  // ===== Modal tim nhan vien / loai su kien (dung chung) =====
   var kpiStaffPickerTarget = null;
-  window.kpiOpenStaffPicker = function(targetInputId){
+  var kpiStaffPickerMode = 'staff';
+  window.kpiOpenStaffPicker = function(targetInputId, mode){
     kpiStaffPickerTarget = targetInputId;
+    kpiStaffPickerMode = mode || 'staff';
     var overlay = document.getElementById('kpiStaffModalOverlay');
     var searchEl = document.getElementById('kpiStaffModalSearch');
+    searchEl.placeholder = (kpiStaffPickerMode==='type') ? 'Gõ để tìm loại sự kiện...' : 'Gõ để tìm tên nhân viên...';
     searchEl.value = '';
     overlay.style.display = 'flex';
     kpiFilterStaffModal();
@@ -12563,14 +12551,26 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   };
   window.kpiFilterStaffModal = function(){
     var q = document.getElementById('kpiStaffModalSearch').value.trim().toLowerCase();
-    var names = (typeof staffList!=='undefined') ? staffList : [];
     function stripDiacritics(s){
-      return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
+      return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
     }
     var qNorm = stripDiacritics(q);
+    var listEl = document.getElementById('kpiStaffModalList');
+    if(kpiStaffPickerMode==='type'){
+      var typeNames = kpiEventTypes.map(function(t){ return t.name; }).sort(function(a,b){ return a.localeCompare(b,'vi'); });
+      var filteredT = typeNames.filter(function(n){ return !q || stripDiacritics(n).indexOf(qNorm)>=0; });
+      if(!filteredT.length){
+        listEl.innerHTML = '<div class="kpi-modal-empty">Không tìm thấy loại sự kiện phù hợp.</div>';
+        return;
+      }
+      listEl.innerHTML = filteredT.map(function(n){
+        return '<div class="kpi-modal-item" onclick="kpiPickStaff(\''+n.replace(/'/g,"\\'")+'\')">'+kpiEsc(n)+'</div>';
+      }).join('');
+      return;
+    }
+    var names = (typeof staffList!=='undefined') ? staffList : [];
     var filtered = names.filter(function(n){ return !q || stripDiacritics(n).indexOf(qNorm)>=0; })
       .sort(function(a,b){ return a.localeCompare(b,'vi'); });
-    var listEl = document.getElementById('kpiStaffModalList');
     if(!filtered.length){
       listEl.innerHTML = '<div class="kpi-modal-empty">Không tìm thấy nhân viên phù hợp.</div>';
       return;
@@ -12583,6 +12583,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(kpiStaffPickerTarget){
       var el = document.getElementById(kpiStaffPickerTarget);
       if(el) el.value = name;
+      if(kpiStaffPickerMode==='type' && kpiStaffPickerTarget==='kpiEvType'){ kpiOnTypeChange(); }
     }
     kpiCloseStaffPicker();
   };
@@ -12926,7 +12927,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div style="text-align:center;font-size:11px;color:#c1a6d6;margin:6px 0">— hoặc —</div>
       <label style="font-size:11px;font-weight:600;color:#6a1e7e">Đăng ký / xem phiếu của tôi</label>
       <div style="display:flex;gap:6px">
-        <input list="kpiStaffDatalist" id="dtPersonalNameInput" placeholder="Gõ đúng tên của bạn..." style="flex:1">
+        <input id="dtPersonalNameInput" placeholder="Gõ đúng tên của bạn..." style="flex:1">
         <button type="button" class="kpi-btn" style="background:#fff;color:#7b1fa2;border:1.5px solid #7b1fa2;padding:7px 10px" onclick="kpiOpenStaffPicker('dtPersonalNameInput')"><i class="ti ti-search"></i></button>
       </div>
       <button class="kpi-btn" style="background:#fff;color:#7b1fa2;border:1.5px solid #7b1fa2;width:100%;justify-content:center;display:flex;margin-top:8px;margin-bottom:14px" onclick="dtTryPersonal()"><i class="ti ti-user"></i> Vào với tên này</button>
@@ -12970,14 +12971,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <div class="kpi-f">
             <label>Người đăng ký (đang có ca trực) <span style="color:red">*</span></label>
             <div style="display:flex;gap:6px">
-              <input list="kpiStaffDatalist" id="dtRegPerson" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
+              <input id="dtRegPerson" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
               <button type="button" class="kpi-btn" style="background:#7b1fa2;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('dtRegPerson')"><i class="ti ti-search"></i></button>
             </div>
           </div>
           <div class="kpi-f">
             <label>Người nhận trực thay <span style="color:red">*</span></label>
             <div style="display:flex;gap:6px">
-              <input list="kpiStaffDatalist" id="dtRegPersonNew" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
+              <input id="dtRegPersonNew" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
               <button type="button" class="kpi-btn" style="background:#7b1fa2;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('dtRegPersonNew')"><i class="ti ti-search"></i></button>
             </div>
           </div>
