@@ -556,6 +556,7 @@ font-size:10px;color:var(--tx3)}
       <div class="home-card" onclick="goDoiTrucView()" style="background:linear-gradient(135deg,#7b1fa2,#4a0d5e);color:#fff;border-color:#38096b"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-replace"></i><div class="home-card-title">Đổi<br>Trực</div><div class="home-card-sub">Đăng ký đổi ca trực & theo dõi thống kê</div></div>
       <div class="home-card" onclick="openStaffAuthModalUser('dctd')" style="background:linear-gradient(135deg,#00695c,#00332e);color:#fff;border-color:#00251f"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-tool"></i><div class="home-card-title">Dụng cụ<br>sau mổ</div><div class="home-card-sub">Theo dõi thiếu/thất lạc & tình trạng bồi hoàn</div></div>
       <div class="home-card" onclick="openStaffAuthModalUser('lichtruc')" style="background:linear-gradient(135deg,#4527a0,#1a0e4d);color:#fff;border-color:#150a3d"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-calendar-event"></i><div class="home-card-title">Lịch trực<br>khoa</div><div class="home-card-sub">Xem lịch trực theo tháng, có lịch điều chỉnh</div></div>
+      <div class="home-card" onclick="openStaffAuthModalUser('cme')" style="background:linear-gradient(135deg,#00838f,#003c43);color:#fff;border-color:#00272b"><div class="home-card-badge" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-award"></i><div class="home-card-title">CNKT — Cập nhật<br>kiến thức</div><div class="home-card-sub">Theo Thông tư 32/2023/TT-BYT — tự ghi nhận giờ/tín chỉ, theo dõi chu kỳ, xuất báo cáo</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -1573,7 +1574,7 @@ font-size:10px;color:var(--tx3)}
           <option>Phạm Thị Thu Thảo</option><option>Thân Hoàng Khang</option><option>Thân Thị Liễu</option>
           <option>Trần Bá Quyền</option><option>Trần Đăng Trung</option><option>Trần Đình Bản</option>
           <option>Trần Đình Duy</option><option>Trần Quốc Khang</option><option>Trần Thị Bích Tuyền</option>
-          <option>Trần Thị Cẩm Nhung</option><option>Trần Thị Dung BS</option><option>Trần Thị Lệ Tuyết</option>
+          <option>Trần Thị Cẩm Nhung</option><option>Trần Thị Dung</option><option>Trần Thị Lệ Tuyết</option>
           <option>Trần Thị Mỹ Dung</option><option>Trần Thị Ngâng</option><option>Trần Thị Thanh Huyền</option>
           <option>Trần Tiến Thành</option><option>Trần Văn Đại</option><option>Trần Xuân Hùng</option>
           <option>Trương Đình Trí</option><option>Trương Ngọc Báu</option><option>Trương Thị Bích Liễu</option>
@@ -5560,7 +5561,7 @@ setTimeout(function(){ltHomeNoticeInit();},1200);
    STATE
    ══════════════════════════════ */
 const DPWD = 'gmhs2026';
-const STAFF_DEFAULT = ["Võ Huy Cường","Nguyễn Thành","Nguyễn Hà Tiến Dũng","Võ Ngọc Phước","Lê Văn Thủy","Nguyễn Trung Thành","Trần Thị Dung BS","Hứa Hữu Tuấn","Nguyễn Thị Quỳnh Thoa","Trần Thị Cẩm Nhung","Lê Võ Thu","Phạm Thị Chiến","Hồ Thị Chúng","Nguyễn Thị Hảo","Trương Thị Thu Hằng","Ngô Thị Lẹ","Nguyễn Đình Kim Loan","Phan Thị Thanh Nga","Hồ Thái Nhiều","Lê Thị Ái Phương","Lê Thị Thúy Vân","Nguyễn Thị Minh Châu","Lê Thị Kim Sao","Lê Thị Kim Thịnh","Nguyễn Thị Xuân Thảo","Trương Thị Tín","Nguyễn Thị Thanh Nhi","Võ Thị Tường Vi","Nguyễn Thị Diệu My","Nguyễn Thị Thúy Hằng","Hoàng Thị Ngọc Lan","Phan Thị Hòa","Trần Thị Lệ Tuyết","Nguyễn Thị Út","Trương Thị Gia Ly Ly","Phạm Thị Kim Cúc","Trương Ngọc Báu","Võ Ngọc Bình","Đặng Văn Cảnh","Nguyễn Văn Chinh","Nguyễn Văn Chung","Trần Thị Mỹ Dung","Nguyễn Tiến Dũng","Trần Văn Đại","Hoàng Minh Hải","Đặng Thu Hiền","Nguyễn Xuân Hoài","Nguyễn Thanh Hoàng","Trần Xuân Hùng","Lê Thị Huệ","Lê Văn Kha","Thân Hoàng Khang","Trần Quốc Khang","Đỗ Thành Khương","Trương Thị Bích Liễu","Đặng Thị Mỹ Lai","Nguyễn Cảnh Muộn","Nguyễn Duy Mỹ","Ngô Thị Nhựt","Trần Thị Ngâng","Nguyễn Thị Hồng Nhi","Đỗ Lê Thanh Ngọc","Nguyễn Hoàng Sơn Nữ","Đỗ Kim Oanh","Trương Văn Pháp","Đặng Hồ Hồng Phi","Nguyễn Phan Anh Quân","Lê Văn Sang","Phan Quốc Sang","Võ Đình Tây","Cao Việt Thắng","Trần Tiến Thành","Trần Đăng Trung","Nguyễn Vũ Cẩm Tú","Nguyễn Văn Tuy","Nguyễn Đình Thắng","La Thị Thanh Trà","Trần Bá Quyền","Lê Thị Mạnh Quyền","Võ Thị Xuân Việt","Đinh Kim Vũ","Lê Thị Thanh Hương","Đỗ Thị Thúy Sinh","Phạm Thị Thu Thảo","Vũ Thị Kim Lệ","Huỳnh Thị Ngọc Thơ","Đỗ Hồ Mỹ Hạnh","Trương Đình Trí","Trần Đình Bản","Phạm Thị Hoàng Cúc","Đinh Thị Thu Hoài","Trần Thị Thanh Huyền","Trần Đình Duy","Nguyễn Văn Thương","Ngô Thị Hồng Diễm","Võ Đông Kinh","Nguyễn Thị Bích Thủy","Nguyễn Hữu Phước","Hồ Thị Mỹ","Phan Thị Mỹ Duyên","Đỗ Thị Ngọc Diễm","Nguyễn Xuân Hiền","Đỗ Ngọc Vũ","Nguyễn Chí Bảo","Thân Thị Liễu","Nguyễn Kim Sơn","Đào Thị Phương Thúy","Lê Thị Quỳnh Diễm","Lê Văn Long","Lương Phan Thu Hằng","Nguyễn Thị Ngọc Mỹ","Huỳnh Thị Sự","Phan Thảo Vy","Trần Thị Bích Tuyền","Huỳnh Thị Kim Hồng","Lê Quốc Triều","Nguyễn Tài Thu"];
+const STAFF_DEFAULT = ["Võ Huy Cường","Nguyễn Thành","Nguyễn Hà Tiến Dũng","Võ Ngọc Phước","Lê Văn Thủy","Nguyễn Trung Thành","Trần Thị Dung","Hứa Hữu Tuấn","Nguyễn Thị Quỳnh Thoa","Trần Thị Cẩm Nhung","Lê Võ Thu","Phạm Thị Chiến","Hồ Thị Chúng","Nguyễn Thị Hảo","Trương Thị Thu Hằng","Ngô Thị Lẹ","Nguyễn Đình Kim Loan","Phan Thị Thanh Nga","Hồ Thái Nhiều","Lê Thị Ái Phương","Lê Thị Thúy Vân","Nguyễn Thị Minh Châu","Lê Thị Kim Sao","Lê Thị Kim Thịnh","Nguyễn Thị Xuân Thảo","Trương Thị Tín","Nguyễn Thị Thanh Nhi","Võ Thị Tường Vi","Nguyễn Thị Diệu My","Nguyễn Thị Thúy Hằng","Hoàng Thị Ngọc Lan","Phan Thị Hòa","Trần Thị Lệ Tuyết","Nguyễn Thị Út","Trương Thị Gia Ly Ly","Phạm Thị Kim Cúc","Trương Ngọc Báu","Võ Ngọc Bình","Đặng Văn Cảnh","Nguyễn Văn Chinh","Nguyễn Văn Chung","Trần Thị Mỹ Dung","Nguyễn Tiến Dũng","Trần Văn Đại","Hoàng Minh Hải","Đặng Thu Hiền","Nguyễn Xuân Hoài","Nguyễn Thanh Hoàng","Trần Xuân Hùng","Lê Thị Huệ","Lê Văn Kha","Thân Hoàng Khang","Trần Quốc Khang","Đỗ Thành Khương","Trương Thị Bích Liễu","Đặng Thị Mỹ Lai","Nguyễn Cảnh Muộn","Nguyễn Duy Mỹ","Ngô Thị Nhựt","Trần Thị Ngâng","Nguyễn Thị Hồng Nhi","Đỗ Lê Thanh Ngọc","Nguyễn Hoàng Sơn Nữ","Đỗ Kim Oanh","Trương Văn Pháp","Đặng Hồ Hồng Phi","Nguyễn Phan Anh Quân","Lê Văn Sang","Phan Quốc Sang","Võ Đình Tây","Cao Việt Thắng","Trần Tiến Thành","Trần Đăng Trung","Nguyễn Vũ Cẩm Tú","Nguyễn Văn Tuy","Nguyễn Đình Thắng","La Thị Thanh Trà","Trần Bá Quyền","Lê Thị Mạnh Quyền","Võ Thị Xuân Việt","Đinh Kim Vũ","Lê Thị Thanh Hương","Đỗ Thị Thúy Sinh","Phạm Thị Thu Thảo","Vũ Thị Kim Lệ","Huỳnh Thị Ngọc Thơ","Đỗ Hồ Mỹ Hạnh","Trương Đình Trí","Trần Đình Bản","Phạm Thị Hoàng Cúc","Đinh Thị Thu Hoài","Trần Thị Thanh Huyền","Trần Đình Duy","Nguyễn Văn Thương","Ngô Thị Hồng Diễm","Võ Đông Kinh","Nguyễn Thị Bích Thủy","Nguyễn Hữu Phước","Hồ Thị Mỹ","Phan Thị Mỹ Duyên","Đỗ Thị Ngọc Diễm","Nguyễn Xuân Hiền","Đỗ Ngọc Vũ","Nguyễn Chí Bảo","Thân Thị Liễu","Nguyễn Kim Sơn","Đào Thị Phương Thúy","Lê Thị Quỳnh Diễm","Lê Văn Long","Lương Phan Thu Hằng","Nguyễn Thị Ngọc Mỹ","Huỳnh Thị Sự","Phan Thảo Vy","Trần Thị Bích Tuyền","Huỳnh Thị Kim Hồng","Lê Quốc Triều","Nguyễn Tài Thu"];
 
 let cards=[], cu=null, pendingImgs=[], sFiltered=[], sHi=-1, staffList=[];
 /* Danh mục Bộ phận báo cáo — có thể thêm/sửa/xóa tại nút "Danh mục Bộ phận" (chỉ Quản lý) */
@@ -7377,7 +7378,7 @@ function nbSetSync(s){
 /* ── HOME SCREEN – CARD FIRST FLOW ── */
 let authDest = '';
 let authFiltered = [], authHi = -1;
-const authConfig={kanban:{label:'Báo cáo Công việc',icon:'ti-layout-kanban',color:'#2d6a1f'},kanbanview:{label:'Xem Báo cáo (NV)',icon:'ti-eye',color:'#558b2f'},nghibu:{label:'Đăng ký Nghỉ Bù',icon:'ti-calendar-off',color:'#1565C0'},nghiphep:{label:'Đăng ký Nghỉ Phép',icon:'ti-beach',color:'#00695c'},phanquyen:{label:'Phân quyền nhân viên',icon:'ti-shield-lock',color:'#6a1e7e'},dctd:{label:'Theo dõi Dụng cụ sau mổ',icon:'ti-tool',color:'#00695c'},lichtruc:{label:'Lịch trực khoa',icon:'ti-calendar-event',color:'#4527a0'}};
+const authConfig={kanban:{label:'Báo cáo Công việc',icon:'ti-layout-kanban',color:'#2d6a1f'},kanbanview:{label:'Xem Báo cáo (NV)',icon:'ti-eye',color:'#558b2f'},nghibu:{label:'Đăng ký Nghỉ Bù',icon:'ti-calendar-off',color:'#1565C0'},nghiphep:{label:'Đăng ký Nghỉ Phép',icon:'ti-beach',color:'#00695c'},phanquyen:{label:'Phân quyền nhân viên',icon:'ti-shield-lock',color:'#6a1e7e'},dctd:{label:'Theo dõi Dụng cụ sau mổ',icon:'ti-tool',color:'#00695c'},lichtruc:{label:'Lịch trực khoa',icon:'ti-calendar-event',color:'#4527a0'},cme:{label:'CNKT - Cập nhật kiến thức (TT32/2023/TT-BYT)',icon:'ti-award',color:'#00838f'}};
 // Dành cho nhân viên: LUÔN hiện modal chọn tên (không bypass session admin)
 function openStaffAuthModalUser(dest){
   // Khu Nhân viên: LUÔN hiện modal chọn tên, không bypass dù session admin active
@@ -7423,6 +7424,7 @@ function openStaffAuthModal(dest){
     else if(dest==='phanquyen'){document.getElementById('pqScreen').style.display='flex';pqRender();}
     else if(dest==='dctd'){enterDctdScreen('admin','Quản lý');}
     else if(dest==='lichtruc'){enterLichTrucScreen('admin','Quản lý');}
+    else if(dest==='cme'){enterCmeScreen('admin','Quản lý');}
     else{enterNbScreen();}
     return;
   }
@@ -7649,6 +7651,7 @@ function authConfirm(){
       else if(dest==='phanquyen'){document.getElementById('pqScreen').style.display='flex';pqRender();}
       else if(dest==='dctd'){enterDctdScreen('admin',name);}
       else if(dest==='lichtruc'){enterLichTrucScreen('admin',name);}
+      else if(dest==='cme'){enterCmeScreen('admin',name);}
       else{enterNbScreen();}
       return;
     }
@@ -7715,6 +7718,8 @@ function authConfirm(){
     enterDctdScreen('staff', name);
   } else if(dest==='lichtruc'){
     enterLichTrucScreen('staff', name);
+  } else if(dest==='cme'){
+    enterCmeScreen('staff', name);
   }
   } // end _authContinue
 }
@@ -14475,6 +14480,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 
       <div id="ltTabMain">
         <div id="ltMainContent"></div>
+        <div id="ltNotViewedBox" style="display:none;margin-top:14px;border:1.5px solid #f5c6c2;background:#fff8f7;border-radius:10px;padding:12px 14px">
+          <div style="font-weight:700;font-size:12.5px;color:#c62828;margin-bottom:6px"><i class="ti ti-alert-triangle"></i> Nhân viên CHƯA xem lịch chính tháng này (<span id="ltNotViewedCount">0</span>)</div>
+          <div id="ltNotViewedList" style="font-size:12px;color:#7a1414;line-height:1.8"></div>
+        </div>
       </div>
 
       <div id="ltTabAdj" style="display:none">
@@ -14498,6 +14507,16 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 #ltPreviewBox.lt-fullscreen{max-width:100vw!important;width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0!important;position:fixed;top:0;left:0;margin:0}
 #ltPreviewBox.lt-fullscreen #ltPreviewBody{max-height:calc(100vh - 54px)!important}
 </style>
+<div class="kpi-modal-overlay" id="ltViewersOverlay">
+  <div class="kpi-modal-box" style="max-width:440px">
+    <div class="kpi-modal-head">
+      <div style="font-weight:700;color:#00695c;font-size:14px;flex:1"><i class="ti ti-eye-check"></i> Danh sách đã xem</div>
+      <button class="kpi-modal-close" onclick="ltCloseViewers()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="kpi-modal-list" id="ltViewersList" style="max-height:60vh;padding:10px 16px"></div>
+  </div>
+</div>
+
 <div class="kpi-modal-overlay" id="ltPreviewOverlay">
   <div class="kpi-modal-box" id="ltPreviewBox" style="max-width:960px;width:95%">
     <div class="kpi-modal-head">
@@ -14539,6 +14558,314 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
   </div>
 
+</div>
+
+<!-- ══════════ CNKT — CẬP NHẬT KIẾN THỨC LIÊN TỤC ══════════ -->
+<div id="cmeScreen" style="display:none;min-height:100vh;background:#eef7f8">
+  <div style="background:linear-gradient(135deg,#00838f,#003c43);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="cmeGoHome()"><i class="ti ti-home"></i> Trang chủ</button>
+      <div>
+        <div style="font-size:16px;font-weight:700"><i class="ti ti-award"></i> CNKT — Cập nhật kiến thức liên tục (theo Thông tư 32/2023/TT-BYT)</div>
+        <div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức — tự ghi nhận giờ/tín chỉ, theo dõi chu kỳ</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="cmeRenderAll()"><i class="ti ti-refresh"></i> Làm mới</button>
+      <button class="kpi-btn" id="cmeConfigBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="cmeOpenConfig()"><i class="ti ti-settings"></i> Cấu hình chu kỳ</button>
+      <button class="kpi-btn" id="cmeScopeBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="cmeOpenScope()"><i class="ti ti-users-group"></i> Đối tượng áp dụng</button>
+      <button class="kpi-btn" id="cmeImportBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="cmeImportSeedProfiles()"><i class="ti ti-database-import"></i> Nhập hồ sơ CCHN mẫu</button>
+      <button class="kpi-btn" id="cmeExportWordBtn" style="display:none;background:#fff;color:#0d47a1" onclick="cmeExportWordAll()"><i class="ti ti-file-text"></i> Xuất Word toàn khoa</button>
+      <button class="kpi-btn" id="cmeExportBtn" style="display:none;background:#fff;color:#00838f" onclick="cmeExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel toàn khoa</button>
+      <button class="kpi-btn" style="background:#fff;color:#00838f" onclick="cmeLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+    </div>
+  </div>
+
+  <div style="max-width:1000px;margin:0 auto;padding:16px">
+    <div id="cmeWhoBanner" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
+
+    <div class="kpi-section" style="margin-bottom:14px">
+      <h3 style="margin:0 0 10px;font-size:15px;color:#00838f"><i class="ti ti-id-badge-2"></i> Hồ sơ của tôi</h3>
+      <div id="cmeProfSummary" style="display:none;margin-bottom:14px;padding:10px 14px;background:#f5fbfb;border:1.5px solid #cde9e8;border-radius:8px;font-size:13px;color:#333"></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="kpi-btn" id="cmeProfEditToggleBtn" style="padding:4px 10px;font-size:12px;border:1.5px solid #00838f;color:#00838f" onclick="cmeToggleProfileForm()"><i class="ti ti-pencil"></i> Sửa hồ sơ</button>
+      </div>
+      <div id="cmeProfFormWrap">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="fg">
+          <label>Giới tính</label>
+          <select id="cmeProfGioiTinh">
+            <option value="Nam">Nam</option>
+            <option value="Nữ">Nữ</option>
+          </select>
+        </div>
+        <div class="fg"><label>Ngày sinh</label><input type="date" id="cmeProfNgaySinh"></div>
+        <div class="fg">
+          <label>Chức danh</label>
+          <select id="cmeProfChucDanh">
+            <option value="Bác sĩ">Bác sĩ</option>
+            <option value="Điều dưỡng">Điều dưỡng</option>
+            <option value="Điều dưỡng GMHS">Điều dưỡng GMHS</option>
+            <option value="Kỹ thuật y">Kỹ thuật y</option>
+            <option value="Hộ lý">Hộ lý</option>
+            <option value="Khác">Khác</option>
+          </select>
+        </div>
+        <div class="fg"><label>Chức vụ (nếu có)</label><input type="text" id="cmeProfChucVu" placeholder="VD: Trưởng khoa, Điều dưỡng trưởng..."></div>
+        <div class="fg"><label>Trình độ chuyên môn</label><input type="text" id="cmeProfTrinhDo" placeholder="VD: Điều dưỡng Chuyên khoa cấp I"></div>
+        <div class="fg"><label>Số CCHN/GPHN</label><input type="text" id="cmeProfSoCCHN" placeholder="VD: 002439/BĐ-CCHN"></div>
+        <div class="fg"><label>Ngày cấp CCHN/GPHN</label><input type="date" id="cmeProfNgayCap"></div>
+      </div>
+      <div class="sub" style="margin:6px 0 10px">Chu kỳ 5 năm của bạn sẽ tự tính từ "Ngày cấp CCHN/GPHN" này. Nếu để trống, hệ thống dùng chu kỳ chung của khoa.</div>
+      <button class="kpi-btn" style="background:#00838f;color:#fff" onclick="cmeSaveProfile()"><i class="ti ti-device-floppy"></i> Lưu hồ sơ</button>
+      </div>
+    </div>
+
+    <div class="kpi-section" style="margin-bottom:14px">
+      <h3 style="margin:0 0 4px;font-size:15px;color:#00838f"><i class="ti ti-chart-donut"></i> Chu kỳ hiện tại của tôi</h3>
+      <div id="cmeCycleInfo" style="font-size:12.5px;color:#666;margin-bottom:10px"></div>
+      <div style="background:#eee;border-radius:20px;height:22px;overflow:hidden;position:relative">
+        <div id="cmeProgressBar" style="height:100%;background:linear-gradient(90deg,#00838f,#00acc1);width:0%;transition:width .3s"></div>
+        <div id="cmeProgressLabel" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#333"></div>
+      </div>
+      <div class="sub" style="margin-top:8px">Chỉ tính các hoạt động đã được <b>Duyệt</b> vào tổng số giờ tích lũy.</div>
+      <div id="cmeWarnBanner" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12.5px;background:#fdecea;color:#a11d1d"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px">
+        <div class="fg" style="margin:0"><label>Xuất báo cáo từ ngày</label><input type="date" id="cmeExpFrom"></div>
+        <div class="fg" style="margin:0"><label>đến ngày</label><input type="date" id="cmeExpTo"></div>
+        <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('cmeExpFrom').value='';document.getElementById('cmeExpTo').value='';"><i class="ti ti-refresh"></i> Xóa lọc (xuất tất cả)</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="kpi-btn" style="border:1.5px solid #0d47a1;color:#0d47a1" onclick="cmeExportMyWord()"><i class="ti ti-file-text"></i> Xuất Word hồ sơ của tôi</button>
+        <button class="kpi-btn" style="border:1.5px solid #1a7a4a;color:#1a7a4a" onclick="cmeExportMyExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel hồ sơ của tôi</button>
+      </div>
+    </div>
+
+    <div class="kpi-section" style="margin-bottom:14px">
+      <h3 style="margin:0 0 12px;font-size:15px;color:#00838f"><i class="ti ti-square-plus"></i> Ghi nhận hoạt động CNKT của tôi</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="fg" style="grid-column:1/-1"><label>Tên hoạt động (khóa học/hội thảo/tập huấn...) *</label><input type="text" id="cmeInName" placeholder="VD: Hội nghị Gây mê Hồi sức toàn quốc 2026"></div>
+        <div class="fg">
+          <label>Hình thức</label>
+          <select id="cmeInForm">
+            <option value="Hội nghị, hội thảo khoa học">Hội nghị, hội thảo khoa học</option>
+            <option value="Khóa đào tạo, bồi dưỡng ngắn hạn">Khóa đào tạo, bồi dưỡng ngắn hạn</option>
+            <option value="Trực tuyến">Trực tuyến</option>
+            <option value="Tự học có chứng nhận">Tự học có chứng nhận</option>
+            <option value="Khác">Khác</option>
+          </select>
+        </div>
+        <div class="fg"><label>Đơn vị tổ chức</label><input type="text" id="cmeInOrg" placeholder="VD: Hội GMHS Việt Nam"></div>
+        <div class="fg"><label>Từ ngày *</label><input type="date" id="cmeInFrom"></div>
+        <div class="fg"><label>Đến ngày</label><input type="date" id="cmeInTo"></div>
+        <div class="fg"><label>Số giờ / tín chỉ *</label><input type="number" min="0" step="0.5" id="cmeInHours" placeholder="VD: 8"></div>
+        <div class="fg"><label>Số chứng nhận CME</label><input type="text" id="cmeInCert" placeholder="VD: 3/2024/C09.01"></div>
+        <div class="fg" style="grid-column:1/-1">
+          <label>Bằng chứng (ảnh/PDF giấy chứng nhận)</label>
+          <input type="file" id="cmeInFile" accept=".pdf,.jpg,.jpeg,.png">
+          <div class="sub" style="margin-top:5px;color:#00838f">
+            <i class="ti ti-info-circle"></i> Để hệ thống tự đối chiếu (OCR) chính xác khi Quản lý duyệt, vui lòng chọn <b>ảnh chụp/scan (JPG, PNG)</b> — chưa hỗ trợ tự đối chiếu với file PDF. Ảnh nên:
+            chụp/scan <b>thẳng, không nghiêng</b>; <b>đủ sáng, không lóa</b>; chữ <b>rõ nét, không mờ</b>; canh sao cho <b>thấy trọn nội dung</b> (số chứng nhận, tên hoạt động, số giờ) trong khung hình.
+          </div>
+        </div>
+        <div class="fg" style="grid-column:1/-1"><label>Ghi chú</label><input type="text" id="cmeInNote" placeholder="Ghi chú thêm (nếu cần)"></div>
+      </div>
+      <button class="kpi-btn" id="cmeSubmitBtn" style="background:#00838f;color:#fff" onclick="cmeSubmitEntry()"><i class="ti ti-send"></i> Ghi nhận</button>
+      <button class="kpi-btn" id="cmeCancelEditBtn" style="display:none;border:1.5px solid #999;color:#666;margin-left:8px" onclick="cmeCancelEdit()"><i class="ti ti-x"></i> Hủy sửa</button>
+    </div>
+
+    <div class="kpi-section" style="margin-bottom:14px">
+      <h3 style="margin:0 0 10px;font-size:15px;color:#00838f;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('cmeMyListWrap','cmeMyListChevron')"><span><i class="ti ti-list"></i> Tổng hợp tất cả các đợt đã lập phiếu</span><span id="cmeMyListChevron" style="font-size:13px">▾</span></h3>
+      <div id="cmeMyListWrap">
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr style="background:#e0f2f1;color:#004d47">
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Hình thức</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Tên hoạt động</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Từ ngày - Đến ngày</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Giờ tín chỉ</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Số chứng nhận CME</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Bằng chứng</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Trạng thái</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Lý do (nếu bị từ chối)</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Thao tác</th>
+          </tr></thead>
+          <tbody id="cmeMyTbody"></tbody>
+          <tfoot id="cmeMyTfoot"></tfoot>
+        </table>
+      </div>
+      </div>
+    </div>
+
+    <div class="kpi-section" id="cmePendingBox" style="display:none;margin-bottom:14px">
+      <h3 style="margin:0 0 4px;font-size:15px;color:#c62828;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('cmePendingWrap','cmePendingChevron')"><span><i class="ti ti-clock-exclamation"></i> Chờ duyệt (<span id="cmePendingCount">0</span>)</span><span id="cmePendingChevron" style="font-size:13px">▾</span></h3>
+      <div id="cmePendingWrap">
+      <div class="sub" style="margin-bottom:10px">Chỉ Quản lý mới thấy khối này — duyệt/từ chối hoạt động CNKT của toàn khoa.</div>
+      <div id="cmePendingList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+
+    <div class="kpi-section" id="cmeDeletedBox" style="display:none;margin-bottom:14px">
+      <h3 style="margin:0 0 4px;font-size:15px;color:#666;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('cmeDeletedWrap','cmeDeletedChevron')"><span><i class="ti ti-trash"></i> Danh sách phiếu đã hủy (<span id="cmeDeletedCount">0</span>)</span><span id="cmeDeletedChevron" style="font-size:13px">▾</span></h3>
+      <div id="cmeDeletedWrap" style="display:none">
+      <div class="sub" style="margin-bottom:10px">Chỉ Quản lý mới thấy khối này — theo dõi mọi phiếu đã bị xóa (do nhân viên tự xóa hoặc Quản lý xóa) để đối chiếu khi cần.</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr style="background:#eee;color:#333">
+            <th style="padding:6px 8px;border:1px solid #ddd">Nhân viên</th>
+            <th style="padding:6px 8px;border:1px solid #ddd">Tên hoạt động</th>
+            <th style="padding:6px 8px;border:1px solid #ddd;text-align:center">Giờ</th>
+            <th style="padding:6px 8px;border:1px solid #ddd;text-align:center">Trạng thái lúc xóa</th>
+            <th style="padding:6px 8px;border:1px solid #ddd">Lý do xóa</th>
+            <th style="padding:6px 8px;border:1px solid #ddd">Người xóa</th>
+            <th style="padding:6px 8px;border:1px solid #ddd;text-align:center">Thời gian xóa</th>
+          </tr></thead>
+          <tbody id="cmeDeletedTbody"></tbody>
+        </table>
+      </div>
+      </div>
+    </div>
+
+    <div class="kpi-section" id="cmeAllBox" style="display:none">
+      <h3 style="margin:0 0 4px;font-size:15px;color:#00838f;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('cmeAllWrap','cmeAllChevron')"><span><i class="ti ti-users"></i> Danh sách nhân viên toàn khoa (<span id="cmeAllCount">0</span> người)</span><span id="cmeAllChevron" style="font-size:13px">▾</span></h3>
+      <div id="cmeAllWrap">
+      <div class="sub" style="margin-bottom:10px">Chỉ Quản lý mới thấy khối này — dùng để tổng hợp nộp bệnh viện. Đã loại Hộ lý khỏi danh sách (xem/chỉnh tại nút "Đối tượng áp dụng").</div>
+      <div id="cmeAllStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:12.5px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+        <input id="cmeAllSearch" type="text" placeholder="🔍 Tìm theo tên nhân viên..." oninput="cmeRenderAllStaff()" style="flex:1;min-width:200px;padding:8px 10px;border:1.5px solid #cde9e8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box">
+        <select id="cmeAllStatusFilter" onchange="cmeRenderAllStaff()" style="padding:8px 10px;border:1.5px solid #cde9e8;border-radius:8px;font-size:13px;font-family:inherit">
+          <option value="">Tất cả trạng thái</option>
+          <option value="dat">✅ Đã đạt</option>
+          <option value="canhbao">⚠️ Sắp hết hạn</option>
+          <option value="chuadat">⏳ Chưa đạt</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+        <div class="fg" style="margin:0"><label>Tính giờ trong khoảng (tùy chọn) — Từ ngày</label><input type="date" id="cmeAllFrom" onchange="cmeRenderAllStaff()"></div>
+        <div class="fg" style="margin:0"><label>đến ngày</label><input type="date" id="cmeAllTo" onchange="cmeRenderAllStaff()"></div>
+        <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('cmeAllFrom').value='';document.getElementById('cmeAllTo').value='';cmeRenderAllStaff();"><i class="ti ti-refresh"></i> Xóa lọc (dùng chu kỳ mặc định)</button>
+      </div>
+      <div class="sub" style="margin-bottom:10px">Để trống "Từ ngày/Đến ngày" → tính theo đúng chu kỳ 5 năm hiện hành của từng người. Nếu chọn khoảng ngày → tính riêng số giờ ĐÃ DUYỆT trong đúng khoảng đó (không theo chu kỳ), tiện để báo cáo theo năm/quý.</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr style="background:#e0f2f1;color:#004d47">
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">STT</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Họ tên</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Giới tính</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Ngày sinh</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Chức vụ</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Chuyên môn</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8">Số CCHN</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Ngày cấp</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Hạn chu kỳ</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Số hoạt động</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Giờ tín chỉ</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Trạng thái</th>
+            <th style="padding:6px 8px;border:1px solid #cde9e8;text-align:center">Thao tác</th>
+          </tr></thead>
+          <tbody id="cmeAllTbody"></tbody>
+        </table>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="kpi-modal-overlay" id="cmeViewEntriesOverlay">
+  <div class="kpi-modal-box" style="max-width:700px">
+    <div class="kpi-modal-head">
+      <div style="font-weight:700;color:#00838f;font-size:14px;flex:1"><i class="ti ti-list"></i> Hoạt động CNKT: <span id="cmeVeName"></span></div>
+      <button class="kpi-modal-close" onclick="cmeCloseViewEntries()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="kpi-modal-list" style="max-height:65vh;padding:12px 16px">
+      <div class="sub" style="margin-bottom:10px">Quản lý có thể xóa bất kỳ phiếu nào tại đây (kể cả đã duyệt) — dùng để dọn phiếu test/nhập nhầm. Mọi lượt xóa đều được ghi vào "Danh sách phiếu đã hủy".</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead><tr style="background:#e0f2f1;color:#004d47">
+            <th style="padding:5px 8px;border:1px solid #cde9e8">Tên hoạt động</th>
+            <th style="padding:5px 8px;border:1px solid #cde9e8;text-align:center">Ngày</th>
+            <th style="padding:5px 8px;border:1px solid #cde9e8;text-align:center">Giờ</th>
+            <th style="padding:5px 8px;border:1px solid #cde9e8;text-align:center">Trạng thái</th>
+            <th style="padding:5px 8px;border:1px solid #cde9e8;text-align:center">Xóa</th>
+          </tr></thead>
+          <tbody id="cmeVeTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="kpi-modal-overlay" id="cmeEditProfileOverlay">
+  <div class="kpi-modal-box" style="max-width:520px">
+    <div class="kpi-modal-head">
+      <div style="font-weight:700;color:#00838f;font-size:14px;flex:1"><i class="ti ti-id-badge-2"></i> Sửa hồ sơ (tên hiện tại: <span id="cmeEpName"></span>)</div>
+      <button class="kpi-modal-close" onclick="cmeCloseEditProfile()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:14px 16px">
+      <div class="fg" style="margin-bottom:14px;padding:10px;background:#fff8e1;border:1.5px solid #f0dfa0;border-radius:8px">
+        <label>Tên hiển thị (dùng để đăng nhập toàn hệ thống) *</label>
+        <input type="text" id="cmeEpFullName">
+        <div class="sub" style="margin-top:4px">⚠️ Đổi tên ở đây sẽ cập nhật danh sách đăng nhập chung + hồ sơ CNKT của người này. Các báo cáo/việc đã ghi nhận trước đó ở phân hệ khác (Kanban, KPI, Dụng cụ sau mổ...) vẫn giữ tên CŨ, không tự đổi theo.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="fg">
+          <label>Giới tính</label>
+          <select id="cmeEpGioiTinh"><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select>
+        </div>
+        <div class="fg"><label>Ngày sinh</label><input type="date" id="cmeEpNgaySinh"></div>
+        <div class="fg">
+          <label>Chức danh</label>
+          <select id="cmeEpChucDanh">
+            <option value="Bác sĩ">Bác sĩ</option>
+            <option value="Điều dưỡng">Điều dưỡng</option>
+            <option value="Điều dưỡng GMHS">Điều dưỡng GMHS</option>
+            <option value="Kỹ thuật y">Kỹ thuật y</option>
+            <option value="Hộ lý">Hộ lý</option>
+            <option value="Khác">Khác</option>
+          </select>
+        </div>
+        <div class="fg"><label>Chức vụ (nếu có)</label><input type="text" id="cmeEpChucVu" placeholder="VD: Trưởng khoa, Điều dưỡng trưởng..."></div>
+        <div class="fg"><label>Trình độ chuyên môn</label><input type="text" id="cmeEpTrinhDo" placeholder="VD: Điều dưỡng Chuyên khoa cấp I"></div>
+        <div class="fg"><label>Số CCHN/GPHN</label><input type="text" id="cmeEpSoCCHN" placeholder="VD: 002439/BĐ-CCHN"></div>
+        <div class="fg"><label>Ngày cấp CCHN/GPHN</label><input type="date" id="cmeEpNgayCap"></div>
+      </div>
+      <div id="cmeEpAlert" style="display:none;padding:9px 12px;border-radius:8px;font-size:12.5px;margin-top:6px"></div>
+      <button class="kpi-btn" style="background:#00838f;color:#fff;margin-top:10px;width:100%" onclick="cmeSaveEditProfile()"><i class="ti ti-device-floppy"></i> Lưu hồ sơ</button>
+      <button class="kpi-btn" style="border:1.5px solid #c62828;color:#c62828;margin-top:8px;width:100%" onclick="cmeDeleteStaffMember()"><i class="ti ti-user-x"></i> Xóa nhân viên này khỏi danh sách</button>
+    </div>
+  </div>
+</div>
+
+<div class="kpi-modal-overlay" id="cmeConfigOverlay">
+  <div class="kpi-modal-box" style="max-width:440px">
+    <div class="kpi-modal-head">
+      <div style="font-weight:700;color:#00838f;font-size:14px;flex:1"><i class="ti ti-settings"></i> Cấu hình chu kỳ CNKT</div>
+      <button class="kpi-modal-close" onclick="cmeCloseConfig()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:14px 16px">
+      <div class="fg"><label>Ngày bắt đầu chu kỳ hiện tại *</label><input type="date" id="cmeCfgStart"></div>
+      <div class="fg"><label>Số năm 1 chu kỳ</label><input type="number" min="1" id="cmeCfgYears" value="5"></div>
+      <div class="fg"><label>Mục tiêu số giờ/tín chỉ cần đạt trong 1 chu kỳ *</label><input type="number" min="0" id="cmeCfgTarget" placeholder="VD: 48"></div>
+      <div class="fg"><label>Cảnh báo khi còn bao nhiêu ngày là hết chu kỳ</label><input type="number" min="1" id="cmeCfgWarnDays" value="90"></div>
+      <div id="cmeCfgAlert" style="display:none;padding:9px 12px;border-radius:8px;font-size:12.5px;margin-top:6px"></div>
+      <button class="kpi-btn" style="background:#00838f;color:#fff;margin-top:10px;width:100%" onclick="cmeSaveConfig()"><i class="ti ti-device-floppy"></i> Lưu cấu hình</button>
+    </div>
+  </div>
+</div>
+
+<div class="kpi-modal-overlay" id="cmeScopeOverlay">
+  <div class="kpi-modal-box" style="max-width:480px">
+    <div class="kpi-modal-head">
+      <div style="font-weight:700;color:#00838f;font-size:14px;flex:1"><i class="ti ti-users-group"></i> Đối tượng áp dụng CNKT</div>
+      <button class="kpi-modal-close" onclick="cmeCloseScope()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:14px 16px">
+      <div class="sub" style="margin-bottom:10px">CNKT chỉ áp dụng cho <b>Bác sĩ, Điều dưỡng</b> (có chứng chỉ hành nghề) — <b>Hộ lý không cần theo dõi</b>. Tích chọn ai là <b>Hộ lý</b> bên dưới để loại khỏi bảng tổng hợp/xuất báo cáo (không ảnh hưởng dữ liệu đã ghi nhận của họ, chỉ ẩn khỏi thống kê).</div>
+      <input id="cmeScopeSearch" type="text" placeholder="🔍 Tìm tên nhân viên..." oninput="cmeRenderScopeList()" style="width:100%;padding:8px 10px;border:1.5px solid #cde9e8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px">
+      <div id="cmeScopeCount" style="font-size:11.5px;color:#888;margin-bottom:6px"></div>
+      <div id="cmeScopeList" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -16186,9 +16513,28 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   var ltCu=null;
   var ltRef=null;
   try{ ltRef=db.ref('lichTruc'); }catch(e){ console.warn('Không khởi tạo được Firebase cho Lịch trực khoa.',e); }
+  var ltViewsRef=null;
+  try{ ltViewsRef=db.ref('lichTrucViews'); }catch(e){ console.warn('Không khởi tạo được Firebase cho lượt xem Lịch trực.',e); }
   var ltData={};
+  var ltViews={};
   var ltCurTab='main';
   var ltEditing=null; // {itemId, month}
+
+  function ltSafeKey(name){ return String(name||'').replace(/[.#$/\[\]\s]/g,'_'); }
+  function ltRecordView(itemId){
+    if(!ltCu||!ltViewsRef||!itemId) return;
+    var key=ltSafeKey(ltCu.name);
+    var vRef=ltViewsRef.child(itemId).child(key);
+    vRef.once('value').then(function(snap){
+      var existing=snap.val();
+      var now=new Date().toISOString();
+      if(existing){
+        vRef.update({lastAt:now, count:(existing.count||1)+1});
+      } else {
+        vRef.set({name:ltCu.name, firstAt:now, lastAt:now, count:1});
+      }
+    }).catch(function(e){ console.warn('Không ghi được lượt xem.',e); });
+  }
 
   function ltEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function ltFmtMonth(m){
@@ -16224,6 +16570,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!item) return '';
     var isA=ltCu&&ltCu.role==='admin';
     var ext=(item.fileName||'').split('.').pop().toUpperCase();
+    var viewCount=ltViews[item._id]?Object.keys(ltViews[item._id]).length:0;
     return '<div style="display:flex;align-items:center;gap:12px;border:1.5px solid #e0dcf0;border-radius:10px;padding:'+(big?'16px 18px':'10px 14px')+';background:#faf9fd">'+
       '<div style="width:'+(big?'46px':'36px')+';height:'+(big?'46px':'36px')+';border-radius:8px;background:#4527a0;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:'+(big?'12px':'10px')+';flex-shrink:0">'+ext+'</div>'+
       '<div style="flex:1;min-width:0">'+
@@ -16233,7 +16580,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '</div>'+
       '<div style="display:flex;gap:6px;flex-shrink:0">'+
       '<button class="kpi-btn" style="background:#4527a0;color:#fff" onclick="ltPreviewFile(\''+item._id+'\',\''+month+'\')"><i class="ti ti-eye"></i> Mở xem</button>'+
-      (isA?('<button class="kpi-btn" style="border:1.5px solid #0d47a1;color:#0d47a1" onclick="ltOpenEdit(\''+item._id+'\',\''+month+'\')"><i class="ti ti-pencil"></i></button>'+
+      (isA?('<button class="kpi-btn" style="border:1.5px solid #00695c;color:#00695c" onclick="ltShowViewers(\''+item._id+'\')"><i class="ti ti-eye-check"></i> '+viewCount+'</button>'+
+        '<button class="kpi-btn" style="border:1.5px solid #0d47a1;color:#0d47a1" onclick="ltOpenEdit(\''+item._id+'\',\''+month+'\')"><i class="ti ti-pencil"></i></button>'+
         '<button class="kpi-btn" style="border:1.5px solid #c62828;color:#c62828" onclick="ltDeleteFile(\''+item._id+'\',\''+month+'\')"><i class="ti ti-trash"></i></button>'):'')+
       '</div>'+
       '</div>';
@@ -16247,7 +16595,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('ltUploadBtn').style.display=isA?'':'none';
     document.getElementById('ltWhoBanner').innerHTML = isA
       ? '<i class="ti ti-shield-check" style="color:#4527a0"></i> Đăng nhập: <b>'+ltEsc(name)+'</b> — Quyền Quản lý (có thể tải lên lịch chính/điều chỉnh)'
-      : '<i class="ti ti-user" style="color:#4527a0"></i> Đăng nhập: <b>'+ltEsc(name)+'</b> — Chỉ xem lịch trực (mở xem, không chỉnh sửa được)';
+      : '<i class="ti ti-user" style="color:#4527a0"></i> Đăng nhập: <b>'+ltEsc(name)+'</b> — Chỉ xem lịch trực (mở xem, không chỉnh sửa được). Hệ thống có ghi lại thời điểm bạn xem lịch.';
     var mp=document.getElementById('ltMonthPicker');
     if(mp && !mp.value){
       var d=new Date();
@@ -16258,6 +16606,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       ltRef.on('value',function(snap){
         ltData=snap.val()||{};
         ltPopulateMonthQuick();
+        ltRenderAll();
+      });
+    }
+    if(ltViewsRef){
+      ltViewsRef.on('value',function(snap){
+        ltViews=snap.val()||{};
         ltRenderAll();
       });
     }
@@ -16305,6 +16659,23 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       contentEl.innerHTML = latestMain
         ? ltFileCardHtml(latestMain,month,true)
         : '<div style="text-align:center;color:#aaa;padding:30px;font-style:italic">Chưa có lịch chính cho '+ltFmtMonth(month)+'</div>';
+    }
+
+    var nvBox=document.getElementById('ltNotViewedBox');
+    if(nvBox){
+      if(isA && latestMain && typeof staffList!=='undefined' && Array.isArray(staffList) && staffList.length){
+        var viewedKeys=ltViews[latestMain._id]||{};
+        var notViewed=staffList.filter(function(n){
+          var nm=(n&&n.name)?n.name:n;
+          return nm && !viewedKeys[ltSafeKey(nm)];
+        }).map(function(n){return (n&&n.name)?n.name:n;});
+        var cntEl=document.getElementById('ltNotViewedCount'); if(cntEl) cntEl.textContent=notViewed.length;
+        var listEl=document.getElementById('ltNotViewedList');
+        if(listEl) listEl.innerHTML = notViewed.length ? notViewed.map(ltEsc).join(', ') : '<span style="color:#1a7a4a">✅ Tất cả nhân viên đã xem lịch chính tháng này</span>';
+        nvBox.style.display='';
+      } else {
+        nvBox.style.display='none';
+      }
     }
 
     var adjCountEl=document.getElementById('ltAdjCount'); if(adjCountEl) adjCountEl.textContent=adjs.length;
@@ -16453,6 +16824,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   window.ltOpenFile=function(itemId,month){
     var item=(ltData[month]&&ltData[month].items&&ltData[month].items[itemId]);
     if(!item||!item.base64){alert('Không tìm thấy file.');return;}
+    ltRecordView(itemId);
     try{
       var byteChars=atob(item.base64);
       var byteNumbers=new Array(byteChars.length);
@@ -16470,6 +16842,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   window.ltPreviewFile=function(itemId,month){
     var item=(ltData[month]&&ltData[month].items&&ltData[month].items[itemId]);
     if(!item||!item.base64){alert('Không tìm thấy file.');return;}
+    ltRecordView(itemId);
     ltPreviewCurrent={itemId:itemId,month:month};
     ltPreviewImageMode=false;
     var imgBtn=document.getElementById('ltPreviewImgBtn'); if(imgBtn) imgBtn.innerHTML='<i class="ti ti-photo"></i> Xem dạng ảnh';
@@ -16526,6 +16899,25 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   window.ltDownloadCurrentPreview=function(){
     if(!ltPreviewCurrent){alert('Không có file đang xem.');return;}
     window.ltOpenFile(ltPreviewCurrent.itemId, ltPreviewCurrent.month);
+  };
+
+  window.ltShowViewers=function(itemId){
+    if(!ltCu||ltCu.role!=='admin'){alert('Chỉ Quản lý mới xem được danh sách này!');return;}
+    var views=ltViews[itemId]||{};
+    var list=Object.keys(views).map(function(k){return views[k];}).sort(function(a,b){return (b.lastAt||'').localeCompare(a.lastAt||'');});
+    var box=document.getElementById('ltViewersList');
+    if(box){
+      box.innerHTML = list.length ? ('<div style="font-size:12px;color:#888;margin-bottom:8px">Tổng '+list.length+' người đã xem</div>'+list.map(function(v){
+        return '<div style="padding:8px 0;border-bottom:1px solid #eee">'+
+          '<div style="font-weight:700;font-size:13px;color:#333">'+ltEsc(v.name)+'</div>'+
+          '<div style="font-size:11.5px;color:#888;margin-top:2px">Xem lần đầu: '+ltFmtDateTime(v.firstAt)+' — Gần nhất: '+ltFmtDateTime(v.lastAt)+' ('+(v.count||1)+' lượt)</div>'+
+          '</div>';
+      }).join('')) : '<div style="color:#aaa;font-style:italic;padding:12px 0;text-align:center">Chưa có ai xem file này</div>';
+    }
+    document.getElementById('ltViewersOverlay').style.display='flex';
+  };
+  window.ltCloseViewers=function(){
+    document.getElementById('ltViewersOverlay').style.display='none';
   };
 
   window.ltTogglePreviewFullscreen=function(){
@@ -16597,6 +16989,1283 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         if(btn) btn.innerHTML='<i class="ti ti-photo"></i> Xem dạng ảnh';
       });
     });
+  };
+})();
+</script>
+
+<script>
+(function(){
+  var CNKT_GMHS_SEED = {
+    'Cao_Việt_Thắng': {name:'Cao Việt Thắng', gioiTinh:'Nam', ngaySinh:'1979-03-24', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'002623/BĐ-CCHN', ngayCapCCHN:'2013-12-17'},
+    'Hoàng_Minh_Hải': {name:'Hoàng Minh Hải', gioiTinh:'Nam', ngaySinh:'1982-02-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0004558/BĐ-CCHN', ngayCapCCHN:'2015-05-18'},
+    'Huỳnh_Thị_Kim_Hồng': {name:'Huỳnh Thị Kim Hồng', gioiTinh:'Nữ', ngaySinh:'1998-11-12', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'001122/GL-GPHN', ngayCapCCHN:'2026-03-30'},
+    'Huỳnh_Thị_Sự': {name:'Huỳnh Thị Sự', gioiTinh:'Nữ', ngaySinh:'1982-05-17', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'004817/HCM-CCHN', ngayCapCCHN:'2012-12-05'},
+    'Hồ_Thái_Nhiều': {name:'Hồ Thái Nhiều', gioiTinh:'Nam', ngaySinh:'1983-02-02', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'003641/BĐ-CCHN', ngayCapCCHN:'2020-05-26'},
+    'Hồ_Thị_Chúng': {name:'Hồ Thị Chúng', gioiTinh:'Nữ', ngaySinh:'1990-06-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002075/BĐ-CCHN', ngayCapCCHN:'2013-11-28'},
+    'Hồ_Thị_Mỹ': {name:'Hồ Thị Mỹ', gioiTinh:'Nữ', ngaySinh:'1995-09-15', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'006454/BĐ-CCHN', ngayCapCCHN:'2019-05-24'},
+    'Hứa_Hữu_Tuấn': {name:'Hứa Hữu Tuấn', gioiTinh:'Nam', ngaySinh:'1989-12-14', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Chuyên khoa cấp I', soCCHN:'005027/BĐ-CCHN', ngayCapCCHN:'2016-07-04'},
+    'La_Thị_Thanh_Trà': {name:'La Thị Thanh Trà', gioiTinh:'Nữ', ngaySinh:'1991-07-26', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'006077/BĐ-CCHN', ngayCapCCHN:'2018-06-26'},
+    'Lê_Quốc_Triều': {name:'Lê Quốc Triều', gioiTinh:'Nam', ngaySinh:'1994-10-08', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'000836/GL-GPHN', ngayCapCCHN:'2025-11-05'},
+    'Lê_Thị_Huệ': {name:'Lê Thị Huệ', gioiTinh:'Nữ', ngaySinh:'1990-02-05', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0004598/BĐ-CCHN', ngayCapCCHN:'2015-06-01'},
+    'Lê_Thị_Kim_Sao': {name:'Lê Thị Kim Sao', gioiTinh:'Nữ', ngaySinh:'1991-06-12', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'0004662/BĐ-CCHN', ngayCapCCHN:'2015-07-13'},
+    'Lê_Thị_Kim_Thịnh': {name:'Lê Thị Kim Thịnh', gioiTinh:'Nữ', ngaySinh:'1989-11-27', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'004468/BĐ-CCHN', ngayCapCCHN:'2018-02-08'},
+    'Lê_Thị_Mạnh_Quyền': {name:'Lê Thị Mạnh Quyền', gioiTinh:'Nữ', ngaySinh:'1992-07-27', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'0004710/BĐ-CCHN', ngayCapCCHN:'2015-08-17'},
+    'Lê_Thị_Thúy_Vân': {name:'Lê Thị Thúy Vân', gioiTinh:'Nữ', ngaySinh:'1973-03-09', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'003532/BĐ-CCHN', ngayCapCCHN:'2018-02-08'},
+    'Lê_Thị_Ái_Phương': {name:'Lê Thị Ái Phương', gioiTinh:'Nữ', ngaySinh:'1981-01-26', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'0003760/BĐ-CCHN', ngayCapCCHN:'2014-07-28'},
+    'Lê_Võ_Thu': {name:'Lê Võ Thu', gioiTinh:'Nam', ngaySinh:'1989-12-21', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'006045/BĐ-CCHN', ngayCapCCHN:'2018-06-04'},
+    'Lê_Văn_Kha': {name:'Lê Văn Kha', gioiTinh:'Nam', ngaySinh:'1976-01-11', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002444/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Lê_Văn_Long': {name:'Lê Văn Long', gioiTinh:'Nam', ngaySinh:'1992-11-17', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'006384/BĐ-CCHN', ngayCapCCHN:'2019-04-05'},
+    'Lê_Văn_Sang': {name:'Lê Văn Sang', gioiTinh:'Nam', ngaySinh:'1982-04-21', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'005805/BĐ-CCHN', ngayCapCCHN:'2018-02-08'},
+    'Lê_Văn_Thủy': {name:'Lê Văn Thủy', gioiTinh:'Nam', ngaySinh:'1974-11-30', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Chuyên khoa cấp II', soCCHN:'002446/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Nguyễn_Chí_Bảo': {name:'Nguyễn Chí Bảo', gioiTinh:'Nam', ngaySinh:'1997-10-20', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Đại học', soCCHN:'0008/BĐ-GPHN', ngayCapCCHN:'2024-04-17'},
+    'Nguyễn_Cảnh_Muộn': {name:'Nguyễn Cảnh Muộn', gioiTinh:'Nam', ngaySinh:'1976-08-30', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'005389/BĐ-CCHN', ngayCapCCHN:'2017-01-23'},
+    'Nguyễn_Duy_Mỹ': {name:'Nguyễn Duy Mỹ', gioiTinh:'Nam', ngaySinh:'1977-11-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002121/BĐ-CCHN', ngayCapCCHN:'2013-11-29'},
+    'Nguyễn_Hoàng_Sơn_Nữ': {name:'Nguyễn Hoàng Sơn Nữ', gioiTinh:'Nữ', ngaySinh:'1977-12-29', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'001391/BĐ-CCHN', ngayCapCCHN:'2013-08-15'},
+    'Nguyễn_Hà_Tiến_Dũng': {name:'Nguyễn Hà Tiến Dũng', gioiTinh:'Nam', ngaySinh:'1976-05-10', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Thạc sĩ', soCCHN:'002475/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Nguyễn_Hữu_Phước': {name:'Nguyễn Hữu Phước', gioiTinh:'Nam', ngaySinh:'1995-05-13', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'007764/BĐ-CCHN', ngayCapCCHN:'2022-12-01'},
+    'Nguyễn_Kim_Sơn': {name:'Nguyễn Kim Sơn', gioiTinh:'Nam', ngaySinh:'1975-06-09', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'000892/BĐ-CCHN', ngayCapCCHN:'2013-05-15'},
+    'Nguyễn_Phan_Anh_Quân': {name:'Nguyễn Phan Anh Quân', gioiTinh:'Nam', ngaySinh:'1968-07-29', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'002118/BĐ-CCHN', ngayCapCCHN:'2022-01-26'},
+    'Nguyễn_Thanh_Hoàng': {name:'Nguyễn Thanh Hoàng', gioiTinh:'Nam', ngaySinh:'1981-01-25', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'001887/BĐ-CCHN', ngayCapCCHN:'2013-11-15'},
+    'Nguyễn_Thành': {name:'Nguyễn Thành', gioiTinh:'Nam', ngaySinh:'1970-05-13', chucVu:'Phó trưởng khoa', chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Chuyên khoa cấp II', soCCHN:'000038/BĐ-CCHN', ngayCapCCHN:'2012-01-18'},
+    'Nguyễn_Thị_Bích_Thủy': {name:'Nguyễn Thị Bích Thủy', gioiTinh:'Nữ', ngaySinh:'1994-09-04', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Đại học', soCCHN:'006979/BĐ-CCHN', ngayCapCCHN:'2020-06-05'},
+    'Nguyễn_Thị_Diệu_My': {name:'Nguyễn Thị Diệu My', gioiTinh:'Nữ', ngaySinh:'1990-12-02', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002071/BĐ-CCHN', ngayCapCCHN:'2013-11-28'},
+    'Nguyễn_Thị_Hảo': {name:'Nguyễn Thị Hảo', gioiTinh:'Nữ', ngaySinh:'1987-04-12', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002462/BĐ-CCHN', ngayCapCCHN:'2020-05-26'},
+    'Nguyễn_Thị_Hồng_Nhi': {name:'Nguyễn Thị Hồng Nhi', gioiTinh:'Nữ', ngaySinh:'1989-12-12', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002442/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Nguyễn_Thị_Minh_Châu': {name:'Nguyễn Thị Minh Châu', gioiTinh:'Nữ', ngaySinh:'1992-02-10', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'0004663/BĐ-CCHN', ngayCapCCHN:'2015-07-13'},
+    'Nguyễn_Thị_Thanh_Nhi': {name:'Nguyễn Thị Thanh Nhi', gioiTinh:'Nữ', ngaySinh:'1991-12-23', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'0003593/BĐ-CCHN', ngayCapCCHN:'2014-06-27'},
+    'Nguyễn_Thị_Thúy_Hằng': {name:'Nguyễn Thị Thúy Hằng', gioiTinh:'Nữ', ngaySinh:'1991-11-08', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'005686/BĐ-CCHN', ngayCapCCHN:'2017-10-19'},
+    'Nguyễn_Thị_Xuân_Thảo': {name:'Nguyễn Thị Xuân Thảo', gioiTinh:'Nữ', ngaySinh:'1990-12-06', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'005458/BĐ-CCHN', ngayCapCCHN:'2017-04-21'},
+    'Nguyễn_Tiến_Dũng': {name:'Nguyễn Tiến Dũng', gioiTinh:'Nam', ngaySinh:'1966-04-24', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'002040/BĐ-CCHN', ngayCapCCHN:'2013-11-28'},
+    'Nguyễn_Trung_Thành': {name:'Nguyễn Trung Thành', gioiTinh:'Nam', ngaySinh:'1974-02-12', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Thạc sĩ', soCCHN:'0003538/BĐ-CCHN', ngayCapCCHN:'2014-06-16'},
+    'Nguyễn_Tài_Thu': {name:'Nguyễn Tài Thu', gioiTinh:'Nam', ngaySinh:'1988-06-01', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Chuyên khoa cấp I', soCCHN:'005106/BĐ-CCHN', ngayCapCCHN:'2016-09-06'},
+    'Nguyễn_Văn_Chinh': {name:'Nguyễn Văn Chinh', gioiTinh:'Nam', ngaySinh:'1982-09-01', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002112/BĐ-CCHN', ngayCapCCHN:'2013-11-29'},
+    'Nguyễn_Văn_Chung': {name:'Nguyễn Văn Chung', gioiTinh:'Nam', ngaySinh:'1979-11-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'002436/BĐ-CCHN', ngayCapCCHN:'2022-01-26'},
+    'Nguyễn_Văn_Thương': {name:'Nguyễn Văn Thương', gioiTinh:'Nam', ngaySinh:'1992-07-20', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Chuyên khoa cấp I', soCCHN:'005956/BĐ-CCHN', ngayCapCCHN:'2018-04-09'},
+    'Nguyễn_Văn_Tuy': {name:'Nguyễn Văn Tuy', gioiTinh:'Nam', ngaySinh:'1976-01-10', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002152/BĐ-CCHN', ngayCapCCHN:'2013-12-02'},
+    'Nguyễn_Vũ_Cẩm_Tú': {name:'Nguyễn Vũ Cẩm Tú', gioiTinh:'Nữ', ngaySinh:'1986-09-02', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0003580/BĐ-CCHN', ngayCapCCHN:'2014-06-16'},
+    'Nguyễn_Xuân_Hiền': {name:'Nguyễn Xuân Hiền', gioiTinh:'Nam', ngaySinh:'1987-05-06', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'001759/BĐ-CCHN', ngayCapCCHN:'2013-11-01'},
+    'Nguyễn_Xuân_Hoài': {name:'Nguyễn Xuân Hoài', gioiTinh:'Nam', ngaySinh:'1980-05-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002041/BĐ-CCHN', ngayCapCCHN:'2013-11-28'},
+    'Nguyễn_Đình_Kim_Loan': {name:'Nguyễn Đình Kim Loan', gioiTinh:'Nữ', ngaySinh:'1972-06-14', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002145/BĐ-CCHN', ngayCapCCHN:'2018-02-08'},
+    'Nguyễn_Đình_Thắng': {name:'Nguyễn Đình Thắng', gioiTinh:'Nam', ngaySinh:'1989-01-22', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'002047/BĐ-CCHN', ngayCapCCHN:'2022-02-25'},
+    'Ngô_Thị_Lẹ': {name:'Ngô Thị Lẹ', gioiTinh:'Nữ', ngaySinh:'1990-02-02', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002073/BĐ-CCHN', ngayCapCCHN:'2013-11-28'},
+    'Ngô_Thị_Nhựt': {name:'Ngô Thị Nhựt', gioiTinh:'Nữ', ngaySinh:'1987-12-17', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0003756/BĐ-CCHN', ngayCapCCHN:'2014-07-28'},
+    'Phan_Quốc_Sang': {name:'Phan Quốc Sang', gioiTinh:'Nam', ngaySinh:'1973-04-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002042/BĐ-CCHN', ngayCapCCHN:'2013-11-28'},
+    'Phan_Thảo_Vy': {name:'Phan Thảo Vy', gioiTinh:'Nữ', ngaySinh:'2002-08-17', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'000587/BĐ-GPHN', ngayCapCCHN:'2025-04-15'},
+    'Phan_Thị_Mỹ_Duyên': {name:'Phan Thị Mỹ Duyên', gioiTinh:'Nữ', ngaySinh:'1996-01-18', chucVu:null, chucDanh:'Điều dưỡng GMHS', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'007763/BĐ-CCHN', ngayCapCCHN:'2022-12-01'},
+    'Phan_Thị_Thanh_Nga': {name:'Phan Thị Thanh Nga', gioiTinh:'Nữ', ngaySinh:'1981-09-12', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'0003572/BĐ-CCHN', ngayCapCCHN:'2014-06-16'},
+    'Phạm_Thị_Chiến': {name:'Phạm Thị Chiến', gioiTinh:'Nữ', ngaySinh:'1989-09-27', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002466/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Phạm_Thị_Hoàng_Cúc': {name:'Phạm Thị Hoàng Cúc', gioiTinh:'Nữ', ngaySinh:'1993-08-31', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'006392/BĐ-CCHN', ngayCapCCHN:'2019-04-05'},
+    'Thân_Hoàng_Khang': {name:'Thân Hoàng Khang', gioiTinh:'Nam', ngaySinh:'1976-10-10', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'001833/BĐ-CCHN', ngayCapCCHN:'2013-11-15'},
+    'Thân_Thị_Liễu': {name:'Thân Thị Liễu', gioiTinh:'Nữ', ngaySinh:'1991-03-26', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002423/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Trương_Ngọc_Báu': {name:'Trương Ngọc Báu', gioiTinh:'Nữ', ngaySinh:'1982-10-09', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'002110/BĐ-CCHN', ngayCapCCHN:'2013-11-29'},
+    'Trương_Thị_Bích_Liễu': {name:'Trương Thị Bích Liễu', gioiTinh:'Nữ', ngaySinh:'1981-02-01', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'002109/BĐ-CCHN', ngayCapCCHN:'2013-11-29'},
+    'Trương_Thị_Thu_Hằng': {name:'Trương Thị Thu Hằng', gioiTinh:'Nữ', ngaySinh:'1983-08-19', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'0003531/BĐ-CCHN', ngayCapCCHN:'2014-06-16'},
+    'Trương_Thị_Tín': {name:'Trương Thị Tín', gioiTinh:'Nữ', ngaySinh:'1993-02-02', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'005412/BĐ-CCHN', ngayCapCCHN:'2017-02-24'},
+    'Trương_Văn_Pháp': {name:'Trương Văn Pháp', gioiTinh:'Nam', ngaySinh:'1986-02-13', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'0003753/BĐ-CCHN', ngayCapCCHN:'2022-01-26'},
+    'Trương_Đình_Trí': {name:'Trương Đình Trí', gioiTinh:'Nam', ngaySinh:'1990-11-22', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'005846/BĐ-CCHN', ngayCapCCHN:'2018-03-05'},
+    'Trần_Bá_Quyền': {name:'Trần Bá Quyền', gioiTinh:'Nam', ngaySinh:'1991-04-10', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0004672/BĐ-CCHN', ngayCapCCHN:'2022-01-26'},
+    'Trần_Quốc_Khang': {name:'Trần Quốc Khang', gioiTinh:'Nam', ngaySinh:'1977-02-27', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002179/BĐ-CCHN', ngayCapCCHN:'2013-12-03'},
+    'Trần_Thị_Bích_Tuyền': {name:'Trần Thị Bích Tuyền', gioiTinh:'Nữ', ngaySinh:'2000-01-02', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'000169/BĐ-GPHN', ngayCapCCHN:'2024-06-11'},
+    'Trần_Thị_Cẩm_Nhung': {name:'Trần Thị Cẩm Nhung', gioiTinh:'Nữ', ngaySinh:'1988-01-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'002143/BĐ-CCHN', ngayCapCCHN:'2013-12-02'},
+    'Trần_Thị_Dung': {name:'Trần Thị Dung', gioiTinh:'Nữ', ngaySinh:'1979-08-05', chucVu:'Phó trưởng khoa', chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Chuyên khoa cấp II', soCCHN:'002482/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Trần_Thị_Mỹ_Dung': {name:'Trần Thị Mỹ Dung', gioiTinh:'Nữ', ngaySinh:'1985-10-22', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002448/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Trần_Thị_Ngâng': {name:'Trần Thị Ngâng', gioiTinh:'Nữ', ngaySinh:'1983-10-06', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Chuyên khoa cấp I', soCCHN:'0003579/BĐ-CCHN', ngayCapCCHN:'2014-06-16'},
+    'Trần_Thị_Thanh_Huyền': {name:'Trần Thị Thanh Huyền', gioiTinh:'Nữ', ngaySinh:'1993-04-27', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'005035/BĐ-CCHN', ngayCapCCHN:'2016-08-03'},
+    'Trần_Tiến_Thành': {name:'Trần Tiến Thành', gioiTinh:'Nam', ngaySinh:'1984-11-24', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002180/BĐ-CCHN', ngayCapCCHN:'2022-09-05'},
+    'Trần_Văn_Đại': {name:'Trần Văn Đại', gioiTinh:'Nam', ngaySinh:'1992-03-06', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'005070/BĐ-CCHN', ngayCapCCHN:'2016-08-10'},
+    'Trần_Xuân_Hùng': {name:'Trần Xuân Hùng', gioiTinh:'Nam', ngaySinh:'1978-03-12', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002120/BĐ-CCHN', ngayCapCCHN:'2013-11-29'},
+    'Trần_Đình_Bản': {name:'Trần Đình Bản', gioiTinh:'Nam', ngaySinh:'1995-01-19', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'005697/BĐ-CCHN', ngayCapCCHN:'2017-10-19'},
+    'Trần_Đình_Duy': {name:'Trần Đình Duy', gioiTinh:'Nam', ngaySinh:'1987-02-02', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002061/BĐ-CCHN', ngayCapCCHN:'2013-11-28'},
+    'Trần_Đăng_Trung': {name:'Trần Đăng Trung', gioiTinh:'Nam', ngaySinh:'1970-09-19', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002199/BĐ-CCHN', ngayCapCCHN:'2013-12-03'},
+    'Võ_Huy_Cường': {name:'Võ Huy Cường', gioiTinh:'Nam', ngaySinh:'1969-07-01', chucVu:'Trưởng khoa', chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Chuyên khoa cấp II', soCCHN:'000043/BĐ-CCHN', ngayCapCCHN:'2012-01-17'},
+    'Võ_Ngọc_Bình': {name:'Võ Ngọc Bình', gioiTinh:'Nam', ngaySinh:'1970-11-07', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'002437/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Võ_Ngọc_Phước': {name:'Võ Ngọc Phước', gioiTinh:'Nam', ngaySinh:'1975-06-10', chucVu:'Điều dưỡng trưởng', chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Chuyên khoa cấp I', soCCHN:'002439/BĐ-CCHN', ngayCapCCHN:'2018-02-08'},
+    'Võ_Thị_Tường_Vi': {name:'Võ Thị Tường Vi', gioiTinh:'Nữ', ngaySinh:'1992-04-17', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Chuyên khoa cấp I', soCCHN:'005939/BĐ-CCHN', ngayCapCCHN:'2018-03-09'},
+    'Võ_Thị_Xuân_Việt': {name:'Võ Thị Xuân Việt', gioiTinh:'Nữ', ngaySinh:'1992-06-24', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0004597/BĐ-CCHN', ngayCapCCHN:'2015-06-01'},
+    'Võ_Đình_Tây': {name:'Võ Đình Tây', gioiTinh:'Nam', ngaySinh:'1972-05-10', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'002122/BĐ-CCHN', ngayCapCCHN:'2022-01-26'},
+    'Võ_Đông_Kinh': {name:'Võ Đông Kinh', gioiTinh:'Nam', ngaySinh:'1994-02-04', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Đại học', soCCHN:'006858/BĐ-CCHN', ngayCapCCHN:'2020-03-23'},
+    'Đinh_Kim_Vũ': {name:'Đinh Kim Vũ', gioiTinh:'Nam', ngaySinh:'1989-03-04', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'002108/BĐ-CCHN', ngayCapCCHN:'2013-11-29'},
+    'Đinh_Thị_Thu_Hoài': {name:'Đinh Thị Thu Hoài', gioiTinh:'Nữ', ngaySinh:'1990-02-22', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0001596/GL-CCHN', ngayCapCCHN:'2014-04-24'},
+    'Đào_Thị_Phương_Thúy': {name:'Đào Thị Phương Thúy', gioiTinh:'Nữ', ngaySinh:'1998-12-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'007144/BĐ-CCHN', ngayCapCCHN:'2020-08-03'},
+    'Đặng_Hồ_Hồng_Phi': {name:'Đặng Hồ Hồng Phi', gioiTinh:'Nữ', ngaySinh:'1975-11-24', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'001834/BĐ-CCHN', ngayCapCCHN:'2013-11-15'},
+    'Đặng_Thu_Hiền': {name:'Đặng Thu Hiền', gioiTinh:'Nữ', ngaySinh:'1987-08-31', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'0003609/BĐ-CCHN', ngayCapCCHN:'2014-07-15'},
+    'Đặng_Thị_Mỹ_Lai': {name:'Đặng Thị Mỹ Lai', gioiTinh:'Nữ', ngaySinh:'1990-07-05', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Cao đẳng', soCCHN:'004894/BĐ-CCHN', ngayCapCCHN:'2022-01-26'},
+    'Đặng_Văn_Cảnh': {name:'Đặng Văn Cảnh', gioiTinh:'Nam', ngaySinh:'1970-03-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'002452/BĐ-CCHN', ngayCapCCHN:'2022-01-26'},
+    'Đỗ_Hồ_Mỹ_Hạnh': {name:'Đỗ Hồ Mỹ Hạnh', gioiTinh:'Nữ', ngaySinh:'1991-07-18', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'005323/BĐ-CCHN', ngayCapCCHN:'2016-12-27'},
+    'Đỗ_Kim_Oanh': {name:'Đỗ Kim Oanh', gioiTinh:'Nữ', ngaySinh:'1980-10-01', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'002445/BĐ-CCHN', ngayCapCCHN:'2013-12-13'},
+    'Đỗ_Lê_Thanh_Ngọc': {name:'Đỗ Lê Thanh Ngọc', gioiTinh:'Nữ', ngaySinh:'1992-10-12', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Cao đẳng', soCCHN:'005122/BĐ-CCHN', ngayCapCCHN:'2016-09-19'},
+    'Đỗ_Ngọc_Vũ': {name:'Đỗ Ngọc Vũ', gioiTinh:'Nam', ngaySinh:'1996-09-03', chucVu:null, chucDanh:'Bác sĩ', trinhDoCM:'Bác sĩ Đại học', soCCHN:'000280/BĐ-GPHN', ngayCapCCHN:'2024-08-05'},
+    'Đỗ_Thành_Khương': {name:'Đỗ Thành Khương', gioiTinh:'Nam', ngaySinh:'1989-04-20', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng GMHS Đại học', soCCHN:'002115/BĐ-CCHN', ngayCapCCHN:'2013-11-29'},
+    'Đỗ_Thị_Ngọc_Diễm': {name:'Đỗ Thị Ngọc Diễm', gioiTinh:'Nữ', ngaySinh:'1993-03-05', chucVu:null, chucDanh:'Điều dưỡng', trinhDoCM:'Điều dưỡng Đại học', soCCHN:'005099/BĐ-CCHN', ngayCapCCHN:'2016-09-06'},
+  };
+
+  var cmeCu=null;
+  var cmeRef=null, cmeConfigRef=null, cmeProfilesRef=null, cmeDeletedRef=null;
+  try{
+    cmeRef=db.ref('cnktEntries'); cmeConfigRef=db.ref('cnktConfig'); cmeProfilesRef=db.ref('cnktProfiles'); cmeDeletedRef=db.ref('cnktDeletedLog');
+  }catch(e){ console.warn('Không khởi tạo được Firebase cho CNKT.',e); }
+  var cmeDeletedLog={}; // {pushId: {...entrySnapshot, deletedBy, deletedAt, reason}}
+  var cmeEntries={}; // {safeName: {pushId: entry}}
+  var cmeProfiles={}; // {safeName: {chucDanh, trinhDoCM, soCCHN, ngayCapCCHN}}
+  var cmeConfig={cycleStart:'2024-01-01', cycleYears:5, targetHours:120, warnDays:90};
+  var cmeExcluded={}; // {safeName: true} — những người KHÔNG áp dụng CNKT (VD: Hộ lý)
+  var cmeExcludedRef=null;
+  try{ cmeExcludedRef=db.ref('cnktExcluded'); }catch(e){ console.warn('Không khởi tạo được Firebase cho danh sách loại trừ CNKT.',e); }
+  var cmeEditingId=null;
+
+  function cmeEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function cmeSafeKey(name){ return String(name||'').replace(/[.#$/\[\]\s]/g,'_'); }
+
+  function cmeMigrateNameEverywhere(oldName,newName){
+    var proms=[];
+    // 1) Kanban (cards): person, assignee, assignedBy, history[].actor
+    proms.push(db.ref('cards').once('value').then(function(snap){
+      var val=snap.val()||{};
+      var updates={};
+      Object.keys(val).forEach(function(id){
+        var c=val[id]||{};
+        if(c.person===oldName) updates['cards/'+id+'/person']=newName;
+        if(c.assignee===oldName) updates['cards/'+id+'/assignee']=newName;
+        if(c.assignedBy===oldName) updates['cards/'+id+'/assignedBy']=newName;
+        if(Array.isArray(c.history)){
+          var changed=false;
+          var hist=c.history.map(function(h){
+            if(h && h.actor===oldName){ changed=true; return Object.assign({},h,{actor:newName}); }
+            return h;
+          });
+          if(changed) updates['cards/'+id+'/history']=hist;
+        }
+      });
+      return Object.keys(updates).length ? db.ref().update(updates) : null;
+    }));
+    // 2) KPI events: person
+    proms.push(db.ref('kpiEvents').once('value').then(function(snap){
+      var val=snap.val()||{};
+      var updates={};
+      Object.keys(val).forEach(function(id){
+        if(val[id] && val[id].person===oldName) updates['kpiEvents/'+id+'/person']=newName;
+      });
+      return Object.keys(updates).length ? db.ref().update(updates) : null;
+    }));
+    // 3) Dụng cụ sau mổ (dctdRecords): persons[], discoverer, lostPersons[], createdBy, lostConfirms{}
+    proms.push(db.ref('dctdRecords').once('value').then(function(snap){
+      var val=snap.val()||{};
+      var updates={};
+      var oldSafe=cmeSafeKey(oldName), newSafe=cmeSafeKey(newName);
+      Object.keys(val).forEach(function(id){
+        var r=val[id]||{};
+        if(Array.isArray(r.persons) && r.persons.indexOf(oldName)>=0){
+          updates['dctdRecords/'+id+'/persons']=r.persons.map(function(n){return n===oldName?newName:n;});
+        }
+        if(r.discoverer===oldName) updates['dctdRecords/'+id+'/discoverer']=newName;
+        if(Array.isArray(r.lostPersons) && r.lostPersons.indexOf(oldName)>=0){
+          updates['dctdRecords/'+id+'/lostPersons']=r.lostPersons.map(function(n){return n===oldName?newName:n;});
+        }
+        if(r.createdBy===oldName) updates['dctdRecords/'+id+'/createdBy']=newName;
+        if(r.lostConfirms && r.lostConfirms[oldSafe]){
+          updates['dctdRecords/'+id+'/lostConfirms/'+newSafe]=Object.assign({},r.lostConfirms[oldSafe],{by:newName});
+          updates['dctdRecords/'+id+'/lostConfirms/'+oldSafe]=null;
+        }
+      });
+      return Object.keys(updates).length ? db.ref().update(updates) : null;
+    }));
+    // 4) Lịch trực khoa: uploadedBy trong từng file đã tải lên
+    proms.push(db.ref('lichTruc').once('value').then(function(snap){
+      var val=snap.val()||{};
+      var updates={};
+      Object.keys(val).forEach(function(month){
+        var items=(val[month]&&val[month].items)||{};
+        Object.keys(items).forEach(function(id){
+          if(items[id] && items[id].uploadedBy===oldName) updates['lichTruc/'+month+'/items/'+id+'/uploadedBy']=newName;
+        });
+      });
+      return Object.keys(updates).length ? db.ref().update(updates) : null;
+    }));
+    // 5) Lượt xem Lịch trực khoa (lichTrucViews)
+    proms.push(db.ref('lichTrucViews').once('value').then(function(snap){
+      var val=snap.val()||{};
+      var updates={};
+      var oldSafe=cmeSafeKey(oldName), newSafe=cmeSafeKey(newName);
+      Object.keys(val).forEach(function(itemId){
+        var views=val[itemId]||{};
+        if(views[oldSafe]){
+          updates['lichTrucViews/'+itemId+'/'+newSafe]=Object.assign({},views[oldSafe],{name:newName});
+          updates['lichTrucViews/'+itemId+'/'+oldSafe]=null;
+        }
+      });
+      return Object.keys(updates).length ? db.ref().update(updates) : null;
+    }));
+    return Promise.all(proms);
+  }
+  function cmeToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function cmeFmtD(d){if(!d)return'';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d;}
+  function cmeAddYears(iso,years){var d=new Date(iso+'T00:00:00');d.setFullYear(d.getFullYear()+years);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function cmeDaysBetween(a,b){var d1=new Date(a+'T00:00:00'),d2=new Date(b+'T00:00:00');return Math.round((d2-d1)/86400000);}
+  function cmeArrayBufferToBase64(bytes){
+    var binary='', len=bytes.byteLength, chunk=8192;
+    for(var i=0;i<len;i+=chunk){ binary+=String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i+chunk,len))); }
+    return btoa(binary);
+  }
+
+  function cmeGetProfile(name){
+    return cmeProfiles[cmeSafeKey(name)] || {};
+  }
+  function cmeAdvanceToCurrentCycle(baseStart,years){
+    var start=baseStart, end=cmeAddYears(start,years);
+    var today=cmeToday();
+    var guard=0;
+    while(end<=today && guard<400){
+      start=end;
+      end=cmeAddYears(start,years);
+      guard++;
+    }
+    return {start:start,end:end};
+  }
+  function cmeGetCycle(name){
+    var prof=cmeGetProfile(name);
+    var years=cmeConfig.cycleYears||5;
+    if(prof.ngayCapCCHN){
+      var c=cmeAdvanceToCurrentCycle(prof.ngayCapCCHN, years);
+      return {start:c.start, end:c.end, personal:true};
+    }
+    if(cmeConfig.cycleStart){
+      var c2=cmeAdvanceToCurrentCycle(cmeConfig.cycleStart, years);
+      return {start:c2.start, end:c2.end, personal:false};
+    }
+    return {start:null, end:null, personal:false};
+  }
+  function cmeGetEntriesFor(name){
+    var node=cmeEntries[cmeSafeKey(name)]||{};
+    return Object.keys(node).map(function(k){var e=node[k];e=Object.assign({},e);e._id=k;return e;});
+  }
+  function cmeCalcTotalHours(name){
+    var list=cmeGetEntriesFor(name);
+    var cyc=cmeGetCycle(name);
+    return list.reduce(function(sum,e){
+      if((e.trangThai||'choduyet')!=='daduyet') return sum; // chỉ tính hoạt động đã duyệt
+      if(cyc.start && cyc.end){
+        var d=e.tuNgay||'';
+        if(d<cyc.start || d>cyc.end) return sum;
+      }
+      return sum + (parseFloat(e.soGio)||0);
+    },0);
+  }
+  function cmeGetStatus(total,target,daysRemaining,warnDays){
+    if(target>0 && total>=target) return 'dat';
+    if(daysRemaining!==null && daysRemaining<=warnDays) return 'canhbao';
+    return 'chuadat';
+  }
+  var CME_ST_LBL={choduyet:'⏳ Chờ duyệt',daduyet:'✅ Đã duyệt',tuchoi:'❌ Từ chối'};
+  var CME_ST_COLOR={choduyet:'#8a6100',daduyet:'#1a7a4a',tuchoi:'#c62828'};
+
+  window.enterCmeScreen=function(role,name){
+    cmeCu={name:name,role:role};
+    document.getElementById('homeScreen').style.display='none';
+    document.getElementById('cmeScreen').style.display='block';
+    var isA=role==='admin';
+    document.getElementById('cmeConfigBtn').style.display=isA?'':'none';
+    document.getElementById('cmeScopeBtn').style.display=isA?'':'none';
+    document.getElementById('cmeImportBtn').style.display=isA?'':'none';
+    document.getElementById('cmeExportWordBtn').style.display=isA?'':'none';
+    document.getElementById('cmeExportBtn').style.display=isA?'':'none';
+    document.getElementById('cmeAllBox').style.display=isA?'':'none';
+    document.getElementById('cmePendingBox').style.display=isA?'':'none';
+    document.getElementById('cmeDeletedBox').style.display=isA?'':'none';
+    document.getElementById('cmeWhoBanner').innerHTML = isA
+      ? '<i class="ti ti-shield-check" style="color:#00838f"></i> Đăng nhập: <b>'+cmeEsc(name)+'</b> — Quyền Quản lý (duyệt hoạt động, xem tổng hợp toàn khoa, xuất báo cáo, cấu hình chu kỳ)'
+      : '<i class="ti ti-user" style="color:#00838f"></i> Đăng nhập: <b>'+cmeEsc(name)+'</b> — Tự ghi nhận hoạt động CNKT của bản thân';
+    cmeEditingId=null;
+    document.getElementById('cmeInFrom').value=cmeToday();
+    var cbtn=document.getElementById('cmeCancelEditBtn'); if(cbtn) cbtn.style.display='none';
+    var prof=cmeGetProfile(name);
+    document.getElementById('cmeProfGioiTinh').value=prof.gioiTinh||'Nam';
+    document.getElementById('cmeProfNgaySinh').value=prof.ngaySinh||'';
+    document.getElementById('cmeProfChucDanh').value=prof.chucDanh||'Điều dưỡng';
+    document.getElementById('cmeProfChucVu').value=prof.chucVu||'';
+    document.getElementById('cmeProfTrinhDo').value=prof.trinhDoCM||'';
+    document.getElementById('cmeProfSoCCHN').value=prof.soCCHN||'';
+    document.getElementById('cmeProfNgayCap').value=prof.ngayCapCCHN||'';
+    if(cmeConfigRef){
+      cmeConfigRef.on('value',function(snap){
+        var v=snap.val();
+        if(v) cmeConfig=Object.assign({cycleStart:null,cycleYears:5,targetHours:120,warnDays:90},v);
+        cmeRenderAll();
+      });
+    }
+    if(cmeExcludedRef){
+      cmeExcludedRef.on('value',function(snap){
+        cmeExcluded=snap.val()||{};
+        cmeRenderAll();
+      });
+    }
+    if(cmeProfilesRef){
+      cmeProfilesRef.on('value',function(snap){
+        cmeProfiles=snap.val()||{};
+        var p=cmeGetProfile(cmeCu.name);
+        var elGT=document.getElementById('cmeProfGioiTinh'); if(elGT && !elGT.dataset.touched) elGT.value=p.gioiTinh||'Nam';
+        var elNS=document.getElementById('cmeProfNgaySinh'); if(elNS && !elNS.dataset.touched) elNS.value=p.ngaySinh||'';
+        var elCD=document.getElementById('cmeProfChucDanh'); if(elCD && !elCD.dataset.touched) elCD.value=p.chucDanh||'Điều dưỡng';
+        var elCV=document.getElementById('cmeProfChucVu'); if(elCV && !elCV.dataset.touched) elCV.value=p.chucVu||'';
+        var elTD=document.getElementById('cmeProfTrinhDo'); if(elTD && !elTD.dataset.touched) elTD.value=p.trinhDoCM||'';
+        var elCC=document.getElementById('cmeProfSoCCHN'); if(elCC && !elCC.dataset.touched) elCC.value=p.soCCHN||'';
+        var elNC=document.getElementById('cmeProfNgayCap'); if(elNC && !elNC.dataset.touched) elNC.value=p.ngayCapCCHN||'';
+        cmeRenderAll();
+      });
+    }
+    if(cmeRef){
+      cmeRef.on('value',function(snap){
+        cmeEntries=snap.val()||{};
+        cmeRenderAll();
+      });
+    }
+    if(cmeDeletedRef){
+      cmeDeletedRef.on('value',function(snap){
+        cmeDeletedLog=snap.val()||{};
+        if(cmeCu && cmeCu.role==='admin') cmeRenderDeletedLog();
+      });
+    }
+  };
+  window.cmeGoHome=function(){
+    document.getElementById('cmeScreen').style.display='none';
+    document.getElementById('homeScreen').style.display='flex';
+  };
+  window.cmeLogout=function(){ window.cmeGoHome(); cmeCu=null; };
+
+  window.cmeImportSeedProfiles=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới nhập được!');return;}
+    if(!cmeProfilesRef){alert('Chưa kết nối được Firebase.');return;}
+    var total=Object.keys(CNKT_GMHS_SEED).length;
+    if(!confirm('Sẽ nhập hồ sơ mẫu (giới tính, ngày sinh, chức danh, chức vụ, trình độ, số CCHN, ngày cấp) cho '+total+' nhân viên khoa GMHS — CHỈ điền cho những ai CHƯA có hồ sơ (không ghi đè dữ liệu đã có). Tiếp tục?')) return;
+    var updates={};
+    var skip=0, willAdd=0;
+    Object.keys(CNKT_GMHS_SEED).forEach(function(key){
+      var existing=cmeProfiles[key];
+      if(existing && (existing.soCCHN || existing.ngayCapCCHN)){ skip++; return; }
+      var seed=CNKT_GMHS_SEED[key];
+      updates[key]={gioiTinh:seed.gioiTinh||null, ngaySinh:seed.ngaySinh||null, chucDanh:seed.chucDanh, chucVu:seed.chucVu||null,
+        trinhDoCM:seed.trinhDoCM||null, soCCHN:seed.soCCHN||null, ngayCapCCHN:seed.ngayCapCCHN||null};
+      willAdd++;
+    });
+    if(!willAdd){ alert('Tất cả '+total+' người đã có hồ sơ từ trước — không có gì để nhập thêm.'); return; }
+    cmeProfilesRef.update(updates).then(function(){
+      alert('✅ Đã nhập hồ sơ cho '+willAdd+' người ('+skip+' người đã có hồ sơ từ trước nên được giữ nguyên, không ghi đè).');
+    }).catch(function(err){alert('Lỗi: '+err.message);});
+  };
+
+  function cmeRenderProfileSummary(cyc){
+    var box=document.getElementById('cmeProfSummary');
+    var formWrap=document.getElementById('cmeProfFormWrap');
+    var toggleBtn=document.getElementById('cmeProfEditToggleBtn');
+    if(!box||!cmeCu) return;
+    var prof=cmeGetProfile(cmeCu.name);
+    var hasData = !!(prof.soCCHN || prof.ngayCapCCHN || prof.trinhDoCM || prof.chucVu);
+    if(!hasData){
+      box.style.display='none';
+      if(formWrap) formWrap.style.display='';
+      if(toggleBtn) toggleBtn.style.display='none';
+      return;
+    }
+    box.style.display='block';
+    if(toggleBtn) toggleBtn.style.display='';
+    var line1='<b style="font-size:14px">'+cmeEsc(cmeCu.name)+'</b>'+(prof.chucDanh?(' — '+cmeEsc(prof.chucDanh)):'')+(prof.trinhDoCM?(' · '+cmeEsc(prof.trinhDoCM)):'')+(prof.chucVu?(' <span style="color:#00838f;font-weight:700">('+cmeEsc(prof.chucVu)+')</span>'):'');
+    var line2parts=[];
+    line2parts.push('Khoa/Phòng: Khoa Gây mê Hồi sức');
+    if(prof.gioiTinh) line2parts.push(cmeEsc(prof.gioiTinh));
+    if(prof.ngaySinh) line2parts.push('Sinh: '+cmeFmtD(prof.ngaySinh));
+    if(prof.soCCHN) line2parts.push('Số CCHN: '+cmeEsc(prof.soCCHN));
+    if(prof.ngayCapCCHN) line2parts.push('Ngày cấp: '+cmeFmtD(prof.ngayCapCCHN));
+    if(cyc && cyc.end) line2parts.push('Hạn chu kỳ 5 năm: '+cmeFmtD(cyc.end));
+    box.innerHTML=line1+'<div style="margin-top:4px;color:#555">'+line2parts.join(' &nbsp;|&nbsp; ')+'</div>';
+    // Mặc định thu gọn form nếu đã có dữ liệu đầy đủ, để giao diện gọn như bản tóm tắt
+    if(formWrap && formWrap.dataset.userToggled!=='1') formWrap.style.display='none';
+  }
+  window.cmeToggleProfileForm=function(){
+    var formWrap=document.getElementById('cmeProfFormWrap');
+    if(!formWrap) return;
+    var show = formWrap.style.display==='none';
+    formWrap.style.display = show ? '' : 'none';
+    formWrap.dataset.userToggled='1';
+    var btn=document.getElementById('cmeProfEditToggleBtn');
+    if(btn) btn.innerHTML = show ? '<i class="ti ti-chevron-up"></i> Ẩn form sửa' : '<i class="ti ti-pencil"></i> Sửa hồ sơ';
+  };
+
+  window.cmeOpenEditProfile=function(name){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới sửa hồ sơ người khác được!');return;}
+    var prof=cmeGetProfile(name);
+    document.getElementById('cmeEpName').textContent=name;
+    document.getElementById('cmeEpFullName').value=name;
+    document.getElementById('cmeEpGioiTinh').value=prof.gioiTinh||'Nam';
+    document.getElementById('cmeEpNgaySinh').value=prof.ngaySinh||'';
+    document.getElementById('cmeEpChucDanh').value=prof.chucDanh||'Điều dưỡng';
+    document.getElementById('cmeEpChucVu').value=prof.chucVu||'';
+    document.getElementById('cmeEpTrinhDo').value=prof.trinhDoCM||'';
+    document.getElementById('cmeEpSoCCHN').value=prof.soCCHN||'';
+    document.getElementById('cmeEpNgayCap').value=prof.ngayCapCCHN||'';
+    var al=document.getElementById('cmeEpAlert'); if(al) al.style.display='none';
+    document.getElementById('cmeEditProfileOverlay').dataset.name=name;
+    document.getElementById('cmeEditProfileOverlay').style.display='flex';
+  };
+  window.cmeCloseEditProfile=function(){
+    document.getElementById('cmeEditProfileOverlay').style.display='none';
+  };
+
+  window.cmeOpenViewEntries=function(name){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới xem được!');return;}
+    document.getElementById('cmeVeName').textContent=name;
+    document.getElementById('cmeViewEntriesOverlay').dataset.name=name;
+    cmeRenderViewEntries();
+    document.getElementById('cmeViewEntriesOverlay').style.display='flex';
+  };
+  window.cmeCloseViewEntries=function(){
+    document.getElementById('cmeViewEntriesOverlay').style.display='none';
+  };
+  window.cmeRenderViewEntries=function(){
+    var name=document.getElementById('cmeViewEntriesOverlay').dataset.name;
+    var tbody=document.getElementById('cmeVeTbody');
+    if(!name||!tbody) return;
+    var rows=cmeGetEntriesFor(name).sort(function(a,b){return (b.tuNgay||'').localeCompare(a.tuNgay||'');});
+    var stLbl={choduyet:'Chờ duyệt',daduyet:'Đã duyệt',tuchoi:'Từ chối'};
+    tbody.innerHTML = rows.length ? rows.map(function(e){
+      return '<tr>'+
+        '<td style="padding:5px 8px;border:1px solid #eee">'+cmeEsc(e.tenHoatDong||'')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee;text-align:center;white-space:nowrap">'+cmeFmtD(e.tuNgay)+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee;text-align:center">'+(parseFloat(e.soGio)||0)+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee;text-align:center;color:'+(CME_ST_COLOR[e.trangThai||'choduyet']||'#333')+'">'+(stLbl[e.trangThai||'choduyet'])+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee;text-align:center"><button class="kpi-btn" style="padding:3px 8px;font-size:11px;border:1.5px solid #c62828;color:#c62828" onclick="cmeAdminDeleteEntry(\''+e._id+'\')"><i class="ti ti-trash"></i></button></td>'+
+        '</tr>';
+    }).join('') : '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:12px;font-style:italic">Chưa có hoạt động nào</td></tr>';
+  };
+  window.cmeAdminDeleteEntry=function(id){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới xóa được!');return;}
+    var name=document.getElementById('cmeViewEntriesOverlay').dataset.name;
+    var safeKey=cmeSafeKey(name);
+    var e=(cmeEntries[safeKey]||{})[id];
+    if(!e){alert('Không tìm thấy hoạt động này.');return;}
+    if(!confirm('Xóa hẳn phiếu "'+(e.tenHoatDong||'')+'" của '+name+'? Không thể khôi phục.')) return;
+    cmeLogDeletion(e,'Quản lý xóa trực tiếp từ Danh sách nhân viên toàn khoa').then(function(){
+      return cmeRef.child(safeKey).child(id).remove();
+    }).then(function(){
+      cmeRenderViewEntries();
+    }).catch(function(err){alert('Lỗi: '+err.message);});
+  };
+
+  window.cmeDeleteStaffMember=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới xóa được!');return;}
+    var name=document.getElementById('cmeEditProfileOverlay').dataset.name;
+    if(!name){alert('Không xác định được nhân viên.');return;}
+    if(!confirm('Xóa hẳn "'+name+'" khỏi danh sách đăng nhập TOÀN HỆ THỐNG (không chỉ CNKT)?\n\nNgười này sẽ không đăng nhập được vào bất kỳ phân hệ nào nữa (Kanban, KPI, Dụng cụ sau mổ, Lịch trực, CNKT...). Hồ sơ + hoạt động CNKT đã ghi nhận của họ cũng sẽ bị xóa.\n\nCác việc/báo cáo cũ họ đã tạo ở phân hệ khác vẫn còn lưu (chỉ không đăng nhập lại được), không bị xóa theo.\n\nBạn có chắc chắn muốn xóa không?')) return;
+    if(typeof staffList==='undefined' || typeof staffRef==='undefined'){alert('Không tìm thấy danh sách đăng nhập chung.');return;}
+    var newList=staffList.filter(function(n){return n!==name;});
+    staffList=newList;
+    var key=cmeSafeKey(name);
+    Promise.all([
+      staffRef.set(newList),
+      cmeProfilesRef?cmeProfilesRef.child(key).remove():Promise.resolve(),
+      cmeRef?cmeRef.child(key).remove():Promise.resolve()
+    ]).then(function(){
+      alert('✅ Đã xóa "'+name+'" khỏi danh sách đăng nhập và hồ sơ CNKT.');
+      cmeCloseEditProfile();
+      cmeRenderAllStaff();
+    }).catch(function(err){alert('Lỗi: '+err.message);});
+  };
+  window.cmeSaveEditProfile=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới sửa hồ sơ người khác được!');return;}
+    var oldName=document.getElementById('cmeEditProfileOverlay').dataset.name;
+    if(!oldName){alert('Không xác định được nhân viên.');return;}
+    var newName=document.getElementById('cmeEpFullName').value.trim();
+    var alertEl=document.getElementById('cmeEpAlert');
+    function showAl(msg,cls){ if(!alertEl)return; alertEl.style.display='block'; alertEl.style.background=cls==='err'?'#fce4e4':'#e6f4ea'; alertEl.style.color=cls==='err'?'#a11d1d':'#1b6b3a'; alertEl.textContent=msg; }
+    if(!newName){showAl('Tên hiển thị không được để trống.','err');return;}
+    var isRename = newName!==oldName;
+    if(isRename && typeof staffList!=='undefined' && staffList.some(function(n){return n.toLowerCase()===newName.toLowerCase();})){
+      showAl('Tên "'+newName+'" đã có người khác trùng trong danh sách — vui lòng đặt tên khác để tránh trùng lặp.','err');
+      return;
+    }
+    var rec={
+      gioiTinh: document.getElementById('cmeEpGioiTinh').value,
+      ngaySinh: document.getElementById('cmeEpNgaySinh').value||null,
+      chucDanh: document.getElementById('cmeEpChucDanh').value,
+      chucVu: document.getElementById('cmeEpChucVu').value.trim()||null,
+      trinhDoCM: document.getElementById('cmeEpTrinhDo').value.trim()||null,
+      soCCHN: document.getElementById('cmeEpSoCCHN').value.trim()||null,
+      ngayCapCCHN: document.getElementById('cmeEpNgayCap').value||null
+    };
+    if(!cmeProfilesRef){showAl('Chưa kết nối được Firebase.','err');return;}
+
+    function saveProfileAndEntries(finalName){
+      var oldKey=cmeSafeKey(oldName), newKey=cmeSafeKey(finalName);
+      var tasks=[cmeProfilesRef.child(newKey).set(rec)];
+      if(isRename){
+        tasks.push(cmeProfilesRef.child(oldKey).remove());
+        // Di chuyển các hoạt động CNKT đã ghi nhận sang khóa tên mới, giữ nguyên toàn bộ nội dung + trạng thái duyệt
+        var oldEntries=cmeEntries[oldKey];
+        if(oldEntries && Object.keys(oldEntries).length){
+          Object.keys(oldEntries).forEach(function(eid){
+            var e=Object.assign({},oldEntries[eid]);
+            e.name=finalName;
+            tasks.push(cmeRef.child(newKey).child(eid).set(e));
+          });
+          tasks.push(cmeRef.child(oldKey).remove());
+        }
+      }
+      Promise.all(tasks).then(function(){
+        if(isRename){
+          showAl('✅ Đã đổi tên "'+oldName+'" → "'+finalName+'" — đã cập nhật hồ sơ + hoạt động CNKT, và đang đồng bộ sang Kanban/KPI/Dụng cụ sau mổ/Lịch trực khoa...','ok');
+          cmeMigrateNameEverywhere(oldName,finalName).then(function(){
+            showAl('✅ Đã đổi tên "'+oldName+'" → "'+finalName+'" ở TẤT CẢ các phân hệ (CNKT, Kanban, KPI, Dụng cụ sau mổ, Lịch trực khoa).','ok');
+          }).catch(function(err){
+            showAl('Đã đổi tên CNKT + danh sách đăng nhập, nhưng có lỗi khi đồng bộ sang phân hệ khác: '+err.message,'err');
+          });
+        } else {
+          showAl('✅ Đã lưu hồ sơ cho '+finalName+'!','ok');
+        }
+        setTimeout(function(){ cmeCloseEditProfile(); },1200);
+      }).catch(function(err){showAl('Lỗi: '+err.message,'err');});
+    }
+
+    if(isRename){
+      if(!confirm('Đổi tên "'+oldName+'" thành "'+newName+'"?\n\nSẽ cập nhật danh sách đăng nhập chung + hồ sơ/hoạt động CNKT + toàn bộ dữ liệu liên quan ở Kanban, KPI, Dụng cụ sau mổ, Lịch trực khoa (bao gồm cả việc/báo cáo cũ).\n\nTiếp tục?')) return;
+      if(typeof staffList!=='undefined' && typeof staffRef!=='undefined'){
+        var newList=staffList.map(function(n){return n===oldName?newName:n;});
+        staffList=newList;
+        staffRef.set(newList).then(function(){ saveProfileAndEntries(newName); })
+          .catch(function(err){showAl('Lỗi khi cập nhật danh sách đăng nhập: '+err.message,'err');});
+      } else {
+        showAl('Không tìm thấy danh sách đăng nhập chung để cập nhật.','err');
+      }
+    } else {
+      saveProfileAndEntries(newName);
+    }
+  };
+
+  window.cmeSaveProfile=function(){
+    if(!cmeCu){alert('Vui lòng đăng nhập lại.');return;}
+    var rec={
+      gioiTinh: document.getElementById('cmeProfGioiTinh').value,
+      ngaySinh: document.getElementById('cmeProfNgaySinh').value||null,
+      chucDanh: document.getElementById('cmeProfChucDanh').value,
+      chucVu: document.getElementById('cmeProfChucVu').value.trim()||null,
+      trinhDoCM: document.getElementById('cmeProfTrinhDo').value.trim()||null,
+      soCCHN: document.getElementById('cmeProfSoCCHN').value.trim()||null,
+      ngayCapCCHN: document.getElementById('cmeProfNgayCap').value||null
+    };
+    if(!cmeProfilesRef){alert('Chưa kết nối được Firebase.');return;}
+    cmeProfilesRef.child(cmeSafeKey(cmeCu.name)).set(rec).then(function(){
+      alert('✅ Đã lưu hồ sơ!');
+    }).catch(function(err){alert('Lỗi: '+err.message);});
+  };
+
+  window.cmeRenderAll=function(){
+    if(!cmeCu) return;
+    var myEntries=cmeGetEntriesFor(cmeCu.name).sort(function(a,b){return (b.tuNgay||'').localeCompare(a.tuNgay||'');});
+    var total=cmeCalcTotalHours(cmeCu.name);
+    var target=cmeConfig.targetHours||0;
+    var cyc=cmeGetCycle(cmeCu.name);
+    var daysRemaining = cyc.end ? cmeDaysBetween(cmeToday(), cyc.end) : null;
+    var status=cmeGetStatus(total,target,daysRemaining,cmeConfig.warnDays||90);
+
+    cmeRenderProfileSummary(cyc);
+
+    var cycleInfoEl=document.getElementById('cmeCycleInfo');
+    if(cycleInfoEl){
+      cycleInfoEl.innerHTML = cyc.start
+        ? ('Chu kỳ'+(cyc.personal?' (theo CCHN của bạn)':' (mặc định chung của khoa)')+': <b>'+cmeFmtD(cyc.start)+'</b> → <b>'+cmeFmtD(cyc.end)+'</b> ('+(daysRemaining!==null?('còn '+(daysRemaining>=0?daysRemaining:0)+' ngày'):'')+') — Mục tiêu: <b>'+(target||'chưa đặt')+' giờ</b>')
+        : '<span style="color:#c62828">Chưa xác định được chu kỳ — hãy nhập "Ngày cấp CCHN/GPHN" ở Hồ sơ của tôi, hoặc liên hệ Quản lý để cấu hình chu kỳ chung.</span>';
+    }
+    var pct = target>0 ? Math.min(100, Math.round(total/target*100)) : 0;
+    var bar=document.getElementById('cmeProgressBar'); if(bar) bar.style.width=pct+'%';
+    var lbl=document.getElementById('cmeProgressLabel'); if(lbl) lbl.textContent=total.toFixed(1)+' / '+(target||'?')+' giờ ('+pct+'%)';
+    var warnEl=document.getElementById('cmeWarnBanner');
+    if(warnEl){
+      if(status==='canhbao'){
+        warnEl.style.display='block';
+        warnEl.style.background='#fdecea'; warnEl.style.color='#a11d1d';
+        warnEl.innerHTML='⚠️ Chu kỳ CNKT sắp hết hạn (còn '+(daysRemaining>=0?daysRemaining:0)+' ngày) mà bạn mới đạt '+total.toFixed(1)+'/'+target+' giờ đã duyệt — vui lòng bổ sung hoạt động sớm!';
+      } else if(status==='dat'){
+        warnEl.style.display='block';
+        warnEl.style.background='#e6f4ea'; warnEl.style.color='#1b6b3a';
+        warnEl.innerHTML='✅ Bạn đã đạt đủ số giờ CNKT yêu cầu (đã duyệt) cho chu kỳ hiện tại.';
+      } else {
+        warnEl.style.display='none';
+      }
+    }
+
+    var tbody=document.getElementById('cmeMyTbody');
+    if(tbody){
+      tbody.innerHTML = myEntries.length ? myEntries.map(function(e){
+        var st=e.trangThai||'choduyet';
+        var canEdit = st!=='daduyet'; // đã duyệt thì khóa không cho tự sửa/xóa nữa
+        return '<tr>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec">'+cmeEsc(e.hinhThuc||'')+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec">'+cmeEsc(e.tenHoatDong||'')+(e.donVi?('<br><span style="font-size:11px;color:#888">'+cmeEsc(e.donVi)+'</span>'):'')+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec;white-space:nowrap">'+cmeFmtD(e.tuNgay)+(e.denNgay&&e.denNgay!==e.tuNgay?(' – '+cmeFmtD(e.denNgay)):'')+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;font-weight:700">'+(parseFloat(e.soGio)||0)+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec">'+cmeEsc(e.soChungNhan||'—')+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center">'+(e.fileBase64?('<button class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="cmeViewFile(\''+cmeSafeKey(cmeCu.name)+'\',\''+e._id+'\')"><i class="ti ti-paperclip"></i> Có file</button>'):'—')+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;color:'+(CME_ST_COLOR[st]||'#333')+';font-weight:700">'+(CME_ST_LBL[st]||st)+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec;color:#c62828">'+(st==='tuchoi'?cmeEsc(e.lyDoTuChoi||''):'—')+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;white-space:nowrap">'+
+            (canEdit?('<button class="kpi-btn" style="padding:3px 7px;font-size:11px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="cmeEditEntry(\''+e._id+'\')"><i class="ti ti-pencil"></i></button> '+
+            '<button class="kpi-btn" style="padding:3px 7px;font-size:11px;border:1.5px solid #c62828;color:#c62828" onclick="cmeDeleteEntry(\''+e._id+'\')"><i class="ti ti-trash"></i></button>'):'<span style="color:#aaa;font-size:11px">Đã khóa</span>')+
+          '</td>'+
+          '</tr>';
+      }).join('') : '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:14px;font-style:italic">Chưa ghi nhận hoạt động nào</td></tr>';
+    }
+    var tfoot=document.getElementById('cmeMyTfoot');
+    if(tfoot){
+      if(myEntries.length){
+        var sumAll=0, sumDaDuyet=0, sumChoDuyet=0, sumTuChoi=0;
+        myEntries.forEach(function(e){
+          var h=parseFloat(e.soGio)||0;
+          var st=e.trangThai||'choduyet';
+          sumAll+=h;
+          if(st==='daduyet') sumDaDuyet+=h;
+          else if(st==='tuchoi') sumTuChoi+=h;
+          else sumChoDuyet+=h;
+        });
+        tfoot.innerHTML='<tr style="background:#e0f2f1;font-weight:700">'+
+          '<td colspan="3" style="padding:6px 8px;border:1px solid #cde9e8;text-align:right">Tổng cộng ('+myEntries.length+' hoạt động):</td>'+
+          '<td style="padding:6px 8px;border:1px solid #cde9e8;text-align:center;color:#00473e">'+sumAll+'</td>'+
+          '<td colspan="5" style="padding:6px 8px;border:1px solid #cde9e8;font-weight:400;font-size:11.5px;color:#555">'+
+            '<span style="color:#1a7a4a">✅ Đã duyệt: '+sumDaDuyet+' giờ</span> &nbsp;|&nbsp; '+
+            '<span style="color:#8a6100">⏳ Chờ duyệt: '+sumChoDuyet+' giờ</span> &nbsp;|&nbsp; '+
+            '<span style="color:#c62828">❌ Từ chối: '+sumTuChoi+' giờ</span>'+
+          '</td>'+
+          '</tr>';
+      } else {
+        tfoot.innerHTML='';
+      }
+    }
+
+    if(cmeCu.role==='admin'){
+      cmeRenderAllStaff(); cmeRenderPending();
+      var veOv=document.getElementById('cmeViewEntriesOverlay');
+      if(veOv && veOv.style.display!=='none') cmeRenderViewEntries();
+    }
+  };
+
+  function cmeAllNames(){
+    var names = (typeof staffList!=='undefined' && Array.isArray(staffList)) ? staffList.slice() : [];
+    Object.keys(cmeEntries).forEach(function(safeKey){
+      var entries=cmeEntries[safeKey]||{};
+      var anyKey=Object.keys(entries)[0];
+      if(anyKey){ var nm=entries[anyKey].name; if(nm && names.indexOf(nm)<0) names.push(nm); }
+    });
+    names.sort(function(a,b){return a.localeCompare(b,'vi');});
+    return names;
+  }
+
+  function cmeCalcHoursInRange(name,fr,to){
+    var list=cmeGetEntriesFor(name);
+    return list.reduce(function(sum,e){
+      if((e.trangThai||'choduyet')!=='daduyet') return sum;
+      var d=e.tuNgay||'';
+      if(fr && d<fr) return sum;
+      if(to && d>to) return sum;
+      return sum + (parseFloat(e.soGio)||0);
+    },0);
+  }
+  window.cmeRenderAllStaff=function(){
+    var tbody=document.getElementById('cmeAllTbody');
+    if(!tbody) return;
+    var q=((document.getElementById('cmeAllSearch')||{}).value||'').trim().toLowerCase();
+    var stFil=(document.getElementById('cmeAllStatusFilter')||{}).value||'';
+    var rangeFr=(document.getElementById('cmeAllFrom')||{}).value||'';
+    var rangeTo=(document.getElementById('cmeAllTo')||{}).value||'';
+    var useRange=!!(rangeFr||rangeTo);
+    var names=cmeAllNames().filter(function(n){return !cmeExcluded[cmeSafeKey(n)];});
+    var cntEl=document.getElementById('cmeAllCount'); if(cntEl) cntEl.textContent=names.length;
+    var target=cmeConfig.targetHours||0;
+
+    // Tính trước dữ liệu từng người để vừa lọc vừa đếm thống kê tổng quan
+    var computed=names.map(function(name){
+      var total, status, cyc=cmeGetCycle(name);
+      if(useRange){
+        total=cmeCalcHoursInRange(name,rangeFr,rangeTo);
+        status = target>0 && total>=target ? 'dat' : 'chuadat';
+      } else {
+        total=cmeCalcTotalHours(name);
+        var daysRemaining = cyc.end ? cmeDaysBetween(cmeToday(), cyc.end) : null;
+        status=cmeGetStatus(total,target,daysRemaining,cmeConfig.warnDays||90);
+      }
+      return {name:name,total:total,status:status,cyc:cyc,cnt:cmeGetEntriesFor(name).length,prof:cmeGetProfile(name)};
+    });
+
+    var statsEl=document.getElementById('cmeAllStats');
+    if(statsEl){
+      var cDat=computed.filter(function(c){return c.status==='dat';}).length;
+      var cCanhBao=computed.filter(function(c){return c.status==='canhbao';}).length;
+      var cChuaDat=computed.filter(function(c){return c.status==='chuadat';}).length;
+      statsEl.innerHTML=
+        '<span style="background:#e6f4ea;color:#1a7a4a;border:1px solid #bfe3cc;border-radius:20px;padding:4px 12px;font-weight:700;cursor:pointer" onclick="document.getElementById(\'cmeAllStatusFilter\').value=\'dat\';cmeRenderAllStaff();">✅ Đã đạt: '+cDat+'</span>'+
+        (useRange?'':'<span style="background:#fdecea;color:#c62828;border:1px solid #f5c6c2;border-radius:20px;padding:4px 12px;font-weight:700;cursor:pointer" onclick="document.getElementById(\'cmeAllStatusFilter\').value=\'canhbao\';cmeRenderAllStaff();">⚠️ Sắp hết hạn: '+cCanhBao+'</span>')+
+        '<span style="background:#fff8e1;color:#8a6100;border:1px solid #f0dfa0;border-radius:20px;padding:4px 12px;font-weight:700;cursor:pointer" onclick="document.getElementById(\'cmeAllStatusFilter\').value=\'chuadat\';cmeRenderAllStaff();">⏳ Chưa đạt: '+cChuaDat+'</span>'+
+        '<span style="background:#eee;color:#333;border-radius:20px;padding:4px 12px;cursor:pointer" onclick="document.getElementById(\'cmeAllStatusFilter\').value=\'\';cmeRenderAllStaff();">Xem tất cả</span>';
+    }
+
+    var filtered=computed.filter(function(c){
+      if(q && !c.name.toLowerCase().includes(q)) return false;
+      if(stFil && c.status!==stFil) return false;
+      return true;
+    });
+
+    tbody.innerHTML = filtered.length ? filtered.map(function(c,i){
+      var name=c.name, total=c.total, cnt=c.cnt, cyc=c.cyc, prof=c.prof, status=c.status;
+      var stHtml = status==='dat' ? '<span style="color:#1a7a4a;font-weight:700">✅ Đạt</span>'
+        : status==='canhbao' ? '<span style="color:#c62828;font-weight:700">⚠️ Sắp hết hạn</span>'
+        : '<span style="color:#8a6100;font-weight:700">⏳ Chưa đạt</span>';
+      var ev=(i%2===1)?'background:#f7fbfa':'';
+      return '<tr style="'+ev+'">'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center">'+(i+1)+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec">'+cmeEsc(name)+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center">'+cmeEsc(prof.gioiTinh||'—')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;white-space:nowrap">'+(prof.ngaySinh?cmeFmtD(prof.ngaySinh):'—')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec">'+cmeEsc(prof.chucVu||'—')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec">'+cmeEsc(prof.trinhDoCM||prof.chucDanh||'—')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec">'+cmeEsc(prof.soCCHN||'—')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;white-space:nowrap">'+(prof.ngayCapCCHN?cmeFmtD(prof.ngayCapCCHN):'—')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;white-space:nowrap">'+(cyc.end?cmeFmtD(cyc.end):'—')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center">'+cnt+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;font-weight:700">'+total.toFixed(1)+' / '+(target||'?')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center">'+stHtml+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #e5efec;text-align:center;white-space:nowrap">'+
+          '<button class="kpi-btn" style="padding:3px 9px;font-size:11px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="cmeOpenEditProfile(\''+cmeEsc(name).replace(/'/g,"\\'")+'\')"><i class="ti ti-pencil"></i> Sửa</button> '+
+          '<button class="kpi-btn" style="padding:3px 9px;font-size:11px;border:1.5px solid #666;color:#666" onclick="cmeOpenViewEntries(\''+cmeEsc(name).replace(/'/g,"\\'")+'\')"><i class="ti ti-list"></i> Hoạt động</button>'+
+        '</td>'+
+        '</tr>';
+    }).join('') : '<tr><td colspan="13" style="text-align:center;color:#aaa;padding:14px;font-style:italic">Không có nhân viên nào khớp</td></tr>';
+  };
+
+  window.cmeRenderPending=function(){
+    var box=document.getElementById('cmePendingList');
+    if(!box) return;
+    var rows=[];
+    Object.keys(cmeEntries).forEach(function(safeKey){
+      var node=cmeEntries[safeKey]||{};
+      Object.keys(node).forEach(function(id){
+        var e=node[id];
+        if((e.trangThai||'choduyet')==='choduyet'){
+          rows.push(Object.assign({},e,{_id:id,_safeKey:safeKey}));
+        }
+      });
+    });
+    rows.sort(function(a,b){return (a.createdAt||'').localeCompare(b.createdAt||'');});
+    var cnt=document.getElementById('cmePendingCount'); if(cnt) cnt.textContent=rows.length;
+    box.innerHTML = rows.length ? rows.map(function(e){
+      var isImg = e.fileType && e.fileType.indexOf('image/')===0;
+      return '<div style="border:1.5px solid #f0d9a8;background:#fffdf6;border-radius:8px;padding:10px 12px">'+
+        '<div style="font-weight:700;font-size:13px;color:#333">'+cmeEsc(e.tenHoatDong||'')+'</div>'+
+        '<div style="font-size:12px;color:#666;margin-top:2px">'+cmeEsc(e.name||'')+' — '+cmeEsc(e.hinhThuc||'')+' — '+cmeFmtD(e.tuNgay)+(e.denNgay&&e.denNgay!==e.tuNgay?(' – '+cmeFmtD(e.denNgay)):'')+' — <b>'+(parseFloat(e.soGio)||0)+' giờ</b></div>'+
+        (e.donVi?('<div style="font-size:11.5px;color:#888">Đơn vị: '+cmeEsc(e.donVi)+'</div>'):'')+
+        (e.soChungNhan?('<div style="font-size:11.5px;color:#888">Số chứng nhận: '+cmeEsc(e.soChungNhan)+'</div>'):'')+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'+
+        (e.fileBase64?('<button class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="cmeViewFile(\''+e._safeKey+'\',\''+e._id+'\')"><i class="ti ti-paperclip"></i> Xem minh chứng</button>'):'')+
+        (isImg?('<button class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #8a6100;color:#8a6100" id="cmeOcrBtn_'+e._safeKey+'_'+e._id+'" onclick="cmeRunOcrCheck(\''+e._safeKey+'\',\''+e._id+'\')"><i class="ti ti-scan"></i> Quét & đối chiếu</button>'):'')+
+        '</div>'+
+        '<div id="cmeOcrResult_'+e._safeKey+'_'+e._id+'" style="display:none;margin-top:6px;padding:8px 10px;border-radius:6px;font-size:11.5px"></div>'+
+        '<div style="display:flex;gap:6px;margin-top:8px">'+
+          '<button class="kpi-btn" style="padding:4px 10px;font-size:12px;background:#1a7a4a;color:#fff" onclick="cmeApprove(\''+e._safeKey+'\',\''+e._id+'\')"><i class="ti ti-check"></i> Duyệt</button>'+
+          '<button class="kpi-btn" style="padding:4px 10px;font-size:12px;border:1.5px solid #c62828;color:#c62828" onclick="cmeReject(\''+e._safeKey+'\',\''+e._id+'\')"><i class="ti ti-x"></i> Từ chối</button>'+
+          '<button class="kpi-btn" style="padding:4px 10px;font-size:12px;border:1.5px solid #999;color:#666" onclick="cmeDeletePending(\''+e._safeKey+'\',\''+e._id+'\')"><i class="ti ti-trash"></i> Xóa</button>'+
+        '</div>'+
+        '</div>';
+    }).join('') : '<div style="color:#aaa;font-style:italic;padding:10px;text-align:center">Không có hoạt động nào đang chờ duyệt</div>';
+  };
+  window.cmeApprove=function(safeKey,id){
+    if(!cmeCu||cmeCu.role!=='admin') return;
+    cmeRef.child(safeKey).child(id).update({trangThai:'daduyet',lyDoTuChoi:null,duyetBoi:cmeCu.name,duyetLuc:new Date().toISOString()})
+      .catch(function(err){alert('Lỗi: '+err.message);});
+  };
+  window.cmeReject=function(safeKey,id){
+    if(!cmeCu||cmeCu.role!=='admin') return;
+    var ly=null;
+    while(true){
+      ly=prompt('Vui lòng nhập LÝ DO từ chối (bắt buộc):', ly||'');
+      if(ly===null) return; // Quản lý bấm Hủy
+      if(ly.trim()) break;
+      alert('Lý do từ chối không được để trống. Vui lòng nhập lại.');
+    }
+    cmeRef.child(safeKey).child(id).update({trangThai:'tuchoi',lyDoTuChoi:ly.trim(),duyetBoi:cmeCu.name,duyetLuc:new Date().toISOString()})
+      .catch(function(err){alert('Lỗi: '+err.message);});
+  };
+  window.cmeDeletePending=function(safeKey,id){
+    if(!cmeCu||cmeCu.role!=='admin') return;
+    var e=(cmeEntries[safeKey]||{})[id];
+    if(!confirm('Xóa hẳn phiếu "'+((e&&e.tenHoatDong)||'')+'" của '+((e&&e.name)||'')+'? Không thể khôi phục.')) return;
+    cmeLogDeletion(e,'Xóa khi đang chờ duyệt (Quản lý)').then(function(){
+      return cmeRef.child(safeKey).child(id).remove();
+    }).catch(function(err){alert('Lỗi: '+err.message);});
+  };
+
+  var cmeTesseractLoading=false;
+  function cmeLoadTesseract(cb){
+    if(typeof Tesseract!=='undefined'){ cb(); return; }
+    if(cmeTesseractLoading){ setTimeout(function(){cmeLoadTesseract(cb);},300); return; }
+    cmeTesseractLoading=true;
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=function(){ cmeTesseractLoading=false; cb(); };
+    s.onerror=function(){ cmeTesseractLoading=false; cb(); };
+    document.head.appendChild(s);
+  }
+  function cmeNormText(s){
+    return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/\s+/g,' ').trim();
+  }
+  window.cmeRunOcrCheck=function(safeKey,id){
+    var e=(cmeEntries[safeKey]||{})[id];
+    if(!e||!e.fileBase64){alert('Không tìm thấy ảnh minh chứng.');return;}
+    var resBox=document.getElementById('cmeOcrResult_'+safeKey+'_'+id);
+    var btn=document.getElementById('cmeOcrBtn_'+safeKey+'_'+id);
+    if(resBox){ resBox.style.display='block'; resBox.style.background='#fff3cd'; resBox.style.color='#7a5b00'; resBox.textContent='Đang tải công cụ nhận diện chữ, vui lòng đợi (lần đầu có thể mất chút thời gian)...'; }
+    if(btn){ btn.disabled=true; }
+    cmeLoadTesseract(function(){
+      if(typeof Tesseract==='undefined'){
+        if(resBox){ resBox.style.background='#fce4e4'; resBox.style.color='#a11d1d'; resBox.textContent='Không tải được công cụ nhận diện chữ (cần kết nối mạng). Vui lòng kiểm tra minh chứng thủ công.'; }
+        if(btn) btn.disabled=false;
+        return;
+      }
+      var dataUrl='data:'+(e.fileType||'image/jpeg')+';base64,'+e.fileBase64;
+      Tesseract.recognize(dataUrl,'vie+eng').then(function(result){
+        var rawText=result && result.data && result.data.text || '';
+        var normText=cmeNormText(rawText);
+        var checks=[];
+        if(e.soChungNhan){
+          var found=normText.indexOf(cmeNormText(e.soChungNhan))>=0;
+          checks.push({label:'Số chứng nhận ('+e.soChungNhan+')', ok:found});
+        }
+        if(e.soGio){
+          var found2=normText.indexOf(String(e.soGio))>=0 || normText.indexOf(cmeNormText(e.soGio+' gio'))>=0;
+          checks.push({label:'Số giờ ('+e.soGio+')', ok:found2});
+        }
+        if(e.tenHoatDong){
+          var words=cmeNormText(e.tenHoatDong).split(' ').filter(function(w){return w.length>=4;});
+          var matched=words.filter(function(w){return normText.indexOf(w)>=0;});
+          checks.push({label:'Tên hoạt động (khớp '+matched.length+'/'+words.length+' từ khóa)', ok: words.length>0 && matched.length/words.length>=0.5});
+        }
+        var okCount=checks.filter(function(c){return c.ok;}).length;
+        var allOk = checks.length>0 && okCount===checks.length;
+        if(resBox){
+          resBox.style.background = allOk ? '#e6f4ea' : (okCount>0 ? '#fff3cd' : '#fce4e4');
+          resBox.style.color = allOk ? '#1b6b3a' : (okCount>0 ? '#7a5b00' : '#a11d1d');
+          resBox.innerHTML = '<b>'+(allOk?'✅ Khớp tất cả tiêu chí — có thể duyệt nhanh':(okCount>0?'⚠️ Khớp một phần — nên xem lại':'❌ Không khớp — cần kiểm tra kỹ minh chứng'))+'</b><br>'+
+            checks.map(function(c){return (c.ok?'✅ ':'⚠️ ')+cmeEsc(c.label);}).join('<br>')+
+            '<div style="margin-top:4px;font-style:italic;color:#888">*Chỉ là gợi ý tự động dựa trên nhận diện chữ từ ảnh — Quản lý vẫn cần xem xét và tự quyết định Duyệt/Từ chối.</div>';
+        }
+        if(btn) btn.disabled=false;
+      }).catch(function(err){
+        if(resBox){ resBox.style.background='#fce4e4'; resBox.style.color='#a11d1d'; resBox.textContent='Lỗi khi quét ảnh: '+err.message; }
+        if(btn) btn.disabled=false;
+      });
+    });
+  };
+  window.cmeViewFile=function(safeKey,id){
+    var node=(cmeEntries[safeKey]||{})[id];
+    if(!node||!node.fileBase64){alert('Không tìm thấy file.');return;}
+    try{
+      var byteChars=atob(node.fileBase64);
+      var byteNumbers=new Array(byteChars.length);
+      for(var i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+      var byteArray=new Uint8Array(byteNumbers);
+      var mime = node.fileType || 'application/octet-stream';
+      var blob=new Blob([byteArray],{type:mime});
+      var url=URL.createObjectURL(blob);
+      window.open(url,'_blank');
+      setTimeout(function(){URL.revokeObjectURL(url);},15000);
+    }catch(err){ alert('Lỗi khi mở file: '+err.message); }
+  };
+
+  function cmeResetForm(){
+    document.getElementById('cmeInName').value='';
+    document.getElementById('cmeInOrg').value='';
+    document.getElementById('cmeInForm').value='Hội nghị, hội thảo khoa học';
+    document.getElementById('cmeInFrom').value=cmeToday();
+    document.getElementById('cmeInTo').value='';
+    document.getElementById('cmeInHours').value='';
+    document.getElementById('cmeInCert').value='';
+    document.getElementById('cmeInFile').value='';
+    document.getElementById('cmeInNote').value='';
+  }
+  window.cmeCancelEdit=function(){
+    cmeEditingId=null;
+    cmeResetForm();
+    document.getElementById('cmeSubmitBtn').innerHTML='<i class="ti ti-send"></i> Ghi nhận';
+    document.getElementById('cmeCancelEditBtn').style.display='none';
+  };
+  window.cmeEditEntry=function(id){
+    var e=cmeGetEntriesFor(cmeCu.name).find(function(x){return x._id===id;});
+    if(!e){alert('Không tìm thấy hoạt động này.');return;}
+    if((e.trangThai||'choduyet')==='daduyet'){alert('Hoạt động đã được duyệt, không thể sửa. Liên hệ Quản lý nếu cần điều chỉnh.');return;}
+    cmeEditingId=id;
+    document.getElementById('cmeInName').value=e.tenHoatDong||'';
+    document.getElementById('cmeInOrg').value=e.donVi||'';
+    document.getElementById('cmeInForm').value=e.hinhThuc||'Hội nghị, hội thảo khoa học';
+    document.getElementById('cmeInFrom').value=e.tuNgay||'';
+    document.getElementById('cmeInTo').value=e.denNgay||'';
+    document.getElementById('cmeInHours').value=e.soGio||'';
+    document.getElementById('cmeInCert').value=e.soChungNhan||'';
+    document.getElementById('cmeInFile').value='';
+    document.getElementById('cmeInNote').value=e.ghiChu||'';
+    document.getElementById('cmeSubmitBtn').innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật';
+    document.getElementById('cmeCancelEditBtn').style.display='';
+    document.getElementById('cmeInName').scrollIntoView({behavior:'smooth',block:'center'});
+  };
+  window.cmeToggleSection=function(wrapId,chevId){
+    var wrap=document.getElementById(wrapId);
+    if(!wrap) return;
+    var show=wrap.style.display==='none';
+    wrap.style.display=show?'':'none';
+    var chev=document.getElementById(chevId);
+    if(chev) chev.textContent=show?'▴':'▾';
+  };
+  window.cmeRenderDeletedLog=function(){
+    var tbody=document.getElementById('cmeDeletedTbody');
+    if(!tbody) return;
+    var rows=Object.keys(cmeDeletedLog).map(function(k){var r=cmeDeletedLog[k];r=Object.assign({},r);r._id=k;return r;});
+    rows.sort(function(a,b){return (b.deletedAt||'').localeCompare(a.deletedAt||'');});
+    var cnt=document.getElementById('cmeDeletedCount'); if(cnt) cnt.textContent=rows.length;
+    var stLbl={choduyet:'Chờ duyệt',daduyet:'Đã duyệt',tuchoi:'Từ chối'};
+    tbody.innerHTML = rows.length ? rows.map(function(r){
+      return '<tr>'+
+        '<td style="padding:5px 8px;border:1px solid #eee">'+cmeEsc(r.name||'')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee">'+cmeEsc(r.tenHoatDong||'')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee;text-align:center">'+(parseFloat(r.soGio)||0)+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee;text-align:center">'+(stLbl[r.trangThai||'choduyet']||r.trangThai)+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee">'+cmeEsc(r.reason||'')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee">'+cmeEsc(r.deletedBy||'')+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #eee;text-align:center;white-space:nowrap">'+cmeFmtDateTime(r.deletedAt)+'</td>'+
+        '</tr>';
+    }).join('') : '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:12px;font-style:italic">Chưa có phiếu nào bị xóa</td></tr>';
+  };
+  function cmeFmtDateTime(iso){
+    if(!iso) return '';
+    var d=new Date(iso);
+    if(isNaN(d.getTime())) return iso;
+    return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  function cmeLogDeletion(entry,reason){
+    if(!cmeDeletedRef||!entry) return Promise.resolve();
+    var rec=Object.assign({},entry,{deletedBy:(cmeCu&&cmeCu.name)||'Không rõ',deletedAt:new Date().toISOString(),reason:reason||''});
+    delete rec._id; delete rec._safeKey;
+    return cmeDeletedRef.push(rec).catch(function(err){ console.warn('Không ghi được log xóa.',err); });
+  }
+  window.cmeDeleteEntry=function(id){
+    var e=cmeGetEntriesFor(cmeCu.name).find(function(x){return x._id===id;});
+    if(e && (e.trangThai||'choduyet')==='daduyet'){alert('Hoạt động đã được duyệt, không thể xóa. Liên hệ Quản lý nếu cần.');return;}
+    if(!confirm('Xóa hoạt động này? Không thể khôi phục.')) return;
+    cmeLogDeletion(e,'Tự xóa bởi chủ sở hữu').then(function(){
+      return cmeRef.child(cmeSafeKey(cmeCu.name)).child(id).remove();
+    }).catch(function(err){alert('Lỗi: '+err.message);});
+  };
+  window.cmeSubmitEntry=function(){
+    if(!cmeCu){alert('Vui lòng đăng nhập lại.');return;}
+    var tenHoatDong=document.getElementById('cmeInName').value.trim();
+    var donVi=document.getElementById('cmeInOrg').value.trim();
+    var hinhThuc=document.getElementById('cmeInForm').value;
+    var tuNgay=document.getElementById('cmeInFrom').value;
+    var denNgay=document.getElementById('cmeInTo').value;
+    var soGio=parseFloat(document.getElementById('cmeInHours').value);
+    var soChungNhan=document.getElementById('cmeInCert').value.trim();
+    var ghiChu=document.getElementById('cmeInNote').value.trim();
+    var fileInput=document.getElementById('cmeInFile');
+    var file=fileInput.files && fileInput.files[0];
+    if(!tenHoatDong){alert('Vui lòng nhập tên hoạt động.');return;}
+    if(!tuNgay){alert('Vui lòng chọn ngày tham gia.');return;}
+    if(isNaN(soGio)||soGio<=0){alert('Vui lòng nhập số giờ/tín chỉ hợp lệ (lớn hơn 0).');return;}
+    var baseRec={name:cmeCu.name, tenHoatDong:tenHoatDong, donVi:donVi||null, hinhThuc:hinhThuc, tuNgay:tuNgay, denNgay:denNgay||tuNgay,
+      soGio:soGio, soChungNhan:soChungNhan||null, ghiChu:ghiChu||null};
+    var key=cmeSafeKey(cmeCu.name);
+    function finishSave(rec){
+      var p = cmeEditingId ? cmeRef.child(key).child(cmeEditingId).update(rec) : cmeRef.child(key).push(Object.assign({trangThai:'choduyet',createdAt:new Date().toISOString()},rec));
+      p.then(function(){
+        alert(cmeEditingId ? '✅ Đã cập nhật! (chờ duyệt lại)' : '✅ Đã ghi nhận! Đang chờ Quản lý duyệt.');
+        cmeEditingId=null;
+        cmeResetForm();
+        document.getElementById('cmeSubmitBtn').innerHTML='<i class="ti ti-send"></i> Ghi nhận';
+        document.getElementById('cmeCancelEditBtn').style.display='none';
+      }).catch(function(err){alert('Lỗi: '+err.message);});
+    }
+    if(cmeEditingId){
+      // sửa lại hoạt động cũ (chờ duyệt) -> reset về chờ duyệt
+      baseRec.trangThai='choduyet'; baseRec.lyDoTuChoi=null;
+    }
+    if(file){
+      var reader=new FileReader();
+      reader.onload=function(e){
+        try{
+          var data=new Uint8Array(e.target.result);
+          baseRec.fileBase64=cmeArrayBufferToBase64(data);
+          baseRec.fileType=file.type||'application/octet-stream';
+          baseRec.fileName=file.name;
+          finishSave(baseRec);
+        }catch(err){ alert('Lỗi khi xử lý file: '+err.message); }
+      };
+      reader.onerror=function(){alert('Không đọc được file đính kèm.');};
+      reader.readAsArrayBuffer(file);
+    } else {
+      finishSave(baseRec);
+    }
+  };
+
+  window.cmeOpenConfig=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới cấu hình được!');return;}
+    document.getElementById('cmeCfgStart').value=cmeConfig.cycleStart||'';
+    document.getElementById('cmeCfgYears').value=cmeConfig.cycleYears||5;
+    document.getElementById('cmeCfgTarget').value=cmeConfig.targetHours||'';
+    document.getElementById('cmeCfgWarnDays').value=cmeConfig.warnDays||90;
+    var al=document.getElementById('cmeCfgAlert'); if(al) al.style.display='none';
+    document.getElementById('cmeConfigOverlay').style.display='flex';
+  };
+  window.cmeCloseConfig=function(){
+    document.getElementById('cmeConfigOverlay').style.display='none';
+  };
+
+  window.cmeOpenScope=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới thao tác được!');return;}
+    document.getElementById('cmeScopeSearch').value='';
+    cmeRenderScopeList();
+    document.getElementById('cmeScopeOverlay').style.display='flex';
+  };
+  window.cmeCloseScope=function(){
+    document.getElementById('cmeScopeOverlay').style.display='none';
+  };
+  window.cmeRenderScopeList=function(){
+    var listEl=document.getElementById('cmeScopeList');
+    if(!listEl) return;
+    var q=((document.getElementById('cmeScopeSearch')||{}).value||'').trim().toLowerCase();
+    var names=cmeAllNames();
+    var filtered = q ? names.filter(function(n){return n.toLowerCase().includes(q);}) : names;
+    var cntEl=document.getElementById('cmeScopeCount');
+    var excludedCount=names.filter(function(n){return cmeExcluded[cmeSafeKey(n)];}).length;
+    if(cntEl) cntEl.textContent='Tổng '+names.length+' người — '+excludedCount+' Hộ lý (đã loại trừ)';
+    listEl.innerHTML = filtered.length ? filtered.map(function(n){
+      var isExcluded=!!cmeExcluded[cmeSafeKey(n)];
+      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer;'+(isExcluded?'background:#fdecea':'background:#f7fbfa')+'">'+
+        '<input type="checkbox" '+(isExcluded?'checked':'')+' onchange="cmeToggleScope(\''+cmeSafeKey(n).replace(/'/g,"\\'")+'\',this.checked)" style="width:auto">'+
+        '<span style="flex:1">'+cmeEsc(n)+'</span>'+
+        (isExcluded?'<span style="font-size:11px;color:#c62828;font-weight:700">Hộ lý</span>':'')+
+        '</label>';
+    }).join('') : '<div style="color:#aaa;font-style:italic;padding:10px;text-align:center">Không tìm thấy tên nào khớp</div>';
+  };
+  window.cmeToggleScope=function(safeKey,checked){
+    if(!cmeExcludedRef) return;
+    if(checked) cmeExcludedRef.child(safeKey).set(true);
+    else cmeExcludedRef.child(safeKey).remove();
+  };
+
+  window.cmeSaveConfig=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới cấu hình được!');return;}
+    var start=document.getElementById('cmeCfgStart').value;
+    var years=parseInt(document.getElementById('cmeCfgYears').value,10)||5;
+    var target=parseFloat(document.getElementById('cmeCfgTarget').value);
+    var warnDays=parseInt(document.getElementById('cmeCfgWarnDays').value,10)||90;
+    var alertEl=document.getElementById('cmeCfgAlert');
+    function showAl(msg,cls){ if(!alertEl)return; alertEl.style.display='block'; alertEl.style.background=cls==='err'?'#fce4e4':'#e6f4ea'; alertEl.style.color=cls==='err'?'#a11d1d':'#1b6b3a'; alertEl.textContent=msg; }
+    if(!start){showAl('Vui lòng chọn ngày bắt đầu chu kỳ.','err');return;}
+    if(isNaN(target)||target<0){showAl('Vui lòng nhập mục tiêu số giờ hợp lệ.','err');return;}
+    if(!cmeConfigRef){showAl('Chưa kết nối được Firebase.','err');return;}
+    cmeConfigRef.set({cycleStart:start,cycleYears:years,targetHours:target,warnDays:warnDays}).then(function(){
+      showAl('✅ Đã lưu cấu hình!','ok');
+      setTimeout(function(){cmeCloseConfig();},600);
+    }).catch(function(err){showAl('Lỗi: '+err.message,'err');});
+  };
+
+  window.cmeExportExcel=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới xuất được!');return;}
+    var names=cmeAllNames().filter(function(n){return !cmeExcluded[cmeSafeKey(n)];});
+    var q=((document.getElementById('cmeAllSearch')||{}).value||'').trim().toLowerCase();
+    var stFil=(document.getElementById('cmeAllStatusFilter')||{}).value||'';
+    var rangeFr=(document.getElementById('cmeAllFrom')||{}).value||'';
+    var rangeTo=(document.getElementById('cmeAllTo')||{}).value||'';
+    var useRange=!!(rangeFr||rangeTo);
+    var target=cmeConfig.targetHours||0;
+    var stLbl={dat:'Đạt',canhbao:'Sắp hết hạn',chuadat:'Chưa đạt'};
+    var rangeNote = useRange ? ('Tính giờ trong khoảng: '+(rangeFr?cmeFmtD(rangeFr):'…')+' — '+(rangeTo?cmeFmtD(rangeTo):'…')) : 'Tính theo chu kỳ 5 năm hiện hành của từng người';
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#00838f;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #005662;padding:5px}'+
+      '.td-c{border:1px solid #cde9e8;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #cde9e8;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="11" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="11" class="title">TỔNG HỢP CẬP NHẬT KIẾN THỨC LIÊN TỤC (CNKT)</td></tr>'+
+      '<tr><td colspan="11" class="org">Chỉ tính giờ đã được duyệt | Mục tiêu chung: '+target+' giờ | '+cmeEsc(rangeNote)+'</td></tr><tr></tr>'+
+      '<tr><td class="th">STT</td><td class="th">Họ tên</td><td class="th">Giới tính</td><td class="th">Ngày sinh</td><td class="th">Chức vụ</td>'+
+      '<td class="th">Chuyên môn</td><td class="th">Số CCHN</td><td class="th">Ngày cấp</td><td class="th">Hạn chu kỳ</td>'+
+      '<td class="th">Giờ tín chỉ</td><td class="th">Trạng thái</td></tr>';
+    var stt=0;
+    names.forEach(function(name){
+      if(q && !name.toLowerCase().includes(q)) return;
+      var total, status, cyc=cmeGetCycle(name);
+      if(useRange){
+        total=cmeCalcHoursInRange(name,rangeFr,rangeTo);
+        status = target>0 && total>=target ? 'dat' : 'chuadat';
+      } else {
+        total=cmeCalcTotalHours(name);
+        var daysRemaining = cyc.end ? cmeDaysBetween(cmeToday(), cyc.end) : null;
+        status=cmeGetStatus(total,target,daysRemaining,cmeConfig.warnDays||90);
+      }
+      if(stFil && status!==stFil) return;
+      stt++;
+      var prof=cmeGetProfile(name);
+      html+='<tr><td class="td-c">'+stt+'</td><td class="td">'+cmeEsc(name)+'</td>'+
+        '<td class="td-c">'+cmeEsc(prof.gioiTinh||'')+'</td><td class="td-c">'+(prof.ngaySinh?cmeFmtD(prof.ngaySinh):'')+'</td>'+
+        '<td class="td">'+cmeEsc(prof.chucVu||'')+'</td><td class="td">'+cmeEsc(prof.trinhDoCM||prof.chucDanh||'')+'</td>'+
+        '<td class="td">'+cmeEsc(prof.soCCHN||'')+'</td><td class="td-c">'+(prof.ngayCapCCHN?cmeFmtD(prof.ngayCapCCHN):'')+'</td>'+
+        '<td class="td-c">'+(cyc.end?cmeFmtD(cyc.end):'')+'</td>'+
+        '<td class="td-c">'+total.toFixed(1)+' / '+(target||'')+'</td><td class="td-c">'+(stLbl[status]||status)+'</td></tr>';
+    });
+    html+='</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='CNKT_TongHop_KhoaGMHS_'+cmeToday()+'.xls';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  };
+
+  window.cmeExportWordAll=function(){
+    if(!cmeCu||cmeCu.role!=='admin'){alert('Chỉ Quản lý mới xuất được!');return;}
+    var names=cmeAllNames().filter(function(n){return !cmeExcluded[cmeSafeKey(n)];});
+    var q=((document.getElementById('cmeAllSearch')||{}).value||'').trim().toLowerCase();
+    var stFil=(document.getElementById('cmeAllStatusFilter')||{}).value||'';
+    var rangeFr=(document.getElementById('cmeAllFrom')||{}).value||'';
+    var rangeTo=(document.getElementById('cmeAllTo')||{}).value||'';
+    var useRange=!!(rangeFr||rangeTo);
+    var target=cmeConfig.targetHours||0;
+    var stLbl={dat:'Đạt',canhbao:'Sắp hết hạn',chuadat:'Chưa đạt'};
+    var rangeNote = useRange ? ('Tính giờ trong khoảng: '+(rangeFr?cmeFmtD(rangeFr):'…')+' — '+(rangeTo?cmeFmtD(rangeTo):'…')) : 'Tính theo chu kỳ 5 năm hiện hành của từng người';
+    var rowsHtml='', stt=0;
+    names.forEach(function(name){
+      if(q && !name.toLowerCase().includes(q)) return;
+      var total, status, cyc=cmeGetCycle(name);
+      if(useRange){
+        total=cmeCalcHoursInRange(name,rangeFr,rangeTo);
+        status = target>0 && total>=target ? 'dat' : 'chuadat';
+      } else {
+        total=cmeCalcTotalHours(name);
+        var daysRemaining = cyc.end ? cmeDaysBetween(cmeToday(), cyc.end) : null;
+        status=cmeGetStatus(total,target,daysRemaining,cmeConfig.warnDays||90);
+      }
+      if(stFil && status!==stFil) return;
+      stt++;
+      var prof=cmeGetProfile(name);
+      rowsHtml+='<tr><td style="text-align:center">'+stt+'</td><td>'+cmeEsc(name)+'</td>'+
+        '<td style="text-align:center">'+cmeEsc(prof.gioiTinh||'')+'</td><td style="text-align:center">'+(prof.ngaySinh?cmeFmtD(prof.ngaySinh):'')+'</td>'+
+        '<td>'+cmeEsc(prof.chucVu||'')+'</td><td>'+cmeEsc(prof.trinhDoCM||prof.chucDanh||'')+'</td>'+
+        '<td>'+cmeEsc(prof.soCCHN||'')+'</td><td style="text-align:center">'+(prof.ngayCapCCHN?cmeFmtD(prof.ngayCapCCHN):'')+'</td>'+
+        '<td style="text-align:center">'+(cyc.end?cmeFmtD(cyc.end):'')+'</td>'+
+        '<td style="text-align:center">'+total.toFixed(1)+' / '+(target||'')+'</td><td style="text-align:center">'+(stLbl[status]||status)+'</td></tr>';
+    });
+    var html='<html><head><meta charset="UTF-8"><style>'+
+      'body{font-family:"Times New Roman";font-size:12pt}'+
+      'table{border-collapse:collapse;width:100%}th,td{border:1px solid #333;padding:4px 6px;font-size:10pt}'+
+      'th{background:#00838f;color:#fff}h2{text-align:center;font-size:15pt}p.org{text-align:center;margin:2px 0}'+
+      '</style></head><body>'+
+      '<p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</p><p class="org">KHOA GÂY MÊ HỒI SỨC</p>'+
+      '<h2>TỔNG HỢP CẬP NHẬT KIẾN THỨC LIÊN TỤC (CNKT) TOÀN KHOA</h2>'+
+      '<p style="text-align:center">Chỉ tính giờ đã được duyệt | Mục tiêu chung: '+target+' giờ | <i>'+cmeEsc(rangeNote)+'</i></p>'+
+      '<table><tr><th>STT</th><th>Họ tên</th><th>Giới tính</th><th>Ngày sinh</th><th>Chức vụ</th><th>Chuyên môn</th><th>Số CCHN</th><th>Ngày cấp</th><th>Hạn chu kỳ</th><th>Giờ tín chỉ</th><th>Trạng thái</th></tr>'+
+      rowsHtml+'</table>'+
+      '<p style="margin-top:30px;text-align:right">Gia Lai, ngày '+String(new Date().getDate()).padStart(2,'0')+' tháng '+String(new Date().getMonth()+1).padStart(2,'0')+' năm '+new Date().getFullYear()+'</p>'+
+      '</body></html>';
+    var blob=new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='CNKT_TongHop_KhoaGMHS_'+cmeToday()+'.doc';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  };
+
+  function cmeMyReportRows(){
+    var rows=cmeGetEntriesFor(cmeCu.name).sort(function(a,b){return (a.tuNgay||'').localeCompare(b.tuNgay||'');});
+    var fr=(document.getElementById('cmeExpFrom')||{}).value||'';
+    var to=(document.getElementById('cmeExpTo')||{}).value||'';
+    if(fr) rows=rows.filter(function(e){return (e.tuNgay||'')>=fr;});
+    if(to) rows=rows.filter(function(e){return (e.tuNgay||'')<=to;});
+    return rows;
+  }
+  function cmeCalcRangeSummary(rows){
+    var sumAll=0, sumDaDuyet=0, sumChoDuyet=0, sumTuChoi=0;
+    rows.forEach(function(e){
+      var h=parseFloat(e.soGio)||0;
+      var st=e.trangThai||'choduyet';
+      sumAll+=h;
+      if(st==='daduyet') sumDaDuyet+=h;
+      else if(st==='tuchoi') sumTuChoi+=h;
+      else sumChoDuyet+=h;
+    });
+    return {sumAll:sumAll,sumDaDuyet:sumDaDuyet,sumChoDuyet:sumChoDuyet,sumTuChoi:sumTuChoi,count:rows.length};
+  }
+  window.cmeExportMyExcel=function(){
+    if(!cmeCu){alert('Vui lòng đăng nhập lại.');return;}
+    var prof=cmeGetProfile(cmeCu.name);
+    var rows=cmeMyReportRows();
+    var sum=cmeCalcRangeSummary(rows);
+    var fr=(document.getElementById('cmeExpFrom')||{}).value||'';
+    var to=(document.getElementById('cmeExpTo')||{}).value||'';
+    var rangeNote = (fr||to) ? ('Khoảng thời gian: '+(fr?cmeFmtD(fr):'…')+' — '+(to?cmeFmtD(to):'…')) : 'Toàn bộ hoạt động đã ghi nhận';
+    var stLbl={choduyet:'Chờ duyệt',daduyet:'Đã duyệt',tuchoi:'Từ chối'};
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#00838f;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #005662;padding:5px}'+
+      '.td-c{border:1px solid #cde9e8;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #cde9e8;padding:4px 6px;font-size:10pt}'+
+      '.tot{background:#e0f2f1;font-weight:bold;border:1px solid #cde9e8;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="7" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="7" class="title">HỒ SƠ CNKT CÁ NHÂN — '+cmeEsc(cmeCu.name)+'</td></tr>'+
+      '<tr><td colspan="7" class="org">Chức danh: '+cmeEsc(prof.chucDanh||'')+' | Số CCHN: '+cmeEsc(prof.soCCHN||'')+' | Ngày cấp: '+cmeFmtD(prof.ngayCapCCHN)+'</td></tr>'+
+      '<tr><td colspan="7" class="org">'+cmeEsc(rangeNote)+'</td></tr><tr></tr>'+
+      '<tr><td class="th">STT</td><td class="th">Hình thức</td><td class="th">Tên hoạt động</td><td class="th">Từ ngày-Đến ngày</td><td class="th">Giờ tín chỉ</td><td class="th">Số chứng nhận</td><td class="th">Trạng thái</td></tr>';
+    rows.forEach(function(e,i){
+      html+='<tr><td class="td-c">'+(i+1)+'</td><td class="td">'+cmeEsc(e.hinhThuc||'')+'</td><td class="td">'+cmeEsc(e.tenHoatDong||'')+'</td>'+
+        '<td class="td-c">'+cmeFmtD(e.tuNgay)+(e.denNgay&&e.denNgay!==e.tuNgay?(' - '+cmeFmtD(e.denNgay)):'')+'</td>'+
+        '<td class="td-c">'+(parseFloat(e.soGio)||0)+'</td><td class="td">'+cmeEsc(e.soChungNhan||'')+'</td>'+
+        '<td class="td-c">'+(stLbl[e.trangThai||'choduyet'])+'</td></tr>';
+    });
+    html+='<tr><td colspan="4" class="tot" style="text-align:right">Tổng cộng ('+sum.count+' hoạt động):</td>'+
+      '<td class="tot" style="text-align:center">'+sum.sumAll+'</td>'+
+      '<td colspan="2" class="tot" style="font-weight:normal;font-size:9pt">Đã duyệt: '+sum.sumDaDuyet+' | Chờ duyệt: '+sum.sumChoDuyet+' | Từ chối: '+sum.sumTuChoi+'</td></tr>';
+    html+='</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='CNKT_HoSo_'+cmeCu.name.replace(/\s+/g,'_')+'_'+cmeToday()+'.xls';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  };
+  window.cmeExportMyWord=function(){
+    if(!cmeCu){alert('Vui lòng đăng nhập lại.');return;}
+    var prof=cmeGetProfile(cmeCu.name);
+    var rows=cmeMyReportRows();
+    var fr=(document.getElementById('cmeExpFrom')||{}).value||'';
+    var to=(document.getElementById('cmeExpTo')||{}).value||'';
+    var rangeNote = (fr||to) ? ('Khoảng thời gian: '+(fr?cmeFmtD(fr):'…')+' — '+(to?cmeFmtD(to):'…')) : 'Toàn bộ hoạt động đã ghi nhận';
+    var total=cmeCalcTotalHours(cmeCu.name);
+    var target=cmeConfig.targetHours||0;
+    var stLbl={choduyet:'Chờ duyệt',daduyet:'Đã duyệt',tuchoi:'Từ chối'};
+    var rowsHtml=rows.map(function(e,i){
+      return '<tr><td style="text-align:center">'+(i+1)+'</td><td>'+cmeEsc(e.hinhThuc||'')+'</td><td>'+cmeEsc(e.tenHoatDong||'')+'</td>'+
+        '<td style="text-align:center">'+cmeFmtD(e.tuNgay)+(e.denNgay&&e.denNgay!==e.tuNgay?(' - '+cmeFmtD(e.denNgay)):'')+'</td>'+
+        '<td style="text-align:center">'+(parseFloat(e.soGio)||0)+'</td><td>'+cmeEsc(e.soChungNhan||'')+'</td>'+
+        '<td style="text-align:center">'+(stLbl[e.trangThai||'choduyet'])+'</td></tr>';
+    }).join('');
+    var sum=cmeCalcRangeSummary(rows);
+    rowsHtml+='<tr style="background:#e0f2f1;font-weight:bold"><td colspan="4" style="text-align:right">Tổng cộng ('+sum.count+' hoạt động):</td>'+
+      '<td style="text-align:center">'+sum.sumAll+'</td>'+
+      '<td colspan="2" style="font-weight:normal;font-size:10pt">Đã duyệt: '+sum.sumDaDuyet+' | Chờ duyệt: '+sum.sumChoDuyet+' | Từ chối: '+sum.sumTuChoi+'</td></tr>';
+    var html='<html><head><meta charset="UTF-8"><style>'+
+      'body{font-family:"Times New Roman";font-size:13pt}'+
+      'table{border-collapse:collapse;width:100%}th,td{border:1px solid #333;padding:5px 7px;font-size:11pt}'+
+      'th{background:#00838f;color:#fff}h2{text-align:center}p.org{text-align:center;margin:2px 0}'+
+      '</style></head><body>'+
+      '<p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</p><p class="org">KHOA GÂY MÊ HỒI SỨC</p>'+
+      '<h2>HỒ SƠ CẬP NHẬT KIẾN THỨC LIÊN TỤC (CNKT)</h2>'+
+      '<p><b>Họ và tên:</b> '+cmeEsc(cmeCu.name)+' &nbsp; <b>Chức danh:</b> '+cmeEsc(prof.chucDanh||'')+'</p>'+
+      '<p><b>Trình độ chuyên môn:</b> '+cmeEsc(prof.trinhDoCM||'')+'</p>'+
+      '<p><b>Số CCHN/GPHN:</b> '+cmeEsc(prof.soCCHN||'')+' &nbsp; <b>Ngày cấp:</b> '+cmeFmtD(prof.ngayCapCCHN)+'</p>'+
+      '<p><b>Tổng số giờ đã duyệt trong chu kỳ hiện tại:</b> '+total.toFixed(1)+' / '+(target||'?')+' giờ</p>'+
+      '<p><i>'+cmeEsc(rangeNote)+'</i></p>'+
+      '<table><tr><th>STT</th><th>Hình thức</th><th>Tên hoạt động</th><th>Từ ngày-Đến ngày</th><th>Giờ tín chỉ</th><th>Số chứng nhận</th><th>Trạng thái</th></tr>'+
+      rowsHtml+'</table>'+
+      '<p style="margin-top:30px;text-align:right">Gia Lai, ngày '+String(new Date().getDate()).padStart(2,'0')+' tháng '+String(new Date().getMonth()+1).padStart(2,'0')+' năm '+new Date().getFullYear()+'</p>'+
+      '</body></html>';
+    var blob=new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='CNKT_HoSo_'+cmeCu.name.replace(/\s+/g,'_')+'_'+cmeToday()+'.doc';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
   };
 })();
 </script>
