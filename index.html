@@ -248,6 +248,8 @@ font-size:10px;color:var(--tx3)}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;
   align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
 .modal-bg.on{display:flex}
+.kpi-box-maximized{max-width:97vw!important;width:97vw!important;max-height:94vh!important;height:94vh!important}
+.kpi-wide-maximized{max-width:98vw!important;width:98vw!important}
 .modal{background:#fff;border-radius:14px;padding:22px 20px;width:100%;max-width:400px;
   box-shadow:0 8px 32px rgba(0,0,0,.18);margin:auto}
 .modal h3{font-size:15px;font-weight:700;color:var(--g800);margin-bottom:14px;
@@ -776,9 +778,10 @@ font-size:10px;color:var(--tx3)}
     <button class="tbtn" id="nbBtnGoPhanQuyen" onclick="adminGoPhanQuyen()" style="display:none;background:rgba(74,20,140,.7);border-color:#4a148c"><i class="ti ti-shield-lock"></i> Phân quyền</button>
     <button class="tbtn" onclick="nbForceReload()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3)" title="Làm mới dữ liệu"><i class="ti ti-refresh"></i> Làm mới</button>
     <button class="tbtn" onclick="goHome()"><i class="ti ti-home"></i> Trang chủ</button>
+    <button class="tbtn" id="nbWideBtn" onclick="kpiToggleWideBox('nbMainBox','nbWideBtn')"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
 
-  <div class="nb-main">
+  <div class="nb-main" id="nbMainBox">
     <!-- Alert -->
     <div class="nb-al" id="nbAl"><i class="ti ti-circle-check" id="nbAlIco"></i><span id="nbAlMsg"></span></div>
     <!-- Admin banner -->
@@ -812,7 +815,8 @@ font-size:10px;color:var(--tx3)}
             <i class="ti ti-x"></i> Hủy sửa, lập phiếu mới
           </button>
         </div>
-        <div class="nb-form-title"><i class="ti ti-file-plus"></i> Phiếu Đăng ký Nghỉ Bù</div>
+        <div class="nb-form-title" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('nbFormWrap','nbFormChevron')"><span><i class="ti ti-file-plus"></i> Phiếu Đăng ký Nghỉ Bù</span><span id="nbFormChevron" style="font-size:13px">▾</span></div>
+        <div id="nbFormWrap">
         <div class="nb-grid">
           <div class="nb-field">
             <label>Thời điểm lập phiếu</label>
@@ -893,11 +897,13 @@ font-size:10px;color:var(--tx3)}
             <i class="ti ti-send"></i> Gửi phiếu đăng ký
           </button>
         </div>
+        </div>
       </div>
       <!-- Danh sách phiếu của cá nhân -->
       <div class="nb-form-card">
-        <div class="nb-form-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="nb-form-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer" onclick="cmeToggleSection('nbMyListWrap','nbMyListChevron')">
           <span><i class="ti ti-history"></i> Phiếu đã đăng ký của tôi</span>
+          <span id="nbMyListChevron" style="font-size:13px;margin-left:auto;order:99">▾</span>
           <div id="nbMyListFilter" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
             <div style="position:relative">
               <i class="ti ti-search" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i>
@@ -929,8 +935,10 @@ font-size:10px;color:var(--tx3)}
             </button>
           </div>
         </div>
+        <div id="nbMyListWrap">
         <div id="nbDebug"></div>
         <div id="nbMyList"></div>
+        </div>
       </div>
     </div>
 
@@ -1067,9 +1075,10 @@ font-size:10px;color:var(--tx3)}
     <button class="tbtn" id="npBtnGoPhanQuyen" onclick="adminGoPhanQuyen()" style="display:none;background:rgba(74,20,140,.7);border-color:#4a148c"><i class="ti ti-shield-lock"></i> Phân quyền</button>
     <button class="tbtn" onclick="npForceReload()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3)" title="Làm mới dữ liệu"><i class="ti ti-refresh"></i> Làm mới</button>
     <button class="tbtn" onclick="goHome()"><i class="ti ti-home"></i> Trang chủ</button>
+    <button class="tbtn" id="npWideBtn" onclick="kpiToggleWideBox('npMainBox','npWideBtn')"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
 
-  <div class="nb-main">
+  <div class="nb-main" id="npMainBox">
     <div class="nb-al" id="npAl"><i class="ti ti-circle-check" id="npAlIco"></i><span id="npAlMsg"></span></div>
     <div class="abanner" id="npAdminBanner" style="background:linear-gradient(90deg,#004d40,#00695c);flex-wrap:wrap">
       <span><i class="ti ti-shield-check"></i> Chế độ Quản lý – Toàn quyền xem, duyệt và thống kê nghỉ phép</span>
@@ -1101,9 +1110,10 @@ font-size:10px;color:var(--tx3)}
             <i class="ti ti-x"></i> Hủy sửa, lập phiếu mới
           </button>
         </div>
-        <div class="nb-form-title" style="color:#00695c;border-color:#d0ece9">
-          <i class="ti ti-file-plus"></i> Phiếu Đăng ký Nghỉ Phép
+        <div class="nb-form-title" style="color:#00695c;border-color:#d0ece9;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('npFormWrap','npFormChevron')">
+          <span><i class="ti ti-file-plus"></i> Phiếu Đăng ký Nghỉ Phép</span><span id="npFormChevron" style="font-size:13px">▾</span>
         </div>
+        <div id="npFormWrap">
         <div class="nb-grid">
           <div class="nb-field">
             <label style="color:#00695c">Thời điểm lập phiếu</label>
@@ -1197,11 +1207,13 @@ font-size:10px;color:var(--tx3)}
             </button>
           </div>
         </div>
+        </div>
       </div>
       <!-- Phiếu của tôi -->
       <div class="nb-form-card" style="border-color:#a7d4ce">
-        <div class="nb-form-title" style="color:#00695c;border-color:#d0ece9;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="nb-form-title" style="color:#00695c;border-color:#d0ece9;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer" onclick="cmeToggleSection('npMyListWrap','npMyListChevron')">
           <span><i class="ti ti-history"></i> Phiếu đã đăng ký của tôi</span>
+          <span id="npMyListChevron" style="font-size:13px;margin-left:auto;order:99">▾</span>
           <div id="npMyListFilter" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
             <div style="position:relative">
               <i class="ti ti-search" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i>
@@ -1233,7 +1245,9 @@ font-size:10px;color:var(--tx3)}
             </button>
           </div>
         </div>
+        <div id="npMyListWrap">
         <div id="npMyList"></div>
+        </div>
       </div>
     </div>
 
@@ -1358,8 +1372,8 @@ font-size:10px;color:var(--tx3)}
 
 <!-- ══ MODAL: DUYỆT NGHỈ PHÉP ══ -->
 <div class="nb-modal-bg" id="npApproveModal" onclick="if(event.target===this)closeNpApprove()">
-  <div class="nb-modal">
-    <h3 style="color:#00695c"><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Phép</h3>
+  <div class="nb-modal" id="npApproveModalBox">
+    <h3 style="color:#00695c;display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Phép</span><button id="npApproveMaxBtn" onclick="kpiToggleMaximizeBox('npApproveModalBox','npApproveMaxBtn')" title="Phóng to cho rộng màn hình" style="background:#e0f2f1;border:1.5px solid #a7d4ce;color:#00695c;font-size:14px;width:26px;height:26px;border-radius:50%;cursor:pointer"><i class="ti ti-arrows-maximize"></i></button></h3>
     <div id="npApproveInfo" style="background:#e0f2f1;border:1.5px solid #a7d4ce;
       border-radius:9px;padding:11px 13px;margin-bottom:14px;font-size:13px;line-height:1.8"></div>
         <!-- Phân người thay theo từng ngày -->
@@ -1385,8 +1399,8 @@ font-size:10px;color:var(--tx3)}
 
 
 <div class="nb-modal-bg" id="nbApproveModal" onclick="if(event.target===this)closeNbApprove()">
-  <div class="nb-modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
-    <h3><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Bù</h3>
+  <div class="nb-modal" id="nbApproveModalBox" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <h3 style="display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Bù</span><button id="nbApproveMaxBtn" onclick="kpiToggleMaximizeBox('nbApproveModalBox','nbApproveMaxBtn')" title="Phóng to cho rộng màn hình" style="background:#e3f2fd;border:1.5px solid #c5cfe8;color:#0d47a1;font-size:14px;width:26px;height:26px;border-radius:50%;cursor:pointer"><i class="ti ti-arrows-maximize"></i></button></h3>
     <div id="nbApproveInfo" style="background:#f0f4ff;border:1.5px solid #c5cfe8;
       border-radius:9px;padding:11px 13px;margin-bottom:14px;font-size:13px;line-height:1.7"></div>
 
@@ -1588,11 +1602,14 @@ font-size:10px;color:var(--tx3)}
 
 <!-- ══ GIAO BAN SÁNG — tóm tắt việc cần xử lý gấp mỗi ngày ══ -->
 <div class="modal-bg" id="briefModal" onclick="if(event.target===this)closeBriefModal()">
-  <div class="modal" style="max-width:640px;max-height:86vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+  <div class="modal" id="briefModalBox" style="max-width:640px;max-height:86vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
     <div style="background:linear-gradient(135deg,#e65100,#bf360c);color:#fff;padding:16px 20px;flex-shrink:0">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px"><i class="ti ti-sunrise"></i> Giao ban sáng</div>
-        <button onclick="closeBriefModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
+        <div style="display:flex;gap:6px">
+          <button id="briefMaxBtn" onclick="kpiToggleMaximizeBox('briefModalBox','briefMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-arrows-maximize"></i></button>
+          <button onclick="closeBriefModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
+        </div>
       </div>
       <div id="briefDateLbl" style="font-size:12px;opacity:.9;margin-top:2px"></div>
     </div>
@@ -1704,7 +1721,7 @@ font-size:10px;color:var(--tx3)}
 </div>
 
 <!-- APP -->
-<div id="pqScreen" style="display:none;min-height:100vh;background:#f5f0ff;flex-direction:column"><div style="background:linear-gradient(90deg,#4a148c,#6a1e7e);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:10px"><i class="ti ti-shield-lock" style="font-size:22px"></i><div style="font-weight:700;font-size:15px">PHÂN QUYỀN NHÂN VIÊN – KHOA GÂY MÊ HỒI SỨC</div><button onclick="pqPrintList()" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> In danh sách</button><button onclick="document.getElementById('pqScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button></div><div style="max-width:960px;margin:20px auto;padding:0 16px;width:100%"><div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(106,30,126,.1)"><div style="font-weight:700;font-size:14px;color:#4a148c;margin-bottom:12px"><i class="ti ti-users"></i> Danh sách nhân viên & quyền truy cập</div><div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><div style="position:relative;flex:1;min-width:180px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i><input type="text" id="pqSearch" placeholder="Tìm tên nhân viên..." oninput="pqFilter()" style="width:100%;padding:8px 8px 8px 32px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div><button onclick="pqSelectAll(true)" style="background:#4a148c;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Tích tất cả</button><button onclick="pqSelectAll(false)" style="background:#fff;color:#4a148c;border:1.5px solid #4a148c;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Bỏ tích</button></div><div id="pqCount" style="font-size:11px;color:#7b1fa2;margin-bottom:6px;min-height:16px"></div><div id="pqTable" style="overflow-x:auto"></div><div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button onclick="pqSaveAll()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-device-floppy"></i> Lưu tất cả quyền</button><button onclick="pqResetAll()" style="background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa tất cả</button></div></div><div id="pqAlert" style="display:none;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:13px"></div></div></div>
+<div id="pqScreen" style="display:none;min-height:100vh;background:#f5f0ff;flex-direction:column"><div style="background:linear-gradient(90deg,#4a148c,#6a1e7e);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:10px"><i class="ti ti-shield-lock" style="font-size:22px"></i><div style="font-weight:700;font-size:15px">PHÂN QUYỀN NHÂN VIÊN – KHOA GÂY MÊ HỒI SỨC</div><button onclick="pqPrintList()" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> In danh sách</button><button onclick="document.getElementById('pqScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button><button id="pqWideBtn" onclick="kpiToggleWideBox('pqMainBox','pqWideBtn')" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button></div><div style="max-width:960px;margin:20px auto;padding:0 16px;width:100%" id="pqMainBox"><div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(106,30,126,.1)"><div style="font-weight:700;font-size:14px;color:#4a148c;margin-bottom:12px"><i class="ti ti-users"></i> Danh sách nhân viên & quyền truy cập</div><div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><div style="position:relative;flex:1;min-width:180px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i><input type="text" id="pqSearch" placeholder="Tìm tên nhân viên..." oninput="pqFilter()" style="width:100%;padding:8px 8px 8px 32px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div><button onclick="pqSelectAll(true)" style="background:#4a148c;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Tích tất cả</button><button onclick="pqSelectAll(false)" style="background:#fff;color:#4a148c;border:1.5px solid #4a148c;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Bỏ tích</button></div><div id="pqCount" style="font-size:11px;color:#7b1fa2;margin-bottom:6px;min-height:16px"></div><div id="pqTable" style="overflow-x:auto"></div><div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button onclick="pqSaveAll()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-device-floppy"></i> Lưu tất cả quyền</button><button onclick="pqResetAll()" style="background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa tất cả</button></div></div><div id="pqAlert" style="display:none;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:13px"></div></div></div>
 <div id="appScreen" style="display:none">
   <div class="topbar">
     <div class="tlogo"><i class="ti ti-clipboard-heart"></i></div>
@@ -1733,8 +1750,9 @@ font-size:10px;color:var(--tx3)}
     <button class="tbtn" onclick="openPersonalTTPanel()" style="background:rgba(76,29,149,.25);border-color:rgba(124,77,255,.6)" title="Thành tích cá nhân"><i class="ti ti-user-star"></i> Cá nhân</button>
     <button class="tbtn" onclick="forceReloadKanban(this)" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3)" title="Làm mới dữ liệu"><i class="ti ti-refresh"></i> Làm mới</button>
     <button class="tbtn" onclick="logout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+    <button class="tbtn" id="kanbanWideBtn" onclick="kpiToggleWideBox('kanbanMainBox','kanbanWideBtn')" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
-  <div class="main">
+  <div class="main" id="kanbanMainBox">
     <div class="al" id="alBox"><i class="ti ti-circle-check" id="alIco"></i><span id="alMsg"></span></div>
     <div class="abanner" id="abanner"><i class="ti ti-shield-check"></i> Chế độ Quản lý – Toàn quyền xem, chỉnh trạng thái và xóa báo cáo</div>
     <div class="nbar">
@@ -1835,7 +1853,10 @@ font-size:10px;color:var(--tx3)}
         <i class="ti ti-clock-down" style="font-size:18px"></i>
         <span style="font-weight:700;font-size:16px">Thống kê Downtime</span>
       </div>
-      <button class="dt-panel-close" onclick="closeDtPanel()">×</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button id="dtMaxBtn" onclick="kpiToggleMaximizeBox('dtPanel','dtMaxBtn')" title="Phóng to cho rộng màn hình" class="dt-panel-close"><i class="ti ti-arrows-maximize"></i></button>
+        <button class="dt-panel-close" onclick="closeDtPanel()">×</button>
+      </div>
     </div>
     <!-- Overview cards -->
     <div class="dt-ov" id="dtOv"></div>
@@ -1941,7 +1962,10 @@ font-size:10px;color:var(--tx3)}
           <div style="font-size:11px;opacity:.8">BVĐK Trung tâm tỉnh Gia Lai &nbsp;·&nbsp; Cập nhật hằng năm</div>
         </div>
       </div>
-      <button onclick="closeThanhTichPanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1">×</button>
+      <div style="display:flex;gap:6px">
+        <button id="ttMaxBtn" onclick="kpiToggleMaximizeBox('ttPanel','ttMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1"><i class="ti ti-arrows-maximize"></i></button>
+        <button onclick="closeThanhTichPanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1">×</button>
+      </div>
     </div>
 
     <div style="padding:18px 22px;overflow-y:auto;flex:1">
@@ -2086,7 +2110,10 @@ font-size:10px;color:var(--tx3)}
           <div style="font-size:11px;opacity:.8">Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai</div>
         </div>
       </div>
-      <button onclick="closePersonalTTPanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1">×</button>
+      <div style="display:flex;gap:6px">
+        <button id="ptMaxBtn" onclick="kpiToggleMaximizeBox('ptPanel','ptMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1"><i class="ti ti-arrows-maximize"></i></button>
+        <button onclick="closePersonalTTPanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1">×</button>
+      </div>
     </div>
 
     <div style="padding:18px 22px;overflow-y:auto;flex:1">
@@ -5673,6 +5700,22 @@ let editTargetId=null, noteTargetId=null, adminPwd=DPWD;
 // === ADMIN SESSION ===
 var adminSession={active:false,timer:null,TIMEOUT:30*60*1000}; // 30 phút
 
+/* ══ Phóng to / Thu nhỏ popup (Giao ban sáng, Downtime, Thành tích...) ══ */
+function kpiToggleMaximizeBox(boxId, btnId){
+  var box=document.getElementById(boxId);
+  var btn=document.getElementById(btnId);
+  if(!box) return;
+  var isMax=box.classList.toggle('kpi-box-maximized');
+  if(btn){ btn.innerHTML = isMax ? '<i class="ti ti-arrows-minimize"></i>' : '<i class="ti ti-arrows-maximize"></i>'; btn.title = isMax ? 'Thu nhỏ về cỡ mặc định' : 'Phóng to cho rộng màn hình'; }
+}
+function kpiToggleWideBox(boxId, btnId){
+  var box=document.getElementById(boxId);
+  var btn=document.getElementById(btnId);
+  if(!box) return;
+  var isMax=box.classList.toggle('kpi-wide-maximized');
+  if(btn){ btn.innerHTML = isMax ? '<i class="ti ti-arrows-minimize"></i> Thu gọn giao diện' : '<i class="ti ti-arrows-maximize"></i> Phóng to giao diện'; }
+}
+
 /* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
 var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0};
 var notifPmRoomsPending={}; // {roomId: số phiếu chờ của phòng đó}
@@ -7305,7 +7348,7 @@ function briefCardRow(c,mode){
   } else {
     rightBit=dtBadge(c);
   }
-  return `<div style="padding:9px 0;border-bottom:1px solid #f0f0f0;display:flex;gap:10px;align-items:flex-start">
+  return `<div onclick="closeBriefModal();openEditModal(${c.id});" style="padding:9px 0;border-bottom:1px solid #f0f0f0;display:flex;gap:10px;align-items:flex-start;cursor:pointer" onmouseover="this.style.background='#f7f7f7'" onmouseout="this.style.background=''">
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700;color:#222">${esc(c.person||'')}${c.dept?` <span style="font-weight:400;color:#888;font-size:11px">(${esc(c.dept)})</span>`:''}</div>
       <div style="font-size:12px;color:#555;margin-top:2px">${esc(c.content||c.todo||c.doing||'')}</div>
@@ -7313,6 +7356,41 @@ function briefCardRow(c,mode){
     </div>
     <div style="flex-shrink:0">${rightBit}</div>
   </div>`;
+}
+function briefGoToDctd(id){
+  if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xử lý nhanh được từ đây. Vui lòng vào thẻ "Dụng cụ sau mổ" và đăng nhập Quản lý.'); return; }
+  closeBriefModal();
+  enterDctdScreen('admin', cu.name);
+  setTimeout(function(){ try{ dctdEditRecord(id); }catch(e){ console.warn(e); } },400);
+}
+function briefGoToBg(id){
+  if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xử lý nhanh được từ đây. Vui lòng vào thẻ "Bàn giao Hồi sức" và đăng nhập Quản lý.'); return; }
+  closeBriefModal();
+  enterBgScreen('admin', cu.name);
+  setTimeout(function(){ try{ bgOpenView(id); }catch(e){ console.warn(e); } },400);
+}
+function briefGoToPm(roomId,id){
+  if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xử lý nhanh được từ đây. Vui lòng vào thẻ "Bàn giao Phòng Mổ" và đăng nhập Quản lý.'); return; }
+  closeBriefModal();
+  enterPmScreen('admin', cu.name);
+  setTimeout(function(){
+    try{ pmSelectRoom(roomId); setTimeout(function(){ pmOpenView(id); },400); }catch(e){ console.warn(e); }
+  },350);
+}
+function briefGoToQt(id){
+  closeBriefModal();
+  goQuyTrinh();
+  setTimeout(function(){
+    try{
+      if(typeof qtSetFilter==='function') qtSetFilter('Tất cả');
+      var s=document.getElementById('qtSearchInput'); if(s){ s.value=''; }
+      qtToggle(id);
+      setTimeout(function(){
+        var el=document.querySelector('.qt-card[data-id="'+id+'"]');
+        if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+      },250);
+    }catch(e){ console.warn(e); }
+  },350);
 }
 function openBriefModal(){
   document.getElementById('briefDateLbl').textContent='Ngày '+fmtD(today());
@@ -7338,8 +7416,91 @@ function openBriefModal(){
     <div style="font-size:13.5px;font-weight:700;color:#1b5e20;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-circle-check"></i> Vừa xử lý xong (hôm qua – hôm nay) (${doneRecent.length})</div>
     ${doneRecent.length?doneRecent.map(c=>briefCardRow(c,'done')).join(''):'<div style="color:#aaa;font-size:12.5px;padding:6px 0">Chưa có việc nào hoàn thành trong 2 ngày qua.</div>'}
   </div>`;
+  html+=`<div style="margin-top:18px;border-top:1.5px dashed #ddd;padding-top:14px">
+    <div style="font-size:13.5px;font-weight:700;color:#8a5300;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-tool"></i> Báo thiếu/mất dụng cụ sau mổ — chưa xử lý (<span id="briefDctdCount">…</span>)</div>
+    <div id="briefDctdBody" style="color:#aaa;font-size:12.5px;padding:6px 0">Đang tải...</div>
+  </div>`;
+  html+=`<div style="margin-top:18px">
+    <div style="font-size:13.5px;font-weight:700;color:#c62828;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-alert-triangle"></i> Bàn giao Hồi sức/Phòng Mổ — thiếu/hư hỏng tài sản (<span id="briefBgPmCount">…</span>)</div>
+    <div id="briefBgPmBody" style="color:#aaa;font-size:12.5px;padding:6px 0">Đang tải...</div>
+  </div>`;
+  html+=`<div style="margin-top:18px">
+    <div style="font-size:13.5px;font-weight:700;color:#0d47a1;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-file-certificate"></i> Quy trình mới ban hành — 7 ngày qua (<span id="briefQtCount">…</span>)</div>
+    <div id="briefQtBody" style="color:#aaa;font-size:12.5px;padding:6px 0">Đang tải...</div>
+  </div>`;
   document.getElementById('briefBody').innerHTML=html;
   document.getElementById('briefModal').classList.add('on');
+  briefLoadExtra();
+}
+function briefLoadExtra(){
+  var elDctd=document.getElementById('briefDctdBody');
+  if(elDctd){
+    db.ref('dctdRecords').once('value').then(function(snap){
+      var d=snap.val()||{};
+      var list=Object.keys(d).map(function(k){var r=d[k];r=Object.assign({},r);r._id=k;return r;})
+        .filter(function(r){return r.status==='todo';})
+        .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');})
+        .slice(0,8);
+      var cnt=document.getElementById('briefDctdCount'); if(cnt) cnt.textContent=list.length;
+      elDctd.innerHTML = list.length ? list.map(function(r){
+        var itemNames=(r.items||[]).map(function(it){return (it.name||'')+(it.qty>1?(' x'+it.qty):'');}).join(', ');
+        return '<div onclick="briefGoToDctd(\''+r._id+'\')" style="padding:8px 10px;border-radius:8px;background:#fff3e0;margin-bottom:6px;font-size:12.5px;cursor:pointer" onmouseover="this.style.background=\'#ffe0b2\'" onmouseout="this.style.background=\'#fff3e0\'">'+
+          '<b>'+esc(r.setName||'—')+'</b> — thiếu: '+esc(itemNames||'—')+
+          '<div style="color:#888;font-size:11px;margin-top:2px">Ngày: '+esc(r.date||'—')+' · Người phát hiện: '+esc(r.discoverer||'—')+(r.dept?(' — '+esc(r.dept)):'')+'</div>'+
+        '</div>';
+      }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có báo cáo thiếu/mất dụng cụ tồn đọng.</div>';
+    }).catch(function(){ elDctd.innerHTML='<div style="color:#c62828;font-size:12px">Lỗi tải dữ liệu.</div>'; });
+  }
+  var elBg=document.getElementById('briefBgPmBody');
+  if(elBg){
+    Promise.all([ db.ref('bgRecords').once('value'), db.ref('pmRecords').once('value') ]).then(function(results){
+      var list=[];
+      var bgData=results[0].val()||{};
+      Object.keys(bgData).forEach(function(k){
+        var r=bgData[k];
+        var items=Object.values(r.items||{});
+        var bad=items.filter(function(it){return it&&(it.status==='thieu'||it.status==='hong');});
+        if(bad.length){ list.push({nguon:'Bàn giao Hồi sức', kind:'bg', id:k, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, bad:bad}); }
+      });
+      results[1].forEach(function(roomSnap){
+        var roomId=roomSnap.key;
+        roomSnap.forEach(function(recSnap){
+          var r=recSnap.val();
+          var items=Object.values(r.itemsGayme||{}).concat(Object.values(r.itemsDungcu||{}));
+          var bad=items.filter(function(it){return it&&(it.status==='thieu'||it.status==='hong');});
+          if(bad.length){ list.push({nguon:'Bàn giao Phòng Mổ '+roomId, kind:'pm', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, bad:bad}); }
+        });
+      });
+      list.sort(function(a,b){return (b.ngay||'').localeCompare(a.ngay||'');});
+      list=list.slice(0,8);
+      var cnt=document.getElementById('briefBgPmCount'); if(cnt) cnt.textContent=list.length;
+      elBg.innerHTML = list.length ? list.map(function(x){
+        var names=x.bad.map(function(it){return (it.ten||'—')+(it.status==='hong'?' (hỏng)':' (thiếu)');}).join(', ');
+        var clickAttr = x.kind==='pm' ? ('briefGoToPm(\''+x.roomId+'\',\''+x.id+'\')') : ('briefGoToBg(\''+x.id+'\')');
+        return '<div onclick="'+clickAttr+'" style="padding:8px 10px;border-radius:8px;background:#fce4ec;margin-bottom:6px;font-size:12.5px;cursor:pointer" onmouseover="this.style.background=\'#f8bbd0\'" onmouseout="this.style.background=\'#fce4ec\'">'+
+          '<b>'+esc(x.nguon)+'</b> — '+esc(names)+
+          '<div style="color:#888;font-size:11px;margin-top:2px">Ngày: '+esc(x.ngay||'—')+' · '+esc(x.giao||'')+' → '+esc(x.nhan||'')+'</div>'+
+        '</div>';
+      }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có bàn giao nào báo thiếu/hư hỏng gần đây.</div>';
+    }).catch(function(){ elBg.innerHTML='<div style="color:#c62828;font-size:12px">Lỗi tải dữ liệu.</div>'; });
+  }
+  var elQt=document.getElementById('briefQtBody');
+  if(elQt){
+    db.ref('quyTrinh').once('value').then(function(snap){
+      var d=snap.val()||{};
+      var cutoff=Date.now()-7*86400000;
+      var list=Object.keys(d).map(function(k){var r=d[k];r=Object.assign({},r);r._id=k;return r;})
+        .filter(function(r){return r.createdAt && r.createdAt>=cutoff;})
+        .sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+      var cnt=document.getElementById('briefQtCount'); if(cnt) cnt.textContent=list.length;
+      elQt.innerHTML = list.length ? list.map(function(r){
+        return '<div onclick="briefGoToQt(\''+r._id+'\')" style="padding:8px 10px;border-radius:8px;background:#e3f2fd;margin-bottom:6px;font-size:12.5px;cursor:pointer" onmouseover="this.style.background=\'#bbdefb\'" onmouseout="this.style.background=\'#e3f2fd\'">'+
+          '<b>'+esc(r.ten||'Quy trình mới')+'</b>'+
+          '<div style="color:#888;font-size:11px;margin-top:2px">Nhóm: '+esc(r.nhom||'—')+' · Ngày hiệu lực: '+esc(r.ngay||'—')+'</div>'+
+        '</div>';
+      }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">Không có quy trình mới ban hành trong 7 ngày qua.</div>';
+    }).catch(function(){ elQt.innerHTML='<div style="color:#c62828;font-size:12px">Lỗi tải dữ liệu.</div>'; });
+  }
 }
 function closeBriefModal(){
   document.getElementById('briefModal').classList.remove('on');
@@ -11327,9 +11488,10 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     <button class="qt-btn" id="qtGroupBtn" style="display:none" onclick="qtOpenGroupModal()"><i class="ti ti-users-group"></i> Nhóm CM nhân viên</button>
     <button class="qt-btn" id="qtLockBtn" onclick="qtRequestAdminLogin()"><i class="ti ti-lock"></i> Quản lý đăng nhập</button>
     <button class="qt-btn" id="qtLogoutBtn" style="display:none;border-color:#e57373;color:#e57373" onclick="qtLogoutAdmin()"><i class="ti ti-lock-open"></i> Thoát Quản lý</button>
+    <button class="qt-btn" id="qtWideBtn" onclick="kpiToggleWideBox('qtMainBox','qtWideBtn')"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
 
-  <div class="qt-main">
+  <div class="qt-main" id="qtMainBox">
     <div class="qt-sidebar" id="qtSidebar"></div>
     <div class="qt-body">
       <div id="qtMyBanner"></div>
@@ -12835,8 +12997,9 @@ table.tv-tb th{background:#fbf3d9;color:#5c4a15;font-weight:700}
       <h2>🏆 Thành tích Khoa Gây mê Hồi sức</h2>
       <small>Chế độ chỉ xem — Tập thể công khai, Cá nhân riêng từng người</small>
     </div>
+    <button class="tv-btn" id="tvWideBtn" onclick="kpiToggleWideBox('tvMainBox','tvWideBtn')" style="margin-left:auto"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
-  <div class="tv-main">
+  <div class="tv-main" id="tvMainBox">
     <div class="tv-section">
       <h3>🏆 Thành tích Tập thể</h3>
       <div class="sub">Công khai cho toàn thể nhân viên khoa xem.</div>
@@ -13038,8 +13201,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <h2>📊 Đánh giá KPI — Khoa Gây mê Hồi sức</h2>
       <small>Tổng hợp tự động từ Kanban + sự kiện KPI ghi nhận (chỉ mang tính tham khảo)</small>
     </div>
+    <button class="kpi-btn" id="kpiWideBtn" onclick="kpiToggleWideBox('kpiEvalMainBox','kpiWideBtn')" style="margin-left:auto"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
-  <div class="kpi-main">
+  <div class="kpi-main" id="kpiEvalMainBox">
     <div id="kpiGateBox" class="kpi-gate">
       <div style="font-weight:700;font-size:15px;color:#0d3c78;margin-bottom:4px;text-align:center">Xem đánh giá KPI</div>
       <div style="font-size:12px;color:#5b7ba8;margin-bottom:14px;text-align:center">Xem công khai toàn khoa, gõ tên để xem KPI cá nhân, hoặc Quản lý đăng nhập để ghi nhận sự kiện</div>
@@ -14401,8 +14565,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <h2>🔄 Đổi Trực — Khoa Gây mê Hồi sức</h2>
       <small>Đăng ký đổi ca trực giữa nhân viên, theo dõi duyệt phiếu & thống kê</small>
     </div>
+    <button id="dtWideBtn" onclick="kpiToggleWideBox('dtMainBox','dtWideBtn')" class="kpi-btn" style="margin-left:auto"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
-  <div class="dt-main">
+  <div class="dt-main" id="dtMainBox">
     <div id="dtGateBox" class="kpi-gate">
       <div style="font-weight:700;font-size:15px;color:#4a0d5e;margin-bottom:4px;text-align:center">Đổi Trực</div>
       <div style="font-size:12px;color:#8a6ea8;margin-bottom:14px;text-align:center">Xem thống kê chung, đăng ký/xem phiếu của tôi, hoặc Quản lý duyệt phiếu</div>
@@ -14593,10 +14758,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" id="dctdCatalogBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="dctdOpenCatalogPanel()"><i class="ti ti-list-details"></i> Danh mục Bộ dụng cụ</button>
       <button class="kpi-btn" id="dctdKpiBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="dctdToggleKpiBox()"><i class="ti ti-alert-triangle"></i> KPI & Xác nhận hàng ngày</button>
       <button class="kpi-btn" style="background:#fff;color:#00695c" onclick="dctdLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="kpi-btn" id="dctdWideBtn" onclick="kpiToggleWideBox('dctdMainBox','dctdWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
 
-  <div style="padding:16px;max-width:1300px;margin:0 auto">
+  <div style="padding:16px;max-width:1300px;margin:0 auto" id="dctdMainBox">
     <div id="dctdWhoBanner" style="background:#fff;border:1.5px solid #b2dfdb;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#333"></div>
 
     <div class="kpi-section" id="dctdAddBox">
@@ -14860,10 +15026,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="ltRenderAll()"><i class="ti ti-refresh"></i> Làm mới</button>
       <button class="kpi-btn" id="ltUploadBtn" style="display:none;background:#fff;color:#4527a0" onclick="ltOpenUpload()"><i class="ti ti-upload"></i> Tải lên lịch mới</button>
       <button class="kpi-btn" style="background:#fff;color:#4527a0" onclick="ltLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="kpi-btn" id="ltWideBtn" onclick="kpiToggleWideBox('ltMainBox','ltWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
 
-  <div style="max-width:900px;margin:0 auto;padding:16px">
+  <div style="max-width:900px;margin:0 auto;padding:16px" id="ltMainBox">
     <div id="ltWhoBanner" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
 
     <div class="kpi-section" style="margin-bottom:14px">
@@ -14985,10 +15152,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" id="cmeExportWordBtn" style="display:none;background:#fff;color:#0d47a1" onclick="cmeExportWordAll()"><i class="ti ti-file-text"></i> Xuất Word toàn khoa</button>
       <button class="kpi-btn" id="cmeExportBtn" style="display:none;background:#fff;color:#00838f" onclick="cmeExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel toàn khoa</button>
       <button class="kpi-btn" style="background:#fff;color:#00838f" onclick="cmeLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="kpi-btn" id="cmeWideBtn" onclick="kpiToggleWideBox('cmeMainBox','cmeWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
 
-  <div style="max-width:1000px;margin:0 auto;padding:16px">
+  <div style="max-width:1000px;margin:0 auto;padding:16px" id="cmeMainBox">
     <div id="cmeWhoBanner" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
 
     <div class="kpi-section" style="margin-bottom:14px">
@@ -15301,10 +15469,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgTestConnection()"><i class="ti ti-plug-connected"></i> Kiểm tra kết nối</button>
       <button class="kpi-btn" id="bgCatalogBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgOpenCatalog()"><i class="ti ti-list-details"></i> Danh mục tài sản</button>
       <button class="kpi-btn" style="background:#fff;color:#b45309" onclick="bgLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="kpi-btn" id="bgWideBtn" onclick="kpiToggleWideBox('bgMainBox','bgWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
 
-  <div style="max-width:960px;margin:0 auto;padding:16px">
+  <div style="max-width:960px;margin:0 auto;padding:16px" id="bgMainBox">
     <div id="bgWhoBanner" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
 
     <div class="kpi-section" style="margin-bottom:14px">
@@ -15573,9 +15742,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="kpi-btn" id="pmCatalogBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenMasterCatalog()"><i class="ti ti-list-details"></i> Danh mục chung</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="kpi-btn" id="pmPickerWideBtn" onclick="kpiToggleWideBox('pmPickerMainBox','pmPickerWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
-  <div style="max-width:900px;margin:0 auto;padding:20px">
+  <div style="max-width:900px;margin:0 auto;padding:20px" id="pmPickerMainBox">
     <div id="pmWhoBanner" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
     <div class="sub" style="margin-bottom:12px">Chọn đúng phòng mổ để lập/xem biên bản bàn giao (Gây mê + Dụng cụ) của phòng đó.</div>
     <div id="pmRoomGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
@@ -15600,10 +15770,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" onclick="pmOpenCodeSign()"><i class="ti ti-key"></i> Nhập mã biên bản để ký</button>
       <button class="kpi-btn" id="pmRoomConfigBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomConfig()"><i class="ti ti-adjustments"></i> Cấu hình phòng này</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="kpi-btn" id="pmRoomWideBtn" onclick="kpiToggleWideBox('pmRoomMainBox','pmRoomWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
 
-  <div style="max-width:960px;margin:0 auto;padding:16px">
+  <div style="max-width:960px;margin:0 auto;padding:16px" id="pmRoomMainBox">
     <div id="pmWhoBanner2" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
 
     <div class="kpi-section" style="margin-bottom:14px">
