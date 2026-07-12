@@ -13047,9 +13047,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div style="text-align:center;font-size:11px;color:#aab8cf;margin:6px 0">— hoặc —</div>
       <label style="font-size:11px;font-weight:600;color:#3a5a85">Xem KPI cá nhân</label>
       <div style="display:flex;gap:6px">
-        <input id="kpiPersonalNameInput" placeholder="Gõ đúng tên của bạn..." style="flex:1">
+        <input id="kpiPersonalNameInput" list="kpiStaffDatalist" autocomplete="off" placeholder="Gõ tên để hiện gợi ý, hoặc bấm 🔍 chọn từ danh sách..." style="flex:1">
         <button type="button" class="kpi-btn" style="background:#fff;color:#0d47a1;border:1.5px solid #0d47a1;padding:7px 10px" onclick="kpiOpenStaffPicker('kpiPersonalNameInput')"><i class="ti ti-search"></i></button>
       </div>
+      <div id="kpiPersonalNameErr" style="display:none;background:#fce4ec;border:1px solid #f48fb1;border-radius:7px;padding:6px 10px;font-size:12px;color:#880e4f;margin-top:6px"></div>
       <datalist id="kpiStaffDatalist"></datalist>
       <button class="kpi-btn" style="background:#fff;color:#0d47a1;border:1.5px solid #0d47a1;width:100%;justify-content:center;display:flex;margin-top:8px;margin-bottom:14px" onclick="kpiTryPersonal()"><i class="ti ti-user"></i> Xem KPI của tôi</button>
       <div style="text-align:center;font-size:11px;color:#aab8cf;margin:6px 0">— hoặc —</div>
@@ -13139,7 +13140,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <div class="kpi-f">
             <label>Nhân viên liên quan</label>
             <div style="display:flex;gap:6px">
-              <input id="kpiEvPerson" placeholder="Chọn/gõ tên nhân viên..." style="flex:1">
+              <input id="kpiEvPerson" list="kpiStaffDatalist2" autocomplete="off" placeholder="Gõ tên để hiện gợi ý, hoặc bấm 🔍 chọn từ danh sách..." style="flex:1">
               <button type="button" class="kpi-btn" style="background:#0d47a1;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('kpiEvPerson')"><i class="ti ti-search"></i></button>
             </div>
             <datalist id="kpiStaffDatalist2"></datalist>
@@ -13362,14 +13363,26 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   };
   window.kpiTryPersonal = function(){
     var typed = document.getElementById('kpiPersonalNameInput').value.trim();
+    var errEl = document.getElementById('kpiPersonalNameErr');
     var names = (typeof staffList!=='undefined') ? staffList : [];
-    if(!names.includes(typed)){
-      document.getElementById('kpiGateErr').textContent='Không tìm thấy tên này trong danh sách nhân viên!';
-      document.getElementById('kpiGateErr').style.display='block';
+    if(errEl) errEl.style.display='none';
+    if(!typed){
+      if(errEl){errEl.textContent='Vui lòng gõ tên hoặc bấm 🔍 để chọn từ danh sách!';errEl.style.display='block';}
       return;
     }
-    document.getElementById('kpiGateErr').style.display='none';
-    kpiEnter('personal', typed);
+    var match = names.find(function(n){ return n===typed; });
+    if(!match){
+      function noAccent(str){try{return str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}catch(e){return String(str).toLowerCase();}}
+      var typedN = noAccent(typed);
+      var candidates = names.filter(function(n){ return noAccent(n)===typedN; });
+      if(candidates.length===1){ match=candidates[0]; }
+    }
+    if(!match){
+      if(errEl){errEl.innerHTML='⚠️ Không tìm thấy tên <b>"'+typed+'"</b> trong danh sách nhân viên — vui lòng bấm 🔍 để chọn đúng tên từ danh sách.';errEl.style.display='block';}
+      return;
+    }
+    document.getElementById('kpiPersonalNameInput').value=match;
+    kpiEnter('personal', match);
   };
 
   function kpiEnter(mode, personName){
@@ -14443,14 +14456,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <div class="kpi-f">
             <label>Người đăng ký (đang có ca trực) <span style="color:red">*</span></label>
             <div style="display:flex;gap:6px">
-              <input id="dtRegPerson" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
+              <input id="dtRegPerson" list="kpiStaffDatalist" autocomplete="off" placeholder="Gõ tên để hiện gợi ý, hoặc bấm 🔍 chọn từ danh sách..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
               <button type="button" class="kpi-btn" style="background:#7b1fa2;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('dtRegPerson')"><i class="ti ti-search"></i></button>
             </div>
           </div>
           <div class="kpi-f">
             <label>Người nhận trực thay <span style="color:red">*</span></label>
             <div style="display:flex;gap:6px">
-              <input id="dtRegPersonNew" placeholder="Chọn/gõ tên..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
+              <input id="dtRegPersonNew" list="kpiStaffDatalist" autocomplete="off" placeholder="Gõ tên để hiện gợi ý, hoặc bấm 🔍 chọn từ danh sách..." style="flex:1" oninput="dtCheckFrequency()" onchange="dtCheckFrequency()">
               <button type="button" class="kpi-btn" style="background:#7b1fa2;color:#fff;padding:7px 10px" onclick="kpiOpenStaffPicker('dtRegPersonNew')"><i class="ti ti-search"></i></button>
             </div>
           </div>
