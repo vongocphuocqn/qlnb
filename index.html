@@ -631,6 +631,17 @@ font-size:10px;color:var(--tx3)}
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
+    <div id="notifHomeCard" style="display:none;margin-bottom:10px;background:linear-gradient(135deg,#c62828,#8e0000);color:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 3px 10px rgba(198,40,40,.35)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <i class="ti ti-bell-ringing" style="font-size:26px"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:14.5px">🔔 Thông báo — Phiếu cần xử lý</div>
+          <div id="notifHomeSummary" style="font-size:12px;opacity:.92;margin-top:2px">Đang tải...</div>
+        </div>
+        <div id="notifBadgeCount" style="background:#fff;color:#c62828;border-radius:999px;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;padding:0 8px;flex-shrink:0">0</div>
+      </div>
+      <div id="notifHomeDetail" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+    </div>
     <div class="home-cards" style="grid-template-columns:1fr 1fr;gap:10px">
       <div class="home-card" onclick="goAdminDirect()" style="background:linear-gradient(135deg,#6a1f6a,#4a0d5e);color:#fff;border-color:#3a0a4a"><i class="ti ti-shield-check"></i><div class="home-card-title">Quản lý<br>Admin</div><div class="home-card-sub">Toàn quyền quản trị</div></div>
       <div class="home-card" onclick="goAdminPhanQuyen()" style="background:linear-gradient(135deg,#4a148c,#6a1e7e);color:#fff;border-color:#3a0a4a"><i class="ti ti-shield-lock"></i><div class="home-card-title">Phân quyền<br>Nhân viên</div><div class="home-card-sub">Cấp & thu hồi quyền truy cập</div></div>
@@ -5646,6 +5657,7 @@ const pwdRef   = db.ref('config/adminPwd');
 // Tải thẻ thông báo hôm nay sau khi Firebase sẵn sàng
 setTimeout(function(){homeTBInit();},1200);
 setTimeout(function(){ltHomeNoticeInit();},1200);
+setTimeout(function(){notifInit();},1200);
 
 /* ══════════════════════════════
    STATE
@@ -5660,6 +5672,148 @@ let DEPT_OPTS=[...DEPT_DEFAULT];
 let editTargetId=null, noteTargetId=null, adminPwd=DPWD;
 // === ADMIN SESSION ===
 var adminSession={active:false,timer:null,TIMEOUT:30*60*1000}; // 30 phút
+
+/* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
+var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0};
+var notifPmRoomsPending={}; // {roomId: số phiếu chờ của phòng đó}
+var notifMeta={
+  dctd:{label:'Dụng cụ sau mổ — chưa xử lý', icon:'ti-tool'},
+  bg:{label:'Bàn giao Hồi sức — chờ hoàn thành', icon:'ti-clipboard-check'},
+  pm:{label:'Bàn giao Phòng Mổ — chờ hoàn thành', icon:'ti-building-hospital'},
+  dt:{label:'Đổi Trực — chờ duyệt', icon:'ti-replace'},
+  np:{label:'Nghỉ Phép — chờ duyệt', icon:'ti-beach'},
+  nb:{label:'Nghỉ Bù — chờ duyệt', icon:'ti-calendar-off'},
+  cnkt:{label:'CNKT — chờ duyệt', icon:'ti-award'}
+};
+function notifInit(){
+  try{
+    db.ref('dctdRecords').on('value',function(snap){
+      var d=snap.val()||{}, n=0;
+      Object.values(d).forEach(function(r){ if(r&&r.status==='todo') n++; });
+      notifCounts.dctd=n; notifRenderHome();
+    });
+  }catch(e){ console.warn('notifInit dctd:',e); }
+  try{
+    db.ref('bgRecords').on('value',function(snap){
+      var d=snap.val()||{}, n=0;
+      Object.values(d).forEach(function(r){ if(r&&r.trangThai==='choduyet') n++; });
+      notifCounts.bg=n; notifRenderHome();
+    });
+  }catch(e){ console.warn('notifInit bg:',e); }
+  try{
+    db.ref('pmRecords').on('value',function(snap){
+      var n=0, roomsMap={};
+      snap.forEach(function(roomSnap){
+        var c=0;
+        roomSnap.forEach(function(recSnap){
+          var r=recSnap.val();
+          if(r&&r.trangThai==='choduyet'){ n++; c++; }
+        });
+        if(c>0) roomsMap[roomSnap.key]=c;
+      });
+      notifCounts.pm=n; notifPmRoomsPending=roomsMap; notifRenderHome();
+      try{ if(document.getElementById('pmRoomGrid') && document.getElementById('pmRoomPickerScreen').style.display!=='none') pmRenderRoomGrid(); }catch(e2){}
+    });
+  }catch(e){ console.warn('notifInit pm:',e); }
+  try{
+    db.ref('doiTruc').on('value',function(snap){
+      var d=snap.val()||{}, n=0;
+      Object.values(d).forEach(function(r){ if(r&&(r.trangThai==='cho_duyet'||!r.trangThai)) n++; });
+      notifCounts.dt=n; notifRenderHome();
+    });
+  }catch(e){ console.warn('notifInit dt:',e); }
+  try{
+    db.ref('nghiPhep').on('value',function(snap){
+      var d=snap.val()||{}, n=0;
+      Object.values(d).forEach(function(r){ if(r&&r.status==='pending') n++; });
+      notifCounts.np=n; notifRenderHome();
+    });
+  }catch(e){ console.warn('notifInit np:',e); }
+  try{
+    db.ref('nghiBu').on('value',function(snap){
+      var d=snap.val()||{}, n=0;
+      Object.values(d).forEach(function(r){ if(r&&r.status==='pending') n++; });
+      notifCounts.nb=n; notifRenderHome();
+    });
+  }catch(e){ console.warn('notifInit nb:',e); }
+  try{
+    db.ref('cnktEntries').on('value',function(snap){
+      var n=0;
+      snap.forEach(function(personSnap){
+        personSnap.forEach(function(entrySnap){
+          var e=entrySnap.val();
+          if(e&&(e.trangThai||'choduyet')==='choduyet') n++;
+        });
+      });
+      notifCounts.cnkt=n; notifRenderHome();
+    });
+  }catch(e){ console.warn('notifInit cnkt:',e); }
+}
+function notifRenderHome(){
+  var card=document.getElementById('notifHomeCard');
+  if(!card) return;
+  if(!adminSession.active){ card.style.display='none'; return; }
+  var total=0; Object.keys(notifCounts).forEach(function(k){ total+=notifCounts[k]||0; });
+  var badge=document.getElementById('notifBadgeCount'); if(badge) badge.textContent=total;
+  var summary=document.getElementById('notifHomeSummary');
+  var detail=document.getElementById('notifHomeDetail');
+  card.style.display='block';
+  if(total===0){
+    card.style.background='linear-gradient(135deg,#2e7d32,#1b5e20)';
+    if(summary) summary.textContent='✅ Không có phiếu nào cần xử lý — mọi thứ đã ổn.';
+    if(detail) detail.innerHTML='';
+    return;
+  }
+  card.style.background='linear-gradient(135deg,#c62828,#8e0000)';
+  if(summary) summary.textContent='Có '+total+' phiếu đang chờ xử lý — bấm vào từng mục để xử lý ngay.';
+  var rows='';
+  Object.keys(notifMeta).forEach(function(k){
+    var n=notifCounts[k]||0; if(n<=0) return;
+    var m=notifMeta[k];
+    rows+='<div onclick="notifGoTo(\''+k+'\')" style="background:rgba(255,255,255,.16);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'rgba(255,255,255,.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,.16)\'"><span style="font-size:13px"><i class="ti '+m.icon+'"></i> '+m.label+'</span><b style="font-size:14px">'+n+'</b></div>';
+  });
+  if(detail) detail.innerHTML=rows;
+}
+function notifGoTo(key){
+  if(!adminSession.active){ alert('Phiên Quản lý đã hết hạn, vui lòng đăng nhập lại ở thẻ "Quản lý Admin"!'); return; }
+  adminSessionReset();
+  document.getElementById('homeScreen').style.display='none';
+  cu={name:'Quản lý',role:'admin'};
+  nbCurrentUser={name:'Quản lý',role:'admin'};
+  npCurrentUser={name:'Quản lý',role:'admin'};
+  function scrollToOpen(wrapId,chevId){
+    setTimeout(function(){
+      var wrap=document.getElementById(wrapId);
+      if(wrap && wrap.style.display==='none' && typeof cmeToggleSection==='function') cmeToggleSection(wrapId,chevId);
+      var el=document.getElementById(wrapId); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+    },500);
+  }
+  if(key==='dctd'){
+    enterDctdScreen('admin','Quản lý');
+    setTimeout(function(){ var el=document.getElementById('dctdColTodo'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },400);
+  } else if(key==='bg'){
+    enterBgScreen('admin','Quản lý');
+    scrollToOpen('bgPendingWrap','bgPendingChevron');
+  } else if(key==='pm'){
+    enterPmScreen('admin','Quản lý');
+    setTimeout(function(){
+      var rooms=Object.keys(notifPmRoomsPending||{});
+      if(rooms.length===1){ pmSelectRoom(rooms[0]); scrollToOpen('pmPendingWrap','pmPendingChevron'); }
+    },350);
+  } else if(key==='dt'){
+    goDoiTrucView();
+    setTimeout(function(){ if(typeof window.dtEnterAdminDirect==='function') window.dtEnterAdminDirect(); setTimeout(function(){ if(typeof dtSwitchTab==='function') dtSwitchTab(2); },200); },200);
+  } else if(key==='np'){
+    enterNpScreen();
+    setTimeout(function(){ if(typeof switchNpTab==='function') switchNpTab(2); },300);
+  } else if(key==='nb'){
+    enterNbScreen();
+    setTimeout(function(){ if(typeof switchNbTab==='function') switchNbTab(2); },300);
+  } else if(key==='cnkt'){
+    enterCmeScreen('admin','Quản lý');
+    scrollToOpen('cmePendingWrap','cmePendingChevron');
+  }
+}
 /* ══ Tùy chỉnh thanh công cụ Kanban — riêng từng tài khoản Admin, lưu qua Firebase ══ */
 var TOOLBAR_BTN_DEFS=[
   {id:'btnStaff',label:'Nhân viên',icon:'ti-users',group:'daily',def:true},
@@ -5773,15 +5927,17 @@ function adminSessionReset(){
 }
 function _adminSessionUpdateBadge(){
   var badge=document.getElementById('adminSessionBadge');
-  if(!badge)return;
-  if(adminSession.active){
-    badge.style.display='flex';
-    var remaining=Math.round(adminSession.TIMEOUT/60000);
-    badge.innerHTML='<i class="ti ti-shield-check"></i> Admin đã xác thực &nbsp;<small style="opacity:.8">(tự đăng xuất sau '+remaining+' phút không dùng)</small>'
-      +'<button onclick="adminSessionExpire();closeAdminHomeModal();" style="margin-left:12px;background:rgba(255,255,255,.2);border:none;color:#fff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:12px">Đăng xuất Admin</button>';
-  } else {
-    badge.style.display='none';
+  if(badge){
+    if(adminSession.active){
+      badge.style.display='flex';
+      var remaining=Math.round(adminSession.TIMEOUT/60000);
+      badge.innerHTML='<i class="ti ti-shield-check"></i> Admin đã xác thực &nbsp;<small style="opacity:.8">(tự đăng xuất sau '+remaining+' phút không dùng)</small>'
+        +'<button onclick="adminSessionExpire();closeAdminHomeModal();" style="margin-left:12px;background:rgba(255,255,255,.2);border:none;color:#fff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:12px">Đăng xuất Admin</button>';
+    } else {
+      badge.style.display='none';
+    }
   }
+  try{ notifRenderHome(); }catch(e){}
 }
 
 /* ── HELPERS ── */
@@ -14823,7 +14979,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     <div id="cmeWhoBanner" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
 
     <div class="kpi-section" style="margin-bottom:14px">
-      <h3 style="margin:0 0 10px;font-size:15px;color:#00838f"><i class="ti ti-id-badge-2"></i> Hồ sơ của tôi</h3>
+      <h3 style="margin:0 0 10px;font-size:15px;color:#00838f;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('cmeProfBlockWrap','cmeProfBlockChevron')"><span><i class="ti ti-id-badge-2"></i> Hồ sơ của tôi</span><span id="cmeProfBlockChevron" style="font-size:13px">▾</span></h3>
+      <div id="cmeProfBlockWrap">
       <div id="cmeProfSummary" style="display:none;margin-bottom:14px;padding:10px 14px;background:#f5fbfb;border:1.5px solid #cde9e8;border-radius:8px;font-size:13px;color:#333"></div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
         <button class="kpi-btn" id="cmeProfEditToggleBtn" style="padding:4px 10px;font-size:12px;border:1.5px solid #00838f;color:#00838f" onclick="cmeToggleProfileForm()"><i class="ti ti-pencil"></i> Sửa hồ sơ</button>
@@ -14857,10 +15014,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div class="sub" style="margin:6px 0 10px">Chu kỳ 5 năm của bạn sẽ tự tính từ "Ngày cấp CCHN/GPHN" này. Nếu để trống, hệ thống dùng chu kỳ chung của khoa.</div>
       <button class="kpi-btn" style="background:#00838f;color:#fff" onclick="cmeSaveProfile()"><i class="ti ti-device-floppy"></i> Lưu hồ sơ</button>
       </div>
+      </div>
     </div>
 
     <div class="kpi-section" style="margin-bottom:14px">
-      <h3 style="margin:0 0 4px;font-size:15px;color:#00838f"><i class="ti ti-chart-donut"></i> Chu kỳ hiện tại của tôi</h3>
+      <h3 style="margin:0 0 4px;font-size:15px;color:#00838f;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('cmeCycleBlockWrap','cmeCycleBlockChevron')"><span><i class="ti ti-chart-donut"></i> Chu kỳ hiện tại của tôi</span><span id="cmeCycleBlockChevron" style="font-size:13px">▾</span></h3>
+      <div id="cmeCycleBlockWrap">
       <div id="cmeCycleInfo" style="font-size:12.5px;color:#666;margin-bottom:10px"></div>
       <div style="background:#eee;border-radius:20px;height:22px;overflow:hidden;position:relative">
         <div id="cmeProgressBar" style="height:100%;background:linear-gradient(90deg,#00838f,#00acc1);width:0%;transition:width .3s"></div>
@@ -14877,10 +15036,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <button class="kpi-btn" style="border:1.5px solid #0d47a1;color:#0d47a1" onclick="cmeExportMyWord()"><i class="ti ti-file-text"></i> Xuất Word hồ sơ của tôi</button>
         <button class="kpi-btn" style="border:1.5px solid #1a7a4a;color:#1a7a4a" onclick="cmeExportMyExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel hồ sơ của tôi</button>
       </div>
+      </div>
     </div>
 
     <div class="kpi-section" style="margin-bottom:14px">
-      <h3 style="margin:0 0 12px;font-size:15px;color:#00838f"><i class="ti ti-square-plus"></i> Ghi nhận hoạt động CNKT của tôi</h3>
+      <h3 style="margin:0 0 12px;font-size:15px;color:#00838f;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('cmeEntryFormWrap','cmeEntryFormChevron')"><span><i class="ti ti-square-plus"></i> Ghi nhận hoạt động CNKT của tôi</span><span id="cmeEntryFormChevron" style="font-size:13px">▾</span></h3>
+      <div id="cmeEntryFormWrap">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
         <div class="fg" style="grid-column:1/-1"><label>Tên hoạt động (khóa học/hội thảo/tập huấn...) *</label><input type="text" id="cmeInName" placeholder="VD: Hội nghị Gây mê Hồi sức toàn quốc 2026"></div>
         <div class="fg">
@@ -14910,6 +15071,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       </div>
       <button class="kpi-btn" id="cmeSubmitBtn" style="background:#00838f;color:#fff" onclick="cmeSubmitEntry()"><i class="ti ti-send"></i> Ghi nhận</button>
       <button class="kpi-btn" id="cmeCancelEditBtn" style="display:none;border:1.5px solid #999;color:#666;margin-left:8px" onclick="cmeCancelEdit()"><i class="ti ti-x"></i> Hủy sửa</button>
+      </div>
     </div>
 
     <div class="kpi-section" style="margin-bottom:14px">
@@ -15221,7 +15383,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <div class="sub" style="margin-top:8px">Bắt buộc <b>người bàn giao (bạn) phải ký</b>. Nếu người nhận đang ở cùng máy, đưa máy cho họ ký luôn ở ô bên phải rồi bấm Lưu để hoàn thành ngay. <b>Nếu người nhận không có mặt</b>, cứ để trống ô bên phải rồi bấm Lưu — hệ thống sẽ tạo mã QR để gửi cho họ tự ký sau, biên bản tạm ở trạng thái "Chờ hoàn thành".</div>
       </div>
       <div id="bgFormAlert" style="display:none;margin-top:10px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600"></div>
-      <button class="kpi-btn" style="background:#b45309;color:#fff;margin-top:12px" onclick="bgSubmitRecord()"><i class="ti ti-send"></i> Lưu biên bản bàn giao</button>
+      <div id="bgEditBanner" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12.5px;background:#fff3e0;color:#8a5300;border:1.5px solid #ffcc80"></div>
+      <button class="kpi-btn" id="bgSubmitBtn" style="background:#b45309;color:#fff;margin-top:12px" onclick="bgSubmitRecord()"><i class="ti ti-send"></i> Lưu biên bản bàn giao</button>
+      <button class="kpi-btn" id="bgCancelEditBtn" style="display:none;border:1.5px solid #999;color:#666;margin-top:12px;margin-left:8px" onclick="bgCancelEdit()"><i class="ti ti-x"></i> Hủy sửa</button>
       </div>
     </div>
 
@@ -15349,6 +15513,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupGiao" checked style="width:auto">Nhóm Giao - Nhận</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupKhong" checked style="width:auto">Nhóm Không bàn giao</label>
       <button class="kpi-btn" style="padding:4px 10px;font-size:12px;background:#b45309;color:#fff" onclick="bgExportWord()"><i class="ti ti-file-text"></i> Xuất Word</button>
+      <button class="kpi-btn" id="bgEditBtn" style="display:none;padding:4px 10px;font-size:12px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="bgStartEdit()"><i class="ti ti-pencil"></i> Sửa biên bản</button>
       <button class="kpi-btn" id="bgDeleteBtn" style="display:none;padding:4px 10px;font-size:12px;background:#c62828;color:#fff" onclick="bgDeleteRecord()"><i class="ti ti-trash"></i> Xóa biên bản này</button>
     </div>
     <div class="kpi-modal-list" id="bgViewBody" style="max-height:70vh;padding:12px 16px"></div>
@@ -15513,7 +15678,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <div class="sub" style="margin-top:8px">Bắt buộc <b>người bàn giao (bạn) phải ký</b>. Nếu người nhận không có mặt, cứ để trống ô bên phải rồi bấm Lưu — hệ thống sẽ tạo mã QR/mã tra cứu để gửi cho họ tự ký sau.</div>
       </div>
       <div id="pmFormAlert" style="display:none;margin-top:10px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600"></div>
-      <button class="kpi-btn" style="background:#0d6e6e;color:#fff;margin-top:12px" onclick="pmSubmitRecord()"><i class="ti ti-send"></i> Lưu biên bản bàn giao</button>
+      <div id="pmEditBanner" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12.5px;background:#fff3e0;color:#8a5300;border:1.5px solid #ffcc80"></div>
+      <button class="kpi-btn" id="pmSubmitBtn" style="background:#0d6e6e;color:#fff;margin-top:12px" onclick="pmSubmitRecord()"><i class="ti ti-send"></i> Lưu biên bản bàn giao</button>
+      <button class="kpi-btn" id="pmCancelEditBtn" style="display:none;border:1.5px solid #999;color:#666;margin-top:12px;margin-left:8px" onclick="pmCancelEdit()"><i class="ti ti-x"></i> Hủy sửa</button>
       </div>
     </div>
 
@@ -15638,6 +15805,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupGayme" checked style="width:auto">Gây mê</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupDungcu" checked style="width:auto">Dụng cụ</label>
       <button class="kpi-btn" style="padding:4px 10px;font-size:12px;background:#0d6e6e;color:#fff" onclick="pmExportWord()"><i class="ti ti-file-text"></i> Xuất Word</button>
+      <button class="kpi-btn" id="pmEditBtn" style="display:none;padding:4px 10px;font-size:12px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="pmStartEdit()"><i class="ti ti-pencil"></i> Sửa biên bản</button>
       <button class="kpi-btn" id="pmDeleteBtn" style="display:none;padding:4px 10px;font-size:12px;background:#c62828;color:#fff" onclick="pmDeleteRecord()"><i class="ti ti-trash"></i> Xóa biên bản này</button>
     </div>
     <div class="kpi-modal-list" id="pmViewBody" style="max-height:70vh;padding:12px 16px"></div>
@@ -19261,6 +19429,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   var bgRecords={}; // {pushId: record}
   var bgOtherCatalog={}; // {itemId: {ten}} — danh mục "bàn giao khác" tự tích lũy theo thời gian
   var bgOtherItemsTemp=[]; // [{ten,status,ghiChu}] — các mục "khác" thêm cho biên bản đang lập
+  var bgEditingId=null; // id biên bản đang SỬA (null = đang lập biên bản mới)
   var bgCurTab='giao';
   var bgItemStates={}; // {itemId: {status, ghiChu, vatTuChecked:{idx:bool}}}
   var bgSelectedNhan=null;
@@ -19573,6 +19742,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     el.scrollIntoView({behavior:'smooth',block:'center'});
   }
   window.bgSubmitRecord=function(){
+   if(bgEditingId){ return bgSaveEditedRecord(); }
    try{
     if(!bgCu){bgShowFormAlert('Vui lòng đăng nhập lại.','err');return;}
     var date=document.getElementById('bgInDate').value;
@@ -19660,6 +19830,99 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
      console.error('bgSubmitRecord error:', errSubmit);
    }
   };
+
+  window.bgStartEdit=function(){
+    if(!bgCu||bgCu.role!=='admin'){ alert('Chỉ Quản lý mới được sửa biên bản!'); return; }
+    var id=bgViewingId;
+    var r=bgRecords[id];
+    if(!r){ alert('Không tìm thấy biên bản.'); return; }
+    bgEditingId=id;
+    bgCloseView();
+    // Mở khối "Lập biên bản" nếu đang thu gọn
+    var wrap=document.getElementById('bgFormWrap');
+    if(wrap && wrap.style.display==='none'){ cmeToggleSection('bgFormWrap','bgFormChevron'); }
+    // Điền lại dữ liệu cũ vào form
+    document.getElementById('bgInDate').value=r.ngay||'';
+    document.getElementById('bgInGio').value=r.gio||'';
+    document.getElementById('bgInCa').value=r.ca||'Ngày';
+    document.getElementById('bgInNhan').value=r.nguoiNhan||'';
+    bgSelectedNhan=r.nguoiNhan||null;
+    document.getElementById('bgInGhiChuChung').value=r.ghiChuChung||'';
+    document.getElementById('bgConfirmNhanName').textContent=r.nguoiNhan||'— chưa chọn —';
+    // Điền lại trạng thái từng tài sản
+    bgItemStates={};
+    Object.keys(r.items||{}).forEach(function(k){
+      var it=r.items[k];
+      bgItemStates[k]={status:it.status||'du', ghiChu:it.ghiChu||'', vatTuChecked:it.vatTuChecked||{}, soLuong:(it.soLuong!=null?it.soLuong:undefined)};
+    });
+    bgOtherItemsTemp=(r.khac||[]).slice();
+    bgRenderOtherItems();
+    bgRenderItemList();
+    // Đổi giao diện nút sang chế độ Sửa
+    var btn=document.getElementById('bgSubmitBtn');
+    if(btn) btn.innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật biên bản (Sửa)';
+    var cancelBtn=document.getElementById('bgCancelEditBtn'); if(cancelBtn) cancelBtn.style.display='inline-flex';
+    var banner=document.getElementById('bgEditBanner');
+    if(banner){ banner.style.display='block'; banner.innerHTML='<i class="ti ti-pencil"></i> Đang <b>SỬA</b> biên bản ngày '+bgFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — chỉ cập nhật lại thông tin, <b>không cần ký lại</b>. Chữ ký & trạng thái hoàn thành gốc được giữ nguyên.'; }
+    var al=document.getElementById('bgFormAlert'); if(al) al.style.display='none';
+    setTimeout(function(){ wrap.scrollIntoView({behavior:'smooth',block:'start'}); },150);
+  };
+  window.bgCancelEdit=function(){
+    bgEditingId=null;
+    bgItemStates={}; bgOtherItemsTemp=[];
+    bgRenderOtherItems(); bgRenderItemList();
+    document.getElementById('bgInNhan').value=''; bgSelectedNhan=null;
+    document.getElementById('bgInGhiChuChung').value='';
+    document.getElementById('bgConfirmNhanName').textContent='— chưa chọn —';
+    var btn=document.getElementById('bgSubmitBtn'); if(btn) btn.innerHTML='<i class="ti ti-send"></i> Lưu biên bản bàn giao';
+    var cancelBtn=document.getElementById('bgCancelEditBtn'); if(cancelBtn) cancelBtn.style.display='none';
+    var banner=document.getElementById('bgEditBanner'); if(banner) banner.style.display='none';
+    var al=document.getElementById('bgFormAlert'); if(al) al.style.display='none';
+  };
+  function bgSaveEditedRecord(){
+    try{
+      var id=bgEditingId;
+      var orig=bgRecords[id];
+      if(!orig){ bgShowFormAlert('Không tìm thấy biên bản đang sửa (có thể đã bị xóa).','err'); bgEditingId=null; return; }
+      var date=document.getElementById('bgInDate').value;
+      var gio=document.getElementById('bgInGio').value;
+      var ca=document.getElementById('bgInCa').value;
+      var nguoiNhan=bgSelectedNhan||document.getElementById('bgInNhan').value.trim();
+      if(!date){bgShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return;}
+      if(!gio){bgShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return;}
+      if(!nguoiNhan){bgShowFormAlert('Vui lòng chọn <b>tên người nhận</b>.','err');return;}
+      var items=bgCatalogItems();
+      var missingNote=items.find(function(it){
+        var st=bgItemStates[it._id];
+        return st && st.status!=='du' && !st.ghiChu.trim();
+      });
+      if(missingNote){ bgShowFormAlert('Vui lòng ghi chú lý do cho tài sản "<b>'+bgEsc(missingNote.ten)+'</b>" (đang đánh dấu Thiếu/Hư hỏng).','err'); return; }
+      var itemsSnapshot={};
+      items.forEach(function(it){
+        var st=bgItemStates[it._id]||{status:'du',ghiChu:'',vatTuChecked:{}};
+        itemsSnapshot[it._id]={ten:it.ten||null,ma:it.ma||null,nhom:it.nhom||null,status:st.status||'du',ghiChu:st.ghiChu||null,vatTuChecked:st.vatTuChecked||{},coSo:(typeof it.coSo==='number'?it.coSo:1),soLuong:(st.soLuong!=null?st.soLuong:(typeof it.coSo==='number'?it.coSo:1))};
+      });
+      var ghiChuChung=(document.getElementById('bgInGhiChuChung')||{}).value||'';
+      var updateObj={
+        ngay:date, gio:gio, ca:ca, nguoiNhan:nguoiNhan,
+        items:itemsSnapshot, ghiChuChung: ghiChuChung.trim()||null,
+        khac: bgOtherItemsTemp.length ? bgOtherItemsTemp.slice() : null,
+        editedBy: bgCu.name, editedAt: new Date().toISOString()
+      };
+      bgShowFormAlert('Đang lưu chỉnh sửa, vui lòng đợi...','ok');
+      bgRecordsRef.child(id).update(updateObj).then(function(){
+        bgRecords[id]=Object.assign({}, bgRecords[id], updateObj);
+        bgRenderAll();
+        bgShowFormAlert('✅ Đã cập nhật biên bản ngày '+bgFmtD(date)+'!','ok');
+        window.bgCancelEdit();
+      }).catch(function(err){
+        bgShowFormAlert('Lỗi khi lưu chỉnh sửa: '+err.message,'err');
+      });
+    }catch(e){
+      bgShowFormAlert('⚠️ Lỗi khi lưu chỉnh sửa: '+(e&&e.message),'err');
+      console.error('bgSaveEditedRecord error:', e);
+    }
+  }
 
   function bgAllRecords(){
     return Object.keys(bgRecords).map(function(k){var r=bgRecords[k];r=Object.assign({},r);r._id=k;return r;});
@@ -19873,6 +20136,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     }
     var html='<div style="font-size:13px;margin-bottom:8px"><b>Người bàn giao:</b> '+bgEsc(r.nguoiGiao)+' &nbsp; <b>Người nhận:</b> '+bgEsc(r.nguoiNhan)+'</div>'+
       '<div style="font-size:11.5px;color:#888;margin-bottom:6px">Xác nhận lúc: '+bgFmtDateTime((r.xacNhanGiao||{}).at)+'</div>'+
+      (r.editedAt?('<div style="font-size:11.5px;color:#0d47a1;margin-bottom:6px"><i class="ti ti-pencil"></i> Đã sửa lúc '+bgFmtDateTime(r.editedAt)+' bởi <b>'+bgEsc(r.editedBy||'')+'</b></div>'):'')+
       (r.ghiChuChung?('<div style="font-size:12.5px;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:6px 10px;margin-bottom:8px"><b>Ghi chú chung:</b> '+bgEsc(r.ghiChuChung)+'</div>'):'')+
       grp('giao','Nhóm Giao - Nhận')+grp('khong','Nhóm Không bàn giao')+
       ((r.khac&&r.khac.length)?('<div style="font-weight:700;font-size:13px;color:#1a7a4a;margin:10px 0 6px">Bàn giao khác (ngoài danh mục) ('+r.khac.length+')</div>'+
@@ -19884,6 +20148,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         }).join('')+'</tbody></table>'):'');
     document.getElementById('bgViewBody').innerHTML=html;
     var bgDelBtn=document.getElementById('bgDeleteBtn'); if(bgDelBtn) bgDelBtn.style.display=(bgCu&&bgCu.role==='admin')?'inline-flex':'none';
+    var bgEdBtn=document.getElementById('bgEditBtn'); if(bgEdBtn) bgEdBtn.style.display=(bgCu&&bgCu.role==='admin')?'inline-flex':'none';
     document.getElementById('bgViewOverlay').style.display='flex';
   };
   window.bgCloseView=function(){ document.getElementById('bgViewOverlay').style.display='none'; };
@@ -20392,6 +20657,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   var pmRecords={}; // {pushId: record} — CHỈ của phòng đang chọn
   var pmOtherCatalog={}; // {itemId:{ten}} — danh mục "bàn giao khác" tự tích lũy
   var pmOtherItemsTemp=[]; // [{ten,status,ghiChu,nhomPM}]
+  var pmEditingId=null; // id biên bản đang SỬA (null = đang lập biên bản mới)
   var pmCurrentRoom=null;
   var pmCurTab='gayme';
   var pmItemStates={};
@@ -20436,7 +20702,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var box=document.getElementById('pmRoomGrid');
     if(!box) return;
     box.innerHTML=PM_ROOMS.map(function(r){
-      return '<button class="kpi-btn" style="padding:16px 8px;font-size:14px;font-weight:700;background:#fff;border:1.5px solid #a8d9d0;color:#0a4a4a" onclick="pmSelectRoom(\''+r+'\')"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>Phòng '+r+'</button>';
+      var pend=(typeof notifPmRoomsPending!=='undefined' && notifPmRoomsPending[r]) ? notifPmRoomsPending[r] : 0;
+      var badge=pend>0 ? '<span style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:999px;min-width:20px;height:20px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 5px rgba(0,0,0,.25)">'+pend+'</span>' : '';
+      return '<button class="kpi-btn" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;border:1.5px solid #a8d9d0;color:#0a4a4a" onclick="pmSelectRoom(\''+r+'\')"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>Phòng '+r+badge+'</button>';
     }).join('');
   };
   window.pmGoHome=function(){
@@ -20692,6 +20960,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   }
 
   window.pmSubmitRecord=function(){
+   if(pmEditingId){ return pmSaveEditedRecord(); }
    try{
     if(!pmCu||!pmCurrentRoom){pmShowFormAlert('Vui lòng đăng nhập lại.','err');return;}
     var date=document.getElementById('pmInDate').value;
@@ -20789,6 +21058,114 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
      console.error('pmSubmitRecord error:', errSubmit);
    }
   };
+
+  window.pmStartEdit=function(){
+    if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được sửa biên bản!'); return; }
+    var id=pmViewingId;
+    var r=pmRecords[id];
+    if(!r){ alert('Không tìm thấy biên bản.'); return; }
+    pmEditingId=id;
+    pmCloseView();
+    var wrap=document.getElementById('pmFormWrap');
+    if(wrap && wrap.style.display==='none'){ cmeToggleSection('pmFormWrap','pmFormChevron'); }
+    document.getElementById('pmInDate').value=r.ngay||'';
+    document.getElementById('pmInGio').value=r.gio||'';
+    document.getElementById('pmInCa').value=r.ca||'Ngày';
+    document.getElementById('pmInNhan').value=r.nguoiNhan||'';
+    pmSelectedNhan=r.nguoiNhan||null;
+    document.getElementById('pmInGhiChuChung').value=r.ghiChuChung||'';
+    document.getElementById('pmConfirmNhanName').textContent=r.nguoiNhan||'— chưa chọn —';
+    pmItemStates={};
+    pmOtherItemsTemp=[];
+    function loadGroup(items,groupName){
+      Object.keys(items||{}).forEach(function(k){
+        var it=items[k];
+        if(it.khac){
+          pmOtherItemsTemp.push({ten:it.ten, status:it.status||'du', ghiChu:it.ghiChu||'', nhomPM:groupName});
+        } else {
+          pmItemStates[k]={status:it.status||'du', ghiChu:it.ghiChu||'', soLuong:(it.soLuong!=null?it.soLuong:undefined)};
+        }
+      });
+    }
+    loadGroup(r.itemsGayme,'gayme');
+    loadGroup(r.itemsDungcu,'dungcu');
+    pmRenderOtherItems();
+    pmRenderItemList();
+    var btn=document.getElementById('pmSubmitBtn');
+    if(btn) btn.innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật biên bản (Sửa)';
+    var cancelBtn=document.getElementById('pmCancelEditBtn'); if(cancelBtn) cancelBtn.style.display='inline-flex';
+    var banner=document.getElementById('pmEditBanner');
+    if(banner){ banner.style.display='block'; banner.innerHTML='<i class="ti ti-pencil"></i> Đang <b>SỬA</b> biên bản ngày '+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — Phòng '+pmEsc(r.phong||pmCurrentRoom)+' — chỉ cập nhật lại thông tin, <b>không cần ký lại</b>. Chữ ký & trạng thái hoàn thành gốc được giữ nguyên.'; }
+    var al=document.getElementById('pmFormAlert'); if(al) al.style.display='none';
+    setTimeout(function(){ wrap.scrollIntoView({behavior:'smooth',block:'start'}); },150);
+  };
+  window.pmCancelEdit=function(){
+    pmEditingId=null;
+    pmItemStates={}; pmOtherItemsTemp=[];
+    pmRenderOtherItems(); pmRenderItemList();
+    document.getElementById('pmInNhan').value=''; pmSelectedNhan=null;
+    document.getElementById('pmInGhiChuChung').value='';
+    document.getElementById('pmConfirmNhanName').textContent='— chưa chọn —';
+    var btn=document.getElementById('pmSubmitBtn'); if(btn) btn.innerHTML='<i class="ti ti-send"></i> Lưu biên bản bàn giao';
+    var cancelBtn=document.getElementById('pmCancelEditBtn'); if(cancelBtn) cancelBtn.style.display='none';
+    var banner=document.getElementById('pmEditBanner'); if(banner) banner.style.display='none';
+    var al=document.getElementById('pmFormAlert'); if(al) al.style.display='none';
+  };
+  function pmSaveEditedRecord(){
+    try{
+      var id=pmEditingId;
+      var orig=pmRecords[id];
+      if(!orig){ pmShowFormAlert('Không tìm thấy biên bản đang sửa (có thể đã bị xóa).','err'); pmEditingId=null; return; }
+      var date=document.getElementById('pmInDate').value;
+      var gio=document.getElementById('pmInGio').value;
+      var ca=document.getElementById('pmInCa').value;
+      var nguoiNhan=pmSelectedNhan||document.getElementById('pmInNhan').value.trim();
+      if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return;}
+      if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return;}
+      if(!nguoiNhan){pmShowFormAlert('Vui lòng chọn <b>tên người nhận</b>.','err');return;}
+      var gaymeItems=pmRoomConfigItems(pmCurrentRoom,'gayme');
+      var dungcuItems=pmRoomConfigItems(pmCurrentRoom,'dungcu');
+      var allItems=gaymeItems.concat(dungcuItems);
+      var missingNote=allItems.find(function(it){
+        var st=pmItemStates[it._id];
+        return st && st.status!=='du' && !st.ghiChu.trim();
+      });
+      if(missingNote){ pmShowFormAlert('Vui lòng ghi chú lý do cho tài sản "<b>'+pmEsc(missingNote.ten)+'</b>" (đang đánh dấu Thiếu/Hư hỏng).','err'); return; }
+      function snap(items,groupName){
+        var out={};
+        items.forEach(function(it){
+          var st=pmItemStates[it._id]||{status:'du',ghiChu:'',soLuong:null};
+          out[it._id]={ten:it.ten||null,status:st.status||'du',ghiChu:st.ghiChu||null,coSo:(typeof it.coSo==='number'?it.coSo:1),soLuong:(st.soLuong!=null?st.soLuong:(typeof it.coSo==='number'?it.coSo:1)),nhomPM:groupName};
+        });
+        return out;
+      }
+      var itemsGayme=snap(gaymeItems,'gayme');
+      var itemsDungcu=snap(dungcuItems,'dungcu');
+      pmOtherItemsTemp.forEach(function(it,idx){
+        var entry={ten:it.ten||null, status:it.status||'du', ghiChu:it.ghiChu||null, coSo:null, soLuong:null, nhomPM:it.nhomPM, khac:true};
+        if(it.nhomPM==='dungcu'){ itemsDungcu['khac_'+idx]=entry; }
+        else { itemsGayme['khac_'+idx]=entry; }
+      });
+      var ghiChuChung=(document.getElementById('pmInGhiChuChung')||{}).value||'';
+      var updateObj={
+        ngay:date, gio:gio, ca:ca, nguoiNhan:nguoiNhan,
+        itemsGayme:itemsGayme, itemsDungcu:itemsDungcu, ghiChuChung: ghiChuChung.trim()||null,
+        editedBy: pmCu.name, editedAt: new Date().toISOString()
+      };
+      pmShowFormAlert('Đang lưu chỉnh sửa, vui lòng đợi...','ok');
+      pmRecordsRef.child(id).update(updateObj).then(function(){
+        pmRecords[id]=Object.assign({}, pmRecords[id], updateObj);
+        pmRenderAll();
+        pmShowFormAlert('✅ Đã cập nhật biên bản ngày '+pmFmtD(date)+'!','ok');
+        window.pmCancelEdit();
+      }).catch(function(err){
+        pmShowFormAlert('Lỗi khi lưu chỉnh sửa: '+err.message,'err');
+      });
+    }catch(e){
+      pmShowFormAlert('⚠️ Lỗi khi lưu chỉnh sửa: '+(e&&e.message),'err');
+      console.error('pmSaveEditedRecord error:', e);
+    }
+  }
 
   window.pmRenderPendingList=function(){
     var box=document.getElementById('pmPendingList');
@@ -21025,10 +21402,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     }
     var html='<div style="font-size:13px;margin-bottom:8px"><b>Người bàn giao:</b> '+pmEsc(r.nguoiGiao)+' &nbsp; <b>Người nhận:</b> '+pmEsc(r.nguoiNhan)+'</div>'+
       '<div style="font-size:11.5px;color:#888;margin-bottom:6px">Xác nhận lúc: '+pmFmtDateTime((r.xacNhanGiao||{}).at)+'</div>'+
+      (r.editedAt?('<div style="font-size:11.5px;color:#0d47a1;margin-bottom:6px"><i class="ti ti-pencil"></i> Đã sửa lúc '+pmFmtDateTime(r.editedAt)+' bởi <b>'+pmEsc(r.editedBy||'')+'</b></div>'):'')+
       (r.ghiChuChung?('<div style="font-size:12.5px;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:6px 10px;margin-bottom:8px"><b>Ghi chú chung:</b> '+pmEsc(r.ghiChuChung)+'</div>'):'')+
       grp(r.itemsGayme,'Nhóm Gây mê')+grp(r.itemsDungcu,'Nhóm Dụng cụ');
     document.getElementById('pmViewBody').innerHTML=html;
     var pmDelBtn=document.getElementById('pmDeleteBtn'); if(pmDelBtn) pmDelBtn.style.display=(pmCu&&pmCu.role==='admin')?'inline-flex':'none';
+    var pmEdBtn=document.getElementById('pmEditBtn'); if(pmEdBtn) pmEdBtn.style.display=(pmCu&&pmCu.role==='admin')?'inline-flex':'none';
     document.getElementById('pmViewOverlay').style.display='flex';
   };
   window.pmCloseView=function(){ document.getElementById('pmViewOverlay').style.display='none'; };
@@ -21581,6 +21960,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('dtGateErr').style.display='none';
     dtEnter('admin', null);
   };
+  window.dtEnterAdminDirect = function(){ dtEnter('admin', null); };
   window.dtTryPersonal = function(){
     var typed = document.getElementById('dtPersonalNameInput').value.trim();
     var errEl = document.getElementById('dtNameErr');
