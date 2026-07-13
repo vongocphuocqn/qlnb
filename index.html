@@ -15791,7 +15791,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     <div style="background:#b45309;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
       <div style="font-weight:700"><i class="ti ti-list-details"></i> Danh mục tài sản Phòng Hồi sức</div>
       <div style="display:flex;gap:6px">
-        <button onclick="bgPrintCatalog()" title="In danh sách" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-printer"></i></button>
+        <button onclick="bgPrintCatalog()" title="In Word" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap"><i class="ti ti-printer"></i> In Word</button>
+        <button onclick="bgExportCatalogExcel()" title="Xuất Excel" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
         <button id="bgCatalogMaxBtn" onclick="kpiToggleMaximizeBox('bgCatalogBox','bgCatalogMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
         <button onclick="bgCloseCatalog()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-x"></i></button>
       </div>
@@ -16090,7 +16091,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     <div style="background:#0d6e6e;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
       <div style="font-weight:700"><i class="ti ti-list-details"></i> Danh mục chung tài sản Phòng Mổ</div>
       <div style="display:flex;gap:6px">
-        <button onclick="pmPrintMasterCatalog()" title="In danh mục" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-printer"></i></button>
+        <button onclick="pmPrintMasterCatalog()" title="In Word" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap"><i class="ti ti-printer"></i> In Word</button>
+        <button onclick="pmExportMasterCatalogExcel()" title="Xuất Excel" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
         <button id="pmMasterCatalogMaxBtn" onclick="kpiToggleMaximizeBox('pmMasterCatalogBox','pmMasterCatalogMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
         <button onclick="pmCloseMasterCatalog()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-x"></i></button>
       </div>
@@ -16133,7 +16135,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     <div style="background:#0d6e6e;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
       <div style="font-weight:700"><i class="ti ti-adjustments"></i> Cấu hình tài sản — <span id="pmCfgRoomTitle">Phòng Mổ</span></div>
       <div style="display:flex;gap:6px">
-        <button onclick="pmPrintRoomConfig()" title="In danh sách" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-printer"></i></button>
+        <button onclick="pmPrintRoomConfig()" title="In Word" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap"><i class="ti ti-printer"></i> In Word</button>
+        <button onclick="pmExportRoomConfigExcel()" title="Xuất Excel" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
         <button id="pmRoomConfigMaxBtn" onclick="kpiToggleMaximizeBox('pmRoomConfigBox','pmRoomConfigMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
         <button onclick="pmCloseRoomConfig()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-x"></i></button>
       </div>
@@ -20981,6 +20984,28 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var w=window.open('','_blank');
     w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
   };
+  window.bgExportCatalogExcel=function(){
+    var items=bgCatalogItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
+    if(!items.length){alert('Chưa có tài sản nào trong danh mục để xuất!');return;}
+    var rows=items.map(function(it,i){
+      return '<tr><td class="td-c">'+(i+1)+'</td><td class="td">'+bgEsc(it.ten)+'</td>'+
+        '<td class="td">'+bgEsc(it.ma||'')+'</td><td class="td-c">'+(it.coSo!=null?it.coSo:1)+'</td>'+
+        '<td class="td-c">'+(it.nhom==='giao'?'Giao - Nhận':'Không bàn giao')+'</td></tr>';
+    }).join('');
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#b45309;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #7c2d12;padding:5px}'+
+      '.td-c{border:1px solid #f0d9a8;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #f0d9a8;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="5" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="5" class="title">DANH MỤC TÀI SẢN — PHÒNG HỒI SỨC</td></tr><tr></tr>'+
+      '<tr><td class="th">STT</td><td class="th">Tên tài sản</td><td class="th">Mã</td><td class="th">Cơ số</td><td class="th">Nhóm</td></tr>'+
+      rows+'</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='DanhMuc_PhongHoiSuc_GMHS_'+bgToday()+'.xls';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  };
   var bgCatalogEditingId=null;
   window.bgRenderCatalogList=function(){
     var box=document.getElementById('bgCatalogList');
@@ -21376,6 +21401,26 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '<tbody>'+rows+'</tbody></table></body></html>';
     var w=window.open('','_blank');
     w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
+  };
+  window.pmExportMasterCatalogExcel=function(){
+    var items=pmMasterItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
+    if(!items.length){alert('Chưa có tài sản nào trong danh mục chung để xuất!');return;}
+    var rows=items.map(function(it,i){
+      return '<tr><td class="td-c">'+(i+1)+'</td><td class="td">'+pmEsc(it.ten)+'</td></tr>';
+    }).join('');
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#0d6e6e;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #0a4a4a;padding:5px}'+
+      '.td-c{border:1px solid #a8d9d0;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #a8d9d0;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="2" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="2" class="title">DANH MỤC CHUNG TÀI SẢN — PHÒNG MỔ</td></tr><tr></tr>'+
+      '<tr><td class="th">STT</td><td class="th">Tên tài sản</td></tr>'+
+      rows+'</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='DanhMucChung_PhongMo_GMHS_'+pmToday()+'.xls';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
   };
   function pmRoomConfigItems(roomId,group){
     var cfg=(pmRoomConfig[roomId]||{})[group]||{};
@@ -22386,6 +22431,34 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '<tbody>'+rows+'</tbody></table></body></html>';
     var w=window.open('','_blank');
     w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
+  };
+  window.pmExportRoomConfigExcel=function(){
+    if(!pmCurrentRoom){alert('Chưa chọn phòng!');return;}
+    var items=pmMasterItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
+    var roomCfg=pmRoomConfig[pmCurrentRoom]||{};
+    var gaymeCfg=roomCfg.gayme||{}, dungcuCfg=roomCfg.dungcu||{};
+    var rows='', stt=0;
+    items.forEach(function(it){
+      var inGayme=!!gaymeCfg[it._id], inDungcu=!!dungcuCfg[it._id];
+      if(!inGayme && !inDungcu) return;
+      stt++;
+      var nhom=[]; if(inGayme) nhom.push('Gây mê (SL: '+(gaymeCfg[it._id].coSo!=null?gaymeCfg[it._id].coSo:1)+')'); if(inDungcu) nhom.push('Dụng cụ (SL: '+(dungcuCfg[it._id].coSo!=null?dungcuCfg[it._id].coSo:1)+')');
+      rows+='<tr><td class="td-c">'+stt+'</td><td class="td">'+pmEsc(it.ten)+'</td><td class="td">'+nhom.join(' + ')+'</td></tr>';
+    });
+    if(!stt){alert('Phòng này chưa cấu hình tài sản nào để xuất!');return;}
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#0d6e6e;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #0a4a4a;padding:5px}'+
+      '.td-c{border:1px solid #a8d9d0;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #a8d9d0;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="3" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="3" class="title">DANH MỤC TÀI SẢN — PHÒNG MỔ '+pmEsc(pmCurrentRoom).toUpperCase()+'</td></tr><tr></tr>'+
+      '<tr><td class="th">STT</td><td class="th">Tên tài sản</td><td class="th">Nhóm & Số lượng</td></tr>'+
+      rows+'</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='CauHinh_PhongMo'+pmCurrentRoom+'_GMHS_'+pmToday()+'.xls';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
   };
 
   // Nếu mở qua link/QR ký từ xa (?pmSignId=phong|id)
