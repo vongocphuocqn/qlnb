@@ -1373,7 +1373,7 @@ font-size:10px;color:var(--tx3)}
 <!-- ══ MODAL: DUYỆT NGHỈ PHÉP ══ -->
 <div class="nb-modal-bg" id="npApproveModal" onclick="if(event.target===this)closeNpApprove()">
   <div class="nb-modal" id="npApproveModalBox">
-    <h3 style="color:#00695c;display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Phép</span><button id="npApproveMaxBtn" onclick="kpiToggleMaximizeBox('npApproveModalBox','npApproveMaxBtn')" title="Phóng to cho rộng màn hình" style="background:#e0f2f1;border:1.5px solid #a7d4ce;color:#00695c;font-size:14px;width:26px;height:26px;border-radius:50%;cursor:pointer"><i class="ti ti-arrows-maximize"></i></button></h3>
+    <h3 style="color:#00695c;display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Phép</span><button id="npApproveMaxBtn" onclick="kpiToggleMaximizeBox('npApproveModalBox','npApproveMaxBtn')" title="Phóng to cho rộng màn hình" style="background:#e0f2f1;border:1.5px solid #a7d4ce;color:#00695c;font-size:14px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button></h3>
     <div id="npApproveInfo" style="background:#e0f2f1;border:1.5px solid #a7d4ce;
       border-radius:9px;padding:11px 13px;margin-bottom:14px;font-size:13px;line-height:1.8"></div>
         <!-- Phân người thay theo từng ngày -->
@@ -1400,7 +1400,7 @@ font-size:10px;color:var(--tx3)}
 
 <div class="nb-modal-bg" id="nbApproveModal" onclick="if(event.target===this)closeNbApprove()">
   <div class="nb-modal" id="nbApproveModalBox" style="max-width:520px;max-height:90vh;overflow-y:auto">
-    <h3 style="display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Bù</span><button id="nbApproveMaxBtn" onclick="kpiToggleMaximizeBox('nbApproveModalBox','nbApproveMaxBtn')" title="Phóng to cho rộng màn hình" style="background:#e3f2fd;border:1.5px solid #c5cfe8;color:#0d47a1;font-size:14px;width:26px;height:26px;border-radius:50%;cursor:pointer"><i class="ti ti-arrows-maximize"></i></button></h3>
+    <h3 style="display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-clipboard-check"></i> Duyệt phiếu Nghỉ Bù</span><button id="nbApproveMaxBtn" onclick="kpiToggleMaximizeBox('nbApproveModalBox','nbApproveMaxBtn')" title="Phóng to cho rộng màn hình" style="background:#e3f2fd;border:1.5px solid #c5cfe8;color:#0d47a1;font-size:14px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button></h3>
     <div id="nbApproveInfo" style="background:#f0f4ff;border:1.5px solid #c5cfe8;
       border-radius:9px;padding:11px 13px;margin-bottom:14px;font-size:13px;line-height:1.7"></div>
 
@@ -1550,6 +1550,16 @@ font-size:10px;color:var(--tx3)}
     <div class="fg"><label>Bộ phận báo cáo</label>
       <select id="editDept"><option value="">-- Chọn bộ phận --</option></select>
     </div>
+    <div class="fg"><label>Người phụ trách xử lý <span style="font-weight:400;color:#8098bb">(để trống nếu chưa phân công)</span></label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="editAssignInput" list="kpiStaffDatalist" autocomplete="off" placeholder="Gõ tên để hiện gợi ý, hoặc bấm 🔍 chọn từ danh sách..." style="flex:1">
+        <button type="button" class="btne" style="padding:7px 10px" onclick="kpiOpenStaffPicker('editAssignInput')"><i class="ti ti-search"></i></button>
+        <button type="button" class="btne" style="padding:7px 10px" title="Bỏ phân công" onclick="document.getElementById('editAssignInput').value='';document.getElementById('editAssignNote').value='';"><i class="ti ti-user-off"></i></button>
+      </div>
+    </div>
+    <div class="fg"><label>Ghi chú giao việc <span style="font-weight:400;color:#8098bb">(yêu cầu cụ thể, hạn xử lý...)</span></label>
+      <textarea id="editAssignNote" style="min-height:40px" placeholder="VD: Anh/chị kiểm tra và xử lý trước ngày..."></textarea>
+    </div>
     <div class="fg"><label>Nội dung báo cáo</label>
       <textarea id="editContent" style="min-height:55px" placeholder="Nội dung..."></textarea>
     </div>
@@ -1607,7 +1617,7 @@ font-size:10px;color:var(--tx3)}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px"><i class="ti ti-sunrise"></i> Giao ban sáng</div>
         <div style="display:flex;gap:6px">
-          <button id="briefMaxBtn" onclick="kpiToggleMaximizeBox('briefModalBox','briefMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-arrows-maximize"></i></button>
+          <button id="briefMaxBtn" onclick="kpiToggleMaximizeBox('briefModalBox','briefMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
           <button onclick="closeBriefModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
         </div>
       </div>
@@ -1854,7 +1864,7 @@ font-size:10px;color:var(--tx3)}
         <span style="font-weight:700;font-size:16px">Thống kê Downtime</span>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
-        <button id="dtMaxBtn" onclick="kpiToggleMaximizeBox('dtPanel','dtMaxBtn')" title="Phóng to cho rộng màn hình" class="dt-panel-close"><i class="ti ti-arrows-maximize"></i></button>
+        <button id="dtMaxBtn" onclick="kpiToggleMaximizeBox('dtPanel','dtMaxBtn')" title="Phóng to cho rộng màn hình" class="dt-panel-close" style="width:auto;border-radius:8px;padding:6px 12px;font-size:13px"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
         <button class="dt-panel-close" onclick="closeDtPanel()">×</button>
       </div>
     </div>
@@ -1963,7 +1973,7 @@ font-size:10px;color:var(--tx3)}
         </div>
       </div>
       <div style="display:flex;gap:6px">
-        <button id="ttMaxBtn" onclick="kpiToggleMaximizeBox('ttPanel','ttMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1"><i class="ti ti-arrows-maximize"></i></button>
+        <button id="ttMaxBtn" onclick="kpiToggleMaximizeBox('ttPanel','ttMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;padding:6px 12px;border-radius:8px;cursor:pointer;line-height:1"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
         <button onclick="closeThanhTichPanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1">×</button>
       </div>
     </div>
@@ -2111,7 +2121,7 @@ font-size:10px;color:var(--tx3)}
         </div>
       </div>
       <div style="display:flex;gap:6px">
-        <button id="ptMaxBtn" onclick="kpiToggleMaximizeBox('ptPanel','ptMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1"><i class="ti ti-arrows-maximize"></i></button>
+        <button id="ptMaxBtn" onclick="kpiToggleMaximizeBox('ptPanel','ptMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;padding:6px 12px;border-radius:8px;cursor:pointer;line-height:1"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
         <button onclick="closePersonalTTPanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1">×</button>
       </div>
     </div>
@@ -5706,7 +5716,7 @@ function kpiToggleMaximizeBox(boxId, btnId){
   var btn=document.getElementById(btnId);
   if(!box) return;
   var isMax=box.classList.toggle('kpi-box-maximized');
-  if(btn){ btn.innerHTML = isMax ? '<i class="ti ti-arrows-minimize"></i>' : '<i class="ti ti-arrows-maximize"></i>'; btn.title = isMax ? 'Thu nhỏ về cỡ mặc định' : 'Phóng to cho rộng màn hình'; }
+  if(btn){ btn.innerHTML = isMax ? '<i class="ti ti-arrows-minimize"></i> Thu nhỏ' : '<i class="ti ti-arrows-maximize"></i> Phóng to'; btn.title = isMax ? 'Thu nhỏ về cỡ mặc định' : 'Phóng to cho rộng màn hình'; }
 }
 function kpiToggleWideBox(boxId, btnId){
   var box=document.getElementById(boxId);
@@ -5719,6 +5729,7 @@ function kpiToggleWideBox(boxId, btnId){
 /* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
 var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0};
 var notifPmRoomsPending={}; // {roomId: số phiếu chờ của phòng đó}
+var notifBgRoomsPending={}; // {roomId: số phiếu chờ của phòng Hồi sức đó}
 var notifMeta={
   dctd:{label:'Dụng cụ sau mổ — chưa xử lý', icon:'ti-tool'},
   bg:{label:'Bàn giao Hồi sức — chờ hoàn thành', icon:'ti-clipboard-check'},
@@ -5738,9 +5749,17 @@ function notifInit(){
   }catch(e){ console.warn('notifInit dctd:',e); }
   try{
     db.ref('bgRecords').on('value',function(snap){
-      var d=snap.val()||{}, n=0;
-      Object.values(d).forEach(function(r){ if(r&&r.trangThai==='choduyet') n++; });
-      notifCounts.bg=n; notifRenderHome();
+      var n=0, roomsMap={};
+      snap.forEach(function(roomSnap){
+        var c=0;
+        roomSnap.forEach(function(recSnap){
+          var r=recSnap.val();
+          if(r&&r.trangThai==='choduyet'){ n++; c++; }
+        });
+        if(c>0) roomsMap[roomSnap.key]=c;
+      });
+      notifCounts.bg=n; notifBgRoomsPending=roomsMap; notifRenderHome();
+      try{ if(document.getElementById('bgRoomGrid') && document.getElementById('bgRoomPickerScreen').style.display!=='none') bgRenderRoomGrid(); }catch(e2){}
     });
   }catch(e){ console.warn('notifInit bg:',e); }
   try{
@@ -5836,7 +5855,10 @@ function notifGoTo(key){
     setTimeout(function(){ var el=document.getElementById('dctdColTodo'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },400);
   } else if(key==='bg'){
     enterBgScreen('admin','Quản lý');
-    scrollToOpen('bgPendingWrap','bgPendingChevron');
+    setTimeout(function(){
+      var rooms=Object.keys(notifBgRoomsPending||{});
+      if(rooms.length===1){ bgSelectRoom(rooms[0]); scrollToOpen('bgPendingWrap','bgPendingChevron'); }
+    },350);
   } else if(key==='pm'){
     enterPmScreen('admin','Quản lý');
     setTimeout(function(){
@@ -6931,12 +6953,14 @@ function openEditModal(id){
   document.getElementById('editPri').value=c.pri||'m';
   if(document.getElementById('editDept')) document.getElementById('editDept').value=c.dept||'';
   document.getElementById('editContent').value=c.content||'';
+  document.getElementById('editAssignInput').value=c.assignee||'';
+  document.getElementById('editAssignNote').value=c.assignNote||'';
   document.getElementById('editTodo').value=c.todo||'';
   document.getElementById('editDoing').value=c.doing||'';
   document.getElementById('editDone').value=c.done||'';
   const locked=!editable&&cu.role!=='admin';
   document.getElementById('editLockMsg').style.display=locked?'block':'none';
-  ['editDate','editPri','editDept','editContent','editTodo','editDoing','editDone']
+  ['editDate','editPri','editDept','editContent','editAssignInput','editAssignNote','editTodo','editDoing','editDone']
     .forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=locked;});
   document.getElementById('editSaveBtn').style.display=locked?'none':'flex';
   let tmsg='';
@@ -6952,15 +6976,31 @@ function saveEdit(){
   if(!canEdit(c)){showAl('Báo cáo đã khóa!','warn');return;}
   const dv=document.getElementById('editDate').value;
   if(!dv){showAl('Vui lòng chọn ngày!','warn');return;}
+  const newAssignee=document.getElementById('editAssignInput').value.trim();
+  const newAssignNote=document.getElementById('editAssignNote').value.trim();
+  const oldAssignee=c.assignee||'';
+  const assigneeChanged = newAssignee !== oldAssignee;
   const updates={
     date:dv, pri:document.getElementById('editPri').value,
     dept:document.getElementById('editDept')?document.getElementById('editDept').value:(c.dept||''),
     content:document.getElementById('editContent').value.trim(),
+    assignee:newAssignee||null, assignNote:newAssignNote||null,
     todo:document.getElementById('editTodo').value.trim(),
     doing:document.getElementById('editDoing').value.trim(),
     done:document.getElementById('editDone').value.trim(),
     editedAt:new Date().toISOString(), editedBy:cu.name
   };
+  if(assigneeChanged){
+    const hist=(c.history)?[...c.history]:[];
+    if(newAssignee){
+      hist.push({action:'Phân công cho '+newAssignee+(newAssignNote?' — Ghi chú: '+newAssignNote:''),actor:(cu&&cu.name)?cu.name:'Quản lý',at:new Date().toISOString()});
+      updates.assignedBy=(cu&&cu.name)?cu.name:'Quản lý';
+      updates.assignedAt=new Date().toISOString();
+    } else {
+      hist.push({action:'Bỏ phân công (trước đó: '+oldAssignee+')',actor:(cu&&cu.name)?cu.name:'Quản lý',at:new Date().toISOString()});
+    }
+    updates.history=hist;
+  }
   setSyncStatus('sync');
   cardsRef.child(String(editTargetId)).update(updates)
     .then(()=>{showAl('Đã lưu chỉnh sửa!');setSyncStatus('ok');closeEditModal();})
@@ -7363,11 +7403,13 @@ function briefGoToDctd(id){
   enterDctdScreen('admin', cu.name);
   setTimeout(function(){ try{ dctdEditRecord(id); }catch(e){ console.warn(e); } },400);
 }
-function briefGoToBg(id){
+function briefGoToBg(roomId,id){
   if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xử lý nhanh được từ đây. Vui lòng vào thẻ "Bàn giao Hồi sức" và đăng nhập Quản lý.'); return; }
   closeBriefModal();
   enterBgScreen('admin', cu.name);
-  setTimeout(function(){ try{ bgOpenView(id); }catch(e){ console.warn(e); } },400);
+  setTimeout(function(){
+    try{ bgSelectRoom(roomId); setTimeout(function(){ bgOpenView(id); },400); }catch(e){ console.warn(e); }
+  },350);
 }
 function briefGoToPm(roomId,id){
   if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xử lý nhanh được từ đây. Vui lòng vào thẻ "Bàn giao Phòng Mổ" và đăng nhập Quản lý.'); return; }
@@ -7455,12 +7497,14 @@ function briefLoadExtra(){
   if(elBg){
     Promise.all([ db.ref('bgRecords').once('value'), db.ref('pmRecords').once('value') ]).then(function(results){
       var list=[];
-      var bgData=results[0].val()||{};
-      Object.keys(bgData).forEach(function(k){
-        var r=bgData[k];
-        var items=Object.values(r.items||{});
-        var bad=items.filter(function(it){return it&&(it.status==='thieu'||it.status==='hong');});
-        if(bad.length){ list.push({nguon:'Bàn giao Hồi sức', kind:'bg', id:k, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, bad:bad}); }
+      results[0].forEach(function(roomSnap){
+        var roomId=roomSnap.key;
+        roomSnap.forEach(function(recSnap){
+          var r=recSnap.val();
+          var items=Object.values(r.items||{});
+          var bad=items.filter(function(it){return it&&(it.status==='thieu'||it.status==='hong');});
+          if(bad.length){ list.push({nguon:'Bàn giao Hồi sức — '+roomId, kind:'bg', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, bad:bad}); }
+        });
       });
       results[1].forEach(function(roomSnap){
         var roomId=roomSnap.key;
@@ -7476,7 +7520,7 @@ function briefLoadExtra(){
       var cnt=document.getElementById('briefBgPmCount'); if(cnt) cnt.textContent=list.length;
       elBg.innerHTML = list.length ? list.map(function(x){
         var names=x.bad.map(function(it){return (it.ten||'—')+(it.status==='hong'?' (hỏng)':' (thiếu)');}).join(', ');
-        var clickAttr = x.kind==='pm' ? ('briefGoToPm(\''+x.roomId+'\',\''+x.id+'\')') : ('briefGoToBg(\''+x.id+'\')');
+        var clickAttr = x.kind==='pm' ? ('briefGoToPm(\''+x.roomId+'\',\''+x.id+'\')') : ('briefGoToBg(\''+x.roomId+'\',\''+x.id+'\')');
         return '<div onclick="'+clickAttr+'" style="padding:8px 10px;border-radius:8px;background:#fce4ec;margin-bottom:6px;font-size:12.5px;cursor:pointer" onmouseover="this.style.background=\'#f8bbd0\'" onmouseout="this.style.background=\'#fce4ec\'">'+
           '<b>'+esc(x.nguon)+'</b> — '+esc(names)+
           '<div style="color:#888;font-size:11px;margin-top:2px">Ngày: '+esc(x.ngay||'—')+' · '+esc(x.giao||'')+' → '+esc(x.nhan||'')+'</div>'+
@@ -15450,12 +15494,52 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 </div>
 
 <!-- ══════════ BÀN GIAO TRỰC PHÒNG HỒI SỨC ══════════ -->
-<div id="bgScreen" style="display:none;min-height:100vh;background:#fdf6ec">
+<div id="bgRoomPickerScreen" style="display:none;min-height:100vh;background:#fdf6ec">
   <div style="background:linear-gradient(135deg,#b45309,#7c2d12);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgGoHome()"><i class="ti ti-home"></i> Trang chủ</button>
       <div>
-        <div style="font-size:16px;font-weight:700"><i class="ti ti-clipboard-check"></i> Bàn giao trực — Phòng Hồi sức</div>
+        <div style="font-size:16px;font-weight:700"><i class="ti ti-clipboard-check"></i> Bàn giao trực Hồi sức — Chọn phòng</div>
+        <div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="kpi-btn" id="bgRoomsManageBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgOpenRoomsManage()"><i class="ti ti-door"></i> Quản lý danh sách phòng</button>
+      <button class="kpi-btn" style="background:#fff;color:#b45309" onclick="bgLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="kpi-btn" id="bgPickerWideBtn" onclick="kpiToggleWideBox('bgPickerMainBox','bgPickerWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
+    </div>
+  </div>
+  <div style="max-width:900px;margin:0 auto;padding:20px" id="bgPickerMainBox">
+    <div id="bgPickerWhoBanner" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
+    <div class="sub" style="margin-bottom:12px">Chọn đúng phòng để lập/xem biên bản bàn giao của phòng đó.</div>
+    <div id="bgRoomGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
+  </div>
+</div>
+
+<div id="bgRoomsManageBg" onclick="bgCloseRoomsManage(event)" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2150;display:none;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
+  <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
+    <div style="background:#b45309;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:700"><i class="ti ti-door"></i> Quản lý danh sách Phòng Hồi sức</div>
+      <button onclick="bgCloseRoomsManage()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
+    </div>
+    <div style="padding:16px 18px">
+      <div class="sub" style="margin-bottom:10px">Thêm hoặc xóa phòng hiện ra ở màn hình chọn phòng. Có thể thêm bất kỳ tên phòng/khu nào (VD: "Khu A", "Giường 3"...).</div>
+      <div id="bgRoomsManageList" style="margin-bottom:14px"></div>
+      <div style="font-weight:700;font-size:12.5px;color:#b45309;margin-bottom:6px">Thêm phòng mới</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="bgRoomsManageNew" type="text" placeholder="Tên/mã phòng mới..." style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #f0d9a8;border-radius:8px;font-size:13px;font-family:inherit">
+        <button class="kpi-btn" style="background:#b45309;color:#fff" onclick="bgRoomsManageAdd()"><i class="ti ti-plus"></i> Thêm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="bgScreen" style="display:none;min-height:100vh;background:#fdf6ec">
+  <div style="background:linear-gradient(135deg,#b45309,#7c2d12);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgBackToRooms()"><i class="ti ti-arrow-left"></i> Đổi phòng</button>
+      <div>
+        <div style="font-size:16px;font-weight:700"><i class="ti ti-clipboard-check"></i> Bàn giao trực — <span id="bgRoomTitle">Phòng Hồi sức</span></div>
         <div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức — biên bản bàn giao tài sản hàng ngày, ký nhận 2 bên</div>
       </div>
     </div>
@@ -15703,10 +15787,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 </div>
 
 <div id="bgCatalogBg" onclick="bgCloseCatalog(event)" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2150;display:none;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
-  <div style="background:#fff;border-radius:14px;max-width:640px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
+  <div id="bgCatalogBox" style="background:#fff;border-radius:14px;max-width:640px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
     <div style="background:#b45309;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
       <div style="font-weight:700"><i class="ti ti-list-details"></i> Danh mục tài sản Phòng Hồi sức</div>
-      <button onclick="bgCloseCatalog()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer"><i class="ti ti-x"></i></button>
+      <div style="display:flex;gap:6px">
+        <button onclick="bgPrintCatalog()" title="In danh sách" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-printer"></i></button>
+        <button id="bgCatalogMaxBtn" onclick="kpiToggleMaximizeBox('bgCatalogBox','bgCatalogMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        <button onclick="bgCloseCatalog()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-x"></i></button>
+      </div>
     </div>
     <div style="padding:16px 18px">
       <button class="kpi-btn" style="border:1.5px solid #b45309;color:#b45309;margin-bottom:8px" onclick="bgImportSeed()"><i class="ti ti-download"></i> Nhập danh mục mẫu (128 tài sản từ phiếu bàn giao)</button>
@@ -15741,6 +15829,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="kpi-btn" id="pmCatalogBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenMasterCatalog()"><i class="ti ti-list-details"></i> Danh mục chung</button>
+      <button class="kpi-btn" id="pmRoomsManageBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomsManage()"><i class="ti ti-door"></i> Quản lý danh sách phòng</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
       <button class="kpi-btn" id="pmPickerWideBtn" onclick="kpiToggleWideBox('pmPickerMainBox','pmPickerWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
@@ -15997,10 +16086,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 </div>
 
 <div id="pmMasterCatalogBg" onclick="pmCloseMasterCatalog(event)" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2150;display:none;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
-  <div style="background:#fff;border-radius:14px;max-width:600px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
+  <div id="pmMasterCatalogBox" style="background:#fff;border-radius:14px;max-width:600px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
     <div style="background:#0d6e6e;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
       <div style="font-weight:700"><i class="ti ti-list-details"></i> Danh mục chung tài sản Phòng Mổ</div>
-      <button onclick="pmCloseMasterCatalog()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer"><i class="ti ti-x"></i></button>
+      <div style="display:flex;gap:6px">
+        <button onclick="pmPrintMasterCatalog()" title="In danh mục" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-printer"></i></button>
+        <button id="pmMasterCatalogMaxBtn" onclick="kpiToggleMaximizeBox('pmMasterCatalogBox','pmMasterCatalogMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        <button onclick="pmCloseMasterCatalog()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-x"></i></button>
+      </div>
     </div>
     <div style="padding:16px 18px">
       <div class="sub" style="margin-bottom:10px">Đây là danh mục tài sản dùng chung cho tất cả phòng mổ. Sau khi có trong danh mục này, vào từng phòng bấm "Cấu hình phòng này" để chọn tài sản nào áp dụng + số lượng cho đúng phòng đó.</div>
@@ -16017,11 +16110,33 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   </div>
 </div>
 
+<div id="pmRoomsManageBg" onclick="pmCloseRoomsManage(event)" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2150;display:none;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
+  <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
+    <div style="background:#0d6e6e;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:700"><i class="ti ti-door"></i> Quản lý danh sách Phòng Mổ</div>
+      <button onclick="pmCloseRoomsManage()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
+    </div>
+    <div style="padding:16px 18px">
+      <div class="sub" style="margin-bottom:10px">Thêm hoặc xóa phòng mổ hiện ra ở màn hình chọn phòng. Có thể thêm bất kỳ tên phòng/khu nào (VD: "Hồi tỉnh", "205"...), không chỉ số phòng.</div>
+      <div id="pmRoomsManageList" style="margin-bottom:14px"></div>
+      <div style="font-weight:700;font-size:12.5px;color:#0d6e6e;margin-bottom:6px">Thêm phòng mới</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="pmRoomsManageNew" type="text" placeholder="Tên/mã phòng mới (VD: 205, Hồi tỉnh...)" style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit">
+        <button class="kpi-btn" style="background:#0d6e6e;color:#fff" onclick="pmRoomsManageAdd()"><i class="ti ti-plus"></i> Thêm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="pmRoomConfigBg" onclick="pmCloseRoomConfig(event)" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2150;display:none;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
-  <div style="background:#fff;border-radius:14px;max-width:700px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
+  <div id="pmRoomConfigBox" style="background:#fff;border-radius:14px;max-width:700px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
     <div style="background:#0d6e6e;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
       <div style="font-weight:700"><i class="ti ti-adjustments"></i> Cấu hình tài sản — <span id="pmCfgRoomTitle">Phòng Mổ</span></div>
-      <button onclick="pmCloseRoomConfig()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer"><i class="ti ti-x"></i></button>
+      <div style="display:flex;gap:6px">
+        <button onclick="pmPrintRoomConfig()" title="In danh sách" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-printer"></i></button>
+        <button id="pmRoomConfigMaxBtn" onclick="kpiToggleMaximizeBox('pmRoomConfigBox','pmRoomConfigMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:15px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        <button onclick="pmCloseRoomConfig()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer"><i class="ti ti-x"></i></button>
+      </div>
     </div>
     <div style="padding:16px 18px">
       <div class="sub" style="margin-bottom:10px">Tích chọn tài sản (từ danh mục chung) áp dụng cho phòng này, ở đúng nhóm Gây mê hoặc Dụng cụ, và đặt số lượng (cơ số) riêng cho phòng.</div>
@@ -19621,6 +19736,140 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   var bgSigDrawing={giao:false, nhan:false};
   var bgSigHasDrawn={giao:false, nhan:false};
   var bgQrLoading=false;
+  var bgCurrentRoom=null;
+  var BG_ROOMS_DEFAULT=['Phòng Hồi sức'];
+  var BG_ROOMS=BG_ROOMS_DEFAULT.slice();
+  var bgRoomsListRef=null;
+  try{ bgRoomsListRef=db.ref('bgRoomsList'); }catch(e){ console.warn('Không khởi tạo được Firebase cho danh sách phòng Hồi sức.',e); }
+  function bgMigrateLegacyRecords(){
+    // Dữ liệu cũ (trước khi có khái niệm "phòng") nằm phẳng ngay dưới bgRecords/{pushId}.
+    // Nếu phát hiện, tự động chuyển vào phòng mặc định "Phòng Hồi sức" để không mất dữ liệu.
+    db.ref('bgRecords').once('value').then(function(snap){
+      var d=snap.val();
+      if(!d) return;
+      var legacyKeys=Object.keys(d).filter(function(k){
+        var v=d[k];
+        return v && typeof v==='object' && (v.ngay!==undefined || v.nguoiGiao!==undefined);
+      });
+      if(!legacyKeys.length) return;
+      var target={};
+      legacyKeys.forEach(function(k){ target[k]=d[k]; });
+      var defaultRoom=bgSafeKey(BG_ROOMS_DEFAULT[0]);
+      db.ref('bgRecords').child(defaultRoom).once('value').then(function(existSnap){
+        var merged=Object.assign({}, existSnap.val()||{}, target);
+        return db.ref('bgRecords').child(defaultRoom).set(merged);
+      }).then(function(){
+        var updates={};
+        legacyKeys.forEach(function(k){ updates[k]=null; });
+        return db.ref('bgRecords').update(updates);
+      }).then(function(){
+        console.log('[BG] Đã tự động chuyển '+legacyKeys.length+' biên bản cũ vào phòng mặc định "'+BG_ROOMS_DEFAULT[0]+'".');
+      }).catch(function(err){ console.warn('[BG] Lỗi khi di chuyển dữ liệu cũ:', err); });
+    });
+  }
+  function bgLoadRoomsList(){
+    if(!bgRoomsListRef) return;
+    bgRoomsListRef.on('value', function(snap){
+      var d=snap.val();
+      if(d && Object.keys(d).length){
+        BG_ROOMS = Array.isArray(d) ? d.filter(Boolean) : Object.values(d).filter(Boolean);
+      } else {
+        BG_ROOMS = BG_ROOMS_DEFAULT.slice();
+        try{ bgRoomsListRef.set(BG_ROOMS); }catch(e){}
+      }
+      try{ if(document.getElementById('bgRoomGrid')) bgRenderRoomGrid(); }catch(e){}
+    });
+  }
+  bgMigrateLegacyRecords();
+  bgLoadRoomsList();
+  window.bgRenderRoomGrid=function(){
+    var box=document.getElementById('bgRoomGrid');
+    if(!box) return;
+    var pend=(typeof notifBgRoomsPending!=='undefined') ? notifBgRoomsPending : {};
+    box.innerHTML=BG_ROOMS.map(function(r){
+      var n=pend[r]||0;
+      var badge=n>0 ? '<span style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:999px;min-width:20px;height:20px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 5px rgba(0,0,0,.25)">'+n+'</span>' : '';
+      return '<button class="kpi-btn" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;border:1.5px solid #f0d9a8;color:#7c2d12" onclick="bgSelectRoom(\''+r+'\')"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>'+bgEsc(r)+badge+'</button>';
+    }).join('');
+  };
+  window.bgOpenRoomsManage=function(){
+    if(!bgCu||bgCu.role!=='admin'){alert('Chỉ Quản lý mới thao tác được!');return;}
+    bgRenderRoomsManageList();
+    document.getElementById('bgRoomsManageBg').style.display='flex';
+  };
+  window.bgCloseRoomsManage=function(e){
+    if(e && e.target!==e.currentTarget) return;
+    document.getElementById('bgRoomsManageBg').style.display='none';
+  };
+  var bgRoomsEditingIdx=null;
+  window.bgRenderRoomsManageList=function(){
+    var box=document.getElementById('bgRoomsManageList');
+    if(!box) return;
+    box.innerHTML = BG_ROOMS.length ? BG_ROOMS.map(function(r,i){
+      if(bgRoomsEditingIdx===i){
+        return '<div style="display:flex;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#fff3cd;border:1.5px solid #e0b64a;border-radius:7px;gap:6px;margin-bottom:6px">'+
+          '<input type="text" id="bgRoomsEditName_'+i+'" value="'+bgEsc(r)+'" placeholder="Tên/mã phòng" style="flex:1;min-width:160px;padding:5px 7px;font-size:12.5px;border:1px solid #ccc;border-radius:5px">'+
+          '<button onclick="bgRoomsManageSaveEdit('+i+')" style="background:#1a7a4a;color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11.5px;cursor:pointer"><i class="ti ti-check"></i> Lưu</button>'+
+          '<button onclick="bgRoomsManageCancelEdit()" style="background:none;border:1px solid #999;color:#666;border-radius:5px;padding:5px 12px;font-size:11.5px;cursor:pointer">Hủy</button>'+
+        '</div>';
+      }
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#fdf6ec;border:1px solid #f0d9a8;border-radius:7px;margin-bottom:6px">'+
+        '<span style="font-size:13px;font-weight:600;color:#7c2d12">'+bgEsc(r)+'</span>'+
+        '<div style="display:flex;gap:6px">'+
+        '<button onclick="bgRoomsManageEditStart('+i+')" style="background:#e3f2fd;border:1px solid #90caf9;color:#0d47a1;border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer"><i class="ti ti-pencil"></i> Sửa</button>'+
+        '<button onclick="bgRoomsManageDelete('+i+')" style="background:#fce4ec;border:1px solid #f48fb1;color:#c62828;border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer"><i class="ti ti-trash"></i> Xóa</button>'+
+        '</div></div>';
+    }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:8px">Chưa có phòng nào.</div>';
+  };
+  window.bgRoomsManageAdd=function(){
+    var input=document.getElementById('bgRoomsManageNew');
+    var name=(input.value||'').trim();
+    if(!name){alert('Vui lòng nhập tên/mã phòng!');return;}
+    if(BG_ROOMS.indexOf(name)!==-1){alert('Phòng này đã có trong danh sách!');return;}
+    var newList=BG_ROOMS.concat([name]);
+    bgRoomsListRef.set(newList).then(function(){
+      input.value='';
+      bgRenderRoomsManageList();
+    }).catch(function(err){alert('Lỗi khi lưu: '+err.message);});
+  };
+  window.bgRoomsManageEditStart=function(idx){
+    bgRoomsEditingIdx=idx;
+    bgRenderRoomsManageList();
+  };
+  window.bgRoomsManageCancelEdit=function(){
+    bgRoomsEditingIdx=null;
+    bgRenderRoomsManageList();
+  };
+  window.bgRoomsManageSaveEdit=function(idx){
+    var input=document.getElementById('bgRoomsEditName_'+idx);
+    var newName=(input.value||'').trim();
+    if(!newName){alert('Tên phòng không được để trống.');return;}
+    var oldName=BG_ROOMS[idx];
+    if(newName===oldName){ bgRoomsEditingIdx=null; bgRenderRoomsManageList(); return; }
+    if(BG_ROOMS.indexOf(newName)!==-1){alert('Đã có phòng trùng tên này trong danh sách!');return;}
+    var oldKey=bgSafeKey(oldName), newKey=bgSafeKey(newName);
+    db.ref('bgRecords').child(oldKey).once('value').then(function(recSnap){
+      var recData=recSnap.val();
+      var tasks=[];
+      if(recData) tasks.push(db.ref('bgRecords').child(newKey).set(recData).then(function(){return db.ref('bgRecords').child(oldKey).remove();}));
+      return Promise.all(tasks);
+    }).then(function(){
+      var newList=BG_ROOMS.slice(); newList[idx]=newName;
+      return bgRoomsListRef.set(newList);
+    }).then(function(){
+      bgRoomsEditingIdx=null;
+      bgRenderRoomsManageList();
+      alert('✅ Đã đổi tên phòng "'+oldName+'" thành "'+newName+'" — toàn bộ biên bản cũ của phòng đã được chuyển theo, không bị mất.');
+    }).catch(function(err){alert('Lỗi khi đổi tên: '+err.message);});
+  };
+  window.bgRoomsManageDelete=function(idx){
+    var roomName=BG_ROOMS[idx];
+    if(!confirm('Xóa phòng "'+roomName+'" khỏi danh sách?\n\nLưu ý: các biên bản bàn giao ĐÃ LẬP TRƯỚC ĐÓ của phòng này vẫn còn nguyên trong hệ thống (không bị xóa), chỉ là phòng này sẽ không còn hiện ra để chọn lập biên bản mới.')) return;
+    var newList=BG_ROOMS.slice(); newList.splice(idx,1);
+    bgRoomsListRef.set(newList).then(function(){
+      bgRenderRoomsManageList();
+    }).catch(function(err){alert('Lỗi khi lưu: '+err.message);});
+  };
 
   function bgEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function bgSafeKey(s){ return String(s||'').replace(/[.#$/\[\]\s]/g,'_'); }
@@ -19637,12 +19886,31 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
    try{
     bgCu={name:name,role:role};
     document.getElementById('homeScreen').style.display='none';
+    document.getElementById('bgRoomPickerScreen').style.display='block';
+    var isA=role==='admin';
+    var pRmBtn=document.getElementById('bgRoomsManageBtn'); if(pRmBtn) pRmBtn.style.display=isA?'':'none';
+    document.getElementById('bgPickerWhoBanner').innerHTML = isA
+      ? '<i class="ti ti-shield-check" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Quyền Quản lý (cấu hình danh sách phòng, xem mọi biên bản mọi phòng)'
+      : '<i class="ti ti-user" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b>';
+    bgRenderRoomGrid();
+   }catch(errBg){
+     alert('⚠️ LỖI khi vào Bàn giao trực (gửi ảnh chụp dòng này cho người hỗ trợ):\n\n'+(errBg&&errBg.message)+'\n\n'+(errBg&&errBg.stack||'').slice(0,400));
+     console.error('enterBgScreen error:', errBg);
+   }
+  };
+  window.bgSelectRoom=function(roomId){
+   try{
+    bgCurrentRoom=roomId;
+    bgRecordsRef = db.ref('bgRecords').child(bgSafeKey(roomId));
+    document.getElementById('bgRoomPickerScreen').style.display='none';
     document.getElementById('bgScreen').style.display='block';
+    var titleEl=document.getElementById('bgRoomTitle'); if(titleEl) titleEl.textContent=roomId;
+    var name=bgCu.name, role=bgCu.role;
     var isA=role==='admin';
     document.getElementById('bgCatalogBtn').style.display=isA?'':'none';
     document.getElementById('bgWhoBanner').innerHTML = isA
-      ? '<i class="ti ti-shield-check" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Quyền Quản lý (quản lý danh mục tài sản, xem mọi biên bản)'
-      : '<i class="ti ti-user" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Lập biên bản bàn giao ca trực';
+      ? '<i class="ti ti-shield-check" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Quyền Quản lý (quản lý danh mục tài sản, xem mọi biên bản) — Phòng: <b>'+bgEsc(roomId)+'</b>'
+      : '<i class="ti ti-user" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Lập biên bản bàn giao ca trực — Phòng: <b>'+bgEsc(roomId)+'</b>';
     document.getElementById('bgInDate').value=bgToday();
     document.getElementById('bgInGio').value=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
     document.getElementById('bgInCa').value='Ngày';
@@ -19679,8 +19947,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     }
     bgRenderOtherItems();
    }catch(errBg){
-     alert('⚠️ LỖI khi vào Bàn giao trực (gửi ảnh chụp dòng này cho người hỗ trợ):\n\n'+(errBg&&errBg.message)+'\n\n'+(errBg&&errBg.stack||'').slice(0,400));
-     console.error('enterBgScreen error:', errBg);
+     alert('⚠️ LỖI khi vào phòng Bàn giao trực (gửi ảnh chụp dòng này cho người hỗ trợ):\n\n'+(errBg&&errBg.message)+'\n\n'+(errBg&&errBg.stack||'').slice(0,400));
+     console.error('bgSelectRoom error:', errBg);
    }
   };
   var bgSigLocked={giao:false, nhan:false};
@@ -19740,10 +20008,17 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   }
 
   window.bgGoHome=function(){
+    document.getElementById('bgRoomPickerScreen').style.display='none';
     document.getElementById('bgScreen').style.display='none';
     document.getElementById('homeScreen').style.display='flex';
   };
-  window.bgLogout=function(){ window.bgGoHome(); bgCu=null; };
+  window.bgLogout=function(){ window.bgGoHome(); bgCu=null; bgCurrentRoom=null; if(bgRecordsRef){try{bgRecordsRef.off();}catch(e){}} };
+  window.bgBackToRooms=function(){
+    document.getElementById('bgScreen').style.display='none';
+    document.getElementById('bgRoomPickerScreen').style.display='block';
+    if(bgRecordsRef){try{bgRecordsRef.off();}catch(e){}}
+    bgCurrentRoom=null;
+  };
 
   window.bgSwitchTab=function(tab){
     bgCurTab=tab;
@@ -19960,7 +20235,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var soThuTuNam=bgAllRecords().filter(function(x){return (x.ngay||'').slice(0,4)===namNay;}).length+1;
     var soHieu=String(soThuTuNam).padStart(3,'0')+'/BB-GMHS-'+namNay;
     var rec={
-      ngay:date, gio:gio, ca:ca, nguoiGiao:nguoiGiao, nguoiNhan:nguoiNhan,
+      ngay:date, gio:gio, ca:ca, nguoiGiao:nguoiGiao, nguoiNhan:nguoiNhan, phong:bgCurrentRoom,
       items:itemsSnapshot, ghiChuChung: ghiChuChung.trim()||null, soHieu:soHieu,
       khac: bgOtherItemsTemp.length ? bgOtherItemsTemp.slice() : null,
       trangThai: hasNhanSig ? 'hoanthanh' : 'choduyet',
@@ -20251,7 +20526,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '.td-c{border:1px solid #f0d9a8;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #f0d9a8;padding:4px 6px;font-size:10pt}'+
       '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
       '<table><tr><td colspan="9" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
-      '<tr><td colspan="9" class="title">BÀN GIAO TRỰC — PHÒNG HỒI SỨC</td></tr><tr></tr>'+
+      '<tr><td colspan="9" class="title">BÀN GIAO TRỰC — '+String(bgCurrentRoom||'PHÒNG HỒI SỨC').toUpperCase()+'</td></tr><tr></tr>'+
       '<tr><td class="th">STT</td><td class="th">Ngày</td><td class="th">Giờ</td><td class="th">Ca</td><td class="th">Số hiệu</td>'+
       '<td class="th">Người bàn giao</td><td class="th">Người nhận</td><td class="th">Tình trạng tài sản</td><td class="th">Trạng thái</td></tr>';
     list.forEach(function(r,i){
@@ -20266,7 +20541,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     html+='</table></body></html>';
     var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
     var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download='BanGiao_PhongHoiSuc_GMHS_'+bgToday()+'.xls';
+    a.download='BanGiao_'+(bgCurrentRoom||'PhongHoiSuc')+'_GMHS_'+bgToday()+'.xls';
     document.body.appendChild(a);a.click();document.body.removeChild(a);
   };
   window.bgPrintWord=function(){
@@ -20285,11 +20560,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<td style="border:1px solid #999;padding:4px">'+flag+'</td>'+
         '<td style="border:1px solid #999;padding:4px;text-align:center">'+st+'</td></tr>';
     }).join('');
-    var html='<html><head><meta charset="UTF-8"><title>Bàn giao trực Phòng Hồi sức</title>'+
+    var html='<html><head><meta charset="UTF-8"><title>Bàn giao trực '+bgEsc(bgCurrentRoom||'Phòng Hồi sức')+'</title>'+
       '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#b45309;color:#fff;border:1px solid #7c2d12;padding:5px}</style></head><body>'+
       '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
       '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
-      '<h2 style="text-align:center">DANH SÁCH BIÊN BẢN BÀN GIAO TRỰC — PHÒNG HỒI SỨC</h2>'+
+      '<h2 style="text-align:center">DANH SÁCH BIÊN BẢN BÀN GIAO TRỰC — '+String(bgCurrentRoom||'PHÒNG HỒI SỨC').toUpperCase()+'</h2>'+
       '<div style="text-align:right;margin-bottom:8px">Ngày in: '+bgFmtD(bgToday())+'</div>'+
       '<table><thead><tr><th>STT</th><th>Ngày giờ</th><th>Ca</th><th>Số hiệu</th><th>Người bàn giao</th><th>Người nhận</th><th>Tình trạng tài sản</th><th>Trạng thái</th></tr></thead>'+
       '<tbody>'+rows+'</tbody></table></body></html>';
@@ -20685,6 +20960,27 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(e && e.target !== e.currentTarget) return;
     document.getElementById('bgCatalogBg').style.display='none';
   };
+  window.bgPrintCatalog=function(){
+    var items=bgCatalogItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
+    if(!items.length){alert('Chưa có tài sản nào trong danh mục để in!');return;}
+    var rows=items.map(function(it,i){
+      return '<tr><td style="text-align:center;border:1px solid #999;padding:4px">'+(i+1)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+bgEsc(it.ten)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+bgEsc(it.ma||'')+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+(it.coSo!=null?it.coSo:1)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+(it.nhom==='giao'?'Giao - Nhận':'Không bàn giao')+'</td></tr>';
+    }).join('');
+    var html='<html><head><meta charset="UTF-8"><title>Danh mục tài sản Phòng Hồi sức</title>'+
+      '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#b45309;color:#fff;border:1px solid #7c2d12;padding:5px}</style></head><body>'+
+      '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+      '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+      '<h2 style="text-align:center">DANH MỤC TÀI SẢN — PHÒNG HỒI SỨC</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Tổng số: '+items.length+' tài sản — Ngày in: '+bgFmtD(bgToday())+'</div>'+
+      '<table><thead><tr><th>STT</th><th>Tên tài sản</th><th>Mã</th><th>Cơ số</th><th>Nhóm</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></body></html>';
+    var w=window.open('','_blank');
+    w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
+  };
   var bgCatalogEditingId=null;
   window.bgRenderCatalogList=function(){
     var box=document.getElementById('bgCatalogList');
@@ -20827,7 +21123,106 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     'Máy đo Spo2',
   ];
 
-  var PM_ROOMS=['201','202','203','204','301','302','303','304','401','402','403','404'];
+  var PM_ROOMS_DEFAULT=['201','202','203','204','301','302','303','304','401','402','403','404'];
+  var PM_ROOMS=PM_ROOMS_DEFAULT.slice();
+  var pmRoomsListRef=null;
+  try{ pmRoomsListRef=db.ref('pmRoomsList'); }catch(e){ console.warn('Không khởi tạo được Firebase cho danh sách phòng mổ.',e); }
+  function pmLoadRoomsList(){
+    if(!pmRoomsListRef) return;
+    pmRoomsListRef.on('value', function(snap){
+      var d=snap.val();
+      if(d && Object.keys(d).length){
+        PM_ROOMS = Array.isArray(d) ? d.filter(Boolean) : Object.values(d).filter(Boolean);
+      } else {
+        PM_ROOMS = PM_ROOMS_DEFAULT.slice();
+        try{ pmRoomsListRef.set(PM_ROOMS); }catch(e){}
+      }
+      try{ if(document.getElementById('pmRoomGrid')) pmRenderRoomGrid(); }catch(e){}
+    });
+  }
+  pmLoadRoomsList();
+  window.pmOpenRoomsManage=function(){
+    if(!pmCu||pmCu.role!=='admin'){alert('Chỉ Quản lý mới thao tác được!');return;}
+    pmRenderRoomsManageList();
+    document.getElementById('pmRoomsManageBg').style.display='flex';
+  };
+  window.pmCloseRoomsManage=function(e){
+    if(e && e.target!==e.currentTarget) return;
+    document.getElementById('pmRoomsManageBg').style.display='none';
+  };
+  var pmRoomsEditingIdx=null;
+  window.pmRenderRoomsManageList=function(){
+    var box=document.getElementById('pmRoomsManageList');
+    if(!box) return;
+    box.innerHTML = PM_ROOMS.length ? PM_ROOMS.map(function(r,i){
+      if(pmRoomsEditingIdx===i){
+        return '<div style="display:flex;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#fff3cd;border:1.5px solid #e0b64a;border-radius:7px;gap:6px;margin-bottom:6px">'+
+          '<input type="text" id="pmRoomsEditName_'+i+'" value="'+pmEsc(r)+'" placeholder="Tên/mã phòng" style="flex:1;min-width:160px;padding:5px 7px;font-size:12.5px;border:1px solid #ccc;border-radius:5px">'+
+          '<button onclick="pmRoomsManageSaveEdit('+i+')" style="background:#1a7a4a;color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11.5px;cursor:pointer"><i class="ti ti-check"></i> Lưu</button>'+
+          '<button onclick="pmRoomsManageCancelEdit()" style="background:none;border:1px solid #999;color:#666;border-radius:5px;padding:5px 12px;font-size:11.5px;cursor:pointer">Hủy</button>'+
+        '</div>';
+      }
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f3fbfa;border:1px solid #a8d9d0;border-radius:7px;margin-bottom:6px">'+
+        '<span style="font-size:13px;font-weight:600;color:#0a4a4a">Phòng '+pmEsc(r)+'</span>'+
+        '<div style="display:flex;gap:6px">'+
+        '<button onclick="pmRoomsManageEditStart('+i+')" style="background:#e3f2fd;border:1px solid #90caf9;color:#0d47a1;border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer"><i class="ti ti-pencil"></i> Sửa</button>'+
+        '<button onclick="pmRoomsManageDelete('+i+')" style="background:#fce4ec;border:1px solid #f48fb1;color:#c62828;border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer"><i class="ti ti-trash"></i> Xóa</button>'+
+        '</div></div>';
+    }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:8px">Chưa có phòng nào.</div>';
+  };
+  window.pmRoomsManageEditStart=function(idx){
+    pmRoomsEditingIdx=idx;
+    pmRenderRoomsManageList();
+  };
+  window.pmRoomsManageCancelEdit=function(){
+    pmRoomsEditingIdx=null;
+    pmRenderRoomsManageList();
+  };
+  window.pmRoomsManageSaveEdit=function(idx){
+    var input=document.getElementById('pmRoomsEditName_'+idx);
+    var newName=(input.value||'').trim();
+    if(!newName){alert('Tên phòng không được để trống.');return;}
+    var oldName=PM_ROOMS[idx];
+    if(newName===oldName){ pmRoomsEditingIdx=null; pmRenderRoomsManageList(); return; }
+    if(PM_ROOMS.indexOf(newName)!==-1){alert('Đã có phòng trùng tên này trong danh sách!');return;}
+    Promise.all([
+      db.ref('pmRecords').child(oldName).once('value'),
+      db.ref('pmRoomConfig').child(oldName).once('value')
+    ]).then(function(results){
+      var recData=results[0].val();
+      var cfgData=results[1].val();
+      var tasks=[];
+      if(recData) tasks.push(db.ref('pmRecords').child(newName).set(recData).then(function(){return db.ref('pmRecords').child(oldName).remove();}));
+      if(cfgData) tasks.push(db.ref('pmRoomConfig').child(newName).set(cfgData).then(function(){return db.ref('pmRoomConfig').child(oldName).remove();}));
+      return Promise.all(tasks);
+    }).then(function(){
+      var newList=PM_ROOMS.slice(); newList[idx]=newName;
+      return pmRoomsListRef.set(newList);
+    }).then(function(){
+      pmRoomsEditingIdx=null;
+      pmRenderRoomsManageList();
+      alert('✅ Đã đổi tên phòng "'+oldName+'" thành "'+newName+'" — toàn bộ biên bản và cấu hình cũ của phòng đã được chuyển theo, không bị mất.');
+    }).catch(function(err){alert('Lỗi khi đổi tên: '+err.message);});
+  };
+  window.pmRoomsManageAdd=function(){
+    var input=document.getElementById('pmRoomsManageNew');
+    var name=(input.value||'').trim();
+    if(!name){alert('Vui lòng nhập tên/mã phòng!');return;}
+    if(PM_ROOMS.indexOf(name)!==-1){alert('Phòng này đã có trong danh sách!');return;}
+    var newList=PM_ROOMS.concat([name]);
+    pmRoomsListRef.set(newList).then(function(){
+      input.value='';
+      pmRenderRoomsManageList();
+    }).catch(function(err){alert('Lỗi khi lưu: '+err.message);});
+  };
+  window.pmRoomsManageDelete=function(idx){
+    var roomName=PM_ROOMS[idx];
+    if(!confirm('Xóa phòng "'+roomName+'" khỏi danh sách?\n\nLưu ý: các biên bản bàn giao ĐÃ LẬP TRƯỚC ĐÓ của phòng này vẫn còn nguyên trong hệ thống (không bị xóa), chỉ là phòng này sẽ không còn hiện ra để chọn lập biên bản mới.')) return;
+    var newList=PM_ROOMS.slice(); newList.splice(idx,1);
+    pmRoomsListRef.set(newList).then(function(){
+      pmRenderRoomsManageList();
+    }).catch(function(err){alert('Lỗi khi lưu: '+err.message);});
+  };
 
   var pmCu=null;
   var pmMasterCatalogRef=null, pmRoomConfigRef=null, pmRecordsRef=null, pmOtherCatalogRef=null;
@@ -20867,6 +21262,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('pmRoomPickerScreen').style.display='block';
     var isA=role==='admin';
     document.getElementById('pmCatalogBtn').style.display=isA?'':'none';
+    var pmRmBtn=document.getElementById('pmRoomsManageBtn'); if(pmRmBtn) pmRmBtn.style.display=isA?'':'none';
     var whoHtml = isA
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b> — Quyền Quản lý (cấu hình danh mục, xem mọi biên bản mọi phòng)'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b>';
@@ -20963,6 +21359,24 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   function pmMasterItems(){
     return Object.keys(pmMasterCatalog).map(function(k){var it=pmMasterCatalog[k];it=Object.assign({},it);it._id=k;return it;});
   }
+  window.pmPrintMasterCatalog=function(){
+    var items=pmMasterItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
+    if(!items.length){alert('Chưa có tài sản nào trong danh mục chung để in!');return;}
+    var rows=items.map(function(it,i){
+      return '<tr><td style="text-align:center;border:1px solid #999;padding:4px">'+(i+1)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+pmEsc(it.ten)+'</td></tr>';
+    }).join('');
+    var html='<html><head><meta charset="UTF-8"><title>Danh mục chung tài sản Phòng Mổ</title>'+
+      '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#0d6e6e;color:#fff;border:1px solid #0a4a4a;padding:5px}</style></head><body>'+
+      '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+      '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+      '<h2 style="text-align:center">DANH MỤC CHUNG TÀI SẢN — PHÒNG MỔ</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Tổng số: '+items.length+' tài sản — Ngày in: '+pmFmtD(pmToday())+'</div>'+
+      '<table><thead><tr><th>STT</th><th>Tên tài sản</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></body></html>';
+    var w=window.open('','_blank');
+    w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
+  };
   function pmRoomConfigItems(roomId,group){
     var cfg=(pmRoomConfig[roomId]||{})[group]||{};
     return Object.keys(cfg).map(function(itemId){
@@ -21945,6 +22359,33 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var roomCfg=(pmRoomConfig[pmCurrentRoom]||{})[group]||{};
     if(!roomCfg[itemId]){ return; } // chưa tích chọn nhóm này thì chỉ sửa số vô nghĩa, không lưu
     pmRoomConfigRef.child(pmCurrentRoom).child(group).child(itemId).child('coSo').set(n);
+  };
+  window.pmPrintRoomConfig=function(){
+    if(!pmCurrentRoom){alert('Chưa chọn phòng!');return;}
+    var items=pmMasterItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
+    var roomCfg=pmRoomConfig[pmCurrentRoom]||{};
+    var gaymeCfg=roomCfg.gayme||{}, dungcuCfg=roomCfg.dungcu||{};
+    var rows='', stt=0;
+    items.forEach(function(it){
+      var inGayme=!!gaymeCfg[it._id], inDungcu=!!dungcuCfg[it._id];
+      if(!inGayme && !inDungcu) return;
+      stt++;
+      var nhom=[]; if(inGayme) nhom.push('Gây mê (SL: '+(gaymeCfg[it._id].coSo!=null?gaymeCfg[it._id].coSo:1)+')'); if(inDungcu) nhom.push('Dụng cụ (SL: '+(dungcuCfg[it._id].coSo!=null?dungcuCfg[it._id].coSo:1)+')');
+      rows+='<tr><td style="text-align:center;border:1px solid #999;padding:4px">'+stt+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+pmEsc(it.ten)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+nhom.join(' + ')+'</td></tr>';
+    });
+    if(!stt){alert('Phòng này chưa cấu hình tài sản nào để in!');return;}
+    var html='<html><head><meta charset="UTF-8"><title>Cấu hình tài sản Phòng Mổ</title>'+
+      '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#0d6e6e;color:#fff;border:1px solid #0a4a4a;padding:5px}</style></head><body>'+
+      '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+      '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+      '<h2 style="text-align:center">DANH MỤC TÀI SẢN — PHÒNG MỔ '+pmEsc(pmCurrentRoom)+'</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Tổng số: '+stt+' tài sản — Ngày in: '+pmFmtD(pmToday())+'</div>'+
+      '<table><thead><tr><th>STT</th><th>Tên tài sản</th><th>Nhóm & Số lượng</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></body></html>';
+    var w=window.open('','_blank');
+    w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
   };
 
   // Nếu mở qua link/QR ký từ xa (?pmSignId=phong|id)
