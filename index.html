@@ -23630,7 +23630,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       return;
     }
     box.innerHTML='<div style="text-align:center;color:#888"><i class="ti ti-loader-2"></i> Đang tạo mã QR...</div>';
-    var url=location.origin+location.pathname+'?bgSignId='+recordId;
+    var url=location.origin+location.pathname+'?bgSignId='+encodeURIComponent(recordId)+'&bgRoom='+encodeURIComponent(bgCurrentRoom||'');
     bgLoadQRCode(function(){
       if(typeof QRCode==='undefined'){
         box.innerHTML='<div style="color:#c62828;text-align:left">Không tải được công cụ tạo mã QR (cần kết nối mạng). Anh/chị có thể gửi link sau cho người nhận:</div>'+
@@ -23728,17 +23728,20 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     function showAl(msg,cls){ if(!al) return; al.style.display='block'; al.style.background=cls==='err'?'#fdecea':'#e6f4ea'; al.style.color=cls==='err'?'#c62828':'#1a7a4a'; al.innerHTML=msg; }
     if(!code){ showAl('Vui lòng nhập mã số biên bản.','err'); return; }
     showAl('Đang tìm kiếm...','ok');
-    if(!bgRecordsRef){ showAl('Chưa kết nối được hệ thống. Vui lòng thử lại.','err'); return; }
-    bgRecordsRef.once('value').then(function(snap){
-      var all=snap.val()||{};
-      bgRecords=all; // đồng bộ luôn bộ nhớ đệm cục bộ với dữ liệu mới nhất
-      var list=Object.keys(all).map(function(k){var r=all[k];r=Object.assign({},r);r._id=k;return r;});
-      var match=list.find(function(r){ return bgNormCode(r.soHieu)===code; });
+    db.ref('bgRecords').once('value').then(function(snap){
+      var allRooms=snap.val()||{};
+      var match=null, matchRoom=null;
+      Object.keys(allRooms).forEach(function(roomKey){
+        if(match) return;
+        var roomRecs=allRooms[roomKey]||{};
+        Object.keys(roomRecs).forEach(function(k){
+          if(match) return;
+          var r=roomRecs[k];
+          if(r && bgNormCode(r.soHieu)===code){ match=Object.assign({},r); match._id=k; matchRoom=roomKey; }
+        });
+      });
       if(!match){
-        var debugList=list.map(function(r){
-          return '• Mã lưu trong hệ thống: "'+bgEsc(r.soHieu||'(không có mã)')+'" — trạng thái: '+(r.trangThai||'?');
-        }).join('<br>');
-        showAl('Không tìm thấy biên bản nào khớp với mã bạn nhập: "<b>'+bgEsc(raw.trim())+'</b>" (đã chuẩn hóa: "'+bgEsc(code)+'").<br><br><b>Danh sách '+list.length+' biên bản hiện có trong hệ thống:</b><br>'+(debugList||'(chưa có biên bản nào)'),'err');
+        showAl('Không tìm thấy biên bản nào khớp với mã bạn nhập: "<b>'+bgEsc(raw.trim())+'</b>" (đã chuẩn hóa: "'+bgEsc(code)+'"). Vui lòng kiểm tra lại đúng mã số biên bản.','err');
         return;
       }
       if(match.trangThai==='hoanthanh'){ showAl('Biên bản này đã HOÀN THÀNH (đủ 2 chữ ký), không cần ký thêm.','err'); return; }
@@ -23746,6 +23749,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         showAl('Biên bản này cần <b>'+bgEsc(match.nguoiNhan)+'</b> ký — anh/chị đang đăng nhập là "<b>'+bgEsc(bgCu.name)+'</b>". Vui lòng đăng xuất rồi đăng nhập lại đúng tên "'+bgEsc(match.nguoiNhan)+'" để ký.','err');
         return;
       }
+      bgCurrentRoom=matchRoom;
+      bgRecordsRef=db.ref('bgRecords').child(bgSafeKey(matchRoom));
+      bgRecords=allRooms[matchRoom]||{};
       bgCloseCodeSign();
       window.bgOpenRemoteSign(match._id);
     }).catch(function(err){
@@ -24002,11 +24008,16 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     }).catch(function(err){alert('Lỗi: '+err.message);});
   };
 
-  // Nếu mở trang qua link/QR ký từ xa (?bgSignId=...), tự động hiện màn hình ký ngay, không cần đăng nhập bình thường
+  // Nếu mở trang qua link/QR ký từ xa (?bgSignId=...&bgRoom=...), tự động hiện màn hình ký ngay, không cần đăng nhập bình thường
   try{
     var _bgParams=new URLSearchParams(location.search);
     var _bgSignId=_bgParams.get('bgSignId');
+    var _bgRoomParam=_bgParams.get('bgRoom');
     if(_bgSignId){
+      if(_bgRoomParam){
+        bgCurrentRoom=_bgRoomParam;
+        bgRecordsRef = db.ref('bgRecords').child(bgSafeKey(_bgRoomParam));
+      }
       setTimeout(function(){ window.bgOpenRemoteSign(_bgSignId); }, 300);
     }
   }catch(e){ console.warn('Không đọc được tham số ký từ xa.',e); }
@@ -25060,7 +25071,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       return;
     }
     box.innerHTML='<div style="text-align:center;color:#888"><i class="ti ti-loader-2"></i> Đang tạo mã QR...</div>';
-    var url=location.origin+location.pathname+'?pmSignId='+pmCurrentRoom+'|'+recordId;
+    var url=location.origin+location.pathname+'?pmSignId='+encodeURIComponent(recordId)+'&pmRoom='+encodeURIComponent(pmCurrentRoom||'');
     pmLoadQRCode(function(){
       if(typeof QRCode==='undefined'){ box.innerHTML='<div style="color:#c62828">Không tải được công cụ tạo mã QR.</div>'; return; }
       QRCode.toDataURL(url,{width:200,margin:1},function(err,dataUrl){
@@ -25088,18 +25099,27 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     function showAl(msg,cls){ if(!al) return; al.style.display='block'; al.style.background=cls==='err'?'#fdecea':'#e6f4ea'; al.style.color=cls==='err'?'#c62828':'#0a6b5e'; al.innerHTML=msg; }
     if(!code){ showAl('Vui lòng nhập mã số biên bản.','err'); return; }
     showAl('Đang tìm kiếm...','ok');
-    if(!pmRecordsRef){ showAl('Chưa chọn phòng hoặc chưa kết nối hệ thống.','err'); return; }
-    pmRecordsRef.once('value').then(function(snap){
-      var all=snap.val()||{};
-      pmRecords=all;
-      var list=Object.keys(all).map(function(k){var r=all[k];r=Object.assign({},r);r._id=k;return r;});
-      var match=list.find(function(r){ return pmNormCode(r.soHieu)===code; });
-      if(!match){ showAl('Không tìm thấy biên bản nào khớp với mã "<b>'+pmEsc(raw.trim())+'</b>" trong phòng này. Kiểm tra lại đúng phòng và đúng mã.','err'); return; }
+    db.ref('pmRecords').once('value').then(function(snap){
+      var allRooms=snap.val()||{};
+      var match=null, matchRoom=null;
+      Object.keys(allRooms).forEach(function(roomKey){
+        if(match) return;
+        var roomRecs=allRooms[roomKey]||{};
+        Object.keys(roomRecs).forEach(function(k){
+          if(match) return;
+          var r=roomRecs[k];
+          if(r && pmNormCode(r.soHieu)===code){ match=Object.assign({},r); match._id=k; matchRoom=roomKey; }
+        });
+      });
+      if(!match){ showAl('Không tìm thấy biên bản nào khớp với mã "<b>'+pmEsc(raw.trim())+'</b>". Kiểm tra lại đúng mã số biên bản.','err'); return; }
       if(match.trangThai==='hoanthanh'){ showAl('Biên bản này đã HOÀN THÀNH, không cần ký thêm.','err'); return; }
       if(pmCu.name!==match.nguoiNhan){
         showAl('Biên bản này cần <b>'+pmEsc(match.nguoiNhan)+'</b> ký — anh/chị đang đăng nhập là "<b>'+pmEsc(pmCu.name)+'</b>". Vui lòng đăng nhập lại đúng tên.','err');
         return;
       }
+      pmCurrentRoom=matchRoom;
+      pmRecordsRef=db.ref('pmRecords').child(matchRoom);
+      pmRecords=allRooms[matchRoom]||{};
       pmCloseCodeSign();
       window.pmOpenRemoteSign(match._id);
     }).catch(function(err){ showAl('Lỗi khi tra cứu: '+err.message,'err'); });
@@ -25360,16 +25380,24 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.body.appendChild(a);a.click();document.body.removeChild(a);
   };
 
-  // Nếu mở qua link/QR ký từ xa (?pmSignId=phong|id)
+  // Nếu mở qua link/QR ký từ xa (?pmSignId=id&pmRoom=phong — hỗ trợ cả link cũ dạng ?pmSignId=phong|id)
   try{
     var _pmParams=new URLSearchParams(location.search);
     var _pmSignRaw=_pmParams.get('pmSignId');
+    var _pmRoomParam=_pmParams.get('pmRoom');
     if(_pmSignRaw){
-      var _pmParts=_pmSignRaw.split('|');
-      if(_pmParts.length===2){
+      var _pmRoomVal=null, _pmIdVal=null;
+      if(_pmRoomParam){
+        _pmRoomVal=_pmRoomParam; _pmIdVal=_pmSignRaw;
+      } else if(_pmSignRaw.indexOf('|')>=0){
+        var _pmParts=_pmSignRaw.split('|');
+        if(_pmParts.length===2){ _pmRoomVal=_pmParts[0]; _pmIdVal=_pmParts[1]; }
+      }
+      if(_pmRoomVal && _pmIdVal){
         setTimeout(function(){
-          pmRecordsRef=db.ref('pmRecords').child(_pmParts[0]);
-          window.pmOpenRemoteSign(_pmParts[1]);
+          pmCurrentRoom=_pmRoomVal;
+          pmRecordsRef=db.ref('pmRecords').child(_pmRoomVal);
+          window.pmOpenRemoteSign(_pmIdVal);
         }, 300);
       }
     }
