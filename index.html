@@ -1610,6 +1610,37 @@ font-size:10px;color:var(--tx3)}
   </div>
 </div>
 
+<!-- ══ THỐNG KÊ GIAO NHẬN TỔNG HỢP — Hồi sức + Phòng Mổ ══ -->
+<div class="modal-bg" id="gnStatsModal" onclick="if(event.target===this)closeGiaoNhanStatsModal()">
+  <div class="modal" id="gnStatsModalBox" style="max-width:960px;max-height:88vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#5e35b1,#311b92);color:#fff;padding:16px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px"><i class="ti ti-chart-bar"></i> Thống kê Giao nhận — Hồi sức &amp; Phòng Mổ</div>
+        <div style="display:flex;gap:6px">
+          <button id="gnStatsMaxBtn" onclick="kpiToggleMaximizeBox('gnStatsModalBox','gnStatsMaxBtn')" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+          <button onclick="closeGiaoNhanStatsModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 20px;overflow-y:auto">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+        <div class="fg" style="margin:0"><label>Từ ngày</label><input type="date" id="gnStatsFrom"></div>
+        <div class="fg" style="margin:0"><label>Đến ngày</label><input type="date" id="gnStatsTo"></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#333;cursor:pointer;margin-bottom:9px"><input type="checkbox" id="gnStatsByRoom" style="width:auto"> Xem chi tiết theo phòng</label>
+        <button class="kpi-btn" style="background:#5e35b1;color:#fff" onclick="loadGiaoNhanStats()"><i class="ti ti-filter"></i> Lọc</button>
+        <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('gnStatsFrom').value='';document.getElementById('gnStatsTo').value='';loadGiaoNhanStats()"><i class="ti ti-refresh"></i> Xóa lọc</button>
+        <button class="kpi-btn" style="border:1.5px solid #5e35b1;color:#5e35b1" onclick="printGiaoNhanStats()"><i class="ti ti-printer"></i> In Word</button>
+        <button class="kpi-btn" style="border:1.5px solid #1a7a4a;color:#1a7a4a" onclick="exportGiaoNhanStatsExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+      </div>
+      <div id="gnStatsOv" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px"></div>
+      <div id="gnStatsRoomWrap" style="display:none">
+        <div style="font-weight:700;font-size:13px;color:#5e35b1;margin-bottom:8px"><i class="ti ti-door"></i> Chi tiết theo phòng</div>
+        <div id="gnStatsRoomBody">Đang tải...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ GIAO BAN SÁNG — tóm tắt việc cần xử lý gấp mỗi ngày ══ -->
 <div class="modal-bg" id="briefModal" onclick="if(event.target===this)closeBriefModal()">
   <div class="modal" id="briefModalBox" style="max-width:640px;max-height:86vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
@@ -1750,6 +1781,7 @@ font-size:10px;color:var(--tx3)}
     <input type="file" id="restoreInp" accept=".json" style="display:none" onchange="restoreData(event)">
     <button class="tbtn" id="btnDowntime" onclick="openDowntimePanel()" style="display:none"><i class="ti ti-clock-down"></i> Downtime</button>
     <button class="tbtn" id="btnDeptStats" onclick="openDeptStatsPanel()" style="display:none"><i class="ti ti-building"></i> TK Bộ phận</button>
+    <button class="tbtn" id="btnBanGiaoStats" onclick="openGiaoNhanStatsModal()" style="display:none;background:rgba(94,53,177,.75);border-color:#311b92"><i class="ti ti-chart-bar"></i> TK Giao nhận</button>
     <!-- Nút chuyển màn hình - chỉ hiện với admin -->
     <button class="tbtn" id="btnGoNghiBu" onclick="adminGoNghiBu()" style="display:none;background:rgba(21,101,192,.7);border-color:#1565C0"><i class="ti ti-calendar-off"></i> Nghỉ Bù</button>
     <button class="tbtn" id="btnGoNghiPhep" onclick="adminGoNghiPhep()" style="display:none;background:rgba(0,131,143,.7);border-color:#00838f"><i class="ti ti-beach"></i> Nghỉ Phép</button>
@@ -8626,13 +8658,17 @@ function kpiToggleWideBox(boxId, btnId){
 }
 
 /* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
-var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,khan:0};
+var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,khan:0,treHan:0};
 var notifBgKhanItems=[]; // [{roomId, id, lines:[...]}]
 var notifPmKhanItems=[];
+var notifTreHanItems=[]; // [{nguon, kind, roomId, id, ngay, gio, soGioTre}]
+var notifBgTreHanItems=[];
+var notifPmTreHanItems=[];
 var notifPmRoomsPending={}; // {roomId: số phiếu chờ của phòng đó}
 var notifBgRoomsPending={}; // {roomId: số phiếu chờ của phòng Hồi sức đó}
 var notifMeta={
   khan:{label:'🚨 BÁO CÁO KHẨN CẤP — thiếu/mất/sự cố', icon:'ti-alert-triangle-filled'},
+  treHan:{label:'⏰ Bàn giao trễ — quá 4 giờ chưa có người nhận ký', icon:'ti-clock-exclamation'},
   dctd:{label:'Dụng cụ sau mổ — chưa xử lý', icon:'ti-tool'},
   bg:{label:'Bàn giao Hồi sức — chờ hoàn thành', icon:'ti-clipboard-check'},
   pm:{label:'Bàn giao Phòng Mổ — chờ hoàn thành', icon:'ti-building-hospital'},
@@ -8651,36 +8687,60 @@ function notifInit(){
   }catch(e){ console.warn('notifInit dctd:',e); }
   try{
     db.ref('bgRecords').on('value',function(snap){
-      var n=0, roomsMap={}, khanItems=[];
+      var n=0, roomsMap={}, khanItems=[], treHanItems=[];
+      var TRE_HAN_MS=4*3600*1000;
       snap.forEach(function(roomSnap){
         var c=0;
         roomSnap.forEach(function(recSnap){
           var r=recSnap.val();
-          if(r&&r.trangThai==='choduyet'){ n++; c++; }
+          if(r&&r.trangThai==='choduyet'){
+            n++; c++;
+            var giaoAt=r.xacNhanGiao&&r.xacNhanGiao.at;
+            if(giaoAt){
+              var elapsed=Date.now()-new Date(giaoAt).getTime();
+              if(elapsed>TRE_HAN_MS){
+                treHanItems.push({nguon:'Bàn giao Hồi sức — '+roomSnap.key, kind:'bg', roomId:roomSnap.key, id:recSnap.key, ngay:r.ngay, gio:r.gio, soGioTre:Math.floor(elapsed/3600000)});
+              }
+            }
+          }
           if(r&&r.baoCaoKhan&&r.baoCaoKhan.length){ khanItems.push({roomId:roomSnap.key,id:recSnap.key,lines:r.baoCaoKhan,ngay:r.ngay}); }
         });
         if(c>0) roomsMap[roomSnap.key]=c;
       });
-      notifCounts.bg=n; notifBgRoomsPending=roomsMap; notifBgKhanItems=khanItems;
+      notifCounts.bg=n; notifBgRoomsPending=roomsMap; notifBgKhanItems=khanItems; notifBgTreHanItems=treHanItems;
       notifCounts.khan=notifBgKhanItems.reduce(function(a,x){return a+x.lines.length;},0)+notifPmKhanItems.reduce(function(a,x){return a+x.lines.length;},0);
+      notifTreHanItems=notifBgTreHanItems.concat(notifPmTreHanItems);
+      notifCounts.treHan=notifTreHanItems.length;
       notifRenderHome();
       try{ if(document.getElementById('bgRoomGrid') && document.getElementById('bgRoomPickerScreen').style.display!=='none') bgRenderRoomGrid(); }catch(e2){}
     });
   }catch(e){ console.warn('notifInit bg:',e); }
   try{
     db.ref('pmRecords').on('value',function(snap){
-      var n=0, roomsMap={}, khanItems=[];
+      var n=0, roomsMap={}, khanItems=[], treHanItems=[];
+      var TRE_HAN_MS=4*3600*1000;
       snap.forEach(function(roomSnap){
         var c=0;
         roomSnap.forEach(function(recSnap){
           var r=recSnap.val();
-          if(r&&r.trangThai==='choduyet'){ n++; c++; }
+          if(r&&r.trangThai==='choduyet'){
+            n++; c++;
+            var giaoAt=r.xacNhanGiao&&r.xacNhanGiao.at;
+            if(giaoAt){
+              var elapsed=Date.now()-new Date(giaoAt).getTime();
+              if(elapsed>TRE_HAN_MS){
+                treHanItems.push({nguon:'Bàn giao Phòng Mổ '+roomSnap.key, kind:'pm', roomId:roomSnap.key, id:recSnap.key, ngay:r.ngay, gio:r.gio, soGioTre:Math.floor(elapsed/3600000)});
+              }
+            }
+          }
           if(r&&r.baoCaoKhan&&r.baoCaoKhan.length){ khanItems.push({roomId:roomSnap.key,id:recSnap.key,lines:r.baoCaoKhan,ngay:r.ngay}); }
         });
         if(c>0) roomsMap[roomSnap.key]=c;
       });
-      notifCounts.pm=n; notifPmRoomsPending=roomsMap; notifPmKhanItems=khanItems;
+      notifCounts.pm=n; notifPmRoomsPending=roomsMap; notifPmKhanItems=khanItems; notifPmTreHanItems=treHanItems;
       notifCounts.khan=notifBgKhanItems.reduce(function(a,x){return a+x.lines.length;},0)+notifPmKhanItems.reduce(function(a,x){return a+x.lines.length;},0);
+      notifTreHanItems=notifBgTreHanItems.concat(notifPmTreHanItems);
+      notifCounts.treHan=notifTreHanItems.length;
       notifRenderHome();
       try{ if(document.getElementById('pmRoomGrid') && document.getElementById('pmRoomPickerScreen').style.display!=='none') pmRenderRoomGrid(); }catch(e2){}
     });
@@ -8740,7 +8800,7 @@ function notifRenderHome(){
   Object.keys(notifMeta).forEach(function(k){
     var n=notifCounts[k]||0; if(n<=0) return;
     var m=notifMeta[k];
-    var isKhan = k==='khan';
+    var isKhan = (k==='khan'||k==='treHan');
     var style = isKhan
       ? 'background:#fff;color:#c62828;border:2px solid #ffeb3b;border-radius:8px;padding:9px 10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:800;box-shadow:0 0 8px rgba(255,235,59,.6)'
       : 'background:rgba(255,255,255,.16);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background .15s';
@@ -8762,7 +8822,7 @@ function notifGoTo(key){
       var el=document.getElementById(wrapId); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
     },500);
   }
-  if(key==='khan'){
+  if(key==='khan'||key==='treHan'){
     enterApp();
     setTimeout(function(){ openBriefModal(); },350);
     return;
@@ -8806,6 +8866,7 @@ var TOOLBAR_BTN_DEFS=[
   {id:'btnPrintWord',label:'In Word',icon:'ti-printer',group:'report',def:true},
   {id:'btnDowntime',label:'Downtime',icon:'ti-clock-down',group:'report',def:true},
   {id:'btnDeptStats',label:'TK Bộ phận',icon:'ti-building',group:'report',def:true},
+  {id:'btnBanGiaoStats',label:'TK Giao nhận',icon:'ti-chart-bar',group:'report',def:true},
   {id:'btnGoPhanQuyen',label:'Phân quyền',icon:'ti-shield-lock',group:'admin',def:true},
   {id:'btnBackup',label:'Sao lưu',icon:'ti-cloud-download',group:'admin',def:true},
   {id:'btnRestore',label:'Phục hồi',icon:'ti-cloud-upload',group:'admin',def:true},
@@ -9092,7 +9153,7 @@ function enterApp(){
   document.getElementById('tAv').textContent=ini(cu.name);
   document.getElementById('abanner').style.display=isA?'flex':'none';
   document.getElementById('filterSec').style.display=isA?'block':'none';
-  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime','btnDeptStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','deptStatsCatalogBtn','btnToolbarCfg'].forEach(id=>{
+  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','deptStatsCatalogBtn','btnToolbarCfg'].forEach(id=>{
     var el=document.getElementById(id);if(el)el.style.display=isA?'flex':'none';});
   if(isA){ loadToolbarCfgAndApply(); }
   document.getElementById('inPersonDisp').value=cu.name;
@@ -10367,6 +10428,10 @@ function openBriefModal(){
     <div style="font-size:14px;font-weight:800;color:#c62828;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-alert-triangle-filled"></i> 🚨 BÁO CÁO KHẨN CẤP — thiếu/mất/sự cố (<span id="briefKhanCount">0</span>)</div>
     <div id="briefKhanBody"></div>
   </div>`;
+  html+=`<div id="briefTreHanSection" style="display:none;margin-bottom:18px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;padding:10px 12px">
+    <div style="font-size:14px;font-weight:800;color:#e65100;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-clock-exclamation"></i> ⏰ BÀN GIAO TRỄ — quá 4 giờ chưa có người nhận ký (<span id="briefTreHanCount">0</span>)</div>
+    <div id="briefTreHanBody"></div>
+  </div>`;
   html+=`<div style="margin-bottom:18px">
     <div style="font-size:13.5px;font-weight:700;color:#bf360c;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-flame"></i> Cần xử lý gấp nhất (${urgent.length}${pending.length>urgent.length?'/'+pending.length:''})</div>
     ${urgent.length?urgent.map(c=>briefCardRow(c,'urgent')).join(''):'<div style="color:#aaa;font-size:12.5px;padding:6px 0">🎉 Không còn việc tồn đọng nào — rất tốt!</div>'}
@@ -10395,6 +10460,175 @@ function openBriefModal(){
   document.getElementById('briefModal').classList.add('on');
   briefLoadExtra();
 }
+/* ══ Thống kê Giao nhận tổng hợp — Hồi sức + Phòng Mổ ══ */
+var gnStatsCache={rows:[], overview:{}};
+function openGiaoNhanStatsModal(){
+  document.getElementById('gnStatsModal').classList.add('on');
+  loadGiaoNhanStats();
+}
+function closeGiaoNhanStatsModal(){
+  document.getElementById('gnStatsModal').classList.remove('on');
+}
+function loadGiaoNhanStats(){
+  var fromV=(document.getElementById('gnStatsFrom')||{}).value||'';
+  var toV=(document.getElementById('gnStatsTo')||{}).value||'';
+  var byRoom=(document.getElementById('gnStatsByRoom')||{}).checked;
+  var ovEl=document.getElementById('gnStatsOv');
+  var roomWrap=document.getElementById('gnStatsRoomWrap');
+  var roomBody=document.getElementById('gnStatsRoomBody');
+  if(ovEl) ovEl.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:10px">Đang tải...</div>';
+  Promise.all([ db.ref('bgRecords').once('value'), db.ref('pmRecords').once('value') ]).then(function(results){
+    var rows=[]; // {nguon, room, tong, hoanThanh, choHT, coSuCo}
+    function inRange(ngay){
+      if(!ngay) return false;
+      if(fromV && ngay<fromV) return false;
+      if(toV && ngay>toV) return false;
+      return true;
+    }
+    var bgData=results[0].val()||{};
+    Object.keys(bgData).forEach(function(room){
+      var recs=Object.keys(bgData[room]||{}).map(function(k){var r=bgData[room][k];r=Object.assign({},r);r._id=k;return r;})
+        .filter(function(r){ return (!fromV&&!toV) || inRange(r.ngay); });
+      if(!recs.length) return;
+      var coSuCo=recs.filter(function(r){ return Object.values(r.items||{}).some(function(it){return it.status==='thieu'||it.status==='hong';}); }).length;
+      rows.push({nguon:'Hồi sức', kind:'bg', room:room, tong:recs.length,
+        hoanThanh:recs.filter(function(r){return r.trangThai==='hoanthanh';}).length,
+        choHT:recs.filter(function(r){return r.trangThai==='choduyet';}).length,
+        coSuCo:coSuCo, recs:recs});
+    });
+    var pmData=results[1].val()||{};
+    Object.keys(pmData).forEach(function(room){
+      var recs=Object.keys(pmData[room]||{}).map(function(k){var r=pmData[room][k];r=Object.assign({},r);r._id=k;return r;})
+        .filter(function(r){ return (!fromV&&!toV) || inRange(r.ngay); });
+      if(!recs.length) return;
+      var coSuCo=recs.filter(function(r){
+        var items=Object.values(r.itemsGayme||{}).concat(Object.values(r.itemsDungcu||{}));
+        return items.some(function(it){return it.status==='thieu'||it.status==='hong';});
+      }).length;
+      rows.push({nguon:'Phòng Mổ', kind:'pm', room:room, tong:recs.length,
+        hoanThanh:recs.filter(function(r){return r.trangThai==='hoanthanh';}).length,
+        choHT:recs.filter(function(r){return r.trangThai==='choduyet';}).length,
+        coSuCo:coSuCo, recs:recs});
+    });
+    var overview={
+      tong: rows.reduce(function(a,r){return a+r.tong;},0),
+      hoanThanh: rows.reduce(function(a,r){return a+r.hoanThanh;},0),
+      choHT: rows.reduce(function(a,r){return a+r.choHT;},0),
+      coSuCo: rows.reduce(function(a,r){return a+r.coSuCo;},0),
+      soPhongHoiSuc: rows.filter(function(r){return r.nguon==='Hồi sức';}).length,
+      soPhongMo: rows.filter(function(r){return r.nguon==='Phòng Mổ';}).length
+    };
+    gnStatsCache={rows:rows, overview:overview};
+    if(ovEl){
+      var cards=[
+        {val:overview.tong, lbl:'Tổng biên bản (cả 2 khối)', color:'#5e35b1'},
+        {val:overview.hoanThanh, lbl:'Đã hoàn thành', color:'#1a7a4a'},
+        {val:overview.choHT, lbl:'Chờ hoàn thành', color:'#c66a00'},
+        {val:overview.coSuCo, lbl:'Biên bản có thiếu/hư hỏng', color:'#c62828'},
+        {val:overview.soPhongHoiSuc, lbl:'Số phòng Hồi sức có dữ liệu', color:'#b45309'},
+        {val:overview.soPhongMo, lbl:'Số phòng mổ có dữ liệu', color:'#0d6e6e'}
+      ];
+      ovEl.innerHTML=cards.map(function(c){return '<div style="background:#f5f3fb;border:1.5px solid #d1c4e9;border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:'+c.color+'">'+c.val+'</div><div style="font-size:11px;color:#666;margin-top:2px">'+c.lbl+'</div></div>';}).join('');
+    }
+    if(byRoom){
+      roomWrap.style.display='block';
+      rows.sort(function(a,b){ return a.nguon===b.nguon ? String(a.room).localeCompare(String(b.room),'vi') : a.nguon.localeCompare(b.nguon); });
+      roomBody.innerHTML = rows.length ? ('<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+        '<thead><tr style="background:#ede7f6;color:#311b92">'+
+          '<th style="padding:6px 8px;border:1px solid #d1c4e9">Khối</th><th style="padding:6px 8px;border:1px solid #d1c4e9">Phòng</th>'+
+          '<th style="padding:6px 8px;border:1px solid #d1c4e9;text-align:center">Tổng (bấm để xem)</th><th style="padding:6px 8px;border:1px solid #d1c4e9;text-align:center">Hoàn thành</th>'+
+          '<th style="padding:6px 8px;border:1px solid #d1c4e9;text-align:center">Chờ HT</th><th style="padding:6px 8px;border:1px solid #d1c4e9;text-align:center">Có thiếu/hỏng</th>'+
+        '</tr></thead><tbody>'+
+        rows.map(function(r,i){
+          return '<tr style="'+(i%2?'background:#faf9fc':'')+'">'+
+            '<td style="padding:5px 8px;border:1px solid #ece6f4">'+esc(r.nguon)+'</td>'+
+            '<td style="padding:5px 8px;border:1px solid #ece6f4;font-weight:600">'+esc(r.room)+'</td>'+
+            '<td style="padding:5px 8px;border:1px solid #ece6f4;text-align:center"><a onclick="gnToggleRoomDetail('+i+')" style="cursor:pointer;color:#5e35b1;font-weight:800;text-decoration:underline">'+r.tong+'</a></td>'+
+            '<td style="padding:5px 8px;border:1px solid #ece6f4;text-align:center;color:#1a7a4a">'+r.hoanThanh+'</td>'+
+            '<td style="padding:5px 8px;border:1px solid #ece6f4;text-align:center;color:#c66a00">'+r.choHT+'</td>'+
+            '<td style="padding:5px 8px;border:1px solid #ece6f4;text-align:center;'+(r.coSuCo>0?'color:#c62828;font-weight:700':'')+'">'+r.coSuCo+'</td>'+
+          '</tr>'+
+          '<tr id="gnRoomDetailRow_'+i+'" style="display:none"><td colspan="6" style="padding:0;border:1px solid #ece6f4;background:#faf9fc"><div id="gnRoomDetailBody_'+i+'" style="padding:8px 12px"></div></td></tr>';
+        }).join('')+'</tbody></table>') : '<div style="color:#aaa;text-align:center;padding:14px">Không có dữ liệu trong khoảng đã lọc.</div>';
+    } else {
+      roomWrap.style.display='none';
+    }
+  }).catch(function(err){
+    if(ovEl) ovEl.innerHTML='<div style="grid-column:1/-1;color:#c62828;text-align:center;padding:10px">Lỗi tải dữ liệu: '+err.message+'</div>';
+  });
+}
+function gnToggleRoomDetail(idx){
+  var row=document.getElementById('gnRoomDetailRow_'+idx);
+  var body=document.getElementById('gnRoomDetailBody_'+idx);
+  if(!row||!body) return;
+  var showing = row.style.display==='none';
+  row.style.display = showing ? 'table-row' : 'none';
+  if(showing){
+    var r=gnStatsCache.rows[idx];
+    var recs=(r.recs||[]).slice().sort(function(a,b){ return (b.ngay||'').localeCompare(a.ngay||''); });
+    body.innerHTML = recs.length ? ('<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="color:#5e35b1"><th style="padding:4px 6px;text-align:left">Ngày/Giờ</th><th style="padding:4px 6px;text-align:left">Người giao</th><th style="padding:4px 6px;text-align:left">Người nhận</th><th style="padding:4px 6px;text-align:center">Trạng thái</th></tr></thead><tbody>'+
+      recs.map(function(rec){
+        var st = rec.trangThai==='hoanthanh' ? '<span style="color:#1a7a4a;font-weight:600">✅ Hoàn thành</span>' : '<span style="color:#c66a00;font-weight:600">⏳ Chờ hoàn thành</span>';
+        return '<tr onclick="gnGoToRecord(\''+r.kind+'\',\''+r.room+'\',\''+rec._id+'\')" style="cursor:pointer" onmouseover="this.style.background=\'#ede7f6\'" onmouseout="this.style.background=\'\'">'+
+          '<td style="padding:4px 6px;border-top:1px solid #e0d9ef">'+esc(rec.ngay||'')+(rec.gio?(' '+esc(rec.gio)):'')+'</td>'+
+          '<td style="padding:4px 6px;border-top:1px solid #e0d9ef">'+esc(rec.nguoiGiao||'')+'</td>'+
+          '<td style="padding:4px 6px;border-top:1px solid #e0d9ef">'+esc(rec.nguoiNhan||'')+'</td>'+
+          '<td style="padding:4px 6px;border-top:1px solid #e0d9ef;text-align:center">'+st+'</td>'+
+        '</tr>';
+      }).join('')+'</tbody></table>') : '<div style="color:#aaa;padding:6px 0">Không có biên bản.</div>';
+  }
+}
+function gnGoToRecord(kind, roomId, id){
+  if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xem chi tiết được từ đây.'); return; }
+  closeGiaoNhanStatsModal();
+  if(kind==='pm'){ briefGoToPm(roomId, id); }
+  else { briefGoToBg(roomId, id); }
+}
+function printGiaoNhanStats(){
+  if(!gnStatsCache.rows.length){ alert('Chưa có dữ liệu để in (bấm "Lọc" trước, hoặc không có biên bản nào trong khoảng đã chọn).'); return; }
+  var fromV=(document.getElementById('gnStatsFrom')||{}).value||'';
+  var toV=(document.getElementById('gnStatsTo')||{}).value||'';
+  var o=gnStatsCache.overview;
+  var rowsHtml=gnStatsCache.rows.map(function(r){
+    return '<tr><td style="border:1px solid #999;padding:4px">'+esc(r.nguon)+'</td><td style="border:1px solid #999;padding:4px">'+esc(r.room)+'</td>'+
+      '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.tong+'</td><td style="border:1px solid #999;padding:4px;text-align:center">'+r.hoanThanh+'</td>'+
+      '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.choHT+'</td><td style="border:1px solid #999;padding:4px;text-align:center">'+r.coSuCo+'</td></tr>';
+  }).join('');
+  var html='<html><head><meta charset="UTF-8"><title>Thống kê Giao nhận</title>'+
+    '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#5e35b1;color:#fff;border:1px solid #311b92;padding:5px}</style></head><body>'+
+    '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+    '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+    '<h2 style="text-align:center">THỐNG KÊ GIAO NHẬN — HỒI SỨC &amp; PHÒNG MỔ</h2>'+
+    '<div style="text-align:center;margin-bottom:8px">'+((fromV||toV)?('Khoảng thời gian: '+(fromV||'...')+' — '+(toV||'...')):'Toàn bộ thời gian')+'</div>'+
+    '<p>Tổng biên bản: <b>'+o.tong+'</b> — Đã hoàn thành: <b>'+o.hoanThanh+'</b> — Chờ hoàn thành: <b>'+o.choHT+'</b> — Có thiếu/hư hỏng: <b>'+o.coSuCo+'</b></p>'+
+    '<table><thead><tr><th>Khối</th><th>Phòng</th><th>Tổng</th><th>Hoàn thành</th><th>Chờ HT</th><th>Có thiếu/hỏng</th></tr></thead>'+
+    '<tbody>'+rowsHtml+'</tbody></table></body></html>';
+  var w=window.open('','_blank');
+  w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
+}
+function exportGiaoNhanStatsExcel(){
+  if(!gnStatsCache.rows.length){ alert('Chưa có dữ liệu để xuất.'); return; }
+  var rowsHtml=gnStatsCache.rows.map(function(r){
+    return '<tr><td class="td">'+esc(r.nguon)+'</td><td class="td">'+esc(r.room)+'</td>'+
+      '<td class="td-c">'+r.tong+'</td><td class="td-c">'+r.hoanThanh+'</td><td class="td-c">'+r.choHT+'</td><td class="td-c">'+r.coSuCo+'</td></tr>';
+  }).join('');
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+    '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+    '.th{background:#5e35b1;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #311b92;padding:5px}'+
+    '.td-c{border:1px solid #d1c4e9;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #d1c4e9;padding:4px 6px;font-size:10pt}'+
+    '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+    '<table><tr><td colspan="6" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+    '<tr><td colspan="6" class="title">THỐNG KÊ GIAO NHẬN — HỒI SỨC &amp; PHÒNG MỔ</td></tr><tr></tr>'+
+    '<tr><td class="th">Khối</td><td class="th">Phòng</td><td class="th">Tổng</td><td class="th">Hoàn thành</td><td class="th">Chờ HT</td><td class="th">Có thiếu/hỏng</td></tr>'+
+    rowsHtml+'</table></body></html>';
+  var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='ThongKeGiaoNhan_TongHop_GMHS_'+bgToday_gn()+'.xls';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function bgToday_gn(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
 function briefLoadExtra(){
   // Báo cáo khẩn cấp — lấy trực tiếp từ dữ liệu đã có sẵn của thẻ Thông báo (không cần tải lại)
   var khanSection=document.getElementById('briefKhanSection');
@@ -10424,6 +10658,26 @@ function briefLoadExtra(){
       }).join('');
     } else {
       khanSection.style.display='none';
+    }
+  }
+  // Bàn giao trễ >4h — cũng lấy trực tiếp từ dữ liệu đã có sẵn của thẻ Thông báo
+  var treHanSection=document.getElementById('briefTreHanSection');
+  var treHanBody=document.getElementById('briefTreHanBody');
+  var treHanCountEl=document.getElementById('briefTreHanCount');
+  if(treHanSection && treHanBody){
+    var treRows=(notifTreHanItems||[]).slice().sort(function(a,b){return b.soGioTre-a.soGioTre;});
+    if(treHanCountEl) treHanCountEl.textContent=treRows.length;
+    if(treRows.length){
+      treHanSection.style.display='block';
+      treHanBody.innerHTML=treRows.map(function(x){
+        var clickAttr = x.kind==='pm' ? ('briefGoToPm(\''+x.roomId+'\',\''+x.id+'\')') : ('briefGoToBg(\''+x.roomId+'\',\''+x.id+'\')');
+        return '<div onclick="'+clickAttr+'" style="background:#fff;border:1.5px solid #ffcc80;border-radius:7px;padding:7px 10px;margin-bottom:6px;cursor:pointer;font-size:12.5px" onmouseover="this.style.background=\'#fff3e0\'" onmouseout="this.style.background=\'#fff\'">'+
+          '<b style="color:#e65100">'+esc(x.nguon)+'</b> — đã trễ <b>'+x.soGioTre+' giờ</b> chưa có người nhận ký'+
+          '<div style="color:#999;font-size:10.5px;margin-top:2px">Bàn giao lúc: '+esc(x.ngay||'—')+(x.gio?(' '+esc(x.gio)):'')+'</div>'+
+        '</div>';
+      }).join('');
+    } else {
+      treHanSection.style.display='none';
     }
   }
   var elDctd=document.getElementById('briefDctdBody');
@@ -18460,6 +18714,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="kpi-btn" id="bgRoomsManageBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgOpenRoomsManage()"><i class="ti ti-door"></i> Quản lý danh sách phòng</button>
+      <button class="kpi-btn" id="bgRoomsStatsBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgOpenRoomsStats()"><i class="ti ti-chart-bar"></i> Thống kê theo phòng</button>
       <button class="kpi-btn" style="background:#fff;color:#b45309" onclick="bgLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
       <button class="kpi-btn" id="bgPickerWideBtn" onclick="kpiToggleWideBox('bgPickerMainBox','bgPickerWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
@@ -18485,6 +18740,24 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <input id="bgRoomsManageNew" type="text" placeholder="Tên/mã phòng mới..." style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #f0d9a8;border-radius:8px;font-size:13px;font-family:inherit">
         <button class="kpi-btn" style="background:#b45309;color:#fff" onclick="bgRoomsManageAdd()"><i class="ti ti-plus"></i> Thêm</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="bgRoomsStatsBg" onclick="bgCloseRoomsStats(event)" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2150;display:none;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
+  <div id="bgRoomsStatsBox" style="background:#fff;border-radius:14px;max-width:900px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
+    <div style="background:#b45309;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="font-weight:700"><i class="ti ti-chart-bar"></i> Thống kê lịch sử giao nhận theo phòng — Hồi sức</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="bgPrintRoomsStats()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-printer"></i> In Word</button>
+        <button onclick="bgExportRoomsStatsExcel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+        <button id="bgRoomsStatsMaxBtn" onclick="kpiToggleMaximizeBox('bgRoomsStatsBox','bgRoomsStatsMaxBtn')" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        <button onclick="bgCloseRoomsStats()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
+      </div>
+    </div>
+    <div style="padding:16px 18px;max-height:75vh;overflow-y:auto">
+      <div class="sub" style="margin-bottom:10px">So sánh tổng quan lịch sử bàn giao giữa các phòng — giúp phát hiện phòng nào hay thiếu/hư hỏng, phòng nào ít lập biên bản.</div>
+      <div id="bgRoomsStatsBody">Đang tải...</div>
     </div>
   </div>
 </div>
@@ -18792,6 +19065,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="kpi-btn" id="pmCatalogBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenMasterCatalog()"><i class="ti ti-list-details"></i> Danh mục chung</button>
       <button class="kpi-btn" id="pmRoomsManageBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomsManage()"><i class="ti ti-door"></i> Quản lý danh sách phòng</button>
+      <button class="kpi-btn" id="pmRoomsStatsBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomsStats()"><i class="ti ti-chart-bar"></i> Thống kê theo phòng</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
       <button class="kpi-btn" id="pmPickerWideBtn" onclick="kpiToggleWideBox('pmPickerMainBox','pmPickerWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
@@ -19093,6 +19367,24 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <input id="pmRoomsManageNew" type="text" placeholder="Tên/mã phòng mới (VD: 205, Hồi tỉnh...)" style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit">
         <button class="kpi-btn" style="background:#0d6e6e;color:#fff" onclick="pmRoomsManageAdd()"><i class="ti ti-plus"></i> Thêm</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="pmRoomsStatsBg" onclick="pmCloseRoomsStats(event)" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2150;display:none;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto">
+  <div id="pmRoomsStatsBox" style="background:#fff;border-radius:14px;max-width:900px;width:100%;margin:30px auto;overflow:hidden" onclick="event.stopPropagation()">
+    <div style="background:#0d6e6e;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="font-weight:700"><i class="ti ti-chart-bar"></i> Thống kê lịch sử giao nhận theo phòng — Phòng Mổ</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="pmPrintRoomsStats()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-printer"></i> In Word</button>
+        <button onclick="pmExportRoomsStatsExcel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+        <button id="pmRoomsStatsMaxBtn" onclick="kpiToggleMaximizeBox('pmRoomsStatsBox','pmRoomsStatsMaxBtn')" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        <button onclick="pmCloseRoomsStats()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
+      </div>
+    </div>
+    <div style="padding:16px 18px;max-height:75vh;overflow-y:auto">
+      <div class="sub" style="margin-bottom:10px">So sánh tổng quan lịch sử bàn giao giữa các phòng mổ — giúp phát hiện phòng nào hay thiếu/hư hỏng, phòng nào ít lập biên bản.</div>
+      <div id="pmRoomsStatsBody">Đang tải...</div>
     </div>
   </div>
 </div>
@@ -22841,6 +23133,103 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     }).catch(function(err){alert('Lỗi khi lưu: '+err.message);});
   };
 
+  var bgRoomsStatsCache=[];
+  window.bgOpenRoomsStats=function(){
+    if(!bgCu||bgCu.role!=='admin'){alert('Chỉ Quản lý mới xem được!');return;}
+    document.getElementById('bgRoomsStatsBg').style.display='flex';
+    document.getElementById('bgRoomsStatsBody').innerHTML='Đang tải...';
+    db.ref('bgRecords').once('value').then(function(snap){
+      var d=snap.val()||{};
+      var rows=BG_ROOMS.map(function(room){
+        var recs=Object.values(d[bgSafeKey(room)]||d[room]||{});
+        var tong=recs.length;
+        var hoanThanh=recs.filter(function(r){return r.trangThai==='hoanthanh';}).length;
+        var choHT=recs.filter(function(r){return r.trangThai==='choduyet';}).length;
+        var coSuCo=recs.filter(function(r){
+          return Object.values(r.items||{}).some(function(it){return it.status==='thieu'||it.status==='hong';});
+        }).length;
+        var ngayGanNhat=recs.map(function(r){return r.ngay;}).filter(Boolean).sort().slice(-1)[0]||'—';
+        return {room:room, tong:tong, hoanThanh:hoanThanh, choHT:choHT, coSuCo:coSuCo, ngayGanNhat:ngayGanNhat};
+      });
+      bgRoomsStatsCache=rows;
+      bgRenderRoomsStats(rows);
+    }).catch(function(err){
+      document.getElementById('bgRoomsStatsBody').innerHTML='<div style="color:#c62828">Lỗi tải dữ liệu: '+err.message+'</div>';
+    });
+  };
+  window.bgCloseRoomsStats=function(e){
+    if(e && e.target!==e.currentTarget) return;
+    document.getElementById('bgRoomsStatsBg').style.display='none';
+  };
+  function bgRenderRoomsStats(rows){
+    var body=document.getElementById('bgRoomsStatsBody');
+    if(!body) return;
+    if(!rows.length){ body.innerHTML='<div style="color:#aaa;text-align:center;padding:20px">Chưa có phòng nào.</div>'; return; }
+    var totalTong=rows.reduce(function(a,r){return a+r.tong;},0);
+    body.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+      '<thead><tr style="background:#fdecd2;color:#7c2d12">'+
+        '<th style="padding:6px 8px;border:1px solid #f0d9a8">Phòng</th>'+
+        '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Tổng biên bản</th>'+
+        '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Đã hoàn thành</th>'+
+        '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Chờ hoàn thành</th>'+
+        '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Có thiếu/hư hỏng</th>'+
+        '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Ngày gần nhất</th>'+
+      '</tr></thead><tbody>'+
+      rows.map(function(r,i){
+        return '<tr style="'+(i%2?'background:#fffaf3':'')+'">'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;font-weight:600">'+bgEsc(r.room)+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center">'+r.tong+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center;color:#1a7a4a">'+r.hoanThanh+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center;color:#c66a00">'+r.choHT+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center;'+(r.coSuCo>0?'color:#c62828;font-weight:700':'')+'">'+r.coSuCo+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center">'+bgFmtD(r.ngayGanNhat)+'</td>'+
+        '</tr>';
+      }).join('')+
+      '<tr style="background:#fdecd2;font-weight:700"><td style="padding:5px 8px;border:1px solid #f0d9a8">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #f0d9a8;text-align:center">'+totalTong+'</td><td colspan="4" style="padding:5px 8px;border:1px solid #f0d9a8"></td></tr>'+
+      '</tbody></table>';
+  }
+  window.bgPrintRoomsStats=function(){
+    if(!bgRoomsStatsCache.length){alert('Chưa có dữ liệu để in!');return;}
+    var rows=bgRoomsStatsCache.map(function(r){
+      return '<tr><td style="border:1px solid #999;padding:4px">'+bgEsc(r.room)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.tong+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.hoanThanh+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.choHT+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.coSuCo+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+bgFmtD(r.ngayGanNhat)+'</td></tr>';
+    }).join('');
+    var html='<html><head><meta charset="UTF-8"><title>Thống kê theo phòng - Hồi sức</title>'+
+      '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#b45309;color:#fff;border:1px solid #7c2d12;padding:5px}</style></head><body>'+
+      '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+      '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+      '<h2 style="text-align:center">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — HỒI SỨC</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Ngày in: '+bgFmtD(bgToday())+'</div>'+
+      '<table><thead><tr><th>Phòng</th><th>Tổng biên bản</th><th>Đã hoàn thành</th><th>Chờ hoàn thành</th><th>Có thiếu/hư hỏng</th><th>Ngày gần nhất</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></body></html>';
+    var w=window.open('','_blank');
+    w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
+  };
+  window.bgExportRoomsStatsExcel=function(){
+    if(!bgRoomsStatsCache.length){alert('Chưa có dữ liệu để xuất!');return;}
+    var rows=bgRoomsStatsCache.map(function(r){
+      return '<tr><td class="td">'+bgEsc(r.room)+'</td><td class="td-c">'+r.tong+'</td><td class="td-c">'+r.hoanThanh+'</td>'+
+        '<td class="td-c">'+r.choHT+'</td><td class="td-c">'+r.coSuCo+'</td><td class="td-c">'+bgFmtD(r.ngayGanNhat)+'</td></tr>';
+    }).join('');
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#b45309;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #7c2d12;padding:5px}'+
+      '.td-c{border:1px solid #f0d9a8;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #f0d9a8;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="6" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="6" class="title">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — HỒI SỨC</td></tr><tr></tr>'+
+      '<tr><td class="th">Phòng</td><td class="th">Tổng biên bản</td><td class="th">Đã hoàn thành</td><td class="th">Chờ hoàn thành</td><td class="th">Có thiếu/hư hỏng</td><td class="th">Ngày gần nhất</td></tr>'+
+      rows+'</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='ThongKeTheoPhong_HoiSuc_GMHS_'+bgToday()+'.xls';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  };
+
   function bgEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function bgSafeKey(s){ return String(s||'').replace(/[.#$/\[\]\s]/g,'_'); }
   function bgToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -22859,6 +23248,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('bgRoomPickerScreen').style.display='block';
     var isA=role==='admin';
     var pRmBtn=document.getElementById('bgRoomsManageBtn'); if(pRmBtn) pRmBtn.style.display=isA?'':'none';
+    var pRsBtn=document.getElementById('bgRoomsStatsBtn'); if(pRsBtn) pRsBtn.style.display=isA?'':'none';
     document.getElementById('bgPickerWhoBanner').innerHTML = isA
       ? '<i class="ti ti-shield-check" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Quyền Quản lý (cấu hình danh sách phòng, xem mọi biên bản mọi phòng)'
       : '<i class="ti ti-user" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b>';
@@ -24251,6 +24641,105 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     }).catch(function(err){alert('Lỗi khi lưu: '+err.message);});
   };
 
+  var pmRoomsStatsCache=[];
+  window.pmOpenRoomsStats=function(){
+    var savedCu = (typeof pmCu!=='undefined') ? pmCu : null;
+    if(!savedCu||savedCu.role!=='admin'){alert('Chỉ Quản lý mới xem được!');return;}
+    document.getElementById('pmRoomsStatsBg').style.display='flex';
+    document.getElementById('pmRoomsStatsBody').innerHTML='Đang tải...';
+    db.ref('pmRecords').once('value').then(function(snap){
+      var d=snap.val()||{};
+      var rows=PM_ROOMS.map(function(room){
+        var recs=Object.values(d[room]||{});
+        var tong=recs.length;
+        var hoanThanh=recs.filter(function(r){return r.trangThai==='hoanthanh';}).length;
+        var choHT=recs.filter(function(r){return r.trangThai==='choduyet';}).length;
+        var coSuCo=recs.filter(function(r){
+          var items=Object.values(r.itemsGayme||{}).concat(Object.values(r.itemsDungcu||{}));
+          return items.some(function(it){return it.status==='thieu'||it.status==='hong';});
+        }).length;
+        var ngayGanNhat=recs.map(function(r){return r.ngay;}).filter(Boolean).sort().slice(-1)[0]||'—';
+        return {room:room, tong:tong, hoanThanh:hoanThanh, choHT:choHT, coSuCo:coSuCo, ngayGanNhat:ngayGanNhat};
+      });
+      pmRoomsStatsCache=rows;
+      pmRenderRoomsStats(rows);
+    }).catch(function(err){
+      document.getElementById('pmRoomsStatsBody').innerHTML='<div style="color:#c62828">Lỗi tải dữ liệu: '+err.message+'</div>';
+    });
+  };
+  window.pmCloseRoomsStats=function(e){
+    if(e && e.target!==e.currentTarget) return;
+    document.getElementById('pmRoomsStatsBg').style.display='none';
+  };
+  function pmRenderRoomsStats(rows){
+    var body=document.getElementById('pmRoomsStatsBody');
+    if(!body) return;
+    if(!rows.length){ body.innerHTML='<div style="color:#aaa;text-align:center;padding:20px">Chưa có phòng nào.</div>'; return; }
+    var totalTong=rows.reduce(function(a,r){return a+r.tong;},0);
+    body.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+      '<thead><tr style="background:#daf1ec;color:#00473e">'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0">Phòng</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Tổng biên bản</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Đã hoàn thành</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Chờ hoàn thành</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Có thiếu/hư hỏng</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Ngày gần nhất</th>'+
+      '</tr></thead><tbody>'+
+      rows.map(function(r,i){
+        return '<tr style="'+(i%2?'background:#f2fbfa':'')+'">'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;font-weight:600">Phòng '+pmEsc(r.room)+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+r.tong+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#0a6b5e">'+r.hoanThanh+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#8a6100">'+r.choHT+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;'+(r.coSuCo>0?'color:#c62828;font-weight:700':'')+'">'+r.coSuCo+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+pmFmtD(r.ngayGanNhat)+'</td>'+
+        '</tr>';
+      }).join('')+
+      '<tr style="background:#daf1ec;font-weight:700"><td style="padding:5px 8px;border:1px solid #a8d9d0">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #a8d9d0;text-align:center">'+totalTong+'</td><td colspan="4" style="padding:5px 8px;border:1px solid #a8d9d0"></td></tr>'+
+      '</tbody></table>';
+  }
+  window.pmPrintRoomsStats=function(){
+    if(!pmRoomsStatsCache.length){alert('Chưa có dữ liệu để in!');return;}
+    var rows=pmRoomsStatsCache.map(function(r){
+      return '<tr><td style="border:1px solid #999;padding:4px">Phòng '+pmEsc(r.room)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.tong+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.hoanThanh+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.choHT+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.coSuCo+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+pmFmtD(r.ngayGanNhat)+'</td></tr>';
+    }).join('');
+    var html='<html><head><meta charset="UTF-8"><title>Thống kê theo phòng - Phòng Mổ</title>'+
+      '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#0d6e6e;color:#fff;border:1px solid #0a4a4a;padding:5px}</style></head><body>'+
+      '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+      '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+      '<h2 style="text-align:center">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — PHÒNG MỔ</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Ngày in: '+pmFmtD(pmToday())+'</div>'+
+      '<table><thead><tr><th>Phòng</th><th>Tổng biên bản</th><th>Đã hoàn thành</th><th>Chờ hoàn thành</th><th>Có thiếu/hư hỏng</th><th>Ngày gần nhất</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></body></html>';
+    var w=window.open('','_blank');
+    w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
+  };
+  window.pmExportRoomsStatsExcel=function(){
+    if(!pmRoomsStatsCache.length){alert('Chưa có dữ liệu để xuất!');return;}
+    var rows=pmRoomsStatsCache.map(function(r){
+      return '<tr><td class="td">Phòng '+pmEsc(r.room)+'</td><td class="td-c">'+r.tong+'</td><td class="td-c">'+r.hoanThanh+'</td>'+
+        '<td class="td-c">'+r.choHT+'</td><td class="td-c">'+r.coSuCo+'</td><td class="td-c">'+pmFmtD(r.ngayGanNhat)+'</td></tr>';
+    }).join('');
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#0d6e6e;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #0a4a4a;padding:5px}'+
+      '.td-c{border:1px solid #a8d9d0;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #a8d9d0;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="6" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="6" class="title">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — PHÒNG MỔ</td></tr><tr></tr>'+
+      '<tr><td class="th">Phòng</td><td class="th">Tổng biên bản</td><td class="th">Đã hoàn thành</td><td class="th">Chờ hoàn thành</td><td class="th">Có thiếu/hư hỏng</td><td class="th">Ngày gần nhất</td></tr>'+
+      rows+'</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='ThongKeTheoPhong_PhongMo_GMHS_'+pmToday()+'.xls';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  };
+
   var pmCu=null;
   var pmMasterCatalogRef=null, pmRoomConfigRef=null, pmRecordsRef=null, pmOtherCatalogRef=null;
   try{
@@ -24290,6 +24779,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var isA=role==='admin';
     document.getElementById('pmCatalogBtn').style.display=isA?'':'none';
     var pmRmBtn=document.getElementById('pmRoomsManageBtn'); if(pmRmBtn) pmRmBtn.style.display=isA?'':'none';
+    var pmRsBtn=document.getElementById('pmRoomsStatsBtn'); if(pmRsBtn) pmRsBtn.style.display=isA?'':'none';
     var whoHtml = isA
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b> — Quyền Quản lý (cấu hình danh mục, xem mọi biên bản mọi phòng)'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b>';
