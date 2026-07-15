@@ -24013,9 +24013,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       if(!arr.length) return '';
       var showSL=nhom==='giao';
       return '<div style="font-weight:700;font-size:13px;color:#b45309;margin:10px 0 6px">'+label+' ('+arr.length+')</div>'+
-        '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#fdf6ec"><th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:left">Tên tài sản</th>'+(showSL?'<th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:center">Cơ số</th><th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:center">SL giao</th>':'')+'<th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:center">Trạng thái</th><th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:left">Ghi chú</th></tr></thead><tbody>'+
-        arr.map(function(i){
-          return '<tr><td style="padding:4px 6px;border:1px solid #eee">'+bgEsc(i.ten)+'</td>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#fdf6ec"><th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:center;width:28px">STT</th><th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:left">Tên tài sản</th>'+(showSL?'<th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:center">Cơ số</th><th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:center">SL giao</th>':'')+'<th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:center">Trạng thái</th><th style="padding:4px 6px;border:1px solid #f0d9a8;text-align:left">Ghi chú</th></tr></thead><tbody>'+
+        arr.map(function(i,idx){
+          return '<tr><td style="padding:4px 6px;border:1px solid #eee;text-align:center;color:#999">'+(idx+1)+'</td><td style="padding:4px 6px;border:1px solid #eee">'+bgEsc(i.ten)+'</td>'+
             (showSL?('<td style="padding:4px 6px;border:1px solid #eee;text-align:center">'+(i.coSo!=null?i.coSo:'—')+'</td><td style="padding:4px 6px;border:1px solid #eee;text-align:center;font-weight:700">'+(i.soLuong!=null?i.soLuong:'—')+'</td>'):'')+
             '<td style="padding:4px 6px;border:1px solid #eee;text-align:center;color:'+(stColor[i.status]||'#333')+'">'+(stLbl[i.status]||i.status)+'</td>'+
             '<td style="padding:4px 6px;border:1px solid #eee">'+bgEsc(i.ghiChu||'')+'</td></tr>';
@@ -25624,9 +25624,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       var arr=Object.values(items||{});
       if(!arr.length) return '';
       return '<div style="font-weight:700;font-size:13px;color:#0d6e6e;margin:10px 0 6px">'+label+' ('+arr.length+')</div>'+
-        '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#eefaf8"><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:left">Tên tài sản</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:center">Cơ số</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:center">SL giao</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:center">Trạng thái</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:left">Ghi chú</th></tr></thead><tbody>'+
-        arr.map(function(i){
-          return '<tr><td style="padding:4px 6px;border:1px solid #eee">'+pmEsc(i.ten)+'</td>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#eefaf8"><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:center;width:28px">STT</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:left">Tên tài sản</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:center">Cơ số</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:center">SL giao</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:center">Trạng thái</th><th style="padding:4px 6px;border:1px solid #a8d9d0;text-align:left">Ghi chú</th></tr></thead><tbody>'+
+        arr.map(function(i,idx){
+          return '<tr><td style="padding:4px 6px;border:1px solid #eee;text-align:center;color:#999">'+(idx+1)+'</td><td style="padding:4px 6px;border:1px solid #eee">'+pmEsc(i.ten)+'</td>'+
             '<td style="padding:4px 6px;border:1px solid #eee;text-align:center">'+(i.coSo!=null?i.coSo:'—')+'</td>'+
             '<td style="padding:4px 6px;border:1px solid #eee;text-align:center;font-weight:700">'+(i.soLuong!=null?i.soLuong:'—')+'</td>'+
             '<td style="padding:4px 6px;border:1px solid #eee;text-align:center;color:'+(stColor[i.status]||'#333')+'">'+(stLbl[i.status]||i.status)+'</td>'+
