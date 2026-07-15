@@ -615,6 +615,7 @@ font-size:10px;color:var(--tx3)}
     <div class="home-cards qt-staffgrid" style="grid-template-columns:1fr 1fr;gap:10px">
       <div class="home-card nghibu-card" onclick="openStaffAuthModalUser('nghibu')"><div class="home-card-badge badge-new">Mới</div><i class="ti ti-calendar-off"></i><div class="home-card-title">Đăng ký<br>Nghỉ Bù</div><div class="home-card-sub">Đăng ký & theo dõi nghỉ bù ca trực</div></div>
       <div class="home-card" onclick="openStaffAuthModalUser('nghiphep')" style="background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-color:#004d40"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-beach"></i><div class="home-card-title">Đăng ký<br>Nghỉ Phép</div><div class="home-card-sub">Nghỉ phép theo ngày, theo đợt</div></div>
+      <div class="home-card" onclick="openPhepScreen()" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;border-color:#123c14"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-calendar-stats"></i><div class="home-card-title">Quản lý<br>Phép năm</div><div class="home-card-sub">Quỹ phép, thâm niên, còn lại — toàn khoa</div></div>
     </div>
 
     <div class="home-divider">🎓 Chuyên môn & Phát triển</div>
@@ -1369,6 +1370,211 @@ font-size:10px;color:var(--tx3)}
       <div id="npPublicTable"><div style="text-align:center;padding:20px;color:#aaa"><i class="ti ti-loader" style="font-size:24px"></i><br>Đang tải...</div></div>
     </div>
 </div><!-- /npScreen -->
+
+<!-- ══ QUẢN LÝ PHÉP NĂM — chạy trực tiếp trong Kanban, dùng chung Firebase (node quanLyPhepNam) ══ -->
+<div id="phepScreen" style="display:none;min-height:100vh;background:#f4f8f0;flex-direction:column">
+  <div style="background:linear-gradient(135deg,#2d6a1f,#3B6D11 55%,#1a7a4a);padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+    <i class="ti ti-calendar-stats" style="font-size:22px;color:#fff"></i>
+    <div>
+      <div style="color:#fff;font-size:15px;font-weight:700">Quản lý Phép năm — Khoa Gây mê Hồi sức</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px">Đồng bộ realtime với Kanban khoa (Firebase)</div>
+    </div>
+    <button onclick="closePhepScreen()" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button>
+  </div>
+
+  <div style="max-width:1400px;margin:0 auto;padding:16px 14px 60px;width:100%">
+
+    <div class="qlp-card">
+      <h2><i class="ti ti-settings"></i> Cấu hình quy tắc tính phép</h2>
+      <div class="qlp-desc">Chỉnh các thông số bên dưới nếu quy chế thay đổi — áp dụng ngay cho toàn bộ bảng.</div>
+      <div class="qlp-cfg-grid">
+        <div class="qlp-cfg-item"><label>Phép cơ bản/năm (ngày)</label><input type="number" id="qlpCfgBase" value="12"></div>
+        <div class="qlp-cfg-item"><label>Cộng thêm riêng khoa GMHS (ngày)</label><input type="number" id="qlpCfgDeptBonus" value="2"></div>
+        <div class="qlp-cfg-item"><label>Cứ đủ (năm) thâm niên</label><input type="number" id="qlpCfgStep" value="5"></div>
+        <div class="qlp-cfg-item"><label>...thì cộng thêm (ngày phép)</label><input type="number" id="qlpCfgBonusPerStep" value="1"></div>
+        <div class="qlp-cfg-item"><label>Hạn giải quyết phép năm cũ</label><input type="text" id="qlpCfgDeadline" value="31/1"></div>
+        <div class="qlp-cfg-item"><label>Năm hiện hành</label><input type="number" id="qlpCfgYear" value="2026"></div>
+      </div>
+      <button class="qlp-save" onclick="qlpSaveConfig()"><i class="ti ti-device-floppy"></i> Lưu cấu hình</button>
+      <span id="qlpCfgMsg" style="margin-left:10px;font-size:12.5px"></span>
+    </div>
+
+    <div class="qlp-card">
+      <h2><i class="ti ti-chart-bar"></i> Thống kê</h2>
+      <div class="qlp-stats" id="qlpStatsRow"></div>
+    </div>
+
+    <div class="qlp-card">
+      <h2><i class="ti ti-calculator"></i> Tính số ngày phép năm cũ được giải quyết (sau 31/1)</h2>
+      <div class="qlp-desc">Chọn nhân viên để tự động lấy đúng số ngày phép còn lại của người đó (không phải số mặc định) — hoặc tự nhập số khác nếu cần.</div>
+      <div class="qlp-calc-row">
+        <div class="qlp-fg" style="min-width:200px"><label>Nhân viên</label>
+          <select id="qlpCalcEmp" style="padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-family:inherit" onchange="qlpFillCalcRemain()"><option value="">— Chọn nhân viên (không bắt buộc) —</option></select>
+        </div>
+        <div class="qlp-fg"><label>Số ngày phép năm cũ còn lại</label><input type="number" id="qlpCalcRemain" value="0" style="width:140px"></div>
+        <div class="qlp-fg"><label>Ngày bắt đầu nghỉ (trong tháng 1 năm sau)</label><input type="date" id="qlpCalcStart"></div>
+        <button class="qlp-btn2 qlp-primary" onclick="qlpDoCalc()"><i class="ti ti-calculator"></i> Tính</button>
+      </div>
+      <div class="qlp-calc-result" id="qlpCalcResult"></div>
+    </div>
+
+    <div class="qlp-card">
+      <h2><i class="ti ti-table"></i> Bảng phép nhân viên <span id="qlpEmpCount" style="font-weight:400;font-size:12px;color:#7a9a50"></span></h2>
+      <div class="qlp-desc">Cột <b>Thâm niên</b> tự động tính theo cấu hình (cứ đủ 5 năm +1 ngày) ngay khi có "Năm tính thâm niên" — không cần bấm gì. Ô có nền trắng có thể sửa trực tiếp (Đã nghỉ, Khác, Năm tính thâm niên, Phép năm trước còn lại). Dòng vàng nhạt = thiếu năm tính thâm niên, khi đó hệ thống tạm dùng số thâm niên cũ đã nhập trước đây.</div>
+      <div class="qlp-toolbar">
+        <input type="text" id="qlpSearchBox" placeholder="Tìm tên nhân viên..." oninput="qlpRender()">
+        <select id="qlpFilterUnit" onchange="qlpRender()" oninput="qlpRender()">
+          <option value="">— Tất cả đơn nguyên —</option>
+          <option value="Phòng Mổ">Phòng Mổ</option>
+          <option value="Hồi Sức">Hồi Sức</option>
+        </select>
+        <select id="qlpFilterGroup" onchange="qlpRender()" oninput="qlpRender()">
+          <option value="">— Tất cả nhóm —</option>
+          <option value="Bác sĩ">Bác sĩ</option>
+          <option value="Điều dưỡng">Điều dưỡng</option>
+          <option value="Gây mê">Gây mê</option>
+          <option value="Hộ lý">Hộ lý</option>
+        </select>
+        <button class="qlp-btn2 qlp-primary" onclick="qlpRender()"><i class="ti ti-filter"></i> Lọc</button>
+        <button class="qlp-btn2" onclick="document.getElementById('qlpSearchBox').value='';document.getElementById('qlpFilterUnit').value='';document.getElementById('qlpFilterGroup').value='';qlpRender()"><i class="ti ti-refresh"></i> Xóa lọc</button>
+        <button class="qlp-btn2" onclick="qlpToggleMissingOnly()" id="qlpMissingBtn">Chỉ hiện thiếu dữ liệu</button>
+        <button class="qlp-btn2 qlp-primary" onclick="qlpRecalcAll()" title="Cột Thâm niên đã tự động tính sẵn; nút này chỉ lưu lại giá trị đó vào dữ liệu để xuất báo cáo"><i class="ti ti-device-floppy"></i> Lưu chốt số thâm niên hiện tại</button>
+        <button class="qlp-btn2 qlp-primary" onclick="qlpToggleAddForm()" id="qlpAddBtn"><i class="ti ti-user-plus"></i> Thêm nhân viên mới</button>
+      </div>
+
+      <div id="qlpAddForm" style="display:none;background:#EAF3DE;border:1.5px solid #a0c87a;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div class="qlp-calc-row">
+          <div class="qlp-fg" style="min-width:200px"><label>Họ và tên *</label><input type="text" id="qlpNewName" placeholder="Nguyễn Văn A"></div>
+          <div class="qlp-fg"><label>Đơn nguyên</label>
+            <select id="qlpNewUnit"><option value="Phòng Mổ">Phòng Mổ</option><option value="Hồi Sức">Hồi Sức</option></select>
+          </div>
+          <div class="qlp-fg"><label>Nhóm</label>
+            <select id="qlpNewGroup"><option value="Bác sĩ">Bác sĩ</option><option value="Điều dưỡng">Điều dưỡng</option><option value="Gây mê">Gây mê</option><option value="Hộ lý">Hộ lý</option></select>
+          </div>
+          <div class="qlp-fg" style="min-width:160px"><label>Chức vụ (nếu có)</label><input type="text" id="qlpNewTitle" placeholder="VD: Điều dưỡng trưởng"></div>
+          <div class="qlp-fg"><label>Năm tính thâm niên</label><input type="number" id="qlpNewNamtn" placeholder="VD: 2026" style="width:110px"></div>
+          <button class="qlp-btn2 qlp-primary" onclick="qlpAddEmployee()"><i class="ti ti-plus"></i> Thêm vào bảng</button>
+          <button class="qlp-btn2" onclick="qlpToggleAddForm()">Hủy</button>
+        </div>
+        <div id="qlpAddMsg" style="margin-top:8px;font-size:12.5px"></div>
+      </div>
+      <div style="overflow-x:auto;max-height:640px;overflow-y:auto">
+        <table class="qlp-table">
+          <thead>
+            <tr>
+              <th style="width:40px">STT</th>
+              <th style="text-align:left;min-width:150px">Họ và tên</th>
+              <th>Đơn nguyên</th><th>Nhóm</th><th>Năm tính<br>thâm niên</th>
+              <th>Phép<br>cơ bản</th><th>Thâm<br>niên</th><th>Khác</th>
+              <th>Tổng phép<br>năm nay</th><th>Phép năm<br>trước còn lại</th>
+              <th>Đã nghỉ<br>năm nay</th><th>Còn lại</th>
+            </tr>
+          </thead>
+          <tbody id="qlpTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="qlp-card">
+      <h2><i class="ti ti-calendar-event"></i> Cấu hình ngày nghỉ đặc biệt (Lễ, Tết...)</h2>
+      <div class="qlp-desc">
+        <b style="color:#1e6b53">✓ Thứ 7 và Chủ nhật đã tự động không bị trừ phép</b> — không cần khai vào đây.<br>
+        Danh sách bên dưới chỉ dùng để khai thêm <b>ngày Lễ/Tết rơi vào ngày thường (Thứ 2–6)</b>, ví dụ 1/1, 30/4, 1/5, 2/9... Những ngày này sẽ <b>không bị trừ phép</b> dù nằm trong khoảng xin nghỉ. Mỗi dòng 1 ngày, định dạng yyyy-mm-dd (VD: 2026-01-01).<br>
+        <span style="color:#7a9a50">Ví dụ: nghỉ từ Thứ 2 đến hết Chủ nhật cùng tuần = 7 ngày liên tiếp, trừ 2 ngày cuối tuần (Thứ 7, CN) → còn <b>5 ngày công</b> bị trừ phép.</span>
+      </div>
+      <textarea id="qlpHolidayInput" style="width:100%;min-height:70px;padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-size:12.5px;font-family:'IBM Plex Mono',monospace" placeholder="2026-01-01&#10;2026-04-30&#10;2026-05-01&#10;2026-09-02"></textarea>
+      <button class="qlp-save" onclick="qlpSaveHolidays()"><i class="ti ti-device-floppy"></i> Lưu ngày nghỉ đặc biệt</button>
+      <span id="qlpHolidayMsg" style="margin-left:10px;font-size:12.5px"></span>
+    </div>
+
+    <div class="qlp-card" style="display:none">
+      <h2><i class="ti ti-calendar-plus"></i> Gửi đơn xin nghỉ phép (dự phòng)</h2>
+      <div class="qlp-desc">Số ngày phép trừ tự động = ngày trong khoảng, <b>không tính Thứ 7, Chủ nhật và ngày nghỉ đặc biệt</b> ở trên — giống cách Phòng Tổ chức cán bộ giải quyết phép.</div>
+      <div class="qlp-calc-row">
+        <div class="qlp-fg" style="min-width:200px"><label>Nhân viên</label>
+          <select id="qlpReqEmp" style="padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-family:inherit"><option value="">— Chọn nhân viên —</option></select>
+        </div>
+        <div class="qlp-fg"><label>Từ ngày</label><input type="date" id="qlpReqFrom" onchange="qlpPreviewReq()"></div>
+        <div class="qlp-fg"><label>Đến ngày</label><input type="date" id="qlpReqTo" onchange="qlpPreviewReq()"></div>
+        <div class="qlp-fg" style="flex:1;min-width:180px"><label>Lý do (không bắt buộc)</label><input type="text" id="qlpReqReason" placeholder="VD: nghỉ phép năm, việc gia đình..."></div>
+        <button class="qlp-btn2 qlp-primary" onclick="qlpSubmitReq()"><i class="ti ti-send"></i> Gửi đơn</button>
+      </div>
+      <div id="qlpReqPreview" style="margin-top:10px;font-size:13px;color:#4a6030"></div>
+      <div id="qlpReqMsg" style="margin-top:6px;font-size:12.5px"></div>
+    </div>
+
+    <div class="qlp-card" style="display:none">
+      <h2><i class="ti ti-list-check"></i> Danh sách đơn xin nghỉ phép (dự phòng)</h2>
+      <div class="qlp-desc">Duyệt sẽ <b>tự động trừ vào "Đã nghỉ năm nay"</b> của nhân viên ở bảng trên; Hoàn tác sẽ tự động cộng trả lại.</div>
+      <div id="qlpReqList"></div>
+    </div>
+
+    <div style="text-align:center;font-size:11.5px;color:#7a9a50;margin-top:16px;line-height:1.6">
+      <b>Quy trình mới:</b> nhân viên xin nghỉ phép qua thẻ <b>"Đăng ký Nghỉ Phép"</b> như bình thường. Khi phiếu loại "Phép năm" được duyệt, hệ thống <b>tự động trừ vào "Đã nghỉ năm nay"</b> ở bảng trên (không tính T7, CN, ngày lễ); nếu hủy duyệt/xóa phiếu đã duyệt, số ngày sẽ được tự động trả lại. Trường hợp không khớp tên hoặc chưa trừ được, anh vào bảng trên sửa tay ô "Đã nghỉ năm nay" cho đúng thực tế.
+    </div>
+    <div style="text-align:center;font-size:11.5px;color:#7a9a50;margin-top:8px;line-height:1.6">
+      Dữ liệu lưu trên Firebase khoa (node <code>quanLyPhepNam</code>) — không ảnh hưởng dữ liệu cards/nghỉ phép/nghỉ bù hiện có.
+    </div>
+  </div>
+</div>
+<style>
+.qlp-card{background:#fff;border:1.5px solid #cce0a8;border-radius:13px;padding:16px 18px;margin-bottom:16px;box-shadow:0 2px 10px rgba(59,109,17,.06)}
+.qlp-card h2{font-size:15px;color:#27500A;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.qlp-desc{font-size:12px;color:#7a9a50;margin-bottom:12px}
+.qlp-cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.qlp-cfg-item label{display:block;font-size:11px;font-weight:700;color:#4a6030;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px}
+.qlp-cfg-item input{width:100%;padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-size:14px;font-family:inherit}
+.qlp-save{margin-top:12px;padding:9px 18px;background:#3B6D11;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.qlp-save:hover{background:#27500A}
+.qlp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.qlp-sc{background:#EAF3DE;border:1.5px solid #cce0a8;border-radius:10px;padding:11px 13px}
+.qlp-sc-n{font-size:22px;font-weight:700;color:#27500A}
+.qlp-sc-l{font-size:11px;font-weight:600;color:#4a6030;text-transform:uppercase;letter-spacing:.03em}
+.qlp-sc.qlp-warn{background:#fff3e0;border-color:#ffcc80}
+.qlp-sc.qlp-warn .qlp-sc-n{color:#e65100}
+.qlp-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.qlp-toolbar input,.qlp-toolbar select{padding:7px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-size:13px;font-family:inherit}
+.qlp-toolbar input{flex:1;min-width:160px}
+.qlp-btn2{padding:7px 14px;border-radius:8px;border:1.5px solid #3B6D11;background:#fff;color:#27500A;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.qlp-btn2:hover{background:#EAF3DE}
+.qlp-btn2.qlp-primary{background:#3B6D11;color:#fff}
+.qlp-btn2.qlp-primary:hover{background:#27500A}
+.qlp-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.qlp-table thead th{background:#3B6D11;color:#fff;padding:8px 6px;text-align:center;position:sticky;top:0;white-space:nowrap;z-index:2}
+.qlp-table tbody td{padding:6px;border-bottom:1px solid #cce0a8;text-align:center}
+.qlp-table tbody td.qlp-left{text-align:left}
+.qlp-table tbody tr:hover{background:#EAF3DE}
+.qlp-table tbody tr.qlp-missing{background:#fff8e1}
+.qlp-editable{width:60px;padding:4px 5px;border:1.3px solid #cce0a8;border-radius:6px;text-align:center;font-size:12.5px;font-family:inherit}
+.qlp-editable:focus{outline:none;border-color:#639922}
+.qlp-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.qlp-tag.qlp-unit-pm{background:#E3F2FD;color:#0D47A1}
+.qlp-tag.qlp-unit-hs{background:#E8F5E9;color:#1B5E20}
+.qlp-remain-ok{color:#27500A;font-weight:700}
+.qlp-remain-low{color:#e65100;font-weight:700}
+.qlp-remain-neg{color:#c62828;font-weight:700}
+.qlp-missing-flag{color:#c62828;font-size:11px;font-style:italic}
+.qlp-calc-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.qlp-fg{display:flex;flex-direction:column;gap:4px}
+.qlp-fg label{font-size:11px;font-weight:700;color:#4a6030}
+.qlp-fg input{padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-size:13px;font-family:inherit}
+.qlp-calc-result{margin-top:12px;padding:12px 14px;background:#EAF3DE;border:1.5px solid #a0c87a;border-radius:9px;font-size:13.5px;color:#1a2a0e;display:none}
+.qlp-req-item{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid #cce0a8}
+.qlp-req-item:last-child{border-bottom:none}
+.qlp-req-name{font-weight:700;font-size:14px;color:#1a2a0e}
+.qlp-req-meta{font-size:12px;color:#4a6030;margin-top:2px;line-height:1.5}
+.qlp-status-pill{font-size:10.5px;font-weight:700;letter-spacing:.05em;padding:4px 10px;border-radius:20px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.qlp-status-pill.qlp-pending{background:#fbf0da;color:#9a7a1f}
+.qlp-status-pill.qlp-approved{background:#e4f2ec;color:#1e6b53}
+.qlp-status-pill.qlp-rejected{background:#fbe7e3;color:#a6402f}
+.qlp-req-actions{display:flex;gap:6px;margin-top:8px}
+.qlp-req-actions button{font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid #cce0a8;background:#fff;cursor:pointer;font-family:inherit;font-weight:600}
+.qlp-req-actions button.qlp-approve{color:#1e6b53;border-color:#1e6b53}
+.qlp-req-actions button.qlp-reject{color:#a6402f;border-color:#a6402f}
+.qlp-req-actions button.qlp-undo{color:#4a6030}
+.qlp-empty-note{font-size:13px;color:#7a9a50;font-style:italic;padding:10px 0}
+</style>
+<!-- /phepScreen -->
 
 <!-- ══ MODAL: DUYỆT NGHỈ PHÉP ══ -->
 <div class="nb-modal-bg" id="npApproveModal" onclick="if(event.target===this)closeNpApprove()">
@@ -8622,6 +8828,500 @@ const cardsRef = db.ref('cards');
 const staffRef = db.ref('staffList');
 const deptRef  = db.ref('danhMucBoPhan');
 const pwdRef   = db.ref('config/adminPwd');
+
+/* ══════════════════════════════
+   QUẢN LÝ PHÉP NĂM — chạy trực tiếp trong Kanban (node Firebase 'quanLyPhepNam')
+   ══════════════════════════════ */
+const phepRef = db.ref('quanLyPhepNam');
+const QLP_SEED = [{"name": "Võ Huy Cường", "title": "Trưởng khoa", "unit": "Phòng Mổ", "group": "Bác sĩ", "base": 14, "tham": 5, "khac": 0, "namtn": 1996, "daNghi": 0}, {"name": "Nguyễn Thành", "title": "Phó trưởng khoa", "unit": "Hồi Sức", "group": "Bác sĩ", "base": 14, "tham": 6, "khac": 0, "namtn": 1993, "daNghi": 0}, {"name": "Nguyễn Hà Tiến Dũng", "title": "", "unit": "Hồi Sức", "group": "Bác sĩ", "base": 14, "tham": 4, "khac": 0, "namtn": 2002, "daNghi": 5}, {"name": "Võ Ngọc Phước", "title": "Điều dưỡng trưởng Khoa", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 5, "khac": 0, "namtn": 1997, "daNghi": 0}, {"name": "Lê Văn Thủy", "title": "", "unit": "Phòng Mổ", "group": "Bác sĩ", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 1}, {"name": "Nguyễn Trung Thành", "title": "", "unit": "Hồi Sức", "group": "Bác sĩ", "base": 14, "tham": 4, "khac": 0, "namtn": 2001, "daNghi": 0}, {"name": "Trần Thị Dung BS", "title": "", "unit": "Phòng Mổ", "group": "Bác sĩ", "base": 14, "tham": 4, "khac": 0, "namtn": 2004, "daNghi": 0}, {"name": "Hứa Hữu Tuấn", "title": "", "unit": "Hồi Sức", "group": "Bác sĩ", "base": 14, "tham": 1, "khac": 0, "namtn": 2015, "daNghi": 0}, {"name": "Nguyễn Thị Quỳnh Thoa", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 0, "khac": 0, "namtn": 2024, "daNghi": 3}, {"name": "Trần Thị Cẩm Nhung", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2009, "daNghi": 2}, {"name": "Lê Võ Thu", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2015, "daNghi": 0}, {"name": "Phạm Thị Chiến", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2010, "daNghi": 9}, {"name": "Hồ Thị Chúng", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 0}, {"name": "Nguyễn Thị Hảo", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2010, "daNghi": 0}, {"name": "Trương Thị Thu Hằng", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 4, "khac": 0, "namtn": 2005, "daNghi": 2}, {"name": "Ngô Thị Lẹ", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 1}, {"name": "Nguyễn Đình Kim Loan", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 6, "khac": 0, "namtn": 1995, "daNghi": 13}, {"name": "Phan Thị Thanh Nga", "title": "ĐDHC", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 0}, {"name": "Hồ Thái Nhiều", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 4, "khac": 0, "namtn": 2005, "daNghi": 13}, {"name": "Lê Thị Ái Phương", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2006, "daNghi": 0}, {"name": "Lê Thị Thúy Vân", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 6, "khac": 0, "namtn": 1996, "daNghi": 10}, {"name": "Nguyễn Thị Minh Châu", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 5}, {"name": "Lê Thị Kim Sao", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 4}, {"name": "Lê Thị Kim Thịnh", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2014, "daNghi": 0}, {"name": "Nguyễn Thị Xuân Thảo", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2015, "daNghi": 4}, {"name": "Trương Thị Tín", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2015, "daNghi": 15}, {"name": "Nguyễn Thị Thanh Nhi", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 12}, {"name": "Võ Thị Tường Vi", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2015, "daNghi": 1}, {"name": "Nguyễn Thị Diệu My", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 0}, {"name": "Nguyễn Thị Thúy Hằng", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2016, "daNghi": 3}, {"name": "Hoàng Thị Ngọc Lan", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 2, "khac": 0, "namtn": 2012, "daNghi": 14}, {"name": "Phan Thị Hòa", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 2, "khac": 0, "namtn": 2010, "daNghi": 16}, {"name": "Trần Thị Lệ Tuyết", "title": "", "unit": "Hồi Sức", "group": "Hộ lý", "base": 14, "tham": 3, "khac": 0, "namtn": 2007, "daNghi": 4}, {"name": "Nguyễn Thị Út", "title": "", "unit": "Hồi Sức", "group": "Hộ lý", "base": 14, "tham": 3, "khac": 0, "namtn": 2009, "daNghi": 3}, {"name": "Trương Thị Gia Ly Ly", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 0}, {"name": "Phạm Thị Kim Cúc", "title": "", "unit": "Hồi Sức", "group": "Hộ lý", "base": 14, "tham": 2, "khac": 0, "namtn": 2014, "daNghi": 0}, {"name": "Trương Ngọc Báu", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 1}, {"name": "Võ Ngọc Bình", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 5, "khac": 0, "namtn": 1997, "daNghi": 1}, {"name": "Đặng Văn Cảnh", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 5, "khac": 0, "namtn": 1997, "daNghi": 0}, {"name": "Nguyễn Văn Chinh", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 1}, {"name": "Nguyễn Văn Chung", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 4, "khac": 0, "namtn": 2000, "daNghi": 0}, {"name": "Trần Thị Mỹ Dung", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2010, "daNghi": 0}, {"name": "Nguyễn Tiến Dũng", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 4, "khac": 0, "namtn": 2002, "daNghi": 7}, {"name": "Trần Văn Đại", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 18}, {"name": "Hoàng Minh Hải", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 17}, {"name": "Đặng Thu Hiền", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2010, "daNghi": 7}, {"name": "Nguyễn Xuân Hoài", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 5}, {"name": "Nguyễn Thanh Hoàng", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 0}, {"name": "Trần Xuân Hùng", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 4, "khac": 0, "namtn": 2003, "daNghi": 5}, {"name": "Lê Thị Huệ", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 9}, {"name": "Lê Văn Kha", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 4, "khac": 0, "namtn": 2002, "daNghi": 3}, {"name": "Thân Hoàng Khang", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 5, "khac": 0, "namtn": 1998, "daNghi": 0}, {"name": "Trần Quốc Khang", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 4, "khac": 0, "namtn": 2002, "daNghi": 0}, {"name": "Đỗ Thành Khương", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2011, "daNghi": 6}, {"name": "Trương Thị Bích Liễu", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 11}, {"name": "Đặng Thị Mỹ Lai", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 5}, {"name": "Nguyễn Cảnh Muộn", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 5, "khac": 0, "namtn": 1998, "daNghi": 9}, {"name": "Nguyễn Duy Mỹ", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 4, "khac": 0, "namtn": 2001, "daNghi": 0}, {"name": "Ngô Thị Nhựt", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2009, "daNghi": 0}, {"name": "Trần Thị Ngâng", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2007, "daNghi": 0}, {"name": "Nguyễn Thị Hồng Nhi", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2011, "daNghi": 14}, {"name": "Đỗ Lê Thanh Ngọc", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 1, "khac": 0, "namtn": 2015, "daNghi": 17}, {"name": "Nguyễn Hoàng Sơn Nữ", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2014, "daNghi": 0}, {"name": "Đỗ Kim Oanh", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 4, "khac": 0, "namtn": 2002, "daNghi": 0}, {"name": "Trương Văn Pháp", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2011, "daNghi": 0}, {"name": "Đặng Hồ Hồng Phi", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 5, "khac": 0, "namtn": 1997, "daNghi": 19}, {"name": "Nguyễn Phan Anh Quân", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 7, "khac": 0, "namtn": 1989, "daNghi": 3}, {"name": "Lê Văn Sang", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2005, "daNghi": 0}, {"name": "Phan Quốc Sang", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 4, "khac": 0, "namtn": 2002, "daNghi": 0}, {"name": "Võ Đình Tây", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 5, "khac": 0, "namtn": 1998, "daNghi": 3}, {"name": "Cao Việt Thắng", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 4, "khac": 0, "namtn": 2004, "daNghi": 0}, {"name": "Trần Tiến Thành", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2007, "daNghi": 0}, {"name": "Trần Đăng Trung", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 5, "khac": 0, "namtn": 1996, "daNghi": 5}, {"name": "Nguyễn Vũ Cẩm Tú", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 3, "khac": 0, "namtn": 2008, "daNghi": 0}, {"name": "Nguyễn Văn Tuy", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 5, "khac": 0, "namtn": 1998, "daNghi": 5}, {"name": "Nguyễn Đình Thắng", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2011, "daNghi": 2}, {"name": "La Thị Thanh Trà", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2014, "daNghi": 5}, {"name": "Trần Bá Quyền", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 6}, {"name": "Lê Thị Mạnh Quyền", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 9}, {"name": "Võ Thị Xuân Việt", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2013, "daNghi": 5}, {"name": "Đinh Kim Vũ", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 2, "khac": 0, "namtn": 2011, "daNghi": 3}, {"name": "Lê Thị Thanh Hương", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 4, "khac": 0, "namtn": 2003, "daNghi": 5}, {"name": "Đỗ Thị Thúy Sinh", "title": "", "unit": "Hồi Sức", "group": "Hộ lý", "base": 14, "tham": 0, "khac": 0, "namtn": 2024, "daNghi": 5}, {"name": "Phạm Thị Thu Thảo", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 3, "khac": 0, "namtn": 2006, "daNghi": 9}, {"name": "Vũ Thị Kim Lệ", "title": "", "unit": "Hồi Sức", "group": "Hộ lý", "base": 14, "tham": 3, "khac": 0, "namtn": 2007, "daNghi": 11}, {"name": "Huỳnh Thị Ngọc Thơ", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 2, "khac": 0, "namtn": 2011, "daNghi": 14}, {"name": "Đỗ Hồ Mỹ Hạnh", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 2, "khac": 0, "namtn": 2016, "daNghi": 6}, {"name": "Trương Đình Trí", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2015, "daNghi": 0}, {"name": "Trần Đình Bản", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2018, "daNghi": 0}, {"name": "Phạm Thị Hoàng Cúc", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 1, "khac": 0, "namtn": 2018, "daNghi": 8}, {"name": "Đinh Thị Thu Hoài", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 1, "khac": 0, "namtn": 2018, "daNghi": 0}, {"name": "Trần Thị Thanh Huyền", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2015, "daNghi": 7}, {"name": "Trần Đình Duy", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2008, "daNghi": 3}, {"name": "Nguyễn Văn Thương", "title": "", "unit": "Phòng Mổ", "group": "Bác sĩ", "base": 14, "tham": 1, "khac": 0, "namtn": 2016, "daNghi": 0}, {"name": "Ngô Thị Hồng Diễm", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 1, "khac": 0, "namtn": 2018, "daNghi": 4}, {"name": "Võ Đông Kinh", "title": "", "unit": "Hồi Sức", "group": "Bác sĩ", "base": 14, "tham": 1, "khac": 0, "namtn": 2018, "daNghi": 0}, {"name": "Nguyễn Thị Bích Thủy", "title": "", "unit": "Phòng Mổ", "group": "Bác sĩ", "base": 14, "tham": 1, "khac": 0, "namtn": 2018, "daNghi": 0}, {"name": "Nguyễn Hữu Phước", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": 2020, "daNghi": 0}, {"name": "Hồ Thị Mỹ", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 1, "khac": 0, "namtn": 2020, "daNghi": 8}, {"name": "Phan Thị Mỹ Duyên", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 0, "khac": 0, "namtn": null, "daNghi": 2}, {"name": "Đỗ Thị Ngọc Diễm", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 1, "khac": 0, "namtn": 2020, "daNghi": 4}, {"name": "Nguyễn Xuân Hiền", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2010, "daNghi": 3}, {"name": "Đỗ Ngọc Vũ", "title": "", "unit": "Phòng Mổ", "group": "Bác sĩ", "base": 14, "tham": 0, "khac": 0, "namtn": 2021, "daNghi": 0}, {"name": "Nguyễn Chí Bảo", "title": "", "unit": "Hồi Sức", "group": "Bác sĩ", "base": 14, "tham": 0, "khac": 0, "namtn": null, "daNghi": 0}, {"name": "Thân Thị Liễu", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": null, "daNghi": 1}, {"name": "Nguyễn Kim Sơn", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": null, "daNghi": 6}, {"name": "Đào Thị Phương Thúy", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": null, "daNghi": 2}, {"name": "Lê Thị Quỳnh Diễm", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 0, "khac": 0, "namtn": 2024, "daNghi": 9}, {"name": "Lê Văn Long", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 3, "khac": 0, "namtn": 2009, "daNghi": 8}, {"name": "Lương Phan Thu Hằng", "title": "", "unit": "Hồi Sức", "group": "Hộ lý", "base": 14, "tham": 0, "khac": 0, "namtn": 2025, "daNghi": 0}, {"name": "Nguyễn Thị Ngọc Mỹ", "title": "", "unit": "Phòng Mổ", "group": "Hộ lý", "base": 14, "tham": 0, "khac": 0, "namtn": 2025, "daNghi": 4}, {"name": "Huỳnh Thị Sự", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": 2025, "daNghi": 4}, {"name": "Phan Thảo Vy", "title": "", "unit": "Phòng Mổ", "group": "Gây mê", "base": 14, "tham": 0, "khac": 0, "namtn": 2025, "daNghi": 2}, {"name": "Trần Thị Bích Tuyền", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": 2025, "daNghi": 2}, {"name": "Huỳnh Thị Kim Hồng", "title": "", "unit": "Hồi Sức", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": 2025, "daNghi": 2}, {"name": "Lê Quốc Triều", "title": "", "unit": "Phòng Mổ", "group": "Điều dưỡng", "base": 14, "tham": 0, "khac": 0, "namtn": 2025, "daNghi": 0}, {"name": "Nguyễn Tài Thu", "title": "", "unit": "Hồi Sức", "group": "Bác sĩ", "base": 14, "tham": 2, "khac": 0, "namtn": 2014, "daNghi": 3}]
+;
+const QLP_DEFAULT_CONFIG = { base:12, deptBonus:2, step:5, bonusPerStep:1, deadline:'31/1', year:2026 };
+let QLP_CONFIG = {...QLP_DEFAULT_CONFIG};
+let QLP_EMPLOYEES = [];
+let qlpShowMissingOnly = false;
+let qlpLoaded = false;
+
+function openPhepScreen(){
+  document.getElementById('homeScreen').style.display='none';
+  document.getElementById('phepScreen').style.display='flex';
+  if(!qlpLoaded){
+    document.getElementById('qlpStatsRow').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:14px;color:#7a9a50"><i class="ti ti-loader"></i> Đang tải dữ liệu...</div>';
+    document.getElementById('qlpTbody').innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#7a9a50">Đang tải dữ liệu, vui lòng chờ trong giây lát...</td></tr>';
+    document.getElementById('qlpReqList').innerHTML = '<div class="qlp-empty-note">Đang tải dữ liệu...</div>';
+    qlpLoadAll();
+    qlpLoaded = true;
+  }
+}
+function closePhepScreen(){
+  document.getElementById('phepScreen').style.display='none';
+  document.getElementById('homeScreen').style.display='flex';
+}
+
+function qlpLoadAll(){
+  phepRef.once('value').then(snap=>{
+    const data = snap.val();
+    if(!data || !data.employees || !data.employees.length){
+      QLP_EMPLOYEES = QLP_SEED.map((e,i)=>({
+        id:'e'+i, name:e.name, title:e.title, unit:e.unit, group:e.group,
+        namtn:e.namtn, thamManual:e.tham, khac:e.khac, daNghi:e.daNghi, carryover:0
+      }));
+      QLP_CONFIG = {...QLP_DEFAULT_CONFIG};
+      QLP_REQUESTS = [];
+      QLP_HOLIDAYS = [];
+      phepRef.set({config:QLP_CONFIG, employees:QLP_EMPLOYEES, requests:QLP_REQUESTS, holidays:QLP_HOLIDAYS}).then(()=>{ qlpRenderAll(); });
+    } else {
+      QLP_CONFIG = {...QLP_DEFAULT_CONFIG, ...(data.config||{})};
+      QLP_EMPLOYEES = data.employees;
+      QLP_REQUESTS = data.requests || [];
+      QLP_HOLIDAYS = data.holidays || [];
+      qlpRenderAll();
+    }
+  }).catch(err=>{
+    console.error('Lỗi tải Quản lý Phép năm', err);
+    alert('Không tải được dữ liệu Quản lý Phép năm: '+err.message);
+  });
+}
+
+function qlpRenderAll(){
+  qlpRender(); qlpRenderConfig(); qlpRenderEmpSelect(); qlpRenderHolidays(); qlpRenderRequests();
+}
+
+function qlpRenderConfig(){
+  document.getElementById('qlpCfgBase').value = QLP_CONFIG.base;
+  document.getElementById('qlpCfgDeptBonus').value = QLP_CONFIG.deptBonus;
+  document.getElementById('qlpCfgStep').value = QLP_CONFIG.step;
+  document.getElementById('qlpCfgBonusPerStep').value = QLP_CONFIG.bonusPerStep;
+  document.getElementById('qlpCfgDeadline').value = QLP_CONFIG.deadline;
+  document.getElementById('qlpCfgYear').value = QLP_CONFIG.year;
+}
+
+function qlpSaveConfig(){
+  QLP_CONFIG = {
+    base: parseInt(document.getElementById('qlpCfgBase').value)||12,
+    deptBonus: parseInt(document.getElementById('qlpCfgDeptBonus').value)||0,
+    step: parseInt(document.getElementById('qlpCfgStep').value)||5,
+    bonusPerStep: parseInt(document.getElementById('qlpCfgBonusPerStep').value)||1,
+    deadline: document.getElementById('qlpCfgDeadline').value||'31/1',
+    year: parseInt(document.getElementById('qlpCfgYear').value)||2026
+  };
+  phepRef.child('config').set(QLP_CONFIG).then(()=>{
+    const m = document.getElementById('qlpCfgMsg');
+    m.textContent = 'Đã lưu cấu hình.'; m.style.color = '#1B5E20';
+    qlpRender();
+  });
+}
+
+function qlpBaseLeave(){ return QLP_CONFIG.base + QLP_CONFIG.deptBonus; }
+
+function qlpSeniorityAuto(emp){
+  if(!emp.namtn) return null;
+  const years = QLP_CONFIG.year - emp.namtn;
+  if(years < 0) return 0;
+  return Math.floor(years / QLP_CONFIG.step) * QLP_CONFIG.bonusPerStep;
+}
+
+function qlpRecalcAll(){
+  QLP_EMPLOYEES.forEach(e=>{
+    const auto = qlpSeniorityAuto(e);
+    if(auto !== null) e.thamManual = auto;
+  });
+  qlpSaveEmployees();
+  qlpRender();
+}
+
+function qlpSaveEmployees(){
+  phepRef.child('employees').set(QLP_EMPLOYEES).catch(err=>console.error(err));
+}
+
+function qlpUpdateField(id, field, value){
+  const emp = QLP_EMPLOYEES.find(e=>e.id===id);
+  if(!emp) return;
+  emp[field] = value===''? (field==='namtn'?null:0) : parseInt(value);
+  qlpSaveEmployees();
+  qlpRender();
+}
+
+function qlpToggleMissingOnly(){
+  qlpShowMissingOnly = !qlpShowMissingOnly;
+  document.getElementById('qlpMissingBtn').classList.toggle('qlp-primary', qlpShowMissingOnly);
+  qlpRender();
+}
+
+function qlpEscapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function qlpRender(){
+  const search = document.getElementById('qlpSearchBox').value.trim().toLowerCase();
+  const fUnit = document.getElementById('qlpFilterUnit').value;
+  const fGroup = document.getElementById('qlpFilterGroup').value;
+  const tbody = document.getElementById('qlpTbody');
+  tbody.innerHTML = '';
+
+  let list = QLP_EMPLOYEES.filter(e=>{
+    if(search && !e.name.toLowerCase().includes(search)) return false;
+    if(fUnit && e.unit!==fUnit) return false;
+    if(fGroup && e.group!==fGroup) return false;
+    if(qlpShowMissingOnly && e.namtn) return false;
+    return true;
+  });
+
+  document.getElementById('qlpEmpCount').textContent = '(' + list.length + ' / ' + QLP_EMPLOYEES.length + ' người)';
+
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#c62828">Không tìm thấy nhân viên nào khớp với bộ lọc đang chọn. Bấm "Xóa lọc" để xem lại toàn bộ.</td></tr>';
+  }
+
+  let totalGranted=0, totalUsed=0, totalRemain=0, missingCount=0;
+  QLP_EMPLOYEES.forEach(e=>{ if(!e.namtn) missingCount++; });
+
+  list.forEach((e, idx)=>{
+    const base = qlpBaseLeave();
+    const autoTham = qlpSeniorityAuto(e);
+    const tham = autoTham !== null ? autoTham : (e.thamManual || 0);
+    const khac = e.khac || 0;
+    const total = base + tham + khac;
+    const carry = e.carryover || 0;
+    const used = e.daNghi || 0;
+    const remain = total + carry - used;
+
+    totalGranted += total; totalUsed += used; totalRemain += remain;
+
+    const tr = document.createElement('tr');
+    if(!e.namtn) tr.classList.add('qlp-missing');
+    const unitTag = e.unit==='Phòng Mổ' ? 'qlp-unit-pm' : 'qlp-unit-hs';
+    let remainClass = 'qlp-remain-ok';
+    if(remain < 0) remainClass = 'qlp-remain-neg';
+    else if(remain <= 2) remainClass = 'qlp-remain-low';
+
+    tr.innerHTML = `
+      <td>${idx+1}</td>
+      <td class="qlp-left">${qlpEscapeHtml(e.name)}${e.title?'<br><span style="font-size:10px;color:#7a9a50">'+qlpEscapeHtml(e.title)+'</span>':''}</td>
+      <td><span class="qlp-tag ${unitTag}">${e.unit}</span></td>
+      <td>${e.group}</td>
+      <td><input class="qlp-editable" type="number" value="${e.namtn||''}" placeholder="—" onchange="qlpUpdateField('${e.id}','namtn',this.value)"></td>
+      <td>${base}</td>
+      <td>${tham}${e.namtn===null||e.namtn===undefined?' <span class="qlp-missing-flag">*</span>':''}</td>
+      <td><input class="qlp-editable" type="number" value="${khac}" onchange="qlpUpdateField('${e.id}','khac',this.value)"></td>
+      <td><b>${total}</b></td>
+      <td><input class="qlp-editable" type="number" value="${carry}" onchange="qlpUpdateField('${e.id}','carryover',this.value)"></td>
+      <td><input class="qlp-editable" type="number" value="${used}" onchange="qlpUpdateField('${e.id}','daNghi',this.value)"></td>
+      <td class="${remainClass}">${remain}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('qlpStatsRow').innerHTML = `
+    <div class="qlp-sc"><div class="qlp-sc-n">${QLP_EMPLOYEES.length}</div><div class="qlp-sc-l">Tổng nhân viên</div></div>
+    <div class="qlp-sc"><div class="qlp-sc-n">${totalGranted}</div><div class="qlp-sc-l">Tổng phép được cấp (đang lọc)</div></div>
+    <div class="qlp-sc"><div class="qlp-sc-n">${totalUsed}</div><div class="qlp-sc-l">Đã nghỉ (đang lọc)</div></div>
+    <div class="qlp-sc"><div class="qlp-sc-n">${totalRemain}</div><div class="qlp-sc-l">Còn lại (đang lọc)</div></div>
+    <div class="qlp-sc ${missingCount>0?'qlp-warn':''}"><div class="qlp-sc-n">${missingCount}</div><div class="qlp-sc-l">Thiếu năm tính thâm niên</div></div>
+  `;
+}
+
+function qlpDoCalc(){
+  const remain = parseInt(document.getElementById('qlpCalcRemain').value)||0;
+  const startStr = document.getElementById('qlpCalcStart').value;
+  const box = document.getElementById('qlpCalcResult');
+  if(!startStr){
+    box.style.display='block';
+    box.innerHTML = '⚠ Vui lòng chọn ngày bắt đầu nghỉ.';
+    return;
+  }
+  const start = new Date(startStr);
+  const year = start.getFullYear();
+  const jan31 = new Date(year, 0, 31);
+  if(start.getMonth() !== 0){
+    box.style.display='block';
+    box.innerHTML = `⚠ Theo quy định, phép năm cũ chỉ được giải quyết đến hết ${QLP_CONFIG.deadline}. Ngày bắt đầu anh chọn không nằm trong tháng 1, nên không thuộc diện tính phép năm cũ.`;
+    return;
+  }
+  const days = Math.floor((jan31 - start)/(1000*60*60*24)) + 1;
+  const validDays = Math.max(0, Math.min(remain, days));
+  const lost = Math.max(0, remain - validDays);
+  box.style.display='block';
+  box.innerHTML = `
+    Từ <b>${start.toLocaleDateString('vi-VN')}</b> đến hết <b>31/1/${year}</b>: tối đa <b>${days}</b> ngày.<br>
+    → Phép năm cũ chỉ được giải quyết <b>tối đa</b>: <b style="color:#27500A">${validDays} ngày</b> (lấy số nhỏ hơn giữa số ngày còn lại và số ngày còn có thể nghỉ trước hạn).<br>
+    ${lost>0 ? `→ Số ngày phép năm cũ <b style="color:#c62828">bị mất (không giải quyết)</b>: ${lost} ngày (do vượt hạn ${QLP_CONFIG.deadline}).` : '→ Không có ngày phép nào bị mất trong trường hợp này.'}
+  `;
+}
+
+/* ══════════════════════════════
+   ĐƠN XIN NGHỈ PHÉP & DUYỆT PHÉP — tự động trừ vào "Đã nghỉ năm nay"
+   Không tính Thứ 7, Chủ nhật, và ngày nghỉ đặc biệt (lễ/Tết) đã cấu hình
+   ══════════════════════════════ */
+let QLP_REQUESTS = [];
+let QLP_HOLIDAYS = [];
+
+function qlpDateStr(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+/* ══════════════════════════════
+   ĐỒNG BỘ 1 CHIỀU: khi phiếu "Đăng ký Nghỉ Phép" (loại "Phép năm") được DUYỆT/HỦY DUYỆT,
+   tự động cộng/trừ số ngày công (không tính T7,CN,lễ) vào "Đã nghỉ năm nay" bên Quản lý Phép năm.
+   sign = +1 khi duyệt (trừ phép), sign = -1 khi hủy duyệt/xóa (trả lại phép).
+   ══════════════════════════════ */
+function qlpApplyLeaveDelta(personName, dateFrom, dateTo, sign){
+  if(!personName || !dateFrom || !dateTo) return;
+  phepRef.once('value').then(snap=>{
+    const data = snap.val();
+    if(!data || !data.employees || !data.employees.length){
+      npShowAl('Chưa có dữ liệu Quản lý Phép năm — anh vào thẻ "Quản lý Phép năm" bổ sung tay cho '+personName+'.', 'warn');
+      return;
+    }
+    const employees = data.employees;
+    const holidaySet = new Set(data.holidays || []);
+    const norm = s => (s||'').trim().toLowerCase();
+    const idx = employees.findIndex(e=>norm(e.name)===norm(personName));
+    if(idx===-1){
+      npShowAl('Không tìm thấy "'+personName+'" trong Quản lý Phép năm — anh vào đó bổ sung tay số ngày nghỉ.', 'warn');
+      return;
+    }
+    let cur = new Date(dateFrom);
+    const to = new Date(dateTo);
+    let workDays = 0;
+    while(cur <= to){
+      const dow = cur.getDay();
+      if(dow!==0 && dow!==6 && !holidaySet.has(qlpDateStr(cur))) workDays++;
+      cur.setDate(cur.getDate()+1);
+    }
+    if(workDays<=0) return;
+    employees[idx].daNghi = Math.max(0, (employees[idx].daNghi||0) + sign*workDays);
+    phepRef.child('employees').set(employees).then(()=>{
+      npShowAl((sign>0?'Đã tự động trừ ':'Đã tự động trả lại ')+workDays+' ngày phép của '+personName+' (Quản lý Phép năm).', 'ok');
+      if(typeof QLP_EMPLOYEES!=='undefined' && QLP_EMPLOYEES.length){
+        const li = QLP_EMPLOYEES.findIndex(e=>e.id===employees[idx].id);
+        if(li>-1){ QLP_EMPLOYEES[li]=employees[idx]; const ps=document.getElementById('phepScreen'); if(ps && ps.style.display!=='none') qlpRender(); }
+      }
+    }).catch(err=>{ npShowAl('Lỗi khi đồng bộ Quản lý Phép năm: '+err.message, 'err'); });
+  }).catch(err=>{ npShowAl('Lỗi đọc dữ liệu Quản lý Phép năm: '+err.message, 'err'); });
+}
+
+function qlpCountWorkDays(fromStr, toStr){
+  if(!fromStr || !toStr) return 0;
+  const from = new Date(fromStr), to = new Date(toStr);
+  if(to < from) return 0;
+  const holidaySet = new Set(QLP_HOLIDAYS);
+  let count = 0;
+  let cur = new Date(from);
+  while(cur <= to){
+    const dow = cur.getDay(); // 0=CN, 6=T7
+    if(dow!==0 && dow!==6 && !holidaySet.has(qlpDateStr(cur))) count++;
+    cur.setDate(cur.getDate()+1);
+  }
+  return count;
+}
+
+function qlpToggleAddForm(){
+  const f = document.getElementById('qlpAddForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+function qlpAddEmployee(){
+  const name = document.getElementById('qlpNewName').value.trim();
+  const unit = document.getElementById('qlpNewUnit').value;
+  const group = document.getElementById('qlpNewGroup').value;
+  const title = document.getElementById('qlpNewTitle').value.trim();
+  const namtnVal = document.getElementById('qlpNewNamtn').value;
+  const namtn = namtnVal ? parseInt(namtnVal) : null;
+  const msg = document.getElementById('qlpAddMsg');
+
+  if(!name){
+    msg.textContent = 'Vui lòng nhập họ tên.'; msg.style.color = '#c62828';
+    return;
+  }
+  if(QLP_EMPLOYEES.some(e=>e.name.toLowerCase()===name.toLowerCase())){
+    msg.textContent = 'Tên này đã có trong bảng.'; msg.style.color = '#c62828';
+    return;
+  }
+
+  const newEmp = {
+    id: 'e_new_'+Date.now(), name, title, unit, group,
+    namtn, thamManual: 0, khac: 0, daNghi: 0, carryover: 0
+  };
+  QLP_EMPLOYEES.push(newEmp);
+  phepRef.child('employees').set(QLP_EMPLOYEES).then(()=>{
+    msg.textContent = 'Đã thêm "'+name+'" vào bảng.'; msg.style.color = '#1B5E20';
+    document.getElementById('qlpNewName').value = '';
+    document.getElementById('qlpNewTitle').value = '';
+    document.getElementById('qlpNewNamtn').value = '';
+    qlpRender();
+    qlpRenderEmpSelect();
+  }).catch(err=>{
+    msg.textContent = 'Lỗi khi lưu: '+err.message; msg.style.color = '#c62828';
+  });
+}
+
+function qlpRenderEmpSelect(){
+  ['qlpReqEmp','qlpCalcEmp'].forEach(selId=>{
+    const sel = document.getElementById(selId);
+    if(!sel) return;
+    const cur = sel.value;
+    const placeholder = selId==='qlpCalcEmp' ? '— Chọn nhân viên (không bắt buộc) —' : '— Chọn nhân viên —';
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+    QLP_EMPLOYEES.forEach(e=>{
+      const o = document.createElement('option');
+      o.value = e.id; o.textContent = e.name + (e.unit?' — '+e.unit:'');
+      sel.appendChild(o);
+    });
+    sel.value = cur;
+  });
+}
+
+function qlpEmpRemaining(emp){
+  const autoTham = qlpSeniorityAuto(emp);
+  const tham = autoTham !== null ? autoTham : (emp.thamManual || 0);
+  const total = qlpBaseLeave() + tham + (emp.khac||0);
+  return total + (emp.carryover||0) - (emp.daNghi||0);
+}
+
+function qlpFillCalcRemain(){
+  const empId = document.getElementById('qlpCalcEmp').value;
+  if(!empId) return;
+  const emp = QLP_EMPLOYEES.find(e=>e.id===empId);
+  if(!emp) return;
+  document.getElementById('qlpCalcRemain').value = qlpEmpRemaining(emp);
+}
+
+function qlpPreviewReq(){
+  const from = document.getElementById('qlpReqFrom').value;
+  const to = document.getElementById('qlpReqTo').value;
+  const box = document.getElementById('qlpReqPreview');
+  if(!from || !to){ box.textContent=''; return; }
+  const days = qlpCountWorkDays(from, to);
+  box.innerHTML = `→ Số ngày phép sẽ trừ (không tính Thứ 7, CN, ngày lễ): <b style="color:#27500A">${days} ngày</b>`;
+}
+
+function qlpRenderHolidays(){
+  const el = document.getElementById('qlpHolidayInput');
+  if(el) el.value = QLP_HOLIDAYS.join('\n');
+}
+
+function qlpSaveHolidays(){
+  const lines = document.getElementById('qlpHolidayInput').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  QLP_HOLIDAYS = lines;
+  phepRef.child('holidays').set(QLP_HOLIDAYS).then(()=>{
+    const m = document.getElementById('qlpHolidayMsg');
+    m.textContent = 'Đã lưu ('+QLP_HOLIDAYS.length+' ngày).'; m.style.color='#1B5E20';
+    qlpPreviewReq();
+  });
+}
+
+function qlpSubmitReq(){
+  const empId = document.getElementById('qlpReqEmp').value;
+  const from = document.getElementById('qlpReqFrom').value;
+  const to = document.getElementById('qlpReqTo').value;
+  const reason = document.getElementById('qlpReqReason').value.trim();
+  const msg = document.getElementById('qlpReqMsg');
+  if(!empId || !from || !to){
+    msg.textContent = 'Vui lòng chọn nhân viên và đủ ngày bắt đầu/kết thúc.'; msg.style.color='#c62828';
+    return;
+  }
+  const emp = QLP_EMPLOYEES.find(e=>e.id===empId);
+  const workDays = qlpCountWorkDays(from, to);
+  if(workDays<=0){
+    msg.textContent = 'Khoảng ngày này không có ngày làm việc nào để trừ phép (toàn T7/CN/lễ).'; msg.style.color='#c62828';
+    return;
+  }
+  const req = {
+    id: 'r'+Date.now(), empId, empName: emp?emp.name:'', from, to, reason,
+    workDays, status:'pending', createdAt: new Date().toISOString()
+  };
+  QLP_REQUESTS.push(req);
+  phepRef.child('requests').set(QLP_REQUESTS).then(()=>{
+    msg.textContent = 'Đã gửi đơn ('+workDays+' ngày), chờ duyệt.'; msg.style.color='#1B5E20';
+    document.getElementById('qlpReqFrom').value='';
+    document.getElementById('qlpReqTo').value='';
+    document.getElementById('qlpReqReason').value='';
+    document.getElementById('qlpReqPreview').textContent='';
+    qlpRenderRequests();
+  });
+}
+
+function qlpSetReqStatus(id, newStatus){
+  const req = QLP_REQUESTS.find(r=>r.id===id);
+  if(!req) return;
+  const emp = QLP_EMPLOYEES.find(e=>e.id===req.empId);
+  if(!emp){ alert('Không tìm thấy nhân viên tương ứng.'); return; }
+
+  const wasApproved = req.status==='approved';
+  const willApprove = newStatus==='approved';
+
+  if(willApprove && !wasApproved){
+    emp.daNghi = (emp.daNghi||0) + req.workDays;
+  } else if(!willApprove && wasApproved){
+    emp.daNghi = Math.max(0, (emp.daNghi||0) - req.workDays);
+  }
+  req.status = newStatus;
+
+  Promise.all([
+    phepRef.child('employees').set(QLP_EMPLOYEES),
+    phepRef.child('requests').set(QLP_REQUESTS)
+  ]).then(()=>{ qlpRender(); qlpRenderRequests(); });
+}
+
+function qlpRenderRequests(){
+  const wrap = document.getElementById('qlpReqList');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  if(!QLP_REQUESTS.length){
+    wrap.innerHTML = '<div class="qlp-empty-note">Chưa có đơn xin nghỉ phép nào.</div>';
+    return;
+  }
+  const sorted = [...QLP_REQUESTS].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+  sorted.forEach(r=>{
+    const div = document.createElement('div');
+    div.className = 'qlp-req-item';
+    const statusLabel = r.status==='approved'?'Đã duyệt':r.status==='rejected'?'Từ chối':'Chờ duyệt';
+    let actions = '';
+    if(r.status==='pending'){
+      actions = `<div class="qlp-req-actions">
+        <button class="qlp-approve" onclick="qlpSetReqStatus('${r.id}','approved')">Duyệt</button>
+        <button class="qlp-reject" onclick="qlpSetReqStatus('${r.id}','rejected')">Từ chối</button>
+      </div>`;
+    } else {
+      actions = `<div class="qlp-req-actions"><button class="qlp-undo" onclick="qlpSetReqStatus('${r.id}','pending')">Hoàn tác</button></div>`;
+    }
+    div.innerHTML = `
+      <div>
+        <div class="qlp-req-name">${qlpEscapeHtml(r.empName)}</div>
+        <div class="qlp-req-meta">Từ ${r.from} đến ${r.to} · <b>${r.workDays} ngày công</b>${r.reason? ' · '+qlpEscapeHtml(r.reason):''}</div>
+        ${actions}
+      </div>
+      <span class="qlp-status-pill qlp-${r.status}">${statusLabel}</span>
+    `;
+    wrap.appendChild(div);
+  });
+}
+
+/* Cho phép bấm vào tiêu đề mỗi khối trong "Quản lý Phép năm" để thu gọn/mở rộng */
+(function(){
+  const cards = document.querySelectorAll('#phepScreen .qlp-card');
+  cards.forEach(card=>{
+    const h = card.querySelector('h2');
+    if(!h) return;
+    h.style.cursor = 'pointer';
+    h.style.userSelect = 'none';
+    const chevron = document.createElement('span');
+    chevron.className = 'qlp-chevron';
+    chevron.style.marginLeft = 'auto';
+    chevron.textContent = '▾';
+    h.style.display = 'flex';
+    h.appendChild(chevron);
+    h.addEventListener('click', ()=>{
+      const collapsed = card.classList.toggle('qlp-collapsed');
+      Array.from(card.children).forEach(child=>{
+        if(child!==h) child.style.display = collapsed ? 'none' : '';
+      });
+      chevron.textContent = collapsed ? '▸' : '▾';
+    });
+  });
+})();
+
 // Tải thẻ thông báo hôm nay sau khi Firebase sẵn sàng
 setTimeout(function(){homeTBInit();},1200);
 setTimeout(function(){ltHomeNoticeInit();},1200);
@@ -13854,6 +14554,8 @@ function npNavReplRowDrop(e,idx){
 function npDoApprove(status){
   if(!npApproveTarget)return;
   var note=document.getElementById('npApproveNote').value.trim();
+  var rec=npRecords.find(function(x){return String(x.id)===String(npApproveTarget);});
+  var oldStatus = rec ? rec.status : null;
   // Collect per-day replacers
   var replacers=[];
   var i=0;
@@ -13869,6 +14571,10 @@ function npDoApprove(status){
   }).then(function(){
     npShowAl(status==='approved'?'Đã duyệt phiếu nghỉ phép!':'Đã từ chối!',status==='approved'?'ok':'warn');
     npSetSync('ok');closeNpApprove();
+    if(rec && rec.type==='phep-nam'){
+      if(status==='approved' && oldStatus!=='approved') qlpApplyLeaveDelta(rec.person, rec.dateFrom, rec.dateTo, 1);
+      else if(status!=='approved' && oldStatus==='approved') qlpApplyLeaveDelta(rec.person, rec.dateFrom, rec.dateTo, -1);
+    }
   }).catch(function(err){npShowAl('Lỗi: '+err.message,'err');npSetSync('err');});
 }
 function npReplacerDisplay(r){
@@ -13886,8 +14592,13 @@ function npReplacerDisplay(r){
 }
 function npDeleteRecord(id){
   if(!confirm('Xác nhận xóa phiếu nghỉ phép này?'))return;
+  var rec=npRecords.find(function(x){return String(x.id)===String(id);});
+  var wasApproved = rec && rec.status==='approved';
   npSetSync('sync');
-  npRef.child(String(id)).remove().then(()=>{npShowAl('Đã xóa.','warn');npSetSync('ok');}).catch(()=>npSetSync('err'));
+  npRef.child(String(id)).remove().then(()=>{
+    npShowAl('Đã xóa.','warn');npSetSync('ok');
+    if(wasApproved && rec.type==='phep-nam') qlpApplyLeaveDelta(rec.person, rec.dateFrom, rec.dateTo, -1);
+  }).catch(()=>npSetSync('err'));
 }
 
 /* ── Statistics ── */
@@ -14188,8 +14899,13 @@ function doHomeAdminLogin(dest){
 /* ── Staff Edit/Cancel for NP ── */
 function npCancelStaff(id){
   if(!confirm('Xác nhận HỦY phiếu nghỉ phép này?'))return;
+  var rec=npRecords.find(function(x){return String(x.id)===String(id);});
+  var wasApproved = rec && rec.status==='approved';
   npRef.child(String(id)).update({status:'denied',adminNote:'Nhân viên tự hủy',approvedBy:npCurrentUser.name,approvedAt:new Date().toISOString()})
-    .then(function(){npShowAl('Đã hủy phiếu nghỉ phép!','warn');})
+    .then(function(){
+      npShowAl('Đã hủy phiếu nghỉ phép!','warn');
+      if(wasApproved && rec.type==='phep-nam') qlpApplyLeaveDelta(rec.person, rec.dateFrom, rec.dateTo, -1);
+    })
     .catch(function(e){npShowAl('Lỗi: '+e.message,'err');});
 }
 function npEditStaff(id){
@@ -19067,8 +19783,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
     <div style="padding:10px 16px 0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid #eee;padding-bottom:10px">
       <span style="font-size:12px;color:#666;font-weight:600">Xuất Word gồm:</span>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupGiao" checked style="width:auto">Nhóm Giao - Nhận</label>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupKhong" checked style="width:auto">Nhóm Không bàn giao</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupGiao" checked style="width:auto" onchange="bgRenderViewBody()">Nhóm Giao - Nhận</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupKhong" checked style="width:auto" onchange="bgRenderViewBody()">Nhóm Không bàn giao</label>
       <button class="kpi-btn" style="padding:4px 10px;font-size:12px;background:#b45309;color:#fff" onclick="bgExportWord()"><i class="ti ti-file-text"></i> Xuất Word</button>
       <button class="kpi-btn" id="bgEditBtn" style="display:none;padding:4px 10px;font-size:12px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="bgStartEdit()"><i class="ti ti-pencil"></i> Sửa biên bản</button>
       <button class="kpi-btn" id="bgDeleteBtn" style="display:none;padding:4px 10px;font-size:12px;background:#c62828;color:#fff" onclick="bgDeleteRecord()"><i class="ti ti-trash"></i> Xóa biên bản này</button>
@@ -19179,10 +19895,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         </div>
       </div>
 
-      <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="display:flex;gap:8px;margin-bottom:6px">
         <button class="kpi-btn" id="pmTabGaymeBtn" style="background:#0d6e6e;color:#fff;border-radius:8px 8px 0 0" onclick="pmSwitchTab('gayme')"><i class="ti ti-vaccine-bottle"></i> Gây mê (<span id="pmCountGayme">0</span>)</button>
         <button class="kpi-btn" id="pmTabDungcuBtn" style="border:1.5px solid #ddd;color:#666;border-radius:8px 8px 0 0" onclick="pmSwitchTab('dungcu')"><i class="ti ti-tools"></i> Dụng cụ (<span id="pmCountDungcu">0</span>)</button>
       </div>
+      <div style="font-size:11.5px;color:#b45309;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:5px 10px;margin-bottom:10px"><i class="ti ti-info-circle"></i> Mỗi lần <b>Lưu biên bản</b> chỉ nộp cho <b>đúng 1 nhóm đang mở</b> (tab đang bật). Muốn bàn giao cả 2 nhóm, hãy nộp riêng từng tab.</div>
       <input id="pmItemSearch" type="text" placeholder="🔍 Tìm nhanh theo tên tài sản..." oninput="pmRenderItemList()" style="width:100%;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px">
       <div id="pmItemList" style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto;padding-right:4px"></div>
 
@@ -19374,8 +20091,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
     <div style="padding:10px 16px 0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid #eee;padding-bottom:10px">
       <span style="font-size:12px;color:#666;font-weight:600">Xuất Word gồm:</span>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupGayme" checked style="width:auto">Gây mê</label>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupDungcu" checked style="width:auto">Dụng cụ</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupGayme" checked style="width:auto" onchange="pmRenderViewBody()">Gây mê</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupDungcu" checked style="width:auto" onchange="pmRenderViewBody()">Dụng cụ</label>
       <button class="kpi-btn" style="padding:4px 10px;font-size:12px;background:#0d6e6e;color:#fff" onclick="pmExportWord()"><i class="ti ti-file-text"></i> Xuất Word</button>
       <button class="kpi-btn" id="pmEditBtn" style="display:none;padding:4px 10px;font-size:12px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="pmStartEdit()"><i class="ti ti-pencil"></i> Sửa biên bản</button>
       <button class="kpi-btn" id="pmDeleteBtn" style="display:none;padding:4px 10px;font-size:12px;background:#c62828;color:#fff" onclick="pmDeleteRecord()"><i class="ti ti-trash"></i> Xóa biên bản này</button>
@@ -24000,11 +24717,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
   };
 
-  window.bgOpenView=function(id){
-    var r=bgRecords[id];
-    if(!r){alert('Không tìm thấy biên bản.');return;}
-    bgViewingId=id;
-    document.getElementById('bgViewDate').textContent=bgFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' (Ca '+r.ca+')';
+  var bgViewRecord=null;
+  window.bgRenderViewBody=function(){
+    var r=bgViewRecord;
+    if(!r) return;
     var itemsArr=Object.keys(r.items||{}).map(function(k){var it=r.items[k];it=Object.assign({},it);it._id=k;return it;});
     var stLbl={du:'✅ Đủ',thieu:'❌ Thiếu',hong:'⚠️ Hư hỏng'};
     var stColor={du:'#1a7a4a',thieu:'#c62828',hong:'#8a6100'};
@@ -24021,12 +24737,16 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
             '<td style="padding:4px 6px;border:1px solid #eee">'+bgEsc(i.ghiChu||'')+'</td></tr>';
         }).join('')+'</tbody></table>';
     }
+    var incGiao=(document.getElementById('bgExpGroupGiao')||{checked:true}).checked;
+    var incKhong=(document.getElementById('bgExpGroupKhong')||{checked:true}).checked;
+    var groupsHtml=(incGiao?grp('giao','Nhóm Giao - Nhận'):'')+(incKhong?grp('khong','Nhóm Không bàn giao'):'');
+    if(!incGiao && !incKhong){ groupsHtml='<div style="text-align:center;color:#c62828;padding:14px;font-style:italic">Chưa chọn nhóm nào để xem — tích ít nhất 1 ô "Nhóm Giao - Nhận" hoặc "Nhóm Không bàn giao" ở trên.</div>'; }
     var html='<div style="font-size:13px;margin-bottom:8px"><b>Người bàn giao:</b> '+bgEsc(r.nguoiGiao)+' &nbsp; <b>Người nhận:</b> '+bgEsc(r.nguoiNhan)+'</div>'+
       '<div style="font-size:11.5px;color:#888;margin-bottom:6px">Xác nhận lúc: '+bgFmtDateTime((r.xacNhanGiao||{}).at)+'</div>'+
       (r.editedAt?('<div style="font-size:11.5px;color:#0d47a1;margin-bottom:6px"><i class="ti ti-pencil"></i> Đã sửa lúc '+bgFmtDateTime(r.editedAt)+' bởi <b>'+bgEsc(r.editedBy||'')+'</b></div>'):'')+
       ((r.baoCaoKhan&&r.baoCaoKhan.length)?('<div style="background:#fce4e4;border:2px solid #c62828;border-radius:8px;padding:8px 12px;margin-bottom:8px"><b style="color:#c62828"><i class="ti ti-alert-triangle-filled"></i> BÁO CÁO KHẨN CẤP:</b><ul style="margin:6px 0 0;padding-left:20px;color:#8a2020">'+r.baoCaoKhan.map(function(x){return '<li>'+bgEsc(x)+'</li>';}).join('')+'</ul></div>'):'')+
       (r.ghiChuChung?('<div style="font-size:12.5px;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:6px 10px;margin-bottom:8px"><b>Ghi chú chung:</b> '+bgEsc(r.ghiChuChung)+'</div>'):'')+
-      grp('giao','Nhóm Giao - Nhận')+grp('khong','Nhóm Không bàn giao')+
+      groupsHtml+
       ((r.khac&&r.khac.length)?('<div style="font-weight:700;font-size:13px;color:#1a7a4a;margin:10px 0 6px">Bàn giao khác (ngoài danh mục) ('+r.khac.length+')</div>'+
         '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f2f9f6"><th style="padding:4px 6px;border:1px solid #bfe3cc;text-align:left">Tên</th><th style="padding:4px 6px;border:1px solid #bfe3cc;text-align:center">Trạng thái</th><th style="padding:4px 6px;border:1px solid #bfe3cc;text-align:left">Ghi chú</th></tr></thead><tbody>'+
         r.khac.map(function(i){
@@ -24035,6 +24755,22 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
             '<td style="padding:4px 6px;border:1px solid #eee">'+bgEsc(i.ghiChu||'')+'</td></tr>';
         }).join('')+'</tbody></table>'):'');
     document.getElementById('bgViewBody').innerHTML=html;
+  };
+
+  window.bgOpenView=function(id){
+    var r=bgRecords[id];
+    if(!r){alert('Không tìm thấy biên bản.');return;}
+    bgViewingId=id;
+    bgViewRecord=r;
+    document.getElementById('bgViewDate').textContent=bgFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' (Ca '+r.ca+')';
+    var giaoChk=document.getElementById('bgExpGroupGiao');
+    var khongChk=document.getElementById('bgExpGroupKhong');
+    var itemsArr0=Object.values(r.items||{});
+    var hasGiao=itemsArr0.some(function(i){return i.nhom==='giao';});
+    var hasKhong=itemsArr0.some(function(i){return i.nhom==='khong';});
+    if(giaoChk) giaoChk.checked=hasGiao;
+    if(khongChk) khongChk.checked=hasKhong;
+    bgRenderViewBody();
     var bgDelBtn=document.getElementById('bgDeleteBtn'); if(bgDelBtn) bgDelBtn.style.display=(bgCu&&bgCu.role==='admin')?'inline-flex':'none';
     var bgEdBtn=document.getElementById('bgEditBtn'); if(bgEdBtn) bgEdBtn.style.display=(bgCu&&bgCu.role==='admin')?'inline-flex':'none';
     document.getElementById('bgViewOverlay').style.display='flex';
@@ -25201,10 +25937,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       pmShowFormAlert('Bạn (<b>'+pmEsc(nguoiGiao)+'</b>) cần <b>ký tay và bấm "Xác nhận đã ký"</b> trước khi lưu.','err');return;
     }
     var hasNhanSig = !!(sigNhan && pmSigLocked.nhan);
-    var gaymeItems=pmRoomConfigItems(pmCurrentRoom,'gayme');
-    var dungcuItems=pmRoomConfigItems(pmCurrentRoom,'dungcu');
-    var allItems=gaymeItems.concat(dungcuItems);
-    var missingNote=allItems.find(function(it){
+    var activeGroup = pmCurTab; // 'gayme' hoặc 'dungcu' — biên bản CHỈ nộp cho ĐÚNG nhóm đang chọn, không gộp cả 2
+    var activeItems = pmRoomConfigItems(pmCurrentRoom, activeGroup);
+    var missingNote=activeItems.find(function(it){
       var st=pmItemStates[it._id];
       return st && st.status!=='du' && !st.ghiChu.trim();
     });
@@ -25218,22 +25953,33 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       });
       return out;
     }
-    var itemsGayme=snap(gaymeItems,'gayme');
-    var itemsDungcu=snap(dungcuItems,'dungcu');
+    var itemsActive=snap(activeItems, activeGroup);
+    var otherGroupSkipped=false;
     pmOtherItemsTemp.forEach(function(it,idx){
-      var entry={ten:it.ten||null, status:it.status||'du', ghiChu:it.ghiChu||null, coSo:null, soLuong:null, nhomPM:it.nhomPM, khac:true};
-      if(it.nhomPM==='dungcu'){ itemsDungcu['khac_'+idx]=entry; }
-      else { itemsGayme['khac_'+idx]=entry; }
+      if(it.nhomPM===activeGroup){
+        itemsActive['khac_'+idx]={ten:it.ten||null, status:it.status||'du', ghiChu:it.ghiChu||null, coSo:null, soLuong:null, nhomPM:it.nhomPM, khac:true};
+      } else {
+        otherGroupSkipped=true;
+      }
     });
+    var otherLabel = activeGroup==='gayme' ? 'Dụng cụ' : 'Gây mê';
+    var activeLabel = activeGroup==='gayme' ? 'Gây mê' : 'Dụng cụ';
+    if(otherGroupSkipped){
+      if(!confirm('Có mục "khác" thuộc nhóm '+otherLabel+' sẽ KHÔNG được lưu vào phiếu này, vì mỗi phiếu chỉ nộp riêng cho 1 nhóm. Anh chuyển sang tab '+otherLabel+' để nộp riêng cho nhóm đó sau.\n\nTiếp tục nộp phiếu nhóm '+activeLabel+' này?')) return;
+    }
     var ghiChuChung=(document.getElementById('pmInGhiChuChung')||{}).value||'';
     var baoCaoKhanArr=(document.getElementById('pmInBaoCaoKhan')||{}).value||'';
     baoCaoKhanArr=baoCaoKhanArr.split('\n').map(function(s){return s.trim();}).filter(Boolean);
     var namNay=(date||pmToday()).slice(0,4);
     var soThuTuNam=pmAllRecords().filter(function(x){return (x.ngay||'').slice(0,4)===namNay;}).length+1;
-    var soHieu='P'+pmCurrentRoom+'-'+String(soThuTuNam).padStart(3,'0')+'/BB-PM-'+namNay;
+    var groupSuffix = activeGroup==='gayme' ? 'GM' : 'DC';
+    var soHieu='P'+pmCurrentRoom+'-'+String(soThuTuNam).padStart(3,'0')+'-'+groupSuffix+'/BB-PM-'+namNay;
     var rec={
       phong:pmCurrentRoom, ngay:date, gio:gio, ca:ca, nguoiGiao:nguoiGiao, nguoiNhan:nguoiNhan,
-      itemsGayme:itemsGayme, itemsDungcu:itemsDungcu, ghiChuChung: ghiChuChung.trim()||null, soHieu:soHieu,
+      nhomPM: activeGroup,
+      itemsGayme: activeGroup==='gayme' ? itemsActive : {},
+      itemsDungcu: activeGroup==='dungcu' ? itemsActive : {},
+      ghiChuChung: ghiChuChung.trim()||null, soHieu:soHieu,
       baoCaoKhan: baoCaoKhanArr.length ? baoCaoKhanArr : null,
       trangThai: hasNhanSig ? 'hoanthanh' : 'choduyet',
       xacNhanGiao:{name:nguoiGiao, at:new Date().toISOString(), chuKy:sigGiao},
@@ -25257,20 +26003,20 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       clearTimeout(timeoutId);
       if(submitBtn) submitBtn.disabled=false;
       if(hasNhanSig){
-        if(!timedOut) pmShowFormAlert('✅ Đã lưu biên bản HOÀN THÀNH (cả 2 bên đã ký) ngày '+pmFmtD(date)+' lúc '+gio+'!','ok');
-        else pmShowFormAlert('✅ Đã đồng bộ xong biên bản!','ok');
-        pmItemStates={};
+        if(!timedOut) pmShowFormAlert('✅ Đã lưu biên bản HOÀN THÀNH nhóm '+activeLabel+' (cả 2 bên đã ký) ngày '+pmFmtD(date)+' lúc '+gio+'!','ok');
+        else pmShowFormAlert('✅ Đã đồng bộ xong biên bản nhóm '+activeLabel+'!','ok');
+        activeItems.forEach(function(it){ delete pmItemStates[it._id]; });
+        pmOtherItemsTemp = pmOtherItemsTemp.filter(function(it){ return it.nhomPM!==activeGroup; });
         document.getElementById('pmInNhan').value='';
         document.getElementById('pmInGhiChuChung').value='';
         document.getElementById('pmInBaoCaoKhan').value='';
         pmSelectedNhan=null;
-        pmOtherItemsTemp=[];
         pmRenderOtherItems();
         document.getElementById('pmConfirmNhanName').textContent='— chưa chọn —';
         window.pmClearSig('giao'); window.pmClearSig('nhan');
         pmRenderItemList();
       } else {
-        pmShowFormAlert('✅ Đã lưu phần ký của bạn. Biên bản đang ở trạng thái <b>CHỜ HOÀN THÀNH</b> — gửi mã cho "'+pmEsc(nguoiNhan)+'" để họ tự ký nốt.','ok');
+        pmShowFormAlert('✅ Đã lưu phần ký của bạn (nhóm '+activeLabel+'). Biên bản đang ở trạng thái <b>CHỜ HOÀN THÀNH</b> — gửi mã cho "'+pmEsc(nguoiNhan)+'" để họ tự ký nốt.','ok');
         pmShowRemoteQR(newRef.key);
       }
     }).catch(function(err){
@@ -25320,6 +26066,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     loadGroup(r.itemsDungcu,'dungcu');
     pmRenderOtherItems();
     pmRenderItemList();
+    if(r.nhomPM) pmSwitchTab(r.nhomPM);
     var btn=document.getElementById('pmSubmitBtn');
     if(btn) btn.innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật biên bản (Sửa)';
     var cancelBtn=document.getElementById('pmCancelEditBtn'); if(cancelBtn) cancelBtn.style.display='inline-flex';
@@ -25353,10 +26100,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return;}
       if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return;}
       if(!nguoiNhan){pmShowFormAlert('Vui lòng chọn <b>tên người nhận</b>.','err');return;}
-      var gaymeItems=pmRoomConfigItems(pmCurrentRoom,'gayme');
-      var dungcuItems=pmRoomConfigItems(pmCurrentRoom,'dungcu');
-      var allItems=gaymeItems.concat(dungcuItems);
-      var missingNote=allItems.find(function(it){
+      var activeGroup = orig.nhomPM || pmCurTab;
+      var activeItems = pmRoomConfigItems(pmCurrentRoom, activeGroup);
+      var missingNote=activeItems.find(function(it){
         var st=pmItemStates[it._id];
         return st && st.status!=='du' && !st.ghiChu.trim();
       });
@@ -25369,19 +26115,21 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         });
         return out;
       }
-      var itemsGayme=snap(gaymeItems,'gayme');
-      var itemsDungcu=snap(dungcuItems,'dungcu');
+      var itemsActive=snap(activeItems, activeGroup);
       pmOtherItemsTemp.forEach(function(it,idx){
-        var entry={ten:it.ten||null, status:it.status||'du', ghiChu:it.ghiChu||null, coSo:null, soLuong:null, nhomPM:it.nhomPM, khac:true};
-        if(it.nhomPM==='dungcu'){ itemsDungcu['khac_'+idx]=entry; }
-        else { itemsGayme['khac_'+idx]=entry; }
+        if(it.nhomPM===activeGroup){
+          itemsActive['khac_'+idx]={ten:it.ten||null, status:it.status||'du', ghiChu:it.ghiChu||null, coSo:null, soLuong:null, nhomPM:it.nhomPM, khac:true};
+        }
       });
       var ghiChuChung=(document.getElementById('pmInGhiChuChung')||{}).value||'';
       var baoCaoKhanArrEdit=(document.getElementById('pmInBaoCaoKhan')||{}).value||'';
       baoCaoKhanArrEdit=baoCaoKhanArrEdit.split('\n').map(function(s){return s.trim();}).filter(Boolean);
       var updateObj={
         ngay:date, gio:gio, ca:ca, nguoiNhan:nguoiNhan,
-        itemsGayme:itemsGayme, itemsDungcu:itemsDungcu, ghiChuChung: ghiChuChung.trim()||null,
+        nhomPM: activeGroup,
+        itemsGayme: activeGroup==='gayme' ? itemsActive : (orig.itemsGayme||{}),
+        itemsDungcu: activeGroup==='dungcu' ? itemsActive : (orig.itemsDungcu||{}),
+        ghiChuChung: ghiChuChung.trim()||null,
         baoCaoKhan: baoCaoKhanArrEdit.length ? baoCaoKhanArrEdit : null,
         editedBy: pmCu.name, editedAt: new Date().toISOString()
       };
@@ -25439,9 +26187,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       var hongCount=itemsArr.filter(function(i){return i.status==='hong';}).length;
       var flagHtml = (thieuCount||hongCount) ? ('<span style="color:#c62828;font-weight:700">⚠️ '+thieuCount+' thiếu, '+hongCount+' hư hỏng</span>') : '<span style="color:#0a6b5e;font-weight:700">✅ Đủ tất cả</span>';
       var stHtml = r.trangThai==='choduyet' ? '<span style="color:#8a6100;font-weight:700">⏳ Chờ hoàn thành</span>' : '<span style="color:#0a6b5e;font-weight:700">✅ Hoàn thành</span>';
+      var groupBadge = r.nhomPM ? ('<span style="background:'+(r.nhomPM==='gayme'?'#e0f2f1':'#fff3e0')+';color:'+(r.nhomPM==='gayme'?'#0d6e6e':'#b45309')+';border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700">'+(r.nhomPM==='gayme'?'Gây mê':'Dụng cụ')+'</span>') : '';
       return '<div style="border:1.5px solid #a8d9d0;background:#f6fffd;border-radius:8px;padding:10px 12px;cursor:pointer" onclick="pmOpenView(\''+r._id+'\')">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
-          '<div style="font-weight:700;color:#0d6e6e">'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — Ca '+pmEsc(r.ca)+'</div>'+
+          '<div style="font-weight:700;color:#0d6e6e;display:flex;align-items:center;gap:8px">'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — Ca '+pmEsc(r.ca)+groupBadge+'</div>'+
           '<div style="display:flex;gap:8px">'+stHtml+flagHtml+'</div>'+
         '</div>'+
         '<div style="font-size:12px;color:#666;margin-top:3px">Bàn giao: <b>'+pmEsc(r.nguoiGiao)+'</b> → Nhận: <b>'+pmEsc(r.nguoiNhan)+'</b></div>'+
@@ -25613,11 +26362,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     w.document.write(html); w.document.close(); setTimeout(function(){w.print();},400);
   };
 
-  window.pmOpenView=function(id){
-    var r=pmRecords[id];
-    if(!r){alert('Không tìm thấy biên bản.');return;}
-    pmViewingId=id;
-    document.getElementById('pmViewDate').textContent=pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' (Ca '+r.ca+') — Phòng '+r.phong;
+  var pmViewRecord=null;
+  window.pmRenderViewBody=function(){
+    var r=pmViewRecord;
+    if(!r) return;
     var stLbl={du:'✅ Đủ',thieu:'❌ Thiếu',hong:'⚠️ Hư hỏng'};
     var stColor={du:'#0a6b5e',thieu:'#c62828',hong:'#8a6100'};
     function grp(items,label){
@@ -25633,13 +26381,32 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
             '<td style="padding:4px 6px;border:1px solid #eee">'+pmEsc(i.ghiChu||'')+'</td></tr>';
         }).join('')+'</tbody></table>';
     }
+    var incGayme=(document.getElementById('pmExpGroupGayme')||{checked:true}).checked;
+    var incDungcu=(document.getElementById('pmExpGroupDungcu')||{checked:true}).checked;
+    var groupsHtml=(incGayme?grp(r.itemsGayme,'Nhóm Gây mê'):'')+(incDungcu?grp(r.itemsDungcu,'Nhóm Dụng cụ'):'');
+    if(!incGayme && !incDungcu){ groupsHtml='<div style="text-align:center;color:#c62828;padding:14px;font-style:italic">Chưa chọn nhóm nào để xem — tích ít nhất 1 ô "Gây mê" hoặc "Dụng cụ" ở trên.</div>'; }
     var html='<div style="font-size:13px;margin-bottom:8px"><b>Người bàn giao:</b> '+pmEsc(r.nguoiGiao)+' &nbsp; <b>Người nhận:</b> '+pmEsc(r.nguoiNhan)+'</div>'+
       '<div style="font-size:11.5px;color:#888;margin-bottom:6px">Xác nhận lúc: '+pmFmtDateTime((r.xacNhanGiao||{}).at)+'</div>'+
       (r.editedAt?('<div style="font-size:11.5px;color:#0d47a1;margin-bottom:6px"><i class="ti ti-pencil"></i> Đã sửa lúc '+pmFmtDateTime(r.editedAt)+' bởi <b>'+pmEsc(r.editedBy||'')+'</b></div>'):'')+
       ((r.baoCaoKhan&&r.baoCaoKhan.length)?('<div style="background:#fce4e4;border:2px solid #c62828;border-radius:8px;padding:8px 12px;margin-bottom:8px"><b style="color:#c62828"><i class="ti ti-alert-triangle-filled"></i> BÁO CÁO KHẨN CẤP:</b><ul style="margin:6px 0 0;padding-left:20px;color:#8a2020">'+r.baoCaoKhan.map(function(x){return '<li>'+pmEsc(x)+'</li>';}).join('')+'</ul></div>'):'')+
       (r.ghiChuChung?('<div style="font-size:12.5px;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:6px 10px;margin-bottom:8px"><b>Ghi chú chung:</b> '+pmEsc(r.ghiChuChung)+'</div>'):'')+
-      grp(r.itemsGayme,'Nhóm Gây mê')+grp(r.itemsDungcu,'Nhóm Dụng cụ');
+      groupsHtml;
     document.getElementById('pmViewBody').innerHTML=html;
+  };
+
+  window.pmOpenView=function(id){
+    var r=pmRecords[id];
+    if(!r){alert('Không tìm thấy biên bản.');return;}
+    pmViewingId=id;
+    pmViewRecord=r;
+    document.getElementById('pmViewDate').textContent=pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' (Ca '+r.ca+') — Phòng '+r.phong;
+    var gaymeChk=document.getElementById('pmExpGroupGayme');
+    var dungcuChk=document.getElementById('pmExpGroupDungcu');
+    var hasGayme=r.itemsGayme && Object.keys(r.itemsGayme).length>0;
+    var hasDungcu=r.itemsDungcu && Object.keys(r.itemsDungcu).length>0;
+    if(gaymeChk) gaymeChk.checked=hasGayme;
+    if(dungcuChk) dungcuChk.checked=hasDungcu;
+    pmRenderViewBody();
     var pmDelBtn=document.getElementById('pmDeleteBtn'); if(pmDelBtn) pmDelBtn.style.display=(pmCu&&pmCu.role==='admin')?'inline-flex':'none';
     var pmEdBtn=document.getElementById('pmEditBtn'); if(pmEdBtn) pmEdBtn.style.display=(pmCu&&pmCu.role==='admin')?'inline-flex':'none';
     document.getElementById('pmViewOverlay').style.display='flex';
