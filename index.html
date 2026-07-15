@@ -24318,8 +24318,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<thead><tr><th>STT</th><th>Tên tài sản</th><th>Mã TS</th>'+(showSL?'<th>Cơ số</th><th>SL giao</th>':'')+'<th>Trạng thái</th><th>Ghi chú</th></tr></thead>'+
         '<tbody>'+rows+'</tbody></table>';
     }
-    var qrText='BIÊN BẢN BÀN GIAO - Phòng Hồi sức\nMã biên bản: '+bgViewingId+'\nNgày: '+bgFmtD(r.ngay)+' - Ca: '+r.ca+
-      '\nBên bàn giao: '+r.nguoiGiao+'\nBên nhận: '+r.nguoiNhan+'\nXác nhận lúc: '+bgFmtDateTime((r.xacNhanGiao||{}).at);
+    var qrText=location.origin+location.pathname+'?bgViewId='+encodeURIComponent(bgViewingId)+'&bgRoom='+encodeURIComponent(bgCurrentRoom||'');
     function buildAndDownload(qrDataUrl){
       var sigGiao=(r.xacNhanGiao||{}).chuKy;
       var sigNhan=(r.xacNhanNhan||{}).chuKy;
@@ -24559,6 +24558,26 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         bgRecordsRef = db.ref('bgRecords').child(bgSafeKey(_bgRoomParam));
       }
       setTimeout(function(){ window.bgOpenRemoteSign(_bgSignId); }, 300);
+    }
+    // Nếu mở qua link/QR "đối chiếu điện tử" trên bản in (?bgViewId=...&bgRoom=...) — chỉ xem, không cần đăng nhập
+    var _bgViewId=_bgParams.get('bgViewId');
+    var _bgViewRoom=_bgParams.get('bgRoom');
+    if(_bgViewId && _bgViewRoom){
+      setTimeout(function(){
+        try{
+          bgCu = bgCu || {name:'Xem đối chiếu', role:'guest'};
+          bgCurrentRoom = _bgViewRoom;
+          bgRecordsRef = db.ref('bgRecords').child(bgSafeKey(_bgViewRoom));
+          document.getElementById('homeScreen').style.display='none';
+          document.getElementById('bgRoomPickerScreen').style.display='none';
+          document.getElementById('bgScreen').style.display='block';
+          var titleEl=document.getElementById('bgRoomTitle'); if(titleEl) titleEl.textContent=_bgViewRoom;
+          bgRecordsRef.once('value').then(function(snap){
+            bgRecords = snap.val()||{};
+            window.bgOpenView(_bgViewId);
+          });
+        }catch(e){ console.warn('Lỗi khi mở xem biên bản qua QR:', e); }
+      }, 300);
     }
   }catch(e){ console.warn('Không đọc được tham số ký từ xa.',e); }
 })();
@@ -25656,8 +25675,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       }).join('');
       return '<table><thead><tr><th>STT</th><th>Tên tài sản</th><th>Cơ số</th><th>SL giao</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>'+rows+'</tbody></table>';
     }
-    var qrText='BIÊN BẢN BÀN GIAO - Phòng Mổ '+r.phong+'\nMã biên bản: '+pmViewingId+'\nNgày: '+pmFmtD(r.ngay)+' - Ca: '+r.ca+
-      '\nBên bàn giao: '+r.nguoiGiao+'\nBên nhận: '+r.nguoiNhan;
+    var qrText=location.origin+location.pathname+'?pmViewId='+encodeURIComponent(pmViewingId)+'&pmRoom='+encodeURIComponent(pmCurrentRoom||r.phong||'');
     function buildAndDownload(qrDataUrl){
       var sigGiao=(r.xacNhanGiao||{}).chuKy;
       var sigNhan=(r.xacNhanNhan||{}).chuKy;
@@ -26075,6 +26093,26 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           window.pmOpenRemoteSign(_pmIdVal);
         }, 300);
       }
+    }
+    // Nếu mở qua link/QR "đối chiếu điện tử" trên bản in (?pmViewId=...&pmRoom=...) — chỉ xem, không cần đăng nhập
+    var _pmViewId=_pmParams.get('pmViewId');
+    var _pmViewRoom=_pmParams.get('pmRoom');
+    if(_pmViewId && _pmViewRoom){
+      setTimeout(function(){
+        try{
+          pmCu = pmCu || {name:'Xem đối chiếu', role:'guest'};
+          pmCurrentRoom = _pmViewRoom;
+          pmRecordsRef = db.ref('pmRecords').child(_pmViewRoom);
+          document.getElementById('homeScreen').style.display='none';
+          document.getElementById('pmRoomPickerScreen').style.display='none';
+          document.getElementById('pmScreen').style.display='block';
+          var titleEl=document.getElementById('pmRoomTitle'); if(titleEl) titleEl.textContent=_pmViewRoom;
+          pmRecordsRef.once('value').then(function(snap){
+            pmRecords = snap.val()||{};
+            window.pmOpenView(_pmViewId);
+          });
+        }catch(e){ console.warn('Lỗi khi mở xem biên bản qua QR:', e); }
+      }, 300);
     }
   }catch(e){ console.warn('Không đọc được tham số ký từ xa phòng mổ.',e); }
 })();
