@@ -11474,12 +11474,29 @@ function renderCard(c){
       ${c.status==='done'&&c.doneAt?`<span class="cedit-info"><i class="ti ti-check" style="font-size:10px"></i> Hoàn thành: ${fmtD(c.doneAt)}</span>`:''}
       ${c.editedAt?`<span class="cedit-info"><i class="ti ti-edit" style="font-size:10px"></i> Đã sửa bởi ${esc(c.editedBy||'')} – ${fmtD(c.editedAt.split('T')[0])}</span>`:''}
     </div>
-    ${c.content?`<div class="ctext">${esc(c.content)}</div>`:''}
-    ${c.todo?`<div class="trow"><span class="chip ch-td">📋 Cần làm</span><span class="ttext">${esc(c.todo)}</span></div>`:''}
-    ${c.doing?`<div class="trow"><span class="chip ch-dg">⚙ Đang làm</span><span class="ttext">${esc(c.doing)}</span></div>`:''}
-    ${c.done?`<div class="trow"><span class="chip ch-dn">✅ Hoàn thành</span><span class="ttext">${esc(c.done)}</span></div>`:''}
+    ${c.content?`<div class="ctext">${formatIdeaParagraphs(c.content)}</div>`:''}
+    ${c.todo?`<div class="trow"><span class="chip ch-td">📋 Cần làm</span><span class="ttext" style="white-space:pre-wrap">${formatIdeaParagraphs(c.todo)}</span></div>`:''}
+    ${c.doing?`<div class="trow"><span class="chip ch-dg">⚙ Đang làm</span><span class="ttext" style="white-space:pre-wrap">${formatIdeaParagraphs(c.doing)}</span></div>`:''}
+    ${c.done?`<div class="trow"><span class="chip ch-dn">✅ Hoàn thành</span><span class="ttext" style="white-space:pre-wrap">${formatIdeaParagraphs(c.done)}</span></div>`:''}
     ${imgs}${noteHtml}${assignNoteHtml}${footer}${histPanel}
   </div>`;
+}
+// Tách nội dung báo cáo thành nhiều đoạn riêng biệt — mỗi ý 1 đoạn để dễ đọc.
+// Ưu tiên xuống dòng thật (Enter) nếu người dùng đã tự tách; nếu gõ liền 1 dòng
+// thì tự tách theo dấu gạch đầu dòng " - " giữa các ý.
+// Dùng thẻ <br> chèn thẳng vào HTML để đảm bảo xuống dòng chắc chắn (không phụ thuộc CSS white-space).
+function formatIdeaParagraphs(txt){
+  if(!txt) return '';
+  var lines=String(txt).split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+  if(lines.length<=1){
+    var raw=String(txt).trim();
+    var parts=raw.split(/(?:^|\s)-\s+/).map(function(s){return s.trim();}).filter(Boolean);
+    if(parts.length>1) lines=parts; else lines=raw?[raw]:[];
+  }
+  return lines.map(function(s){
+    var t=esc(s);
+    return /^[-•]/.test(s)?t:'- '+t;
+  }).join('<br>');
 }
 function urgencyWeight(c){
   const pw={h:2,m:1,l:0};
@@ -20396,7 +20413,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <div class="fg"><label>Giờ bàn giao *</label><input type="time" id="pmInGio"></div>
         <div class="fg">
           <label>Ca trực *</label>
-          <select id="pmInCa"><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option></select>
+          <select id="pmInCa" onchange="pmRenderVeSinh()"><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option></select>
         </div>
         <div class="fg"><label>Người bàn giao (ca đi) *</label><input type="text" id="pmInGiao" readonly style="background:#f2f7f6;color:#555;cursor:not-allowed"></div>
         <div class="fg" style="grid-column:1/-1">
@@ -25921,6 +25938,27 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   var pmVeSinhCache={}; // {roomId: record}
   var pmVeSinhChoice=null; // 'da_lam' | 'chua_lam' — lựa chọn hiện tại của ca đang mở biên bản (bắt buộc chọn nếu đến hạn)
   var pmVeSinhHinhThucChon=[]; // hình thức đã chọn khi tick "Đã làm"
+  var pmVeSinhNhanAccept=false; // người NHẬN đã tick xác nhận đã đọc & tiếp nhận tình trạng vệ sinh cuối tuần chưa (bắt buộc khi khối đang ở trạng thái bắt buộc, trước khi được ký)
+  function pmVeSinhSetNhanAccept(v){
+    pmVeSinhNhanAccept=!!v;
+    pmVeSinhUpdateNhanSignGate();
+  }
+  function pmVeSinhGateActive(){
+    var wrap=document.getElementById('pmVeSinhWrap');
+    return !!(wrap && wrap.style.display!=='none' && wrap.dataset.mandatory==='1');
+  }
+  function pmVeSinhUpdateNhanSignGate(){
+    var btn=document.getElementById('pmConfirmBtnNhan');
+    var canvas=document.getElementById('pmSigNhan');
+    var hint=document.getElementById('pmVeSinhNhanGateHint');
+    var blocked = pmVeSinhGateActive() && !pmVeSinhNhanAccept && !(pmSigLocked&&pmSigLocked.nhan);
+    if(btn){ btn.disabled = blocked; btn.style.opacity = blocked?'.5':(pmSigLocked&&pmSigLocked.nhan?'.5':'1'); }
+    if(canvas){ canvas.style.pointerEvents = blocked?'none':'auto'; canvas.style.cursor = blocked?'not-allowed':'crosshair'; canvas.style.background = blocked?'#f2f2f2':'#fff'; }
+    if(hint) hint.style.display = blocked?'block':'none';
+  }
+  window.pmVeSinhToggleNhanAccept=function(checked){
+    pmVeSinhSetNhanAccept(checked);
+  };
   function pmVeSinhFriday(d){
     d = d || new Date();
     var day=d.getDay(), offset;
@@ -25936,6 +25974,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     d = d || new Date();
     var day=d.getDay();
     return day===5||day===6||day===0; // Thứ 6, Thứ 7, Chủ nhật
+  }
+  // Chỉ áp dụng khối "Tổng vệ sinh khử khuẩn cuối tuần" cho phiếu bàn giao TUA NGÀY (giao lúc 19h cho ca đêm).
+  // Phiếu bàn giao Ca Đêm (giao lúc 07h sáng hôm sau, kể cả sáng Thứ 6) KHÔNG hiện khối này.
+  function pmVeSinhIsCaNgay(){
+    var el=document.getElementById('pmInCa');
+    return !el || el.value==='Ngày'; // mặc định coi là Ngày nếu chưa render kịp select
   }
   var PM_VESINH_HINHTHUC_LABEL={
     bemat:'Tổng vệ sinh khử khuẩn bề mặt',
@@ -25958,6 +26002,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!wrap||!body||!pmCurrentRoom) return;
     var mgBtn=document.getElementById('pmVeSinhManageBtn');
     if(mgBtn) mgBtn.style.display=(pmCu&&pmCu.role==='admin')?'inline-block':'none';
+    if(!pmVeSinhIsCaNgay()){
+      // Phiếu bàn giao Ca Đêm (giao 07h sáng, kể cả sáng Thứ 6) — không hiện khối này.
+      wrap.style.display='none';
+      wrap.dataset.mandatory='0';
+      pmVeSinhChoice=null; pmVeSinhHinhThucChon=[];
+      pmVeSinhSetNhanAccept(false);
+      return;
+    }
     if(pmVeSinhRooms.indexOf(pmCurrentRoom)===-1){
       wrap.dataset.mandatory='0';
       if(pmCu&&pmCu.role==='admin'){
@@ -25968,6 +26020,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         wrap.style.display='none';
       }
       pmVeSinhChoice=null;
+      pmVeSinhSetNhanAccept(false);
       return;
     }
     var st=pmVeSinhEffectiveState(pmCurrentRoom);
@@ -25981,6 +26034,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       body.innerHTML='<div style="color:#1B5E20"><i class="ti ti-circle-check"></i> ✅ Đã tổng vệ sinh cuối tuần này — '+pmEsc(methods)+
         (st.nguoiThucHien?' · Người thực hiện: <b>'+pmEsc(st.nguoiThucHien)+'</b>':'')+
         (st.thoiGianThucHien?' · '+pmVeSinhFmtDate((st.thoiGianThucHien||'').slice(0,10)):'')+'</div>';
+      pmVeSinhSetNhanAccept(false);
       return;
     }
 
@@ -25989,6 +26043,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       pmVeSinhChoice=null;
       wrap.style.borderColor='#a8d9d0'; wrap.style.background='#e8f6f5'; lbl.style.color='#0d6e6e'; wrap.dataset.mandatory='0';
       body.innerHTML='<div style="color:#0d6e6e"><i class="ti ti-info-circle"></i> Chưa tới hạn tổng vệ sinh cuối tuần (áp dụng từ Thứ 6 – Chủ nhật). Chưa bắt buộc khai báo lúc này.</div>';
+      pmVeSinhSetNhanAccept(false);
       return;
     }
 
@@ -26021,8 +26076,17 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<input type="radio" name="pmVeSinhOpt" value="chua_lam" '+(checkedChua?'checked':'')+' onchange="pmVeSinhSetChoice(\'chua_lam\')" style="'+radioStyle+'">'+
         '<span style="flex:1"><b>❌ Chưa thực hiện</b> — tôi xác nhận CHƯA tổng vệ sinh cuối tuần cho phòng này, sẽ bàn giao lại cho ca sau tiếp tục thực hiện</span>'+
       '</label>'+
-      histHtml;
+      histHtml+
+      '<div style="margin-top:12px;padding-top:10px;border-top:1.5px dashed #e0a0a0">'+
+        '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;background:#fff;border:1.5px solid #c62828;border-radius:8px;padding:8px 10px">'+
+          '<input type="checkbox" id="pmVeSinhNhanAcceptChk" '+(pmVeSinhNhanAccept?'checked':'')+' onchange="pmVeSinhToggleNhanAccept(this.checked)" style="'+cbStyle+'">'+
+          '<span style="flex:1;color:#c62828;font-weight:700">👤 Người NHẬN xác nhận đã đọc và tiếp nhận tình trạng vệ sinh khử khuẩn nêu trên — chỉ tick sau khi đã hiểu rõ trách nhiệm bàn giao (bắt buộc trước khi người nhận được ký).</span>'+
+        '</label>'+
+        '<div id="pmVeSinhNhanGateHint" style="display:none;margin-top:6px;font-size:11.5px;color:#c62828"><i class="ti ti-lock"></i> Người nhận cần tick xác nhận ở trên trước khi ô ký "Người nhận" được mở.</div>'+
+      '</div>';
+    pmVeSinhUpdateNhanSignGate();
   }
+  window.pmRenderVeSinh=pmRenderVeSinh; // expose ra window để onchange="pmRenderVeSinh()" trong HTML gọi được (inline handler chạy ở phạm vi toàn cục)
   window.pmVeSinhSetChoice=function(v){
     pmVeSinhChoice=v;
     pmRenderVeSinh();
@@ -26340,7 +26404,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var al=document.getElementById('pmFormAlert'); if(al) al.style.display='none';
     pmSwitchTab('gayme');
     pmRenderOtherItems();
-    pmVeSinhChoice=null; pmVeSinhHinhThucChon=[];
+    pmVeSinhChoice=null; pmVeSinhHinhThucChon=[]; pmVeSinhSetNhanAccept(false);
     if(pmVeSinhDataRef){
       try{ pmVeSinhDataRef.child(roomId).off(); }catch(e){}
       pmVeSinhDataRef.child(roomId).on('value', function(snap){
@@ -26559,6 +26623,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     canvas.addEventListener('touchstart',start,{passive:false}); canvas.addEventListener('touchmove',move,{passive:false}); canvas.addEventListener('touchend',end);
   }
   window.pmConfirmSig=function(who){
+    if(who==='nhan' && pmVeSinhGateActive() && !pmVeSinhNhanAccept){
+      pmShowFormAlert('Người nhận cần tick <b>"Xác nhận đã đọc và tiếp nhận tình trạng vệ sinh khử khuẩn"</b> ở khối 🧼 phía trên trước khi được ký.','err');
+      var wrapEl=document.getElementById('pmVeSinhWrap'); if(wrapEl) wrapEl.scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
     if(!pmSigHasDrawn[who]){ pmShowFormAlert('Vui lòng ký (vẽ chữ ký) trước khi bấm xác nhận.','err'); return; }
     pmSigLocked[who]=true;
     var okEl=document.getElementById(who==='giao'?'pmSigOkGiao':'pmSigOkNhan'); if(okEl) okEl.style.display='inline';
@@ -26575,6 +26644,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var okEl=document.getElementById(who==='giao'?'pmSigOkGiao':'pmSigOkNhan'); if(okEl) okEl.style.display='none';
     var btn=document.getElementById(who==='giao'?'pmConfirmBtnGiao':'pmConfirmBtnNhan');
     if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.innerHTML='<i class="ti ti-check"></i> Xác nhận đã ký'; }
+    if(who==='nhan') pmVeSinhUpdateNhanSignGate();
   };
   function pmSigDataUrl(who){
     if(!pmSigHasDrawn[who]) return null;
@@ -26628,6 +26698,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(pmVeSinhMandatory){
       if(!pmVeSinhChoice){ pmShowFormAlert('Vui lòng khai báo tình trạng <b>"Tổng vệ sinh khử khuẩn cuối tuần"</b> (đã thực hiện hay chưa) trước khi lưu biên bản.','err'); pmVeSinhWrapEl.scrollIntoView({behavior:'smooth',block:'center'}); return; }
       if(pmVeSinhChoice==='da_lam' && pmVeSinhHinhThucChon.length===0){ pmShowFormAlert('Vui lòng chọn ít nhất 1 <b>hình thức</b> đã thực hiện cho Tổng vệ sinh khử khuẩn cuối tuần.','err'); pmVeSinhWrapEl.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+      if(hasNhanSig && !pmVeSinhNhanAccept){ pmShowFormAlert('Người nhận cần tick <b>"Xác nhận đã đọc và tiếp nhận tình trạng vệ sinh khử khuẩn"</b> trước khi lưu biên bản có chữ ký người nhận.','err'); pmVeSinhWrapEl.scrollIntoView({behavior:'smooth',block:'center'}); return; }
     }
 
 
@@ -26751,6 +26822,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('pmInDate').value=r.ngay||'';
     document.getElementById('pmInGio').value=r.gio||'';
     document.getElementById('pmInCa').value=r.ca||'Ngày';
+    pmVeSinhSetNhanAccept(false);
+    pmRenderVeSinh();
     document.getElementById('pmInNhan').value=r.nguoiNhan||'';
     pmSelectedNhan=r.nguoiNhan||null;
     document.getElementById('pmInGhiChuChung').value=r.ghiChuChung||'';
@@ -27299,10 +27372,28 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         itemsArr.map(function(i,idx){return '<tr><td style="padding:3px 6px;border:1px solid #eee;text-align:center;color:#999">'+(idx+1)+'</td><td style="padding:3px 6px;border:1px solid #eee">'+pmEsc(i.ten)+'</td><td style="padding:3px 6px;border:1px solid #eee;text-align:center">'+(i.soLuong!=null?i.soLuong:'')+'</td><td style="padding:3px 6px;border:1px solid #eee;text-align:center">'+(stLbl[i.status]||i.status)+'</td></tr>';}).join('')+
         '</tbody></table>'+
         '<div style="text-align:right;font-size:11.5px;font-weight:700;color:#0d6e6e;margin-top:4px">Tổng cộng: '+itemsArr.length+' khoản</div>';
+      var vsBlockHtml='';
+      if(r.veSinhCuoiTuan){
+        var vsDone = r.veSinhCuoiTuan.trangThai==='da_lam';
+        vsBlockHtml =
+          '<div style="margin-bottom:10px;border-radius:8px;padding:10px 12px;border:2px solid '+(vsDone?'#2e7d32':'#c62828')+';background:'+(vsDone?'#e8f5e9':'#fce4e4')+'">'+
+            '<div style="font-weight:800;color:'+(vsDone?'#1B5E20':'#c62828')+';margin-bottom:6px"><i class="ti ti-droplet"></i> 🧼 Tổng vệ sinh khử khuẩn cuối tuần</div>'+
+            '<div style="font-size:12.5px;color:'+(vsDone?'#1B5E20':'#c62828')+'">'+
+              (vsDone
+                ? ('✅ Đã thực hiện — '+pmEsc((r.veSinhCuoiTuan.hinhThuc||[]).map(function(k){return PM_VESINH_HINHTHUC_LABEL[k]||k;}).join('; ')))
+                : '❌ Chưa thực hiện — ca bàn giao xác nhận CHƯA tổng vệ sinh, cần tiếp tục xử lý ở ca tiếp theo.')+
+            '</div>'+
+            '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;background:#fff;border:1.5px solid #c62828;border-radius:8px;padding:8px 10px;margin-top:8px">'+
+              '<input type="checkbox" id="pmRemoteVeSinhAccept" style="width:15px;height:15px;flex:none;margin:2px 0 0;accent-color:#c62828" onchange="pmRemoteVeSinhToggleAccept(this.checked)">'+
+              '<span style="flex:1;color:#c62828;font-weight:700;font-size:12px">👤 Tôi ('+pmEsc(r.nguoiNhan)+') xác nhận đã đọc và tiếp nhận tình trạng vệ sinh khử khuẩn nêu trên — bắt buộc trước khi được ký.</span>'+
+            '</label>'+
+          '</div>';
+      }
       body.innerHTML=
         '<div style="font-size:13.5px;margin-bottom:6px">Biên bản bàn giao Phòng Mổ <b>'+pmEsc(r.phong)+'</b> ngày <b>'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+'</b> — Ca <b>'+pmEsc(r.ca)+'</b></div>'+
         '<div style="font-size:13px;margin-bottom:10px">Người bàn giao: <b>'+pmEsc(r.nguoiGiao)+'</b> (đã ký) → Người nhận cần ký: <b>'+pmEsc(r.nguoiNhan)+'</b></div>'+
         '<details open style="margin-bottom:10px"><summary style="cursor:pointer;font-size:12.5px;color:#0d6e6e;font-weight:600">Xem danh sách tài sản đã kiểm đếm ('+itemsArr.length+' khoản) — đối chiếu số lượng (SL giao) với thực tế</summary>'+summaryHtml+'</details>'+
+        vsBlockHtml+
         '<div class="fg" style="margin-bottom:10px;background:#fce4e4;border:1.5px solid #e57373;border-radius:8px;padding:8px 10px">'+
           '<label style="color:#c62828;font-weight:700;font-size:12.5px"><i class="ti ti-alert-triangle"></i> Ghi chú của người NHẬN — nếu kiểm thực tế thấy thiếu/khác so với bảng trên (mỗi khoản 1 dòng)</label>'+
           '<textarea id="pmRemoteNhanNote" placeholder="VD: Kiểm thực tế thiếu 1 Kẹp cầm máu so với bảng trên..." style="min-height:50px;border-color:#e57373;width:100%;box-sizing:border-box;margin-top:4px"></textarea>'+
@@ -27311,12 +27402,15 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<div style="border:1.5px dashed #7fc2b8;border-radius:8px;background:#fff;touch-action:none">'+
           '<canvas id="pmRemoteSigCanvas" width="400" height="140" style="width:100%;height:140px;display:block;cursor:crosshair"></canvas>'+
         '</div>'+
+        '<div id="pmRemoteVeSinhGateHint" style="display:none;margin:6px 0;font-size:11.5px;color:#c62828"><i class="ti ti-lock"></i> Vui lòng tick xác nhận tiếp nhận ở khối 🧼 phía trên trước khi ký.</div>'+
         '<div style="display:flex;gap:8px;margin-top:8px">'+
           '<button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="pmRemoteClearSig()"><i class="ti ti-eraser"></i> Xóa ký lại</button>'+
           '<button class="kpi-btn" style="background:#1a7a4a;color:#fff" onclick="pmRemoteSubmitSign(\''+id+'\')"><i class="ti ti-check"></i> Xác nhận & Lưu chữ ký</button>'+
         '</div>'+
         '<div id="pmRemoteSignAlert" style="display:none;margin-top:8px;padding:8px 10px;border-radius:8px;font-size:12.5px"></div>'+
         '<div style="text-align:center;margin-top:10px"><button class="kpi-btn" style="border:none;color:#999;font-size:11.5px" onclick="pmCloseRemoteSign()">Hủy, đóng lại</button></div>';
+      window.pmRemoteVeSinhAccepted = !r.veSinhCuoiTuan; // nếu biên bản không thuộc diện bắt buộc thì coi như đã "chấp nhận" (không cần gate)
+      window.pmRemoteVeSinhToggleAccept=function(checked){ window.pmRemoteVeSinhAccepted=checked; };
       var canvas=document.getElementById('pmRemoteSigCanvas');
       var ctx=canvas.getContext('2d');
       ctx.lineWidth=2.2; ctx.lineCap='round'; ctx.strokeStyle='#1a2733';
@@ -27343,6 +27437,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var canvas=document.getElementById('pmRemoteSigCanvas');
     var al=document.getElementById('pmRemoteSignAlert');
     function showAl(msg,cls){ if(!al) return; al.style.display='block'; al.style.background=cls==='err'?'#fdecea':'#e6f4ea'; al.style.color=cls==='err'?'#c62828':'#0a6b5e'; al.textContent=msg; }
+    if(!window.pmRemoteVeSinhAccepted){
+      showAl('Vui lòng tick xác nhận đã tiếp nhận tình trạng vệ sinh khử khuẩn cuối tuần ở khối 🧼 phía trên trước khi ký.','err');
+      var gateHint=document.getElementById('pmRemoteVeSinhGateHint'); if(gateHint) gateHint.style.display='block';
+      return;
+    }
     if(!canvas || !canvas.dataset.hasDrawn){ showAl('Vui lòng ký (vẽ chữ ký) trước khi xác nhận.','err'); return; }
     var chuKy=canvas.toDataURL('image/png');
     var nhanNoteRaw=(document.getElementById('pmRemoteNhanNote')||{}).value||'';
