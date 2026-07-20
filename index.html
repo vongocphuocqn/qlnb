@@ -1626,10 +1626,15 @@ font-size:10px;color:var(--tx3)}
       <div class="btd-addsec" style="flex:1" onclick="btdOpenGroupModal()">
         <i class="ti ti-circle-plus"></i> Thêm nhóm lịch giao trực mới
       </div>
+      <div class="btd-addsec" style="flex:0 0 auto;color:#0d6e6e;border-color:#9fd8d8" onclick="btdResetDebt()">
+        <i class="ti ti-eraser"></i> Xóa sạch nợ cũ (tính lại từ mai)
+      </div>
       <div class="btd-addsec" style="flex:0 0 auto;color:#c62828;border-color:#f0b0b0" onclick="btdResetToDefault()">
         <i class="ti ti-refresh-dot"></i> Đặt lại mặc định
       </div>
     </div>
+
+    <div id="btdResetDateNote" style="text-align:center;font-size:11.5px;color:#0d6e6e;margin-top:10px;font-weight:600"></div>
 
     <div style="text-align:center;font-size:11.5px;color:#7a9a50;margin-top:16px;line-height:1.6">
       Dữ liệu lưu trên Firebase khoa (node <code>banGiaoTrucPhong</code>) — không ảnh hưởng dữ liệu cards/bàn giao/nghỉ phép hiện có.<br>
@@ -9716,7 +9721,9 @@ function kpiToggleWideBox(boxId, btnId){
 }
 
 /* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
-var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,khan:0,treHan:0,cuoiThang:0,hoanThanh:0,btd:0};
+var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,khan:0,treHan:0,cuoiThang:0,hoanThanh:0,btd1224:0,btd2424:0,btdThang:0};
+var notifBtdMaxDays={btd1224:0,btd2424:0,btdThang:0}; // số ngày nợ dồn (chưa bàn giao liên tiếp) cao nhất của mỗi loại lịch
+var notifBtdNames={btd1224:[],btd2424:[],btdThang:[]}; // tên các phòng/bộ phận đang trễ hạn của mỗi loại lịch (kèm số ngày nợ nếu >1)
 var notifBgKhanItems=[]; // [{roomId, id, lines:[...]}]
 var notifPmKhanItems=[];
 var notifTreHanItems=[]; // [{nguon, kind, roomId, id, ngay, gio, soGioTre}]
@@ -9756,7 +9763,9 @@ var notifMeta={
   np:{label:'Nghỉ Phép — chờ duyệt', icon:'ti-beach'},
   nb:{label:'Nghỉ Bù — chờ duyệt', icon:'ti-calendar-off'},
   cnkt:{label:'CNKT — chờ duyệt', icon:'ti-award'},
-  btd:{label:'⏰ Giao nhận trực trễ hạn (Ca 12/24 & tháng)', icon:'ti-alarm'}
+  btd1224:{label:'⏰ Trực 12/24 — chưa bàn giao đúng giờ', icon:'ti-replace'},
+  btd2424:{label:'⏰ Trực 24/24 — chưa bàn giao theo ngày', icon:'ti-clock-hour-7'},
+  btdThang:{label:'📆 Bàn giao trực — chưa xác nhận theo tháng', icon:'ti-calendar-time'}
 };
 function notifInit(){
   try{
@@ -9918,11 +9927,24 @@ function notifRenderHome(){
     if(k==='hoanThanh') return;
     var n=notifCounts[k]||0; if(n<=0) return;
     var m=notifMeta[k];
-    var isKhan = (k==='khan'||k==='treHan'||k==='cuoiThang'||k==='btd');
+    var isKhan = (k==='khan'||k==='treHan'||k==='cuoiThang'||k==='btd1224'||k==='btd2424'||k==='btdThang');
     var style = isKhan
-      ? 'background:#fff;color:#c62828;border:2px solid #ffeb3b;border-radius:8px;padding:9px 10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:800;box-shadow:0 0 8px rgba(255,235,59,.6)'
-      : 'background:rgba(255,255,255,.16);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background .15s';
-    rows+='<div onclick="notifGoTo(\''+k+'\')" style="'+style+'" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'"><span style="font-size:13px"><i class="ti '+m.icon+'"></i> '+m.label+'</span><b style="font-size:14px">'+n+'</b></div>';
+      ? 'background:#fff;color:#c62828;border:2px solid #ffeb3b;border-radius:8px;padding:9px 10px;cursor:pointer;font-weight:800;box-shadow:0 0 8px rgba(255,235,59,.6)'
+      : 'background:rgba(255,255,255,.16);border-radius:8px;padding:8px 10px;cursor:pointer;transition:background .15s';
+    var isBtd = (k==='btd1224'||k==='btd2424'||k==='btdThang');
+    var namesLine = '';
+    if(isBtd){
+      var namesArr = notifBtdNames[k]||[];
+      if(namesArr.length){
+        var shown = namesArr.slice(0,10).map(esc).join(', ');
+        var extra = namesArr.length>10 ? (' và '+(namesArr.length-10)+' phòng khác') : '';
+        namesLine = '<div style="font-size:11.5px;font-weight:600;margin-top:4px;color:#8a2020;opacity:.95">'+shown+extra+' <span style="opacity:.75">(quét trong vòng 60 ngày)</span></div>';
+      }
+    }
+    rows+='<div onclick="notifGoTo(\''+k+'\')" style="'+style+'" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px"><i class="ti '+m.icon+'"></i> '+m.label+'</span><b style="font-size:14px">'+n+'</b></div>'+
+      namesLine+
+    '</div>';
   });
   rows += hoanThanhRow;
   if(detail) detail.innerHTML=rows;
@@ -9978,7 +10000,7 @@ function notifGoTo(key){
   } else if(key==='cnkt'){
     enterCmeScreen('admin','Quản lý');
     scrollToOpen('cmePendingWrap','cmePendingChevron');
-  } else if(key==='btd'){
+  } else if(key==='btd1224'||key==='btd2424'||key==='btdThang'){
     openBtdScreen();
   }
 }
@@ -29399,9 +29421,15 @@ const BTD_DEFAULT = {
 };
 
 let BTD_GROUPS = {};
-let BTD_BG_ALL = {};      // toàn bộ bgRecords thật, key = bgSafeKey(phòng)
+let BTD_BG_ALL = {};      // toàn bộ bgRecords thật (Bàn giao trực Hồi sức), key = bgSafeKey(phòng)
+let BTD_PM_ALL = {};      // toàn bộ pmRecords thật (Bàn giao Phòng Mổ), key = số phòng (vd "201")
+let BTD_RESET_DATE = null; // mốc "bắt đầu tính nợ" (YYYY-MM-DD) — mọi thiếu sót TRƯỚC ngày này bị bỏ qua, coi như đã xóa sạch
 let btdGroupsLoaded = false;
 let btdBgLoaded = false;
+let btdPmLoaded = false;
+let btdResetLoaded = false;
+let btdPmRecordsRef = null;
+try{ btdPmRecordsRef = db.ref('pmRecords'); }catch(e){ console.warn('Không đọc được dữ liệu Bàn giao Phòng Mổ cho module theo dõi.', e); }
 let _btdDpGid = null;
 let btdCollapsed = {}; // {groupId: true/false} — chỉ nhớ trong phiên đang mở, không lưu Firebase
 function btdToggleGroup(gid){ btdCollapsed[gid] = !btdCollapsed[gid]; btdRender(); }
@@ -29417,10 +29445,30 @@ function btdPad2(n){ return String(n).padStart(2,'0'); }
 function btdTodayKey(d){ d=d||new Date(); return d.getFullYear()+'-'+btdPad2(d.getMonth()+1)+'-'+btdPad2(d.getDate()); }
 function btdYesterdayKey(){ const d=new Date(); d.setDate(d.getDate()-1); return btdTodayKey(d); }
 function btdMonthKey(d){ d=d||new Date(); return d.getFullYear()+'-'+btdPad2(d.getMonth()+1); }
+function btdTomorrowKey(){ const d=new Date(); d.setDate(d.getDate()+1); return btdTodayKey(d); }
+// Admin bấm nút này để XÓA SẠCH toàn bộ nợ/trễ hạn đang hiển thị — không đụng biên bản thật nào cả,
+// chỉ đặt lại mốc "bắt đầu tính" = ngày mai, nên mọi thiếu sót TRƯỚC đó sẽ không còn tính là trễ hạn nữa.
+function btdResetDebt(){
+  if(!btdIsAdmin()){ alert('Chỉ Quản lý (Admin) mới được xóa nợ!'); return; }
+  const tmr = btdTomorrowKey();
+  if(!confirm('Xóa sạch TOÀN BỘ nợ/trễ hạn đang hiển thị ở "Theo dõi Giao nhận trực"?\n\nTừ mai ('+btdDMY(tmr)+') trở đi, hệ thống sẽ tính lại từ đầu — mọi thiếu sót TRƯỚC ngày mai sẽ không còn báo trễ nữa.\n\nLưu ý: KHÔNG xóa hay thay đổi bất kỳ biên bản bàn giao thật nào (Bàn giao Hồi sức/Phòng Mổ) — chỉ đặt lại mốc theo dõi.')) return;
+  btdRef.child('resetDate').set(tmr)
+    .then(function(){ alert('✅ Đã xóa sạch nợ cũ. Từ ngày mai ('+btdDMY(tmr)+') hệ thống bắt đầu tính lại từ đầu.'); })
+    .catch(function(e){ alert('Lỗi: '+e.message); });
+}
 function btdDMY(ymd){ const p=(ymd||'').split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : (ymd||''); }
 function btdEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Sao y hệt logic bgSafeKey() của module "Bàn giao trực Phòng Hồi sức" để tra đúng khóa Firebase
 function btdBgSafeKey(s){ return String(s||'').replace(/[.#$/\[\]\s]/g,'_'); }
+// Bộ phận đặt tên "PM 201", "PM 304"... là phòng thuộc "Bàn giao Phòng Mổ" (pmRecords), tra khác node với Hồi sức (bgRecords)
+function btdIsPmRoom(name){ return /^\s*PM\s*\d/i.test(String(name||'')); }
+function btdPmRoomId(name){ return String(name||'').replace(/^\s*PM\s*/i,'').trim(); }
+// Trả về đúng "kho" bản ghi (object các record) của 1 bộ phận, tùy thuộc bộ phận đó là phòng PM hay Hồi sức/khác
+function btdRoomRecords(roomName){
+  return btdIsPmRoom(roomName) ? BTD_PM_ALL[btdPmRoomId(roomName)] : BTD_BG_ALL[btdBgSafeKey(roomName)];
+}
+// Biết dữ liệu nguồn của 1 bộ phận đã tải xong chưa (dùng để hiện "Đang tải..." đúng lúc)
+function btdDataLoadedFor(roomName){ return btdResetLoaded && (btdIsPmRoom(roomName) ? btdPmLoaded : btdBgLoaded); }
 
 /* ── Mở / đóng màn hình (theo đúng khuôn mẫu openPhepScreen/closePhepScreen) ── */
 var _btdListenersAttached = false;
@@ -29457,19 +29505,60 @@ function btdEnsureListeners(){
       }, function(err){ console.warn('Lỗi đọc dữ liệu Bàn giao trực Hồi sức', err); });
     }
   }catch(e){ console.warn('btdEnsureListeners records:', e); }
+  try{
+    if(btdPmRecordsRef){
+      btdPmRecordsRef.on('value', function(snap){
+        BTD_PM_ALL = snap.val() || {};
+        btdPmLoaded = true;
+        notifComputeBtd(); if(typeof notifRenderHome==='function') notifRenderHome();
+        var scr=document.getElementById('btdScreen'); if(scr && scr.style.display!=='none') btdRender();
+      }, function(err){ console.warn('Lỗi đọc dữ liệu Bàn giao Phòng Mổ', err); });
+    }
+  }catch(e){ console.warn('btdEnsureListeners pmRecords:', e); }
+  try{
+    btdRef.child('resetDate').on('value', function(snap){
+      if(snap.exists()){
+        BTD_RESET_DATE = snap.val();
+      } else {
+        // Chưa từng có mốc reset — tự khởi tạo NGAY LẦN NÀY bằng ngày mai, để xóa sạch mọi nợ cũ đang hiển thị sai
+        BTD_RESET_DATE = btdTomorrowKey();
+        btdRef.child('resetDate').set(BTD_RESET_DATE).catch(function(e){ console.warn('Không khởi tạo được mốc reset nợ', e); });
+      }
+      btdResetLoaded = true;
+      notifComputeBtd(); if(typeof notifRenderHome==='function') notifRenderHome();
+      var scr=document.getElementById('btdScreen'); if(scr && scr.style.display!=='none') btdRender();
+    }, function(err){ console.warn('Lỗi đọc mốc reset nợ', err); });
+  }catch(e){ console.warn('btdEnsureListeners resetDate:', e); }
 }
 // Đếm tổng số bộ phận đang TRỄ HẠN giao trực (dùng cho badge thông báo tổng ở trang chủ)
+// Tách riêng theo 3 loại lịch để dễ quan sát: Trực 12/24, Trực 24/24 (theo ngày), Bàn giao theo tháng
 function notifComputeBtd(){
-  if(!btdGroupsLoaded || !btdBgLoaded){ notifCounts.btd=0; return; }
-  var over=0;
+  if(!btdGroupsLoaded || !btdBgLoaded || !btdPmLoaded || !btdResetLoaded){ notifCounts.btd1224=0; notifCounts.btd2424=0; notifCounts.btdThang=0; notifBtdMaxDays={btd1224:0,btd2424:0,btdThang:0}; notifBtdNames={btd1224:[],btd2424:[],btdThang:[]}; return; }
+  var over1224=0, over2424=0, overThang=0;
+  var max1224=0, max2424=0, maxThang=0;
+  var names1224=[], names2424=[], namesThang=[];
   Object.keys(BTD_GROUPS||{}).forEach(function(gid){
     var g=BTD_GROUPS[gid]; var depts=(g&&g.depts)||{};
     Object.keys(depts).forEach(function(did){
-      var periods=btdGetPeriods(depts[did].name, g);
-      periods.forEach(function(p){ if(p.status==='over') over++; });
+      var deptName=depts[did].name;
+      var periods=btdGetPeriods(deptName, g);
+      var seenThisDept=false;
+      periods.forEach(function(p){
+        if(p.status!=='over') return;
+        var days=(p.backlog&&p.backlog.count)||1;
+        var tag=deptName+(days>1?(' ('+days+'ng)'):'');
+        if(g.scheduleType==='shift1224'){ over1224++; if(days>max1224) max1224=days; if(!seenThisDept) names1224.push(tag); }
+        else if(g.scheduleType==='daily'){ over2424++; if(days>max2424) max2424=days; if(!seenThisDept) names2424.push(tag); }
+        else if(g.scheduleType==='monthly'){ overThang++; if(days>maxThang) maxThang=days; if(!seenThisDept) namesThang.push(tag); }
+        seenThisDept=true; // 1 bộ phận có 2 kỳ hạn (12/24) chỉ liệt kê tên 1 lần, không lặp
+      });
     });
   });
-  notifCounts.btd = over;
+  notifCounts.btd1224 = over1224;
+  notifCounts.btd2424 = over2424;
+  notifCounts.btdThang = overThang;
+  notifBtdMaxDays = {btd1224:max1224, btd2424:max2424, btdThang:maxThang};
+  notifBtdNames = {btd1224:names1224, btd2424:names2424, btdThang:namesThang};
 }
 function openBtdScreen(){
   document.getElementById('homeScreen').style.display='none';
@@ -29590,8 +29679,7 @@ function btdDeadlineLabel(group){
 }
 // Tìm biên bản của phòng theo đúng ngày + ca cụ thể — CHỈ CẦN đã lập biên bản, chưa cần ký đủ 2 bên
 function btdFindRecordByCa(roomName, ngayStr, caVal){
-  const key = btdBgSafeKey(roomName);
-  const roomRecs = BTD_BG_ALL[key];
+  const roomRecs = btdRoomRecords(roomName);
   if(!roomRecs) return null;
   for(const id of Object.keys(roomRecs)){
     const r=roomRecs[id];
@@ -29600,8 +29688,7 @@ function btdFindRecordByCa(roomName, ngayStr, caVal){
   return null;
 }
 function btdFindRecordMonthly(roomName, monthKey){
-  const key = btdBgSafeKey(roomName);
-  const roomRecs = BTD_BG_ALL[key];
+  const roomRecs = btdRoomRecords(roomName);
   if(!roomRecs) return null;
   for(const id of Object.keys(roomRecs)){
     const r=roomRecs[id];
@@ -29609,15 +29696,33 @@ function btdFindRecordMonthly(roomName, monthKey){
   }
   return null;
 }
+// Quét ngược từng ngày để biết 1 phòng đã TRỄ HẠN liên tiếp bao nhiêu ngày và nợ từ ngày nào
+// (vd: nếu không ai kiểm tra suốt 5 ngày, sẽ báo rõ "nợ 5 ngày, từ 15/07" thay vì chỉ báo trễ ngày hôm nay)
+function btdScanBacklog(roomName, caVal, startDateKey){
+  var count=0, earliest=startDateKey;
+  var d=new Date(startDateKey+'T00:00:00');
+  for(var i=0;i<60;i++){ // giới hạn quét tối đa 60 ngày để tránh vòng lặp vô hạn
+    var key=btdTodayKey(d);
+    if(BTD_RESET_DATE && key<BTD_RESET_DATE) break; // không quét về trước mốc "bắt đầu tính nợ" — nợ cũ coi như đã xóa sạch
+    var rec=btdFindRecordByCa(roomName, key, caVal);
+    if(rec) break;
+    count++; earliest=key;
+    d.setDate(d.getDate()-1);
+  }
+  return {count:count, since:earliest};
+}
 // Trả về danh sách các "kỳ hạn" cần theo dõi của 1 phòng, tùy loại lịch của nhóm.
 // Ca trực 12/24: LUÔN có 2 kỳ hạn song song mỗi ngày — Ca Đêm của HÔM QUA (hạn giao vào sáng nay)
 // và Ca Ngày của HÔM NAY (hạn giao vào tối nay) — đúng với thực tế Tua đêm giao lúc 07h hôm sau.
 function btdGetPeriods(roomName, group){
   const now=new Date();
+  const todayK0=btdTodayKey();
+  // Nếu hôm nay vẫn còn TRƯỚC mốc "bắt đầu tính nợ" (vd vừa xóa nợ, hẹn mai mới tính) thì chưa kỳ hạn nào được phép báo "over"
+  const trackingStarted = !BTD_RESET_DATE || todayK0>=BTD_RESET_DATE;
   if(group.scheduleType==='monthly'){
     const mk=btdMonthKey();
     const rec=btdFindRecordMonthly(roomName, mk);
-    const passed = now.getDate() > (group.day||5);
+    const passed = trackingStarted && now.getDate() > (group.day||5);
     return [{ label:'', rec, status: rec?'ok':(passed?'over':'pend') }];
   }
   if(group.scheduleType==='shift1224'){
@@ -29628,11 +29733,13 @@ function btdGetPeriods(roomName, group){
     const nT=(group.nightTime||'07:00').split(':');
     const nDeadline=new Date(); nDeadline.setHours(+nT[0]||7,+nT[1]||0,0,0);
     const nightRec=btdFindRecordByCa(roomName, yestK, 'Đêm');
+    const nightStatus = nightRec?'ok':(trackingStarted && now>=nDeadline?'over':'pend');
+    const dayStatus = dayRec?'ok':(trackingStarted && now>=dDeadline?'over':'pend');
     return [
       { label:'Ca Đêm hôm qua ('+btdDMY(yestK)+') — hạn giao '+(group.nightTime||'07:00')+' sáng nay',
-        rec:nightRec, status: nightRec?'ok':(now>=nDeadline?'over':'pend') },
+        rec:nightRec, status: nightStatus, backlog: nightStatus==='over' ? btdScanBacklog(roomName,'Đêm',yestK) : null },
       { label:'Ca Ngày hôm nay — hạn giao '+(group.dayTime||'19:00')+' tối nay',
-        rec:dayRec, status: dayRec?'ok':(now>=dDeadline?'over':'pend') }
+        rec:dayRec, status: dayStatus, backlog: dayStatus==='over' ? btdScanBacklog(roomName,'Ngày',todayK) : null }
     ];
   }
   // daily: 1 mốc giờ cố định / ngày
@@ -29640,7 +29747,8 @@ function btdGetPeriods(roomName, group){
   const rec=btdFindRecordByCa(roomName, todayK, (group.time==='19:00')?'Đêm':'Ngày');
   const t=(group.time||'07:00').split(':');
   const dl=new Date(); dl.setHours(+t[0]||0,+t[1]||0,0,0);
-  return [{ label:'', rec, status: rec?'ok':(now>=dl?'over':'pend') }];
+  const dailyStatus = rec?'ok':(trackingStarted && now>=dl?'over':'pend');
+  return [{ label:'', rec, status: dailyStatus, backlog: dailyStatus==='over' ? btdScanBacklog(roomName,(group.time==='19:00')?'Đêm':'Ngày',todayK) : null }];
 }
 
 /* ── Thống kê trễ hạn theo khoảng ngày ── */
@@ -29742,6 +29850,8 @@ function btdRunStats(){
 /* ── Render ── */
 function btdRender(){
   if(!btdGroupsLoaded) return;
+  const noteEl=document.getElementById('btdResetDateNote');
+  if(noteEl) noteEl.textContent = BTD_RESET_DATE ? ('🧹 Đang tính trễ hạn kể từ ngày '+btdDMY(BTD_RESET_DATE)+' — mọi thiếu sót trước đó không còn tính là nợ.') : '';
   const wrap = document.getElementById('btdGroupsWrap');
   wrap.innerHTML='';
   let cAll=0, cOk=0, cOver=0, cPend=0, overNames=[];
@@ -29764,7 +29874,7 @@ function btdRender(){
         periods.forEach((p,pi)=>{
           cAll++;
           let badge='', who='<span class="btd-who" style="color:#7a9a50">—</span>', actBtn='';
-          if(!btdBgLoaded){
+          if(!btdDataLoadedFor(d.name)){
             badge='<span class="btd-badge" style="background:#eee;color:#888"><i class="ti ti-loader"></i> Đang tải...</span>';
           } else if(p.status==='ok'){
             cOk++;
@@ -29776,7 +29886,9 @@ function btdRender(){
             actBtn='<button class="btd-act-btn btd-act-undo" onclick="btdGoToRecord(\''+btdEsc(d.name).replace(/'/g,"\\'")+'\',\''+p.rec.id+'\')"><i class="ti ti-eye"></i> Xem biên bản</button>';
           } else if(p.status==='over'){
             cOver++; overNames.push(g.name+' – '+d.name+(p.label?' ('+p.label+')':''));
-            badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn – chưa giao</span>';
+            const bl = p.backlog;
+            const blTxt = (bl && bl.count>1) ? (' <span style="font-weight:700">(nợ '+bl.count+' ngày, từ '+btdDMY(bl.since)+')</span>') : (bl && bl.since ? (' (từ '+btdDMY(bl.since)+')') : '');
+            badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn – chưa giao'+blTxt+'</span>';
             actBtn='<button class="btd-act-btn btd-act-confirm" onclick="btdGoToRoom(\''+btdEsc(d.name).replace(/'/g,"\\'")+'\')"><i class="ti ti-pencil"></i> Đi bàn giao ngay</button>';
           } else {
             cPend++;
@@ -29825,21 +29937,33 @@ function btdRender(){
 /* ── Điều hướng thẳng vào "Bàn giao trực Phòng Hồi sức" thật để lập/xem biên bản ── */
 function btdGoToRoom(roomName){
   if(!(window.adminSession && adminSession.active)){
-    alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" (hoặc "Bàn giao trực Phòng Hồi sức") ở trang chủ trước, rồi quay lại bấm để lập biên bản cho phòng "'+roomName+'".');
+    alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" ở trang chủ trước, rồi quay lại bấm để lập biên bản cho phòng "'+roomName+'".');
     return;
   }
   cu={name:'Quản lý',role:'admin'};
   closeBtdScreen();
+  if(btdIsPmRoom(roomName)){
+    try{ enterPmScreen('admin', cu.name); }catch(e){ console.warn(e); return; }
+    setTimeout(function(){ try{ pmSelectRoom(btdPmRoomId(roomName)); }catch(e){ console.warn(e); } }, 350);
+    return;
+  }
   try{ enterBgScreen('admin', cu.name); }catch(e){ console.warn(e); return; }
   setTimeout(function(){ try{ bgSelectRoom(roomName); }catch(e){ console.warn(e); } }, 350);
 }
 function btdGoToRecord(roomName, recId){
   if(!(window.adminSession && adminSession.active)){
-    alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" (hoặc "Bàn giao trực Phòng Hồi sức") ở trang chủ trước, rồi quay lại xem biên bản của phòng "'+roomName+'".');
+    alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" ở trang chủ trước, rồi quay lại xem biên bản của phòng "'+roomName+'".');
     return;
   }
   cu={name:'Quản lý',role:'admin'};
   closeBtdScreen();
+  if(btdIsPmRoom(roomName)){
+    try{ enterPmScreen('admin', cu.name); }catch(e){ console.warn(e); return; }
+    setTimeout(function(){
+      try{ pmSelectRoom(btdPmRoomId(roomName)); setTimeout(function(){ try{ pmOpenView(recId); }catch(e){ console.warn(e); } },400); }catch(e){ console.warn(e); }
+    }, 350);
+    return;
+  }
   try{ enterBgScreen('admin', cu.name); }catch(e){ console.warn(e); return; }
   setTimeout(function(){
     try{ bgSelectRoom(roomName); setTimeout(function(){ try{ bgOpenView(recId); }catch(e){ console.warn(e); } },400); }catch(e){ console.warn(e); }
