@@ -16701,6 +16701,13 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       var readers = qtReadersFor(s._id);
       return !(readers.length>0 && readers.every(function(r){return r.read;}));
     });
+    // Quy trình thêm/cập nhật gần đây nhất hiển thị lên đầu danh sách cho tiện theo dõi
+    list = list.slice().sort(function(a,b){
+      var ta = typeof a.createdAt==='number' ? a.createdAt : 0;
+      var tb = typeof b.createdAt==='number' ? b.createdAt : 0;
+      if(tb!==ta) return tb-ta;
+      return (b.ngay||'').localeCompare(a.ngay||'');
+    });
     return list;
   }
 
