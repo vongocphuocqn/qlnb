@@ -29915,6 +29915,12 @@ function btdEnsureListeners(){
       }
       notifComputeBtd(); if(typeof notifRenderHome==='function') notifRenderHome();
       var scr=document.getElementById('btdScreen'); if(scr && scr.style.display!=='none') btdRender();
+      // Fix: màn "Đăng ký phụ trách bàn giao" (dkp) cũng dùng chung BTD_GROUPS —
+      // nếu đang mở mà nguồn này vừa tải xong, phải vẽ lại, nếu không sẽ kẹt mãi ở "Đang tải dữ liệu..."
+      try{
+        var dkpScr=document.getElementById('dkpScreen');
+        if(dkpScr && dkpScr.style.display!=='none' && typeof dkpDataLoaded!=='undefined' && dkpDataLoaded && typeof dkpRender==='function') dkpRender();
+      }catch(e){ console.warn('dkp re-render after groups load:', e); }
     }, function(err){ console.warn('Lỗi đọc nhóm giao trực', err); });
   }catch(e){ console.warn('btdEnsureListeners groups:', e); }
   try{
