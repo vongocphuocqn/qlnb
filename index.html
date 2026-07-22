@@ -32125,6 +32125,16 @@ window.dkpConfirmImport = function(){
 
 /* ══════════════ CHẾ ĐỘ XEM "BẢNG LƯỚI" (Ngày × Phòng) — giống bảng phân công trực quen thuộc ══════════════ */
 var dkpCurrentView = 'list';
+var dkpGridCollapsed = {}; // sk -> true/false, nhớ trạng thái thu gọn từng khối trong Bảng lưới
+window.dkpGridToggleSection = function(sk){
+  dkpGridCollapsed[sk] = !dkpGridCollapsed[sk];
+  dkpRenderGrid();
+};
+window.dkpGridSetAllCollapsed = function(val){
+  var sections = dkpBuildSections();
+  Object.keys(sections).forEach(function(sk){ dkpGridCollapsed[sk] = val; });
+  dkpRenderGrid();
+};
 window.dkpSwitchView = function(mode){
   dkpCurrentView = mode;
   var listBox = document.getElementById('dkpGroupsWrap');
@@ -32164,34 +32174,44 @@ window.dkpRenderGrid = function(){
   var skeys = Object.keys(sections).sort(function(a,b){ return sections[a].order - sections[b].order; });
   var nDays = dkpDaysInMonth(mk);
   var isAdm = dkpIsAdmin();
-  var html = '<div style="font-size:12px;color:#666;margin-bottom:12px"><i class="ti ti-info-circle"></i> Bấm vào 1 ô để sửa trực tiếp tên người phụ trách đúng ngày đó (không ảnh hưởng các ngày khác) — giống chỉnh sửa trên bảng phân công trực quen thuộc.</div>';
+  var html = '<div style="font-size:12px;color:#666;margin-bottom:8px"><i class="ti ti-info-circle"></i> Bấm vào 1 ô để sửa trực tiếp tên người phụ trách đúng ngày đó (không ảnh hưởng các ngày khác) — giống chỉnh sửa trên bảng phân công trực quen thuộc.</div>';
+  html += '<div style="margin-bottom:12px;display:flex;gap:8px">'+
+    '<button class="tbtn" style="background:#f3f8ec;border-color:#a0c87a;color:#3B6D11" onclick="dkpGridSetAllCollapsed(true)"><i class="ti ti-chevrons-up"></i> Thu gọn tất cả</button>'+
+    '<button class="tbtn" style="background:#f3f8ec;border-color:#a0c87a;color:#3B6D11" onclick="dkpGridSetAllCollapsed(false)"><i class="ti ti-chevrons-down"></i> Mở rộng tất cả</button>'+
+    '</div>';
 
   skeys.forEach(function(sk){
     var section = sections[sk];
     var depts = section.depts;
     var dks = Object.keys(depts).sort(function(a,b){ return (depts[a].order||0)-(depts[b].order||0) || depts[a].name.localeCompare(depts[b].name,'vi'); });
     if(!dks.length) return;
+    var collapsed = !!dkpGridCollapsed[sk];
+    var chevron = collapsed ? 'ti-chevron-down' : 'ti-chevron-up';
 
     if(sk==='thang'){
       // Bàn giao theo tháng — không theo ngày, chỉ hiện danh sách gọn, chỉnh sửa ở chế độ Danh sách
-      html += '<div style="margin:18px 0 8px;font-weight:700;color:#3B6D11">'+dkpEsc(section.title)+' <span style="font-weight:400;font-size:11.5px;color:#888">(cố định cả tháng — chỉnh sửa ở chế độ "Danh sách")</span></div>';
-      html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px"><thead><tr style="background:#f3f8ec">'+
-        '<th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Phòng</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Người phụ trách</th></tr></thead><tbody>';
-      dks.forEach(function(dk){
-        var deptName = depts[dk].name;
-        var entries = dkpGetEntries(mk, sk, dk);
-        var names = entries.length ? entries.map(function(en){ return dkpEsc(en.nhanVien); }).join(', ') : '<span style="color:#c62828;font-style:italic">Chưa đăng ký</span>';
-        html += '<tr><td style="padding:6px 8px;border:1px solid #eee">'+dkpEsc(deptName)+'</td><td style="padding:6px 8px;border:1px solid #eee">'+names+'</td></tr>';
-      });
-      html += '</tbody></table>';
+      html += '<div style="margin:18px 0 8px;font-weight:700;color:#3B6D11;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="dkpGridToggleSection(\''+sk+'\')"><i class="ti '+chevron+'"></i> '+dkpEsc(section.title)+' <span style="font-weight:400;font-size:11.5px;color:#888">(cố định cả tháng — chỉnh sửa ở chế độ "Danh sách")</span></div>';
+      if(!collapsed){
+        html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px"><thead><tr style="background:#f3f8ec">'+
+          '<th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Phòng</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Người phụ trách</th></tr></thead><tbody>';
+        dks.forEach(function(dk){
+          var deptName = depts[dk].name;
+          var entries = dkpGetEntries(mk, sk, dk);
+          var names = entries.length ? entries.map(function(en){ return dkpEsc(en.nhanVien); }).join(', ') : '<span style="color:#c62828;font-style:italic">Chưa đăng ký</span>';
+          html += '<tr><td style="padding:6px 8px;border:1px solid #eee">'+dkpEsc(deptName)+'</td><td style="padding:6px 8px;border:1px solid #eee">'+names+'</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
       return;
     }
 
-    html += '<div style="margin:18px 0 8px;font-weight:700;color:#3B6D11">'+dkpEsc(section.title)+'</div>';
-    html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;white-space:nowrap;min-width:100%">';
+    html += '<div style="margin:18px 0 8px;font-weight:700;color:#3B6D11;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="dkpGridToggleSection(\''+sk+'\')"><i class="ti '+chevron+'"></i> '+dkpEsc(section.title)+' <span style="font-weight:400;font-size:11px;color:#999">('+(collapsed?'đã thu gọn — bấm để mở':'bấm để thu gọn')+')</span></div>';
+    if(collapsed) return;
+    html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11.5px;table-layout:fixed;min-width:100%">';
+    html += '<colgroup><col style="width:70px">'+dks.map(function(){return '<col style="width:120px">';}).join('')+'</colgroup>';
     html += '<thead><tr style="background:#5b21b6;color:#fff">'+
-      '<th style="padding:6px 8px;border:1px solid #4527A0;position:sticky;left:0;background:#5b21b6;z-index:2">Ngày</th>';
-    dks.forEach(function(dk){ html += '<th style="padding:6px 10px;border:1px solid #4527A0">'+dkpEsc(depts[dk].name)+'</th>'; });
+      '<th style="padding:6px 6px;border:1px solid #4527A0;position:sticky;left:0;background:#5b21b6;z-index:2">Ngày</th>';
+    dks.forEach(function(dk){ html += '<th style="padding:6px 6px;border:1px solid #4527A0;word-break:break-word">'+dkpEsc(depts[dk].name)+'</th>'; });
     html += '</tr></thead><tbody>';
 
     for(var day=1; day<=nDays; day++){
@@ -32201,7 +32221,7 @@ window.dkpRenderGrid = function(){
         var dayLabel = (caIdx===0) ? (day+'/'+mk.split('-')[1]) : '';
         var caLabel = ca==='dem' ? ' <span style="color:#0d47a1;font-size:10px">(Đêm 19h)</span>' : (ca==='ngay' ? ' <span style="color:#b45309;font-size:10px">(Ngày 7h)</span>' : '');
         html += '<tr>'+
-          '<td style="padding:4px 8px;border:1px solid #eee;font-weight:'+(caIdx===0?'700':'400')+';position:sticky;left:0;background:'+(day%2?'#fff':'#fafafa')+'">'+dayLabel+caLabel+'</td>';
+          '<td style="padding:4px 6px;border:1px solid #eee;font-weight:'+(caIdx===0?'700':'400')+';position:sticky;left:0;background:'+(day%2?'#fff':'#fafafa')+';word-break:break-word">'+dayLabel+caLabel+'</td>';
         dks.forEach(function(dk){
           var deptName = depts[dk].name;
           var resp = dkpFindResponsible(deptName, sk, dateKey, ca);
@@ -32219,7 +32239,7 @@ window.dkpRenderGrid = function(){
           if(isAdm && resp.kind==='gap'){
             cellHtml += ' <i class="ti ti-pencil" style="cursor:pointer;color:#aaa;font-size:11px" onclick="dkpGridEditCell(\''+cellId.replace(/'/g,"\\'")+'\',\''+sk+'\',\''+dk+'\',\''+dateKey+'\',\''+(ca||'')+'\',\'\',\'\')"></i>';
           }
-          html += '<td id="'+cellId+'" style="padding:4px 8px;border:1px solid #eee;min-width:150px">'+cellHtml+'</td>';
+          html += '<td id="'+cellId+'" style="padding:4px 6px;border:1px solid #eee;word-break:break-word;vertical-align:top">'+cellHtml+'</td>';
         });
         html += '</tr>';
       });
