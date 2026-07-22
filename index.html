@@ -1418,7 +1418,10 @@ font-size:10px;color:var(--tx3)}
       <div class="qlp-desc">Chọn nhân viên để tự động lấy đúng số ngày phép còn lại của người đó (không phải số mặc định) — hoặc tự nhập số khác nếu cần.</div>
       <div style="background:#f3f8ec;border:1.5px dashed #a0c87a;border-radius:10px;padding:10px 12px;margin-bottom:10px">
         <div style="font-size:11px;font-weight:700;color:#3B6D11;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px"><i class="ti ti-search"></i> Bước 1 — Chọn nhân viên riêng cho phép tính này (không liên quan bảng phía dưới)</div>
-        <input type="text" id="qlpCalcEmpSearch" autocomplete="off" placeholder="🔍 Gõ tên để tìm..." oninput="qlpFilterCalcEmpOptions()" style="padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-family:inherit;margin-bottom:5px;width:100%;box-sizing:border-box">
+        <div style="position:relative;margin-bottom:5px">
+          <input type="text" id="qlpCalcEmpSearch" autocomplete="off" placeholder="🔍 Gõ tên để tìm..." oninput="qlpFilterCalcEmpOptions()" onfocus="qlpShowCalcEmpDrop()" onblur="setTimeout(qlpHideCalcEmpDrop,180)" style="padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-family:inherit;width:100%;box-sizing:border-box">
+          <div id="qlpCalcEmpDrop" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:220px;overflow-y:auto;background:#fff;border:1.5px solid #cce0a8;border-top:none;border-radius:0 0 8px 8px;z-index:999;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div>
+        </div>
         <select id="qlpCalcEmp" style="padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-family:inherit;width:100%" onchange="qlpFillCalcRemain()"><option value="">— Chọn nhân viên (không bắt buộc) —</option></select>
       </div>
       <div class="qlp-calc-row">
@@ -9133,6 +9136,13 @@ const firebaseConfig = {
   appId: "1:263121492012:web:6f14480e46476eb8125989"
 };
 
+// Hàm dùng chung TOÀN APP: bỏ dấu tiếng Việt để so khớp khi tìm kiếm tên
+// (VD: gõ "vo" vẫn tìm ra "Võ", hoặc chữ có dấu bị lệch font/encoding vẫn khớp được)
+function vnNoAccent(s){
+  try{ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+  catch(e){ return String(s||'').toLowerCase(); }
+}
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 let kpiStorage = null; // dùng cho tính năng đính kèm file danh mục KPI — độc lập với Database
@@ -9322,7 +9332,7 @@ function qlpRender(){
   tbody.innerHTML = '';
 
   let list = QLP_EMPLOYEES.filter(e=>{
-    if(search && !e.name.toLowerCase().includes(search)) return false;
+    if(search && !(e.name.toLowerCase().includes(search) || vnNoAccent(e.name).includes(vnNoAccent(search)))) return false;
     if(fUnit && e.unit!==fUnit) return false;
     if(fGroup && e.group!==fGroup) return false;
     if(fLeaveStatus==='da' && !(e.daNghi>0)) return false;
@@ -9618,15 +9628,50 @@ function qlpFillCalcRemain(){
 
 function qlpFilterCalcEmpOptions(){
   const q = document.getElementById('qlpCalcEmpSearch').value.trim().toLowerCase();
+  const qN = vnNoAccent(q);
   const sel = document.getElementById('qlpCalcEmp');
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Chọn nhân viên (không bắt buộc) —</option>';
-  QLP_EMPLOYEES.filter(e=>!q || e.name.toLowerCase().includes(q)).forEach(e=>{
+  const matched = QLP_EMPLOYEES.filter(e=>!q || e.name.toLowerCase().includes(q) || vnNoAccent(e.name).includes(qN));
+  matched.forEach(e=>{
     const o = document.createElement('option');
     o.value = e.id; o.textContent = e.name + (e.unit?' — '+e.unit:'');
     sel.appendChild(o);
   });
   if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  qlpRenderCalcEmpDrop(matched, q);
+}
+function qlpRenderCalcEmpDrop(matched, q){
+  const drop = document.getElementById('qlpCalcEmpDrop');
+  if(!drop) return;
+  if(!q){ drop.style.display='none'; drop.innerHTML=''; return; }
+  if(!matched.length){
+    drop.innerHTML = '<div style="padding:8px 10px;color:#999;font-style:italic;font-size:13px">Không tìm thấy nhân viên nào khớp "'+q+'"</div>';
+  } else {
+    drop.innerHTML = matched.slice(0,30).map(e=>{
+      const label = e.name + (e.unit?' — '+e.unit:'');
+      return '<div style="padding:7px 10px;cursor:pointer;border-bottom:1px solid #eef3e6" onmousedown="event.preventDefault();qlpPickCalcEmp(\''+String(e.id).replace(/'/g,"\\'")+'\')">'+label.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>';
+    }).join('');
+  }
+  drop.style.display='block';
+}
+function qlpShowCalcEmpDrop(){
+  const q = document.getElementById('qlpCalcEmpSearch').value.trim().toLowerCase();
+  const qN = vnNoAccent(q);
+  const matched = QLP_EMPLOYEES.filter(e=>!q || e.name.toLowerCase().includes(q) || vnNoAccent(e.name).includes(qN));
+  qlpRenderCalcEmpDrop(matched, q);
+}
+function qlpHideCalcEmpDrop(){
+  const drop = document.getElementById('qlpCalcEmpDrop');
+  if(drop){ drop.style.display='none'; }
+}
+function qlpPickCalcEmp(empId){
+  const sel = document.getElementById('qlpCalcEmp');
+  if([...sel.options].some(o=>o.value===empId)) sel.value = empId;
+  const emp = QLP_EMPLOYEES.find(e=>e.id===empId);
+  if(emp) document.getElementById('qlpCalcEmpSearch').value = emp.name;
+  qlpHideCalcEmpDrop();
+  qlpFillCalcRemain();
 }
 
 function qlpPreviewReq(){
@@ -10551,7 +10596,7 @@ function renderDt(){
   if(fr) list=list.filter(c=>c.date>=fr);
   if(to) list=list.filter(c=>c.date<=to);
   if(st) list=list.filter(c=>c.status===st);
-  if(q) list=list.filter(c=>(c.person||'').toLowerCase().includes(q)||(c.content||'').toLowerCase().includes(q));
+  if(q) list=list.filter(c=>(c.person||'').toLowerCase().includes(q)||vnNoAccent(c.person||'').includes(vnNoAccent(q))||(c.content||'').toLowerCase().includes(q));
   if(lv){
     list=list.filter(c=>{
       const d=calcDowntime(c);
@@ -10917,7 +10962,7 @@ function renderPersonList(q){
   const box=document.getElementById('inPersonList');
   if(!box)return;
   const sorted=[...staffList].sort((a,b)=>a.localeCompare(b,'vi'));
-  const filtered=q?sorted.filter(s=>s.toLowerCase().includes(q.toLowerCase())):sorted;
+  const filtered=q?sorted.filter(s=>s.toLowerCase().includes(q.toLowerCase())||vnNoAccent(s).includes(vnNoAccent(q))):sorted;
   if(!filtered.length){
     box.innerHTML='<div style="padding:10px 12px;color:#aaa;font-size:13px">Không tìm thấy</div>';
     return;
@@ -11361,7 +11406,7 @@ function getFiltered(){
   const pr=document.getElementById('fPri').value||'';
   const fr=document.getElementById('fFrom').value||'';
   const to=document.getElementById('fTo').value||'';
-  if(nm)r=r.filter(c=>c.person.toLowerCase().includes(nm.toLowerCase()));
+  if(nm)r=r.filter(c=>c.person.toLowerCase().includes(nm.toLowerCase())||vnNoAccent(c.person).includes(vnNoAccent(nm)));
   if(dp)r=r.filter(c=>c.dept===dp);
   if(st)r=r.filter(c=>c.status===st);
   if(pr)r=r.filter(c=>c.pri===pr);
@@ -13699,7 +13744,7 @@ function nbRenderMyList(){
   var mine;
   if(isA||nbCurrentUser.role==='viewer'){
     mine=[...nbRecords].sort((a,b)=>b.id-a.id);
-    if(mySearchQ) mine=mine.filter(function(r){return (r.person||'').toLowerCase().includes(mySearchQ.toLowerCase());});
+    if(mySearchQ) mine=mine.filter(function(r){return (r.person||'').toLowerCase().includes(mySearchQ.toLowerCase())||vnNoAccent(r.person||'').includes(vnNoAccent(mySearchQ));});
     if(myStatusQ) mine=mine.filter(function(r){return r.status===myStatusQ;});
     if(myFromQ||myToQ) mine=mine.filter(function(r){
       var dates=(r.entries&&r.entries.length)?r.entries.map(function(e){return e.date;}):[(r.date||'')];
@@ -13769,7 +13814,7 @@ function nbGetMyFiltered(){
   let mine;
   if(isA){
     mine=[...nbRecords].sort((a,b)=>b.id-a.id);
-    if(mySearchQ) mine=mine.filter(r=>(r.person||'').toLowerCase().includes(mySearchQ.toLowerCase()));
+    if(mySearchQ) mine=mine.filter(r=>(r.person||'').toLowerCase().includes(mySearchQ.toLowerCase())||vnNoAccent(r.person||'').includes(vnNoAccent(mySearchQ)));
     if(myStatusQ) mine=mine.filter(r=>r.status===myStatusQ);
     if(myFromQ||myToQ) mine=mine.filter(r=>{
       const dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[(r.date||'')];
@@ -13819,7 +13864,7 @@ function nbGetExportData(){
     const sh=(document.getElementById('nbFShift')||{}).value||'';
     const fr=(document.getElementById('nbFFrom')||{}).value||'';
     const to=(document.getElementById('nbFTo')||{}).value||'';
-    if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase()));
+    if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase())||vnNoAccent(r.person||'').includes(vnNoAccent(nm)));
     if(st)list=list.filter(r=>r.status===st);
     if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
     if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
@@ -13839,7 +13884,7 @@ function nbGetFiltered(){
   const sh=(document.getElementById('nbFShift')||{}).value||'';
   const fr=(document.getElementById('nbFFrom')||{}).value||'';
   const to=(document.getElementById('nbFTo')||{}).value||'';
-  if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase()));
+  if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase())||vnNoAccent(r.person||'').includes(vnNoAccent(nm)));
   if(st)list=list.filter(r=>r.status===st);
   if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
   if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
@@ -13921,7 +13966,7 @@ function nbFNameFilter(){
   var q=(document.getElementById('nbFName').value||'').trim().toLowerCase();
   var box=document.getElementById('nbFNameDrop');if(!box)return;
   var names=[...new Set(nbRecords.map(function(r){return r.person||'';}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'vi');});
-  if(q)names=names.filter(function(n){return n.toLowerCase().includes(q);});
+  if(q)names=names.filter(function(n){return n.toLowerCase().includes(q)||vnNoAccent(n).includes(vnNoAccent(q));});
   if(!names.length){box.style.display='none';nbRenderList();return;}
   box.innerHTML=names.map(function(n){
     return '<div onmousedown="nbFNamePick(\''+n.replace(/'/g,"\\'")+'\')\" style="padding:7px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0" onmouseover="this.style.background=\'#f0f8ff\'" onmouseout="this.style.background=\'\'">'+n+'</div>';
@@ -13933,7 +13978,7 @@ function npFNameFilter(){
   var q=(document.getElementById('npFName').value||'').trim().toLowerCase();
   var box=document.getElementById('npFNameDrop');if(!box)return;
   var names=[...new Set(npRecords.map(function(r){return r.person||'';}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'vi');});
-  if(q)names=names.filter(function(n){return n.toLowerCase().includes(q);});
+  if(q)names=names.filter(function(n){return n.toLowerCase().includes(q)||vnNoAccent(n).includes(vnNoAccent(q));});
   if(!names.length){box.style.display='none';npRenderList();return;}
   box.innerHTML=names.map(function(n){
     return '<div onmousedown="npFNamePick(\''+n.replace(/'/g,"\\'")+'\')\" style="padding:7px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0" onmouseover="this.style.background=\'#f0faf8\'" onmouseout="this.style.background=\'\'">'+n+'</div>';
@@ -15065,7 +15110,7 @@ function npRenderMyList(){
   var mine;
   if(isA||npCurrentUser.role==='viewer'){
     mine=[...npRecords].sort((a,b)=>b.id-a.id);
-    if(npSearchQ) mine=mine.filter(function(r){return (r.person||'').toLowerCase().includes(npSearchQ.toLowerCase());});
+    if(npSearchQ) mine=mine.filter(function(r){return (r.person||'').toLowerCase().includes(npSearchQ.toLowerCase())||vnNoAccent(r.person||'').includes(vnNoAccent(npSearchQ));});
     if(npStatusQ) mine=mine.filter(function(r){return r.status===npStatusQ;});
     if(npFromQ||npToQ) mine=mine.filter(function(r){return (!npFromQ||(r.dateTo||r.dateFrom)>=npFromQ)&&(!npToQ||(r.dateFrom||r.dateTo)<=npToQ);});
 
@@ -15137,7 +15182,7 @@ function npGetMyFiltered(){
   let mine;
   if(isA){
     mine=[...npRecords].sort((a,b)=>b.id-a.id);
-    if(npSearchQ) mine=mine.filter(r=>(r.person||'').toLowerCase().includes(npSearchQ.toLowerCase()));
+    if(npSearchQ) mine=mine.filter(r=>(r.person||'').toLowerCase().includes(npSearchQ.toLowerCase())||vnNoAccent(r.person||'').includes(vnNoAccent(npSearchQ)));
     if(npStatusQ) mine=mine.filter(r=>r.status===npStatusQ);
     if(npFromQ||npToQ) mine=mine.filter(r=>(!npFromQ||(r.dateTo||r.dateFrom)>=npFromQ)&&(!npToQ||(r.dateFrom||r.dateTo)<=npToQ));
   } else {
@@ -15181,7 +15226,7 @@ function npGetExportData(){
     const tp=(document.getElementById('npFType')||{}).value||'';
     const fr=(document.getElementById('npFFrom')||{}).value||'';
     const to=(document.getElementById('npFTo')||{}).value||'';
-    if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase()));
+    if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase())||vnNoAccent(r.person).includes(vnNoAccent(nm)));
     if(st)list=list.filter(r=>r.status===st);
     if(tp)list=list.filter(r=>r.type===tp);
     if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
@@ -15201,7 +15246,7 @@ function npGetFiltered(){
   const tp=(document.getElementById('npFType')||{}).value||'';
   const fr=(document.getElementById('npFFrom')||{}).value||'';
   const to=(document.getElementById('npFTo')||{}).value||'';
-  if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase()));
+  if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase())||vnNoAccent(r.person).includes(vnNoAccent(nm)));
   if(st)list=list.filter(r=>r.status===st);
   if(tp)list=list.filter(r=>r.type===tp);
   if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
@@ -24146,7 +24191,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     }
 
     var filtered=computed.filter(function(c){
-      if(q && !c.name.toLowerCase().includes(q)) return false;
+      if(q && !(c.name.toLowerCase().includes(q) || vnNoAccent(c.name).includes(vnNoAccent(q)))) return false;
       if(stFil && c.status!==stFil) return false;
       return true;
     });
@@ -24475,7 +24520,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!listEl) return;
     var q=((document.getElementById('cmeScopeSearch')||{}).value||'').trim().toLowerCase();
     var names=cmeAllNames();
-    var filtered = q ? names.filter(function(n){return n.toLowerCase().includes(q);}) : names;
+    var filtered = q ? names.filter(function(n){return n.toLowerCase().includes(q)||vnNoAccent(n).includes(vnNoAccent(q));}) : names;
     var cntEl=document.getElementById('cmeScopeCount');
     var excludedCount=names.filter(function(n){return cmeExcluded[cmeSafeKey(n)];}).length;
     if(cntEl) cntEl.textContent='Tổng '+names.length+' người — '+excludedCount+' Hộ lý (đã loại trừ)';
@@ -24535,7 +24580,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '<td class="th">Giờ tín chỉ</td><td class="th">Trạng thái</td></tr>';
     var stt=0;
     names.forEach(function(name){
-      if(q && !name.toLowerCase().includes(q)) return;
+      if(q && !(name.toLowerCase().includes(q) || vnNoAccent(name).includes(vnNoAccent(q)))) return;
       var total, status, cyc=cmeGetCycle(name);
       if(useRange){
         total=cmeCalcHoursInRange(name,rangeFr,rangeTo);
@@ -24575,7 +24620,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var rangeNote = useRange ? ('Tính giờ trong khoảng: '+(rangeFr?cmeFmtD(rangeFr):'…')+' — '+(rangeTo?cmeFmtD(rangeTo):'…')) : 'Tính theo chu kỳ 5 năm hiện hành của từng người';
     var rowsHtml='', stt=0;
     names.forEach(function(name){
-      if(q && !name.toLowerCase().includes(q)) return;
+      if(q && !(name.toLowerCase().includes(q) || vnNoAccent(name).includes(vnNoAccent(q)))) return;
       var total, status, cyc=cmeGetCycle(name);
       if(useRange){
         total=cmeCalcHoursInRange(name,rangeFr,rangeTo);
@@ -25382,7 +25427,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!box) return;
     var q=(document.getElementById('bgInNhan').value||'').trim().toLowerCase();
     var list=(typeof staffList!=='undefined'&&Array.isArray(staffList))?staffList:[];
-    var filtered=list.filter(function(n){return n!==bgCu.name && (!q || n.toLowerCase().includes(q));}).slice(0,30);
+    var filtered=list.filter(function(n){return n!==bgCu.name && (!q || n.toLowerCase().includes(q) || vnNoAccent(n).includes(vnNoAccent(q)));}).slice(0,30);
     box.innerHTML=filtered.length ? filtered.map(function(n){
       return '<div style="padding:7px 10px;cursor:pointer;border-bottom:1px solid #f5eee0" onmousedown="event.preventDefault();bgPickNhan(\''+n.replace(/'/g,"\\'")+'\')">'+bgEsc(n)+'</div>';
     }).join('') : '<div style="padding:8px 10px;color:#aaa;font-style:italic">Không tìm thấy</div>';
@@ -25422,7 +25467,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!box) return;
     var q=((document.getElementById('bgItemSearch')||{}).value||'').trim().toLowerCase();
     var items=bgCatalogItems().filter(function(i){return i.nhom===bgCurTab;});
-    if(q) items=items.filter(function(i){return i.ten.toLowerCase().includes(q);});
+    if(q) items=items.filter(function(i){return i.ten.toLowerCase().includes(q)||vnNoAccent(i.ten).includes(vnNoAccent(q));});
     items.sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
     box.innerHTML = items.length ? items.map(function(it,idx){
       var st=bgGetState(it._id);
@@ -26540,7 +26585,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!box) return;
     var q=((document.getElementById('bgCatalogSearch')||{}).value||'').trim().toLowerCase();
     var items=bgCatalogItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
-    var filtered = q ? items.filter(function(i){return i.ten.toLowerCase().includes(q);}) : items;
+    var filtered = q ? items.filter(function(i){return i.ten.toLowerCase().includes(q)||vnNoAccent(i.ten).includes(vnNoAccent(q));}) : items;
     var cnt=document.getElementById('bgCatalogCount'); if(cnt) cnt.textContent='Tổng '+items.length+' tài sản ('+items.filter(function(i){return i.nhom==='giao';}).length+' Giao-Nhận, '+items.filter(function(i){return i.nhom==='khong';}).length+' Không bàn giao)';
     box.innerHTML = filtered.length ? filtered.map(function(it){
       if(bgCatalogEditingId===it._id){
@@ -27457,7 +27502,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!box) return;
     var q=(document.getElementById('pmInNhan').value||'').trim().toLowerCase();
     var list=(typeof staffList!=='undefined'&&Array.isArray(staffList))?staffList:[];
-    var filtered=list.filter(function(n){return n!==pmCu.name && (!q || n.toLowerCase().includes(q));}).slice(0,30);
+    var filtered=list.filter(function(n){return n!==pmCu.name && (!q || n.toLowerCase().includes(q) || vnNoAccent(n).includes(vnNoAccent(q)));}).slice(0,30);
     box.innerHTML=filtered.length ? filtered.map(function(n){
       return '<div style="padding:7px 10px;cursor:pointer;border-bottom:1px solid #eef7f5" onmousedown="event.preventDefault();pmPickNhan(\''+n.replace(/'/g,"\\'")+'\')">'+pmEsc(n)+'</div>';
     }).join('') : '<div style="padding:8px 10px;color:#aaa;font-style:italic">Không tìm thấy</div>';
@@ -27485,7 +27530,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!box||!pmCurrentRoom) return;
     var q=((document.getElementById('pmItemSearch')||{}).value||'').trim().toLowerCase();
     var items=pmRoomConfigItems(pmCurrentRoom,pmCurTab);
-    if(q) items=items.filter(function(i){return i.ten.toLowerCase().includes(q);});
+    if(q) items=items.filter(function(i){return i.ten.toLowerCase().includes(q)||vnNoAccent(i.ten).includes(vnNoAccent(q));});
     items.sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
     box.innerHTML = items.length ? items.map(function(it,idx){
       var st=pmGetState(it._id);
@@ -28693,7 +28738,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!box) return;
     var q=((document.getElementById('pmMasterSearch')||{}).value||'').trim().toLowerCase();
     var items=pmMasterItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
-    var filtered = q ? items.filter(function(i){return i.ten.toLowerCase().includes(q);}) : items;
+    var filtered = q ? items.filter(function(i){return i.ten.toLowerCase().includes(q)||vnNoAccent(i.ten).includes(vnNoAccent(q));}) : items;
     var cnt=document.getElementById('pmMasterCount'); if(cnt) cnt.textContent='Tổng '+items.length+' tài sản trong danh mục chung';
     box.innerHTML = filtered.length ? filtered.map(function(it){
       if(pmMasterEditingId===it._id){
@@ -28759,7 +28804,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!box||!pmCurrentRoom) return;
     var q=((document.getElementById('pmCfgSearch')||{}).value||'').trim().toLowerCase();
     var items=pmMasterItems().sort(function(a,b){return a.ten.localeCompare(b.ten,'vi');});
-    var filtered = q ? items.filter(function(i){return i.ten.toLowerCase().includes(q);}) : items;
+    var filtered = q ? items.filter(function(i){return i.ten.toLowerCase().includes(q)||vnNoAccent(i.ten).includes(vnNoAccent(q));}) : items;
     var roomCfg=pmRoomConfig[pmCurrentRoom]||{};
     var gaymeCfg=roomCfg.gayme||{}, dungcuCfg=roomCfg.dungcu||{};
     box.innerHTML = filtered.length ? filtered.map(function(it){
@@ -30835,7 +30880,7 @@ function bbbaRenderList(){
       if(fromD && (r.ngay||'') < fromD) return false;
       if(toD && (r.ngay||'') > toD) return false;
       if(!q) return true;
-      return (r.tenNb||'').toLowerCase().includes(q) || (r.maHs||'').toLowerCase().includes(q);
+      return (r.tenNb||'').toLowerCase().includes(q) || vnNoAccent(r.tenNb||'').includes(vnNoAccent(q)) || (r.maHs||'').toLowerCase().includes(q);
     })
     .sort(function(a,b){ return (b.ngay||'').localeCompare(a.ngay||'') || (b.createdAt||'').localeCompare(a.createdAt||''); });
   if(cntEl) cntEl.textContent=list.length;
