@@ -29918,6 +29918,8 @@ const BTD_DEFAULT = {
 };
 
 let BTD_GROUPS = {};
+let BTD_KPI_FLAGS = {};
+let btdKpiFlagsLoaded = false;
 let BTD_BG_ALL = {};      // toàn bộ bgRecords thật (Bàn giao trực Hồi sức), key = bgSafeKey(phòng)
 let BTD_PM_ALL = {};      // toàn bộ pmRecords thật (Bàn giao Phòng Mổ), key = số phòng (vd "201")
 let BTD_RESET_DATE = null; // mốc "bắt đầu tính nợ" (YYYY-MM-DD) — mọi thiếu sót TRƯỚC ngày này bị bỏ qua, coi như đã xóa sạch
@@ -30032,6 +30034,48 @@ function btdEnsureListeners(){
       var scr=document.getElementById('btdScreen'); if(scr && scr.style.display!=='none') btdRender();
     }, function(err){ console.warn('Lỗi đọc mốc reset nợ', err); });
   }catch(e){ console.warn('btdEnsureListeners resetDate:', e); }
+  try{
+    btdRef.child('kpiFlags').on('value', function(snap){
+      BTD_KPI_FLAGS = snap.val() || {};
+      btdKpiFlagsLoaded = true;
+      var scr=document.getElementById('btdScreen'); if(scr && scr.style.display!=='none') btdRender();
+    }, function(err){ console.warn('Lỗi đọc cờ đã trừ KPI giao trực', err); });
+  }catch(e){ console.warn('btdEnsureListeners kpiFlags:', e); }
+}
+
+// Sinh khóa duy nhất cho 1 lần "trễ hạn" cụ thể (phòng + ngày + ca), dùng để chống trừ KPI trùng lặp
+function btdKpiFlagKey(deptName, dateKey, ca){
+  var safe = String(deptName||'').replace(/[.#$/\[\]\s]/g,'_');
+  return safe + '_' + String(dateKey||'').replace(/-/g,'') + '_' + (ca||'day');
+}
+// Quản lý xác nhận (hoặc gõ đè) tên người phụ trách rồi trừ KPI cho đúng người đó — chỉ trừ 1 lần/1 lượt trễ hạn
+function btdConfirmKpiPerson(inputId, fkey, deptName, dateKey){
+  if(!btdIsAdmin()) return;
+  var inp = document.getElementById(inputId);
+  var person = inp ? inp.value.trim() : '';
+  if(!person){ alert('Vui lòng nhập tên người phụ trách trước khi trừ KPI.'); return; }
+  var kpiTypesRef, kpiEventsRef;
+  try{ kpiTypesRef = db.ref('kpiEventTypes'); kpiEventsRef = db.ref('kpiEvents'); }catch(e){ alert('Không kết nối được Firebase KPI.'); return; }
+  var TYPE_NAME = 'Không thực hiện quy chế giao nhận trực đúng quy định';
+  if(!confirm('Xác nhận trừ KPI loại "'+TYPE_NAME+'" cho:\n\n'+person+'\n\nBộ phận: '+deptName+'\nNgày: '+btdDMY(dateKey)+'\n\nBạn có chắc chắn không?')) return;
+  var didSave = false;
+  kpiTypesRef.once('value').then(function(snap){
+    var val = snap.val() || {};
+    var kType = Object.values(val).find(function(t){ return t.name===TYPE_NAME; });
+    if(!kType){ alert('Chưa khai báo loại sự kiện KPI "'+TYPE_NAME+'" trong Danh mục KPI. Vui lòng vào Danh mục KPI khai báo trước, rồi quay lại bấm Chốt & Trừ KPI.'); return null; }
+    var evId = Date.now()+'_'+Math.floor(Math.random()*100000);
+    return kpiEventsRef.child(evId).set({
+      id: evId, person: person, date: dateKey, type: kType.name,
+      severity: kType.severity, count: 1, points: parseFloat(kType.points)||0,
+      note: 'Xác nhận thủ công từ "Theo dõi Giao nhận trực": '+deptName+' trễ hạn bàn giao ngày '+btdDMY(dateKey)+'.',
+      imgs: [], link: '', createdAt: new Date().toISOString(), createdBy: (typeof dkpCurrentName==='function' ? (dkpCurrentName()||'Quản lý') : 'Quản lý')
+    }).then(function(){
+      didSave = true;
+      return btdRef.child('kpiFlags/'+fkey).set({ person: person, at: btdDMY(dateKey) });
+    });
+  }).then(function(){
+    if(didSave) alert('✅ Đã trừ KPI cho '+person+'.');
+  }).catch(function(e){ alert('Lỗi: '+e.message); });
 }
 // Đếm tổng số bộ phận đang TRỄ HẠN giao trực (dùng cho badge thông báo tổng ở trang chủ)
 // Tách riêng theo 3 loại lịch để dễ quan sát: Trực 12/24, Trực 24/24 (theo ngày), Bàn giao theo tháng
@@ -30240,9 +30284,11 @@ function btdGetPeriods(roomName, group){
     const dayStatus = dayRec?'ok':(trackingStarted && now>=dDeadline?'over':'pend');
     return [
       { label:'Ca Đêm hôm qua ('+btdDMY(yestK)+') — hạn giao '+(group.nightTime||'07:00')+' sáng nay',
-        rec:nightRec, status: nightStatus, backlog: nightStatus==='over' ? btdScanBacklog(roomName,'Đêm',yestK) : null },
+        rec:nightRec, status: nightStatus, backlog: nightStatus==='over' ? btdScanBacklog(roomName,'Đêm',yestK) : null,
+        dateKey: yestK, ca: 'dem' },
       { label:'Ca Ngày hôm nay — hạn giao '+(group.dayTime||'19:00')+' tối nay',
-        rec:dayRec, status: dayStatus, backlog: dayStatus==='over' ? btdScanBacklog(roomName,'Ngày',todayK) : null }
+        rec:dayRec, status: dayStatus, backlog: dayStatus==='over' ? btdScanBacklog(roomName,'Ngày',todayK) : null,
+        dateKey: todayK, ca: 'ngay' }
     ];
   }
   // daily: 1 mốc giờ cố định / ngày
@@ -30251,7 +30297,8 @@ function btdGetPeriods(roomName, group){
   const t=(group.time||'07:00').split(':');
   const dl=new Date(); dl.setHours(+t[0]||0,+t[1]||0,0,0);
   const dailyStatus = rec?'ok':(trackingStarted && now>=dl?'over':'pend');
-  return [{ label:'', rec, status: dailyStatus, backlog: dailyStatus==='over' ? btdScanBacklog(roomName,(group.time==='19:00')?'Đêm':'Ngày',todayK) : null }];
+  return [{ label:'', rec, status: dailyStatus, backlog: dailyStatus==='over' ? btdScanBacklog(roomName,(group.time==='19:00')?'Đêm':'Ngày',todayK) : null,
+    dateKey: todayK, ca: null }];
 }
 
 /* ── Thống kê trễ hạn theo khoảng ngày ── */
@@ -30393,6 +30440,34 @@ function btdRender(){
             const blTxt = (bl && bl.count>1) ? (' <span style="font-weight:700">(nợ '+bl.count+' ngày, từ '+btdDMY(bl.since)+')</span>') : (bl && bl.since ? (' (từ '+btdDMY(bl.since)+')') : '');
             badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn – chưa giao'+blTxt+'</span>';
             actBtn='<button class="btd-act-btn btd-act-confirm" onclick="btdGoToRoom(\''+btdEsc(d.name).replace(/'/g,"\\'")+'\')"><i class="ti ti-pencil"></i> Đi bàn giao ngay</button>';
+            // Đối chiếu với "Đăng ký phụ trách bàn giao" để gợi ý ai là người phụ trách đúng ngày/ca bị trễ
+            var suggestedName = '';
+            if(typeof dkpFindResponsible==='function' && p.dateKey){
+              var respSk = (typeof dkpClassifyGroup==='function') ? dkpClassifyGroup(g.name).key : null;
+              var resp = dkpFindResponsible(d.name, respSk, p.dateKey, p.ca);
+              if(resp.status==='found'){
+                suggestedName = resp.names[0];
+                who='<span class="btd-who">'+btdEsc(resp.names[0])+'<span class="t">Người phụ trách theo đăng ký — chưa thực hiện bàn giao</span></span>';
+              } else if(resp.status==='conflict'){
+                who='<span class="btd-who" style="color:#e65100">⚠ Trùng lịch: '+resp.names.map(btdEsc).join(', ')+'<span class="t">Quản lý cần xem lại đăng ký phụ trách</span></span>';
+              } else {
+                who='<span class="btd-who" style="color:#999">— <span class="t">Chưa phân công tua này trong "Đăng ký phụ trách bàn giao"</span></span>';
+              }
+            }
+            // Ô chốt tên phụ trách + trừ KPI (chỉ Quản lý thấy) — gợi ý sẵn tên trên, Quản lý xác nhận hoặc gõ đè tên khác rồi mới trừ
+            if(btdIsAdmin() && p.dateKey){
+              var fkey = btdKpiFlagKey(d.name, p.dateKey, p.ca);
+              var already = BTD_KPI_FLAGS && BTD_KPI_FLAGS[fkey];
+              if(already){
+                who += '<div style="margin-top:4px;font-size:11px;color:#2e7d32"><i class="ti ti-check"></i> Đã trừ KPI: <b>'+btdEsc(already.person)+'</b> ('+btdEsc(already.at||'')+')</div>';
+              } else {
+                var kpiInputId = 'btdkpi_'+gid+'_'+did+'_'+pi;
+                who += '<div style="margin-top:6px;display:flex;gap:5px;align-items:center;flex-wrap:wrap">'+
+                  '<input type="text" id="'+kpiInputId+'" value="'+btdEsc(suggestedName)+'" placeholder="Tên người phụ trách..." style="font-size:11.5px;padding:4px 6px;border:1px solid #d8c9a0;border-radius:6px;width:150px">'+
+                  '<button class="btd-act-btn" style="background:#c62828;color:#fff;border-color:#c62828" onclick="btdConfirmKpiPerson(\''+kpiInputId+'\',\''+fkey.replace(/'/g,"\\'")+'\',\''+btdEsc(d.name).replace(/'/g,"\\'")+'\',\''+(p.dateKey||'')+'\')"><i class="ti ti-scissors"></i> Chốt & Trừ KPI</button>'+
+                  '</div>';
+              }
+            }
           } else {
             cPend++;
             badge='<span class="btd-badge btd-badge-pend"><i class="ti ti-hourglass"></i> Chưa đến hạn</span>';
@@ -31114,7 +31189,16 @@ function btdExportWord(){
           who=btdEsc(p.rec.nguoiGiao||p.rec.createdBy||'—');
           time=btdEsc(p.rec.ngay||'')+(p.rec.gio?(' '+btdEsc(p.rec.gio)):'');
         }
-        else if(p.status==='over'){ statusTxt='<b style="color:#c62828">Trễ hạn – chưa giao</b>'; cOverAll++; }
+        else if(p.status==='over'){
+          statusTxt='<b style="color:#c62828">Trễ hạn – chưa giao</b>'; cOverAll++;
+          if(typeof dkpFindResponsible==='function' && p.dateKey){
+            var respSk2 = (typeof dkpClassifyGroup==='function') ? dkpClassifyGroup(g.name).key : null;
+            var resp2 = dkpFindResponsible(d.name, respSk2, p.dateKey, p.ca);
+            if(resp2.status==='found') who='<b style="color:#c62828">'+btdEsc(resp2.names[0])+'</b>';
+            else if(resp2.status==='conflict') who='<span style="color:#e65100">Trùng lịch: '+resp2.names.map(btdEsc).join(', ')+'</span>';
+            else who='<i>Chưa phân công</i>';
+          }
+        }
         else { statusTxt='Chưa đến hạn'; }
         const nameTxt = btdEsc(d.name) + (p.label ? ('<br><span style="font-size:9pt;color:#666">'+btdEsc(p.label)+'</span>') : '');
         bodyHtml += '<tr class="'+(rowIdx%2===1?'ev':'')+'"><td>'+nameTxt+'</td><td>'+statusTxt+'</td><td>'+who+'</td><td>'+time+'</td></tr>';
@@ -31399,7 +31483,36 @@ function dkpGetEntries(mk, sk, dk){
   return keys.map(function(k){ return Object.assign({_key:k}, entries[k]); });
 }
 
-function dkpDangKy(sk, dk, inputId, deptName, tuId, denId){
+// Đối chiếu tự động: cho 1 phòng + 1 ngày cụ thể (+ ca cụ thể nếu là nhóm Trực 12/24),
+// tìm xem theo "Đăng ký phụ trách bàn giao" thì ai là người phụ trách đúng ngày/ca đó.
+// sk: 'ca1224' | 'ca2424' | ... (khóa nhóm giống dkpClassifyGroup trả về)
+// ca: 'dem' | 'ngay' | null — chỉ có ý nghĩa với sk==='ca1224'
+// Trả về {status:'found'|'gap'|'conflict', names:[...]}
+function dkpFindResponsible(roomName, sk, dateKey, ca){
+  if(typeof DKP_DATA==='undefined' || !dateKey) return {status:'gap', names:[]};
+  var dept = dkpCanonicalName(roomName);
+  var dk = dkpNameKey(dept);
+  function monthOf(offset){
+    var d=new Date(dateKey+'T00:00:00'); d.setMonth(d.getMonth()+offset);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  }
+  var all = dkpGetEntries(monthOf(0), sk, dk)
+    .concat(dkpGetEntries(monthOf(-1), sk, dk))
+    .concat(dkpGetEntries(monthOf(1), sk, dk));
+  var matches = all.filter(function(en){
+    if(!en.tuNgay || !en.denNgay) return false;
+    if(dateKey < en.tuNgay || dateKey > en.denNgay) return false;
+    if(sk==='ca1224' && ca && en.ca){ if(en.ca!==ca) return false; } // entry cũ chưa gán ca -> áp dụng cho cả 2 ca
+    return true;
+  });
+  var seen={}, names=[];
+  matches.forEach(function(en){ if(!seen[en.nhanVien]){ seen[en.nhanVien]=true; names.push(en.nhanVien); } });
+  if(!names.length) return {status:'gap', names:[]};
+  if(names.length>1) return {status:'conflict', names:names};
+  return {status:'found', names:names};
+}
+
+function dkpDangKy(sk, dk, inputId, deptName, tuId, denId, caId){
   if(!dkpIsAdmin()){ alert('Chức năng tự đăng ký hiện đã tạm khóa. Vui lòng liên hệ Quản lý để được đăng ký/phân công phụ trách.'); return; }
   var inp = document.getElementById(inputId);
   var ten = inp ? inp.value.trim() : '';
@@ -31410,15 +31523,23 @@ function dkpDangKy(sk, dk, inputId, deptName, tuId, denId){
   if(!ten){ alert('Vui lòng chọn hoặc nhập tên nhân viên nhận phụ trách tua này.'); return; }
   if(!tuNgay || !denNgay){ alert('Vui lòng nhập đầy đủ "Từ ngày" và "Đến ngày" phụ trách.'); return; }
   if(tuNgay > denNgay){ alert('"Từ ngày" phải trước hoặc bằng "Đến ngày".'); return; }
+  var caVal = '';
+  if(sk==='ca1224'){
+    var caInp = caId ? document.getElementById(caId) : null;
+    caVal = caInp ? caInp.value : '';
+    if(!caVal){ alert('Vui lòng chọn "Ca" (Đêm hoặc Ngày) — bắt buộc với các bộ phận thuộc nhóm Trực 12/24, để hệ thống đối chiếu đúng người khi có trễ hạn.'); return; }
+  }
   var mk = dkpMonthKey();
   var newRef = dkpRef.child(mk).child(sk).child(dk).child('entries').push();
-  newRef.set({
+  var payload = {
     nhanVien: ten,
     tuNgay: tuNgay,
     denNgay: denNgay,
     thoiGianDangKy: new Date().toISOString(),
     xacNhanBoi: dkpCurrentName() || ten
-  }).then(function(){
+  };
+  if(caVal) payload.ca = caVal;
+  newRef.set(payload).then(function(){
     if(inp) inp.value='';
     dkpLogHistory('them', sk, dk, deptName, null, ten+' ('+dkpFmtDate(tuNgay)+' – '+dkpFmtDate(denNgay)+')');
   }).catch(function(e){ alert('Lỗi khi đăng ký: '+e.message); });
@@ -31706,8 +31827,9 @@ function dkpRender(){
       if(entries.length>0){
         var namesHtml = entries.map(function(en){
           var rangeTxt = (en.tuNgay && en.denNgay) ? (dkpFmtDate(en.tuNgay)+' – '+dkpFmtDate(en.denNgay)) : '';
+          var caLabel = en.ca==='dem' ? ' <span style="font-size:11px;color:#0d47a1;font-weight:600">[Ca Đêm]</span>' : (en.ca==='ngay' ? ' <span style="font-size:11px;color:#b45309;font-weight:600">[Ca Ngày]</span>' : '');
           return '<div style="margin-bottom:4px">'
-            +'<span class="dkp-name">'+dkpEsc(en.nhanVien)+'</span>'
+            +'<span class="dkp-name">'+dkpEsc(en.nhanVien)+'</span>'+caLabel
             +(rangeTxt ? ' <span style="font-size:11px;color:#5b21b6;font-weight:600">('+rangeTxt+')</span>' : '')
             +'<span class="dkp-time">Đăng ký lúc '+dkpFmtTime(en.thoiGianDangKy)+'</span>'
             +'</div>';
@@ -31722,9 +31844,12 @@ function dkpRender(){
       html += '<td class="dkp-row-actions">';
       if(dkpIsAdmin()){
         html += '<input class="dkp-input" id="'+uid+'" placeholder="Gõ tên để tìm..." autocomplete="off" oninput="dkpFilterStaff(this)" onfocus="dkpFilterStaff(this)" onblur="setTimeout(dkpHideDrop,180)" />';
+        if(sk==='ca1224'){
+          html += '<select class="dkp-input" id="'+uid+'_ca" style="width:150px"><option value="">-- Chọn Ca --</option><option value="dem">Ca Đêm (giao 07h sáng)</option><option value="ngay">Ca Ngày (giao 19h tối)</option></select>';
+        }
         html += '<span style="font-size:11px;color:#888">Từ</span><input type="date" class="dkp-input" id="'+uid+'_tu" value="'+defFirst+'" style="width:132px" />';
         html += '<span style="font-size:11px;color:#888">Đến</span><input type="date" class="dkp-input" id="'+uid+'_den" value="'+defLast+'" style="width:132px" />';
-        html += '<button class="tbtn" style="border-color:#2e7d32;color:#2e7d32" onclick="dkpDangKy(\''+sk+'\',\''+dk+'\',\''+uid+'\',\''+escDept+'\',\''+uid+'_tu\',\''+uid+'_den\')">+ Đăng ký nhận tua</button>';
+        html += '<button class="tbtn" style="border-color:#2e7d32;color:#2e7d32" onclick="dkpDangKy(\''+sk+'\',\''+dk+'\',\''+uid+'\',\''+escDept+'\',\''+uid+'_tu\',\''+uid+'_den\',\''+uid+'_ca\')">+ Đăng ký nhận tua</button>';
         html += '<button class="tbtn" onclick="dkpNhacNho(\''+escDept+'\')">Nhắc nhở</button>';
       } else {
         html += '<span style="font-size:12px;color:#999;font-style:italic">Chỉ Quản lý mới đăng ký/phân công được — vui lòng liên hệ Quản lý.</span>';
