@@ -522,6 +522,7 @@ font-size:10px;color:var(--tx3)}
 .nb-info-row{display:flex;gap:6px;align-items:flex-start;font-size:13px;margin-bottom:4px}
 .nb-info-row i{color:#1565C0;margin-top:1px;flex-shrink:0}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -1699,6 +1700,12 @@ table.btd-dt tr:hover td{background:#fbfdf8}
       <button id="dkpMonthResetBtn" onclick="dkpResetToCurrentMonth()" style="display:none;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:inherit"><i class="ti ti-refresh"></i> Về tháng này</button>
     </div>
     <button class="tbtn" id="dkpWideBtn" onclick="kpiToggleWideBox('dkpMainBox','dkpWideBtn')" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
+    <div style="display:flex;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.45)">
+      <button class="tbtn" id="dkpViewListBtn" onclick="dkpSwitchView('list')" style="border:none;border-radius:0;background:#fff;color:#6a1b9a"><i class="ti ti-list"></i> Danh sách</button>
+      <button class="tbtn" id="dkpViewGridBtn" onclick="dkpSwitchView('grid')" style="border:none;border-radius:0;background:rgba(255,255,255,.15);color:#fff"><i class="ti ti-table"></i> Bảng lưới</button>
+    </div>
+    <button class="tbtn" id="dkpImportBtn" onclick="document.getElementById('dkpImportFileInput').click()" style="display:none;border-color:rgba(255,255,255,.45);background:#fff;color:#6a1b9a;font-weight:700"><i class="ti ti-file-upload"></i> Nhập từ Excel</button>
+    <input type="file" id="dkpImportFileInput" accept=".xlsx,.xls" style="display:none" onchange="dkpImportExcelFile(this)">
     <button class="tbtn" onclick="dkpExportExcel()" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
     <button class="tbtn" onclick="dkpExportWord()" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-file-text"></i> Xuất Word</button>
     <button class="tbtn" onclick="openDkpHistory()" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-history"></i> Lịch sử đăng ký</button>
@@ -1716,6 +1723,7 @@ table.btd-dt tr:hover td{background:#fbfdf8}
     </div>
 
     <div id="dkpGroupsWrap"></div>
+    <div id="dkpGridWrap" style="display:none"></div>
     <div id="dkpSearchDrop" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:260px;overflow-y:auto"></div>
 
     <div style="text-align:center;font-size:11.5px;color:#7a9a50;margin-top:16px;line-height:1.6">
@@ -1783,6 +1791,22 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     <div id="dkpHistoryBody" style="overflow-y:auto;padding:0;flex:1;min-height:0"></div>
   </div>
 </div>
+
+<!-- ══ MODAL: XEM TRƯỚC DỮ LIỆU NHẬP TỪ EXCEL (Đăng ký phụ trách bàn giao) ══ -->
+<div class="kpi-modal-overlay" id="dkpImportOverlay">
+  <div class="kpi-modal-box" style="max-width:820px">
+    <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px">
+      <div style="font-weight:700;font-size:15px;color:#6a1b9a;flex:1"><i class="ti ti-file-upload"></i> Xem trước dữ liệu nhập từ Excel</div>
+      <button class="kpi-modal-close" onclick="dkpCloseImportPreview()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="dkpImportBody" style="overflow-y:auto;padding:16px 20px;flex:1;min-height:0"></div>
+    <div style="padding:12px 20px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+      <button class="tbtn" onclick="dkpCloseImportPreview()">Hủy</button>
+      <button class="tbtn" id="dkpImportConfirmBtn" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a" onclick="dkpConfirmImport()"><i class="ti ti-check"></i> Xác nhận nhập</button>
+    </div>
+  </div>
+</div>
+
 
 
 <!-- ══ MODAL: THỐNG KÊ TRỄ HẠN (Theo dõi Giao nhận trực) ══ -->
@@ -12797,6 +12821,11 @@ function openStaffAuthModal(dest){
     else{enterNbScreen();}
     return;
   }
+  // "Bình bệnh án" chỉ dành cho Quản lý — nhân viên thường không được vào (kể cả qua mã cá nhân)
+  if(dest==='bbba' && !adminSession.active){
+    alert('⚠️ Chức năng "Bình bệnh án" hiện chỉ dành cho Quản lý. Vui lòng đăng nhập Quản lý ở trang chủ để truy cập.');
+    return;
+  }
   openStaffAuthModal_inner(dest);
 }
 
@@ -13129,7 +13158,9 @@ function authConfirm(){
   } else if(dest==='phongmo'){
     enterPmScreen('staff', name);
   } else if(dest==='bbba'){
-    enterBbbaScreen('staff', name);
+    document.getElementById('homeScreen').style.display='flex';
+    var e3=document.getElementById('authErr');
+    if(e3){e3.textContent='Chức năng "Bình bệnh án" hiện chỉ dành cho Quản lý!';e3.style.display='flex';}
   }
   } // end _authContinue
 }
@@ -29996,7 +30027,10 @@ function btdEnsureListeners(){
       // nếu đang mở mà nguồn này vừa tải xong, phải vẽ lại, nếu không sẽ kẹt mãi ở "Đang tải dữ liệu..."
       try{
         var dkpScr=document.getElementById('dkpScreen');
-        if(dkpScr && dkpScr.style.display!=='none' && typeof dkpDataLoaded!=='undefined' && dkpDataLoaded && typeof dkpRender==='function') dkpRender();
+        if(dkpScr && dkpScr.style.display!=='none' && typeof dkpDataLoaded!=='undefined' && dkpDataLoaded){
+          if(typeof dkpCurrentView!=='undefined' && dkpCurrentView==='grid' && typeof dkpRenderGrid==='function') dkpRenderGrid();
+          else if(typeof dkpRender==='function') dkpRender();
+        }
       }catch(e){ console.warn('dkp re-render after groups load:', e); }
     }, function(err){ console.warn('Lỗi đọc nhóm giao trực', err); });
   }catch(e){ console.warn('btdEnsureListeners groups:', e); }
@@ -30445,13 +30479,19 @@ function btdRender(){
             if(typeof dkpFindResponsible==='function' && p.dateKey){
               var respSk = (typeof dkpClassifyGroup==='function') ? dkpClassifyGroup(g.name).key : null;
               var resp = dkpFindResponsible(d.name, respSk, p.dateKey, p.ca);
-              if(resp.status==='found'){
-                suggestedName = resp.names[0];
-                who='<span class="btd-who">'+btdEsc(resp.names[0])+'<span class="t">Người phụ trách theo đăng ký — chưa thực hiện bàn giao</span></span>';
-              } else if(resp.status==='conflict'){
-                who='<span class="btd-who" style="color:#e65100">⚠ Trùng lịch: '+resp.names.map(btdEsc).join(', ')+'<span class="t">Quản lý cần xem lại đăng ký phụ trách</span></span>';
-              } else {
+              if(resp.kind==='gap'){
                 who='<span class="btd-who" style="color:#999">— <span class="t">Chưa phân công tua này trong "Đăng ký phụ trách bàn giao"</span></span>';
+              } else {
+                var partsHtml = resp.roles.map(function(rg){
+                  var lbl = rg.role ? ('<b>'+btdEsc(rg.role)+':</b> ') : '';
+                  if(rg.conflict) return '<span style="color:#e65100">'+lbl+'⚠ Trùng lịch: '+rg.names.map(btdEsc).join(', ')+'</span>';
+                  return lbl+btdEsc(rg.names[0]);
+                });
+                who='<span class="btd-who">'+partsHtml.join('<br>')+'<span class="t">Người phụ trách theo đăng ký — chưa thực hiện bàn giao</span></span>';
+                suggestedName = resp.roles.map(function(rg){
+                  if(rg.conflict) return '';
+                  return (rg.role?rg.role+': ':'')+rg.names[0];
+                }).filter(Boolean).join('; ');
               }
             }
             // Ô chốt tên phụ trách + trừ KPI (chỉ Quản lý thấy) — gợi ý sẵn tên trên, Quản lý xác nhận hoặc gõ đè tên khác rồi mới trừ
@@ -31194,9 +31234,12 @@ function btdExportWord(){
           if(typeof dkpFindResponsible==='function' && p.dateKey){
             var respSk2 = (typeof dkpClassifyGroup==='function') ? dkpClassifyGroup(g.name).key : null;
             var resp2 = dkpFindResponsible(d.name, respSk2, p.dateKey, p.ca);
-            if(resp2.status==='found') who='<b style="color:#c62828">'+btdEsc(resp2.names[0])+'</b>';
-            else if(resp2.status==='conflict') who='<span style="color:#e65100">Trùng lịch: '+resp2.names.map(btdEsc).join(', ')+'</span>';
-            else who='<i>Chưa phân công</i>';
+            if(resp2.kind==='gap') who='<i>Chưa phân công</i>';
+            else who = resp2.roles.map(function(rg){
+              var lbl = rg.role ? (btdEsc(rg.role)+': ') : '';
+              if(rg.conflict) return '<span style="color:#e65100">'+lbl+'Trùng lịch: '+rg.names.map(btdEsc).join(', ')+'</span>';
+              return '<b style="color:#c62828">'+lbl+btdEsc(rg.names[0])+'</b>';
+            }).join('<br>');
           }
         }
         else { statusTxt='Chưa đến hạn'; }
@@ -31280,7 +31323,7 @@ function dkpChangeMonth(val){
   var picker=document.getElementById('dkpMonthPicker'); if(picker) picker.value = val;
   var resetBtn=document.getElementById('dkpMonthResetBtn');
   if(resetBtn) resetBtn.style.display = (val===dkpCurrentMonthKey()) ? 'none' : '';
-  dkpRender();
+  if(typeof dkpCurrentView!=='undefined' && dkpCurrentView==='grid') dkpRenderGrid(); else dkpRender();
 }
 function dkpResetToCurrentMonth(){ dkpChangeMonth(dkpCurrentMonthKey()); }
 
@@ -31318,18 +31361,31 @@ function dkpEnsureListeners(){
     dkpRef.on('value', function(snap){
       DKP_DATA = snap.val() || {};
       dkpDataLoaded = true;
-      var scr=document.getElementById('dkpScreen'); if(scr && scr.style.display!=='none') dkpRender();
+      var scr=document.getElementById('dkpScreen');
+      if(scr && scr.style.display!=='none'){
+        if(typeof dkpCurrentView!=='undefined' && dkpCurrentView==='grid') dkpRenderGrid(); else dkpRender();
+      }
     }, function(err){ console.warn('Lỗi đọc dữ liệu Đăng ký phụ trách bàn giao', err); });
   }catch(e){ console.warn('dkpEnsureListeners:', e); }
 }
 
 function openDkpScreen(){
+  if(!dkpIsAdmin()){
+    alert('⚠️ Chức năng "Đăng ký phụ trách bàn giao" hiện chỉ dành cho Quản lý. Vui lòng đăng nhập Quản lý ở trang chủ để truy cập.');
+    return;
+  }
   document.getElementById('homeScreen').style.display='none';
   document.getElementById('dkpScreen').style.display='flex';
   dkpSelectedMonth = null; // mỗi lần mở màn hình lại mặc định về tháng hiện tại
   document.getElementById('dkpMonthLabel').textContent = dkpMonthLabel(dkpMonthKey());
   var picker=document.getElementById('dkpMonthPicker'); if(picker) picker.value = dkpMonthKey();
   var resetBtn=document.getElementById('dkpMonthResetBtn'); if(resetBtn) resetBtn.style.display='none';
+  dkpCurrentView = 'list';
+  var gw=document.getElementById('dkpGroupsWrap'); if(gw) gw.style.display='';
+  var grw=document.getElementById('dkpGridWrap'); if(grw) grw.style.display='none';
+  var lb=document.getElementById('dkpViewListBtn'), gb=document.getElementById('dkpViewGridBtn');
+  if(lb){ lb.style.background='#fff'; lb.style.color='#6a1b9a'; }
+  if(gb){ gb.style.background='rgba(255,255,255,.15)'; gb.style.color='#fff'; }
   try{ btdEnsureListeners(); }catch(e){ console.warn('openDkpScreen btd:', e); } // chỉ ĐỌC cấu hình nhóm/bộ phận, không ghi gì
   dkpEnsureListeners();
   if(!dkpDataLoaded || typeof BTD_GROUPS==='undefined' || !btdGroupsLoaded){
@@ -31487,9 +31543,11 @@ function dkpGetEntries(mk, sk, dk){
 // tìm xem theo "Đăng ký phụ trách bàn giao" thì ai là người phụ trách đúng ngày/ca đó.
 // sk: 'ca1224' | 'ca2424' | ... (khóa nhóm giống dkpClassifyGroup trả về)
 // ca: 'dem' | 'ngay' | null — chỉ có ý nghĩa với sk==='ca1224'
-// Trả về {status:'found'|'gap'|'conflict', names:[...]}
+// Trả về {kind:'gap'} hoặc {kind:'multi', roles:[{role, names:[...], conflict:bool}, ...]}
+// — nếu 1 phòng có NHIỀU VAI TRÒ khác nhau (VD Gây mê + Dụng cụ) cùng phụ trách, KHÔNG coi là trùng lịch;
+//   chỉ coi là "conflict" khi CÙNG 1 vai trò (hoặc không khai vai trò) mà có từ 2 người trở lên.
 function dkpFindResponsible(roomName, sk, dateKey, ca){
-  if(typeof DKP_DATA==='undefined' || !dateKey) return {status:'gap', names:[]};
+  if(typeof DKP_DATA==='undefined' || !dateKey) return {kind:'gap'};
   var dept = dkpCanonicalName(roomName);
   var dk = dkpNameKey(dept);
   function monthOf(offset){
@@ -31505,14 +31563,21 @@ function dkpFindResponsible(roomName, sk, dateKey, ca){
     if(sk==='ca1224' && ca && en.ca){ if(en.ca!==ca) return false; } // entry cũ chưa gán ca -> áp dụng cho cả 2 ca
     return true;
   });
-  var seen={}, names=[];
-  matches.forEach(function(en){ if(!seen[en.nhanVien]){ seen[en.nhanVien]=true; names.push(en.nhanVien); } });
-  if(!names.length) return {status:'gap', names:[]};
-  if(names.length>1) return {status:'conflict', names:names};
-  return {status:'found', names:names};
+  if(!matches.length) return {kind:'gap'};
+  var groups = {}; // vai trò ('' = không khai) -> {role, names:[], seen:{}}
+  matches.forEach(function(en){
+    var role = (en.vaiTro||'').trim();
+    if(!groups[role]) groups[role] = {role: role, names: [], seen: {}};
+    if(!groups[role].seen[en.nhanVien]){ groups[role].seen[en.nhanVien]=true; groups[role].names.push(en.nhanVien); }
+  });
+  var roles = Object.keys(groups).map(function(k){
+    var g = groups[k];
+    return { role: g.role, names: g.names, conflict: g.names.length>1 };
+  });
+  return { kind:'multi', roles: roles };
 }
 
-function dkpDangKy(sk, dk, inputId, deptName, tuId, denId, caId){
+function dkpDangKy(sk, dk, inputId, deptName, tuId, denId, caId, roleId){
   if(!dkpIsAdmin()){ alert('Chức năng tự đăng ký hiện đã tạm khóa. Vui lòng liên hệ Quản lý để được đăng ký/phân công phụ trách.'); return; }
   var inp = document.getElementById(inputId);
   var ten = inp ? inp.value.trim() : '';
@@ -31529,6 +31594,8 @@ function dkpDangKy(sk, dk, inputId, deptName, tuId, denId, caId){
     caVal = caInp ? caInp.value : '';
     if(!caVal){ alert('Vui lòng chọn "Ca" (Đêm hoặc Ngày) — bắt buộc với các bộ phận thuộc nhóm Trực 12/24, để hệ thống đối chiếu đúng người khi có trễ hạn.'); return; }
   }
+  var roleVal = '';
+  if(roleId){ var roleInp = document.getElementById(roleId); roleVal = roleInp ? roleInp.value.trim() : ''; }
   var mk = dkpMonthKey();
   var newRef = dkpRef.child(mk).child(sk).child(dk).child('entries').push();
   var payload = {
@@ -31539,9 +31606,10 @@ function dkpDangKy(sk, dk, inputId, deptName, tuId, denId, caId){
     xacNhanBoi: dkpCurrentName() || ten
   };
   if(caVal) payload.ca = caVal;
+  if(roleVal) payload.vaiTro = roleVal;
   newRef.set(payload).then(function(){
     if(inp) inp.value='';
-    dkpLogHistory('them', sk, dk, deptName, null, ten+' ('+dkpFmtDate(tuNgay)+' – '+dkpFmtDate(denNgay)+')');
+    dkpLogHistory('them', sk, dk, deptName, null, ten+(roleVal?' ['+roleVal+']':'')+' ('+dkpFmtDate(tuNgay)+' – '+dkpFmtDate(denNgay)+')');
   }).catch(function(e){ alert('Lỗi khi đăng ký: '+e.message); });
 }
 
@@ -31792,10 +31860,442 @@ function dkpExportWord(){
   w.document.close();
 }
 
+/* ══════════════ NHẬP DANH SÁCH TỪ FILE EXCEL "GIAO_NHẬN_TRỰC.xlsx" ══════════════
+   Cấu trúc file (đã xác nhận với Trưởng khoa):
+   - Hàng có cột A = "NGÀY" là hàng tiêu đề nhóm; hàng kế tiếp là "TÊN/GIỜ BÀN GIAO-NHÂN/BỘ PHẬN".
+   - Mỗi ngày chiếm 2 hàng dữ liệu (mỗi hàng 1 ca: "19 GIỜ" = nhận ca lúc 19h = Ca Đêm; "7 GIỜ" = nhận ca lúc 7h = Ca Ngày).
+     Với nhóm "TRỰC 24/24" chỉ có 1 trong 2 hàng có tên (không tách ca).
+   - Sau bảng theo ngày là 1 bảng riêng "GIAO NHẬN THEO THÁNG": hàng tiêu đề liệt kê tên phòng theo cột,
+     các hàng dưới liệt kê từng người phụ trách cố định cả tháng (có thể nhiều người/phòng).
+   - 2 cột "PM 201/203/204" (1 cho tổ Gây mê, 1 cho tổ Dụng cụ) được TÁCH ra thành 3 bộ phận riêng
+     PM 201 / PM 203 / PM 204, mỗi bộ phận nhận cả 2 người (gắn nhãn Vai trò "Gây mê" / "Dụng cụ").
+*/
+var DKP_IMPORT_PENDING = null; // danh sách entry đã phân tích, chờ xác nhận ghi
+
+// Bảng quy đổi tên "BỘ PHẬN" ghi trong file Excel -> tên bộ phận chính thức trong hệ thống.
+// Muốn thêm/sửa quy đổi, chỉ cần thêm 1 dòng vào đây (khóa viết thường, không dấu câu thừa).
+var DKP_IMPORT_ALIASES = {
+  'phòng hồi sức': ['Phòng Hồi sức'],
+  'hl - phòng hồi sức': ['HL - Phòng hồi sức'],
+  'tủ dụng cụ gây mê - vt': ['Tủ dụng cụ Gây mê - VT'],
+  'kho vật tư': ['Phòng Kho Vật tư'],
+  'hl - phòng mổ': ['HL - Phòng mổ'],
+  'gm - hồi tỉnh': ['GM - Phòng Hồi tinh'],
+  'hl - hồi tỉnh': ['HL - Phòng Hồi tinh'],
+  'dsa': ['Phòng DSA'],
+  'pm 202': ['PM 202'], 'pm 301': ['PM 301'], 'pm 302': ['PM 302'],
+  'pm 303': ['PM 303'], 'pm 401': ['PM 401'], 'pm 402': ['PM 402']
+};
+function dkpImportNorm(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+// Nhận diện cột dạng "PM 201/203/204" (tổ Gây mê + tổ Dụng cụ đều dùng chung 3 phòng này)
+function dkpImportIsPmTriple(raw){
+  var n = dkpImportNorm(raw).replace(/[^0-9/]/g,'');
+  return n.indexOf('201')!==-1 && n.indexOf('204')!==-1 && (n.indexOf('202')!==-1 || n.indexOf('203')!==-1);
+}
+
+window.dkpImportExcelFile = function(inputEl){
+  var file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  if(typeof XLSX==='undefined'){ alert('Không tải được thư viện đọc Excel. Vui lòng kiểm tra kết nối mạng rồi thử lại.'); inputEl.value=''; return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+      dkpProcessImportRows(rows);
+    }catch(err){
+      alert('Lỗi khi đọc file: '+err.message);
+    }
+    inputEl.value='';
+  };
+  reader.onerror = function(){ alert('Không đọc được file.'); inputEl.value=''; };
+  reader.readAsArrayBuffer(file);
+};
+
+function dkpProcessImportRows(rows){
+  // 1) Tìm hàng tiêu đề "NGÀY"
+  var hdrIdx = -1;
+  for(var i=0;i<rows.length;i++){ if(dkpImportNorm(rows[i] && rows[i][0])==='ngày'){ hdrIdx=i; break; } }
+  if(hdrIdx===-1){ alert('Không tìm thấy hàng tiêu đề "NGÀY" trong file — có đúng định dạng file danh sách giao nhận trực không?'); return; }
+  var labelRow = rows[hdrIdx] || [];     // hàng "NGÀY" cũng chính là hàng chứa nhãn "TRỰC 12/24"/"TRỰC 24/24"
+  var subHeaderRowIdx = hdrIdx+1;         // hàng kế tiếp mới là "TÊN / GIỜ BÀN GIAO-NHÂN / BỘ PHẬN"
+  var subHeader = rows[subHeaderRowIdx] || [];
+
+  // 2) Xác định các nhóm cột: cột nào ở subHeader === 'TÊN'
+  var groups = []; // {col, label, deptRaw, isPmTriple, kind}
+  for(var c=0;c<subHeader.length;c++){
+    if(dkpImportNorm(subHeader[c])==='tên'){
+      var label = labelRow[c] || labelRow[c-1] || '';
+      var kind = dkpImportNorm(label).indexOf('12/24')!==-1 ? 'ca1224' : (dkpImportNorm(label).indexOf('24/24')!==-1 ? 'ca2424' : 'khac');
+      // Lấy tên bộ phận từ vài dòng dữ liệu đầu (cột BỘ PHẬN = c+2)
+      var deptRaw = '';
+      for(var r=subHeaderRowIdx+1; r<Math.min(subHeaderRowIdx+6, rows.length); r++){
+        if(rows[r] && rows[r][c+2]){ deptRaw = String(rows[r][c+2]).trim(); break; }
+      }
+      groups.push({ col:c, kind:kind, deptRaw:deptRaw });
+    }
+  }
+  if(!groups.length){ alert('Không tìm thấy cột "TÊN" nào trong file — vui lòng kiểm tra lại định dạng.'); return; }
+
+  // Gắn Vai trò cho các cột dạng "PM 201/203/204" theo THỨ TỰ xuất hiện: cột đầu = Gây mê, cột sau = Dụng cụ
+  var pmTripleSeen = 0;
+  groups.forEach(function(g){
+    if(dkpImportIsPmTriple(g.deptRaw)){
+      pmTripleSeen++;
+      g.expand = ['PM 201','PM 203','PM 204'];
+      g.role = pmTripleSeen===1 ? 'Gây mê' : (pmTripleSeen===2 ? 'Dụng cụ' : ('Khác '+pmTripleSeen));
+    }
+  });
+
+  var mk = dkpMonthKey(); // dùng đúng tháng đang xem trên màn hình làm tháng áp dụng
+  var entries = []; // {deptRaw, role, sk_hint, dateKey, ca, nhanVien, isMonthly}
+  var unmatchedRaw = {}; // deptRaw chưa map được -> sẽ báo ở bước đối chiếu BTD_GROUPS sau
+
+  // 3) Đọc bảng theo ngày — mỗi ngày 2 hàng, dừng khi cột A không còn là số
+  var r = subHeaderRowIdx+1;
+  var monthlyHeaderIdx = -1;
+  while(r < rows.length){
+    var row1 = rows[r] || [];
+    var dayNum = parseInt(row1[0], 10);
+    if(!dayNum || isNaN(dayNum)){
+      // kiểm tra có phải hàng "GIAO NHẬN THEO THÁNG" không
+      var rowText = rows[r] ? rows[r].join(' ') : '';
+      if(dkpImportNorm(rowText).indexOf('theo tháng')!==-1){ monthlyHeaderIdx = r; }
+      break;
+    }
+    var row2 = rows[r+1] || [];
+    var dateKey = mk + '-' + String(dayNum).padStart(2,'0');
+    groups.forEach(function(g){
+      function readAt(row){
+        var name = row[g.col]; var gio = row[g.col+1];
+        if(!name || !String(name).trim()) return null;
+        var ca = null;
+        if(g.kind==='ca1224'){
+          var giotxt = String(gio||'');
+          ca = giotxt.indexOf('19')!==-1 ? 'dem' : 'ngay';
+        }
+        return { nhanVien:String(name).trim(), ca:ca };
+      }
+      var a1 = readAt(row1), a2 = readAt(row2);
+      [a1,a2].forEach(function(a){
+        if(!a) return;
+        entries.push({ deptRaw:g.deptRaw, role:g.role||'', expand:g.expand||null, sk_hint:g.kind, dateKey:dateKey, ca:a.ca, nhanVien:a.nhanVien, isMonthly:false });
+      });
+    });
+    r += 2;
+  }
+  // tìm tiếp hàng "theo tháng" nếu chưa thấy ở trên (phòng khi vòng lặp dừng sớm hơn)
+  if(monthlyHeaderIdx===-1){
+    for(var rr=r; rr<Math.min(r+5, rows.length); rr++){
+      var t = rows[rr] ? rows[rr].join(' ') : '';
+      if(dkpImportNorm(t).indexOf('theo tháng')!==-1){ monthlyHeaderIdx = rr; break; }
+    }
+  }
+  // 4) Đọc bảng "GIAO NHẬN THEO THÁNG" nếu có
+  if(monthlyHeaderIdx!==-1){
+    var roomHeaderRow = rows[monthlyHeaderIdx+1] || [];
+    var roomCols = [];
+    for(var cc=0; cc<roomHeaderRow.length; cc++){ if(roomHeaderRow[cc] && String(roomHeaderRow[cc]).trim()) roomCols.push({col:cc, deptRaw:String(roomHeaderRow[cc]).trim()}); }
+    var mFirstLast = dkpMonthFirstLast(mk);
+    var rIdx = monthlyHeaderIdx+2;
+    while(rIdx < rows.length){
+      var rowM = rows[rIdx];
+      if(!rowM || roomCols.every(function(rc){ return !rowM[rc.col]; })) break;
+      roomCols.forEach(function(rc){
+        var nm = rowM[rc.col];
+        if(nm && String(nm).trim()){
+          entries.push({ deptRaw:rc.deptRaw, role:'', expand:null, sk_hint:'thang', dateKey:null, ca:null, nhanVien:String(nm).trim(), isMonthly:true, tuNgay:mFirstLast[0], denNgay:mFirstLast[1] });
+        }
+      });
+      rIdx++;
+    }
+  }
+
+  if(!entries.length){ alert('Không đọc được dữ liệu nào từ file. Vui lòng kiểm tra lại đúng file/đúng định dạng.'); return; }
+
+  // 5) Đối chiếu tên bộ phận với danh mục ĐANG CÓ THẬT trong "Theo dõi Giao nhận trực" (BTD_GROUPS)
+  var existingDepts = {}; // dkpNameKey(canonicalName) -> {name, sk}
+  Object.keys(BTD_GROUPS||{}).forEach(function(gid){
+    var g = BTD_GROUPS[gid]; var sk = dkpClassifyGroup(g.name).key;
+    Object.keys((g&&g.depts)||{}).forEach(function(did){
+      var nm = dkpCanonicalName(g.depts[did].name);
+      existingDepts[dkpNameKey(nm)] = { name:nm, sk:sk };
+    });
+  });
+
+  var resolved = []; // entry cuối cùng, đã có dept/sk chính thức
+  var unmatched = {}; // deptRaw -> count
+  entries.forEach(function(en){
+    var rawNames = en.expand || [dkpImportAliasLookup(en.deptRaw)];
+    rawNames.forEach(function(nm){
+      var key = dkpNameKey(dkpCanonicalName(nm));
+      var ex = existingDepts[key];
+      if(!ex){ unmatched[en.deptRaw+' → "'+nm+'"'] = (unmatched[en.deptRaw+' → "'+nm+'"']||0)+1; return; }
+      resolved.push({ dept:ex.name, sk:ex.sk, role:en.role, dateKey:en.dateKey, ca:en.ca, nhanVien:en.nhanVien, isMonthly:en.isMonthly, tuNgay:en.tuNgay, denNgay:en.denNgay });
+    });
+  });
+
+  DKP_IMPORT_PENDING = { resolved: resolved, unmatched: unmatched, mk: mk };
+  dkpShowImportPreview();
+}
+function dkpImportAliasLookup(raw){
+  var key = dkpImportNorm(raw);
+  var found = DKP_IMPORT_ALIASES[key];
+  return found ? found[0] : raw;
+}
+
+function dkpShowImportPreview(){
+  var data = DKP_IMPORT_PENDING;
+  var body = document.getElementById('dkpImportBody');
+  if(!data || !body) return;
+  var byDept = {};
+  data.resolved.forEach(function(en){ byDept[en.dept] = (byDept[en.dept]||0)+1; });
+  var deptRows = Object.keys(byDept).sort().map(function(d){ return '<tr><td style="padding:5px 8px;border:1px solid #eee">'+dkpEsc(d)+'</td><td style="padding:5px 8px;border:1px solid #eee;text-align:center">'+byDept[d]+'</td></tr>'; }).join('');
+  var unmatchedKeys = Object.keys(data.unmatched);
+  var html = '<div style="margin-bottom:12px;font-size:13.5px">Áp dụng cho tháng: <b>'+dkpMonthLabel(data.mk)+'</b> (đúng tháng đang xem trên màn hình — nếu sai, đóng lại, đổi ô "Xem tháng" rồi nhập lại).</div>';
+  html += '<div style="margin-bottom:6px;font-weight:700;color:#2e7d32">✅ Sẽ ghi nhận '+data.resolved.length+' lượt đăng ký, cho '+deptRows.length+' bộ phận đã khớp:</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:16px"><thead><tr style="background:#f3f8ec"><th style="padding:5px 8px;border:1px solid #eee;text-align:left">Bộ phận</th><th style="padding:5px 8px;border:1px solid #eee">Số lượt</th></tr></thead><tbody>'+(deptRows||'<tr><td colspan="2" style="text-align:center;color:#999;padding:8px">(không có)</td></tr>')+'</tbody></table>';
+  if(unmatchedKeys.length){
+    html += '<div style="margin-bottom:6px;font-weight:700;color:#c62828">⚠ '+unmatchedKeys.length+' tên bộ phận trong file KHÔNG khớp được với bộ phận nào đang có trong "Theo dõi Giao nhận trực" — các lượt này SẼ BỊ BỎ QUA, không ghi:</div>';
+    html += '<ul style="margin:0 0 8px;padding-left:20px;font-size:12.5px;color:#c62828">'+unmatchedKeys.map(function(k){ return '<li>'+dkpEsc(k)+' — '+data.unmatched[k]+' lượt</li>'; }).join('')+'</ul>';
+    html += '<div style="font-size:12px;color:#777;margin-bottom:8px">→ Muốn nhập được các bộ phận này, anh vào "Theo dõi Giao nhận trực" thêm đúng bộ phận đó vào nhóm phù hợp trước, rồi quay lại nhập file lần nữa (không sao nếu nhập lặp — hệ thống tự bỏ qua phần đã khớp trước đó).</div>';
+  }
+  body.innerHTML = html;
+  document.getElementById('dkpImportOverlay').style.display='flex';
+}
+window.dkpCloseImportPreview = function(){
+  document.getElementById('dkpImportOverlay').style.display='none';
+  DKP_IMPORT_PENDING = null;
+};
+window.dkpConfirmImport = function(){
+  var data = DKP_IMPORT_PENDING;
+  if(!data || !data.resolved.length){ dkpCloseImportPreview(); return; }
+  var btn = document.getElementById('dkpImportConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Đang ghi dữ liệu...';
+  // Gom theo mk/sk/dk để đọc dữ liệu đã có sẵn (chống ghi trùng khi lỡ nhập file 2 lần)
+  var byPath = {}; // "mk|sk|dk" -> {dept, sk, mk, list:[entries mới]}
+  data.resolved.forEach(function(en){
+    var mk = en.isMonthly ? data.mk : data.mk; // cùng tháng đang xem
+    var dk = dkpNameKey(en.dept);
+    var pathKey = mk+'|'+en.sk+'|'+dk;
+    if(!byPath[pathKey]) byPath[pathKey] = { mk:mk, sk:en.sk, dk:dk, dept:en.dept, list:[] };
+    byPath[pathKey].list.push(en);
+  });
+  var pathKeys = Object.keys(byPath);
+  var total=0, skippedDup=0;
+  var chain = Promise.resolve();
+  pathKeys.forEach(function(pk){
+    chain = chain.then(function(){
+      var grp = byPath[pk];
+      return dkpRef.child(grp.mk).child(grp.sk).child(grp.dk).child('entries').once('value').then(function(snap){
+        var existing = snap.val() || {};
+        var existingList = Object.values(existing);
+        var updates = {};
+        grp.list.forEach(function(en){
+          var tuNgay = en.isMonthly ? en.tuNgay : en.dateKey;
+          var denNgay = en.isMonthly ? en.denNgay : en.dateKey;
+          var isDup = existingList.some(function(ex){
+            return ex.nhanVien===en.nhanVien && ex.tuNgay===tuNgay && ex.denNgay===denNgay && (ex.ca||'')===(en.ca||'') && (ex.vaiTro||'')===(en.role||'');
+          });
+          if(isDup){ skippedDup++; return; }
+          var evId = Date.now()+'_'+Math.floor(Math.random()*1000000)+'_'+total;
+          var payload = { nhanVien:en.nhanVien, tuNgay:tuNgay, denNgay:denNgay, thoiGianDangKy:new Date().toISOString(), xacNhanBoi:(dkpCurrentName()||'Nhập từ Excel') };
+          if(en.ca) payload.ca = en.ca;
+          if(en.role) payload.vaiTro = en.role;
+          updates[evId] = payload;
+          total++;
+        });
+        if(Object.keys(updates).length){
+          return dkpRef.child(grp.mk).child(grp.sk).child(grp.dk).child('entries').update(updates);
+        }
+      });
+    });
+  });
+  chain.then(function(){
+    btn.disabled = false; btn.textContent='✅ Xác nhận nhập';
+    alert('✅ Đã ghi '+total+' lượt đăng ký mới'+(skippedDup?(' (bỏ qua '+skippedDup+' lượt đã trùng dữ liệu cũ)'):'')+'.');
+    dkpCloseImportPreview();
+    dkpRender();
+  }).catch(function(e){
+    btn.disabled = false; btn.textContent='✅ Xác nhận nhập';
+    alert('Lỗi khi ghi dữ liệu: '+e.message);
+  });
+};
+
+/* ══════════════ CHẾ ĐỘ XEM "BẢNG LƯỚI" (Ngày × Phòng) — giống bảng phân công trực quen thuộc ══════════════ */
+var dkpCurrentView = 'list';
+window.dkpSwitchView = function(mode){
+  dkpCurrentView = mode;
+  var listBox = document.getElementById('dkpGroupsWrap');
+  var gridBox = document.getElementById('dkpGridWrap');
+  var lb = document.getElementById('dkpViewListBtn'), gb = document.getElementById('dkpViewGridBtn');
+  if(mode==='grid'){
+    listBox.style.display='none'; gridBox.style.display='';
+    lb.style.background='rgba(255,255,255,.15)'; lb.style.color='#fff';
+    gb.style.background='#fff'; gb.style.color='#6a1b9a';
+    dkpRenderGrid();
+  } else {
+    listBox.style.display=''; gridBox.style.display='none';
+    gb.style.background='rgba(255,255,255,.15)'; gb.style.color='#fff';
+    lb.style.background='#fff'; lb.style.color='#6a1b9a';
+    dkpRender();
+  }
+};
+function dkpDaysInMonth(mk){
+  var parts = mk.split('-'); var y=+parts[0], m=+parts[1];
+  return new Date(y, m, 0).getDate();
+}
+function dkpAddDaysToKey(dateKey, delta){
+  var d = new Date(dateKey+'T00:00:00'); d.setDate(d.getDate()+delta);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dkpGridCellId(dk, day, ca){ return 'dkpg_'+dk+'_'+day+'_'+(ca||'x'); }
+
+window.dkpRenderGrid = function(){
+  var wrap = document.getElementById('dkpGridWrap');
+  if(!wrap) return;
+  if(!dkpDataLoaded || typeof BTD_GROUPS==='undefined' || !btdGroupsLoaded){
+    wrap.innerHTML = '<div style="text-align:center;padding:20px;color:#7a9a50"><i class="ti ti-loader"></i> Đang tải dữ liệu...</div>';
+    return;
+  }
+  var mk = dkpMonthKey();
+  var sections = dkpBuildSections();
+  var skeys = Object.keys(sections).sort(function(a,b){ return sections[a].order - sections[b].order; });
+  var nDays = dkpDaysInMonth(mk);
+  var isAdm = dkpIsAdmin();
+  var html = '<div style="font-size:12px;color:#666;margin-bottom:12px"><i class="ti ti-info-circle"></i> Bấm vào 1 ô để sửa trực tiếp tên người phụ trách đúng ngày đó (không ảnh hưởng các ngày khác) — giống chỉnh sửa trên bảng phân công trực quen thuộc.</div>';
+
+  skeys.forEach(function(sk){
+    var section = sections[sk];
+    var depts = section.depts;
+    var dks = Object.keys(depts).sort(function(a,b){ return (depts[a].order||0)-(depts[b].order||0) || depts[a].name.localeCompare(depts[b].name,'vi'); });
+    if(!dks.length) return;
+
+    if(sk==='thang'){
+      // Bàn giao theo tháng — không theo ngày, chỉ hiện danh sách gọn, chỉnh sửa ở chế độ Danh sách
+      html += '<div style="margin:18px 0 8px;font-weight:700;color:#3B6D11">'+dkpEsc(section.title)+' <span style="font-weight:400;font-size:11.5px;color:#888">(cố định cả tháng — chỉnh sửa ở chế độ "Danh sách")</span></div>';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px"><thead><tr style="background:#f3f8ec">'+
+        '<th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Phòng</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Người phụ trách</th></tr></thead><tbody>';
+      dks.forEach(function(dk){
+        var deptName = depts[dk].name;
+        var entries = dkpGetEntries(mk, sk, dk);
+        var names = entries.length ? entries.map(function(en){ return dkpEsc(en.nhanVien); }).join(', ') : '<span style="color:#c62828;font-style:italic">Chưa đăng ký</span>';
+        html += '<tr><td style="padding:6px 8px;border:1px solid #eee">'+dkpEsc(deptName)+'</td><td style="padding:6px 8px;border:1px solid #eee">'+names+'</td></tr>';
+      });
+      html += '</tbody></table>';
+      return;
+    }
+
+    html += '<div style="margin:18px 0 8px;font-weight:700;color:#3B6D11">'+dkpEsc(section.title)+'</div>';
+    html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;white-space:nowrap;min-width:100%">';
+    html += '<thead><tr style="background:#5b21b6;color:#fff">'+
+      '<th style="padding:6px 8px;border:1px solid #4527A0;position:sticky;left:0;background:#5b21b6;z-index:2">Ngày</th>';
+    dks.forEach(function(dk){ html += '<th style="padding:6px 10px;border:1px solid #4527A0">'+dkpEsc(depts[dk].name)+'</th>'; });
+    html += '</tr></thead><tbody>';
+
+    for(var day=1; day<=nDays; day++){
+      var dateKey = mk+'-'+String(day).padStart(2,'0');
+      var cas = (sk==='ca1224') ? ['dem','ngay'] : [null];
+      cas.forEach(function(ca, caIdx){
+        var dayLabel = (caIdx===0) ? (day+'/'+mk.split('-')[1]) : '';
+        var caLabel = ca==='dem' ? ' <span style="color:#0d47a1;font-size:10px">(Đêm 19h)</span>' : (ca==='ngay' ? ' <span style="color:#b45309;font-size:10px">(Ngày 7h)</span>' : '');
+        html += '<tr>'+
+          '<td style="padding:4px 8px;border:1px solid #eee;font-weight:'+(caIdx===0?'700':'400')+';position:sticky;left:0;background:'+(day%2?'#fff':'#fafafa')+'">'+dayLabel+caLabel+'</td>';
+        dks.forEach(function(dk){
+          var deptName = depts[dk].name;
+          var resp = dkpFindResponsible(deptName, sk, dateKey, ca);
+          var cellId = dkpGridCellId(dk, day, ca);
+          var cellHtml = '';
+          if(resp.kind==='gap'){
+            cellHtml = '<span style="color:#c62828;font-style:italic">— trống —</span>';
+          } else {
+            cellHtml = resp.roles.map(function(rg){
+              var lbl = rg.role ? ('<b style="color:#6a1b9a">'+dkpEsc(rg.role)+':</b> ') : '';
+              if(rg.conflict) return '<span style="color:#e65100">'+lbl+'⚠ '+rg.names.map(dkpEsc).join(', ')+'</span>';
+              return lbl+dkpEsc(rg.names[0])+(isAdm?' <i class="ti ti-pencil" style="cursor:pointer;color:#aaa;font-size:11px" onclick="dkpGridEditCell(\''+cellId.replace(/'/g,"\\'")+'\',\''+sk+'\',\''+dk+'\',\''+dateKey+'\',\''+(ca||'')+'\',\''+(rg.role||'').replace(/'/g,"\\'")+'\',\''+dkpEsc(rg.names[0]).replace(/'/g,"\\'")+'\')"></i>':'');
+            }).join('<br>');
+          }
+          if(isAdm && resp.kind==='gap'){
+            cellHtml += ' <i class="ti ti-pencil" style="cursor:pointer;color:#aaa;font-size:11px" onclick="dkpGridEditCell(\''+cellId.replace(/'/g,"\\'")+'\',\''+sk+'\',\''+dk+'\',\''+dateKey+'\',\''+(ca||'')+'\',\'\',\'\')"></i>';
+          }
+          html += '<td id="'+cellId+'" style="padding:4px 8px;border:1px solid #eee;min-width:150px">'+cellHtml+'</td>';
+        });
+        html += '</tr>';
+      });
+    }
+    html += '</tbody></table></div>';
+  });
+  wrap.innerHTML = html;
+};
+
+window.dkpGridEditCell = function(cellId, sk, dk, dateKey, ca, role, curName){
+  var td = document.getElementById(cellId);
+  if(!td) return;
+  var inputId = cellId+'_inp';
+  td.innerHTML = '<input type="text" id="'+inputId+'" value="'+dkpEsc(curName)+'" placeholder="Gõ tên để tìm..." autocomplete="off" '+
+    'oninput="dkpFilterStaff(this)" onfocus="dkpFilterStaff(this)" '+
+    'style="width:150px;font-size:12px;padding:3px 5px;border:1.5px solid #6a1b9a;border-radius:5px" '+
+    'onkeydown="if(event.key===\'Enter\'){dkpHideDrop();dkpGridSaveCell(\''+cellId.replace(/'/g,"\\'")+'\',\''+sk+'\',\''+dk+'\',\''+dateKey+'\',\''+(ca||'')+'\',\''+(role||'').replace(/'/g,"\\'")+'\');} if(event.key===\'Escape\'){dkpHideDrop();dkpRenderGrid();}">'+
+    ' <button class="tbtn" style="padding:3px 8px;font-size:11px;background:#2e7d32;color:#fff;border-color:#2e7d32" onmousedown="event.preventDefault();dkpHideDrop();dkpGridSaveCell(\''+cellId.replace(/'/g,"\\'")+'\',\''+sk+'\',\''+dk+'\',\''+dateKey+'\',\''+(ca||'')+'\',\''+(role||'').replace(/'/g,"\\'")+'\')"><i class="ti ti-check"></i></button>';
+  var inp = document.getElementById(inputId);
+  inp.focus();
+  inp.select();
+  dkpFilterStaff(inp);
+};
+
+window.dkpGridSaveCell = function(cellId, sk, dk, dateKey, ca, role){
+  if(!dkpIsAdmin()) return;
+  var inp = document.getElementById(cellId+'_inp');
+  var newName = inp ? inp.value.trim() : '';
+  if(!newName){ alert('Vui lòng nhập tên (hoặc bấm Esc để hủy).'); return; }
+  var mk = dateKey.slice(0,7);
+  var entriesRef = dkpRef.child(mk).child(sk).child(dk).child('entries');
+  entriesRef.once('value').then(function(snap){
+    var val = snap.val() || {};
+    var updates = {};
+    Object.keys(val).forEach(function(key){
+      var en = val[key];
+      if(!en.tuNgay || !en.denNgay) return;
+      if(dateKey < en.tuNgay || dateKey > en.denNgay) return;
+      if(ca && en.ca && en.ca!==ca) return;
+      if((en.vaiTro||'')!==(role||'')) return;
+      // Entry này đang "phủ" đúng ngày cần sửa -> co lại / tách đôi để không đụng các ngày khác
+      updates[key] = null; // xóa entry gốc, thay bằng phần còn lại (nếu có) ở dưới
+      if(en.tuNgay===dateKey && en.denNgay===dateKey){
+        // đúng 1 ngày này thôi -> xóa hẳn, không cần giữ lại phần nào
+      } else if(en.tuNgay===dateKey){
+        var newKey1 = Date.now()+'_'+Math.floor(Math.random()*100000)+'_a';
+        updates[newKey1] = Object.assign({}, en, { tuNgay: dkpAddDaysToKey(dateKey,1) });
+      } else if(en.denNgay===dateKey){
+        var newKey2 = Date.now()+'_'+Math.floor(Math.random()*100000)+'_b';
+        updates[newKey2] = Object.assign({}, en, { denNgay: dkpAddDaysToKey(dateKey,-1) });
+      } else {
+        var newKey3 = Date.now()+'_'+Math.floor(Math.random()*100000)+'_c';
+        var newKey4 = Date.now()+'_'+Math.floor(Math.random()*100000)+'_d';
+        updates[newKey3] = Object.assign({}, en, { denNgay: dkpAddDaysToKey(dateKey,-1) });
+        updates[newKey4] = Object.assign({}, en, { tuNgay: dkpAddDaysToKey(dateKey,1) });
+      }
+    });
+    var newEntryKey = Date.now()+'_'+Math.floor(Math.random()*100000)+'_new';
+    var payload = { nhanVien:newName, tuNgay:dateKey, denNgay:dateKey, thoiGianDangKy:new Date().toISOString(), xacNhanBoi: dkpCurrentName()||newName };
+    if(ca) payload.ca = ca;
+    if(role) payload.vaiTro = role;
+    updates[newEntryKey] = payload;
+    return entriesRef.update(updates);
+  }).then(function(){
+    var sections = dkpBuildSections();
+    var deptName = (sections[sk] && sections[sk].depts[dk] && sections[sk].depts[dk].name) || dk;
+    dkpLogHistory('sua', sk, dk, deptName, null, 'Sửa nhanh (bảng lưới) ngày '+dkpFmtDate(dateKey)+(ca?(' — '+(ca==='dem'?'Ca Đêm':'Ca Ngày')):'')+(role?(' — '+role):'')+' → '+newName);
+    dkpRenderGrid();
+  }).catch(function(e){ alert('Lỗi khi lưu: '+e.message); });
+};
+
 function dkpRender(){
   var mk = dkpMonthKey();
   var sections = dkpBuildSections();
   var skeys = Object.keys(sections).sort(function(a,b){ return sections[a].order - sections[b].order; });
+  var importBtn = document.getElementById('dkpImportBtn'); if(importBtn) importBtn.style.display = dkpIsAdmin() ? '' : 'none';
 
   var total=0, done=0;
   var html = '';
@@ -31828,8 +32328,9 @@ function dkpRender(){
         var namesHtml = entries.map(function(en){
           var rangeTxt = (en.tuNgay && en.denNgay) ? (dkpFmtDate(en.tuNgay)+' – '+dkpFmtDate(en.denNgay)) : '';
           var caLabel = en.ca==='dem' ? ' <span style="font-size:11px;color:#0d47a1;font-weight:600">[Ca Đêm]</span>' : (en.ca==='ngay' ? ' <span style="font-size:11px;color:#b45309;font-weight:600">[Ca Ngày]</span>' : '');
+          var roleLabel = en.vaiTro ? ' <span style="font-size:11px;color:#6a1b9a;font-weight:600;background:#f3e5f5;padding:1px 6px;border-radius:4px">'+dkpEsc(en.vaiTro)+'</span>' : '';
           return '<div style="margin-bottom:4px">'
-            +'<span class="dkp-name">'+dkpEsc(en.nhanVien)+'</span>'+caLabel
+            +'<span class="dkp-name">'+dkpEsc(en.nhanVien)+'</span>'+roleLabel+caLabel
             +(rangeTxt ? ' <span style="font-size:11px;color:#5b21b6;font-weight:600">('+rangeTxt+')</span>' : '')
             +'<span class="dkp-time">Đăng ký lúc '+dkpFmtTime(en.thoiGianDangKy)+'</span>'
             +'</div>';
@@ -31844,12 +32345,13 @@ function dkpRender(){
       html += '<td class="dkp-row-actions">';
       if(dkpIsAdmin()){
         html += '<input class="dkp-input" id="'+uid+'" placeholder="Gõ tên để tìm..." autocomplete="off" oninput="dkpFilterStaff(this)" onfocus="dkpFilterStaff(this)" onblur="setTimeout(dkpHideDrop,180)" />';
+        html += '<input type="text" class="dkp-input" id="'+uid+'_role" placeholder="Vai trò (nếu 2 người/phòng)" style="width:150px" />';
         if(sk==='ca1224'){
           html += '<select class="dkp-input" id="'+uid+'_ca" style="width:150px"><option value="">-- Chọn Ca --</option><option value="dem">Ca Đêm (giao 07h sáng)</option><option value="ngay">Ca Ngày (giao 19h tối)</option></select>';
         }
         html += '<span style="font-size:11px;color:#888">Từ</span><input type="date" class="dkp-input" id="'+uid+'_tu" value="'+defFirst+'" style="width:132px" />';
         html += '<span style="font-size:11px;color:#888">Đến</span><input type="date" class="dkp-input" id="'+uid+'_den" value="'+defLast+'" style="width:132px" />';
-        html += '<button class="tbtn" style="border-color:#2e7d32;color:#2e7d32" onclick="dkpDangKy(\''+sk+'\',\''+dk+'\',\''+uid+'\',\''+escDept+'\',\''+uid+'_tu\',\''+uid+'_den\',\''+uid+'_ca\')">+ Đăng ký nhận tua</button>';
+        html += '<button class="tbtn" style="border-color:#2e7d32;color:#2e7d32" onclick="dkpDangKy(\''+sk+'\',\''+dk+'\',\''+uid+'\',\''+escDept+'\',\''+uid+'_tu\',\''+uid+'_den\',\''+uid+'_ca\',\''+uid+'_role\')">+ Đăng ký nhận tua</button>';
         html += '<button class="tbtn" onclick="dkpNhacNho(\''+escDept+'\')">Nhắc nhở</button>';
       } else {
         html += '<span style="font-size:12px;color:#999;font-style:italic">Chỉ Quản lý mới đăng ký/phân công được — vui lòng liên hệ Quản lý.</span>';
