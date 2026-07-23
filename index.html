@@ -1722,6 +1722,11 @@ table.btd-dt tr:hover td{background:#fbfdf8}
       <div class="sc"><div class="sc-n" id="dkpScMissing" style="color:#c62828">0</div><div class="sc-l" style="color:#ad1457">Chưa đăng ký</div></div>
     </div>
 
+    <div id="dkpListFilterBox" style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="dkpListSearchBox" placeholder="🔍 Tìm theo tên hoặc ngày (VD: 22/07, hoặc 22/07/2026)..." autocomplete="off" oninput="dkpRender()" style="flex:1;min-width:260px;padding:8px 10px;border:1.5px solid #cce0a8;border-radius:8px;font-family:inherit">
+      <button class="tbtn" style="background:#f3f8ec;border-color:#a0c87a;color:#3B6D11" onclick="document.getElementById('dkpListSearchBox').value='';dkpRender()"><i class="ti ti-x"></i> Xóa lọc</button>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:#3B6D11;cursor:pointer"><input type="checkbox" id="dkpListOnlyMultiDay" onchange="dkpRender()"> Chỉ hiện đăng ký nhiều ngày (nghi ngờ dữ liệu cũ/test)</label>
+    </div>
     <div id="dkpGroupsWrap"></div>
     <div id="dkpGridWrap" style="display:none"></div>
     <div id="dkpSearchDrop" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:260px;overflow-y:auto"></div>
@@ -32126,6 +32131,17 @@ window.dkpConfirmImport = function(){
 /* ══════════════ CHẾ ĐỘ XEM "BẢNG LƯỚI" (Ngày × Phòng) — giống bảng phân công trực quen thuộc ══════════════ */
 var dkpCurrentView = 'list';
 var dkpGridCollapsed = {}; // sk -> true/false, nhớ trạng thái thu gọn từng khối trong Bảng lưới
+var dkpGridDateFrom = null, dkpGridDateTo = null; // khoảng ngày đang lọc trong Bảng lưới (null = cả tháng)
+window.dkpGridApplyDateFilter = function(){
+  var f = document.getElementById('dkpGridFromInput'), t = document.getElementById('dkpGridToInput');
+  dkpGridDateFrom = f ? f.value : null;
+  dkpGridDateTo = t ? t.value : null;
+  dkpRenderGrid();
+};
+window.dkpGridResetDateFilter = function(){
+  dkpGridDateFrom = null; dkpGridDateTo = null;
+  dkpRenderGrid();
+};
 window.dkpGridToggleSection = function(sk){
   dkpGridCollapsed[sk] = !dkpGridCollapsed[sk];
   dkpRenderGrid();
@@ -32174,10 +32190,22 @@ window.dkpRenderGrid = function(){
   var skeys = Object.keys(sections).sort(function(a,b){ return sections[a].order - sections[b].order; });
   var nDays = dkpDaysInMonth(mk);
   var isAdm = dkpIsAdmin();
+  var monthFirstLast = dkpMonthFirstLast(mk);
+  if(!dkpGridDateFrom || dkpGridDateFrom.slice(0,7)!==mk) dkpGridDateFrom = monthFirstLast[0];
+  if(!dkpGridDateTo || dkpGridDateTo.slice(0,7)!==mk) dkpGridDateTo = monthFirstLast[1];
+  var dayStart = +dkpGridDateFrom.split('-')[2];
+  var dayEnd = +dkpGridDateTo.split('-')[2];
+  if(dayStart>dayEnd){ var tmp=dayStart; dayStart=dayEnd; dayEnd=tmp; }
+
   var html = '<div style="font-size:12px;color:#666;margin-bottom:8px"><i class="ti ti-info-circle"></i> Bấm vào 1 ô để sửa trực tiếp tên người phụ trách đúng ngày đó (không ảnh hưởng các ngày khác) — giống chỉnh sửa trên bảng phân công trực quen thuộc.</div>';
-  html += '<div style="margin-bottom:12px;display:flex;gap:8px">'+
+  html += '<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
     '<button class="tbtn" style="background:#f3f8ec;border-color:#a0c87a;color:#3B6D11" onclick="dkpGridSetAllCollapsed(true)"><i class="ti ti-chevrons-up"></i> Thu gọn tất cả</button>'+
     '<button class="tbtn" style="background:#f3f8ec;border-color:#a0c87a;color:#3B6D11" onclick="dkpGridSetAllCollapsed(false)"><i class="ti ti-chevrons-down"></i> Mở rộng tất cả</button>'+
+    '<span style="font-size:11.5px;color:#888;margin-left:10px">Lọc ngày:</span>'+
+    '<input type="date" id="dkpGridFromInput" value="'+dkpGridDateFrom+'" min="'+monthFirstLast[0]+'" max="'+monthFirstLast[1]+'" onchange="dkpGridApplyDateFilter()" style="padding:5px 7px;border:1.5px solid #cce0a8;border-radius:6px;font-size:12px">'+
+    '<span style="font-size:11.5px;color:#888">đến</span>'+
+    '<input type="date" id="dkpGridToInput" value="'+dkpGridDateTo+'" min="'+monthFirstLast[0]+'" max="'+monthFirstLast[1]+'" onchange="dkpGridApplyDateFilter()" style="padding:5px 7px;border:1.5px solid #cce0a8;border-radius:6px;font-size:12px">'+
+    '<button class="tbtn" style="background:#f3f8ec;border-color:#a0c87a;color:#3B6D11" onclick="dkpGridResetDateFilter()"><i class="ti ti-x"></i> Xem cả tháng</button>'+
     '</div>';
 
   skeys.forEach(function(sk){
@@ -32214,7 +32242,7 @@ window.dkpRenderGrid = function(){
     dks.forEach(function(dk){ html += '<th style="padding:6px 6px;border:1px solid #4527A0;word-break:break-word">'+dkpEsc(depts[dk].name)+'</th>'; });
     html += '</tr></thead><tbody>';
 
-    for(var day=1; day<=nDays; day++){
+    for(var day=dayStart; day<=dayEnd; day++){
       var dateKey = mk+'-'+String(day).padStart(2,'0');
       var cas = (sk==='ca1224') ? ['dem','ngay'] : [null];
       cas.forEach(function(ca, caIdx){
@@ -32232,7 +32260,7 @@ window.dkpRenderGrid = function(){
           } else {
             cellHtml = resp.roles.map(function(rg){
               var lbl = rg.role ? ('<b style="color:#6a1b9a">'+dkpEsc(rg.role)+':</b> ') : '';
-              if(rg.conflict) return '<span style="color:#e65100">'+lbl+'⚠ '+rg.names.map(dkpEsc).join(', ')+'</span>';
+              if(rg.conflict) return '<span style="color:#e65100">'+lbl+'⚠ '+rg.names.map(dkpEsc).join(', ')+'</span>'+(isAdm?' <i class="ti ti-pencil" style="cursor:pointer;color:#e65100;font-size:11px" title="Sửa để chọn đúng 1 người, tự hết trùng lịch" onclick="dkpGridEditCell(\''+cellId.replace(/'/g,"\\'")+'\',\''+sk+'\',\''+dk+'\',\''+dateKey+'\',\''+(ca||'')+'\',\''+(rg.role||'').replace(/'/g,"\\'")+'\',\'\')"></i>':'');
               return lbl+dkpEsc(rg.names[0])+(isAdm?' <i class="ti ti-pencil" style="cursor:pointer;color:#aaa;font-size:11px" onclick="dkpGridEditCell(\''+cellId.replace(/'/g,"\\'")+'\',\''+sk+'\',\''+dk+'\',\''+dateKey+'\',\''+(ca||'')+'\',\''+(rg.role||'').replace(/'/g,"\\'")+'\',\''+dkpEsc(rg.names[0]).replace(/'/g,"\\'")+'\')"></i>':'');
             }).join('<br>');
           }
@@ -32342,21 +32370,45 @@ function dkpRender(){
       var uid = ('dkpin_'+sk+'_'+dk).replace(/[^a-zA-Z0-9_]/g,'_');
       var escDept = dkpEsc(deptName).replace(/'/g,"\\'");
 
+      // Áp dụng bộ lọc (tìm theo tên/ngày, hoặc chỉ hiện đăng ký nhiều ngày)
+      var searchEl = document.getElementById('dkpListSearchBox');
+      var searchRaw = searchEl ? searchEl.value.trim() : '';
+      var searchQ = searchRaw.toLowerCase();
+      var searchQN = (typeof vnNoAccent==='function') ? vnNoAccent(searchRaw) : searchQ;
+      var onlyMultiEl = document.getElementById('dkpListOnlyMultiDay');
+      var onlyMulti = onlyMultiEl ? onlyMultiEl.checked : false;
+      var filterActive = !!searchRaw || onlyMulti;
+      var displayEntries = entries.filter(function(en){
+        if(onlyMulti && en.tuNgay===en.denNgay) return false;
+        if(searchRaw){
+          var nameMatch = en.nhanVien && ((en.nhanVien.toLowerCase().indexOf(searchQ)!==-1) || vnNoAccent(en.nhanVien).indexOf(searchQN)!==-1);
+          var dateStr = (dkpFmtDate(en.tuNgay)+' '+dkpFmtDate(en.denNgay)+' '+(en.tuNgay||'')+' '+(en.denNgay||'')).toLowerCase();
+          var dateMatch = dateStr.indexOf(searchQ)!==-1;
+          if(!nameMatch && !dateMatch) return false;
+        }
+        return true;
+      });
+
       html += '<tr><td>'+dkpEsc(deptName)+'</td>';
 
-      if(entries.length>0){
-        var namesHtml = entries.map(function(en){
+      if(displayEntries.length>0){
+        var namesHtml = displayEntries.map(function(en){
+          var isMultiDay = en.tuNgay && en.denNgay && en.tuNgay!==en.denNgay;
           var rangeTxt = (en.tuNgay && en.denNgay) ? (dkpFmtDate(en.tuNgay)+' – '+dkpFmtDate(en.denNgay)) : '';
           var caLabel = en.ca==='dem' ? ' <span style="font-size:11px;color:#0d47a1;font-weight:600">[Ca Đêm]</span>' : (en.ca==='ngay' ? ' <span style="font-size:11px;color:#b45309;font-weight:600">[Ca Ngày]</span>' : '');
           var roleLabel = en.vaiTro ? ' <span style="font-size:11px;color:#6a1b9a;font-weight:600;background:#f3e5f5;padding:1px 6px;border-radius:4px">'+dkpEsc(en.vaiTro)+'</span>' : '';
-          return '<div style="margin-bottom:4px">'
+          var multiDayBadge = isMultiDay ? ' <span style="font-size:11px;color:#c62828;font-weight:700;background:#fdecea;padding:1px 6px;border-radius:4px">⚠ Nhiều ngày — nghi ngờ dữ liệu cũ</span>' : '';
+          return '<div style="margin-bottom:4px'+(isMultiDay?';background:#fffaf5;border-left:3px solid #e65100;padding-left:6px':'')+'">'
             +'<span class="dkp-name">'+dkpEsc(en.nhanVien)+'</span>'+roleLabel+caLabel
-            +(rangeTxt ? ' <span style="font-size:11px;color:#5b21b6;font-weight:600">('+rangeTxt+')</span>' : '')
+            +(rangeTxt ? ' <span style="font-size:11px;color:#5b21b6;font-weight:600">('+rangeTxt+')</span>' : '')+multiDayBadge
             +'<span class="dkp-time">Đăng ký lúc '+dkpFmtTime(en.thoiGianDangKy)+'</span>'
             +'</div>';
         }).join('');
         html += '<td>'+namesHtml+'</td>';
-        html += '<td><span class="dkp-badge ok"><i class="ti ti-check"></i> '+entries.length+' người đã đăng ký</span></td>';
+        html += '<td><span class="dkp-badge ok"><i class="ti ti-check"></i> '+displayEntries.length+' người'+(filterActive?' (khớp lọc)':' đã đăng ký')+'</span></td>';
+      } else if(entries.length>0 && filterActive){
+        html += '<td style="color:#999;font-style:italic">— không có đăng ký nào khớp bộ lọc —</td>';
+        html += '<td><span class="dkp-badge ok" style="background:#eee;color:#777"><i class="ti ti-filter"></i> Đã lọc hết</span></td>';
       } else {
         html += '<td style="color:#999">—</td>';
         html += '<td><span class="dkp-badge no"><i class="ti ti-alert-triangle"></i> Chưa đăng ký</span></td>';
