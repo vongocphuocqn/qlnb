@@ -169,6 +169,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f8f0;min-height:100vh
 @keyframes dtPulse{0%,100%{opacity:1}50%{opacity:.65}}
 .sc{cursor:pointer;transition:transform .15s,box-shadow .15s}
 .sc:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.sc.sc-active{border-color:#1565C0!important;box-shadow:0 0 0 3px rgba(21,101,192,.2),0 4px 12px rgba(0,0,0,.12)!important;background:#eef4fb!important}
 /* Downtime panel */
 .dt-panel-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:flex-start;justify-content:center;padding:10px}
 .dt-panel-bg.on{display:flex}
@@ -365,7 +366,7 @@ font-size:10px;color:var(--tx3)}
 .home-logo-wrap{flex-shrink:0;width:100px;height:100px}
 .home-logo-wrap svg{width:100px;height:100px;border-radius:50%;
   filter:drop-shadow(0 4px 12px rgba(0,100,0,.30))}
-.home-hdr-text{flex:1;min-width:0;text-align:left}
+.home-hdr-text{flex:1;min-width:0;text-align:center}
 .home-bv-name{font-size:14px;font-weight:800;color:#1b5e20;line-height:1.35;
   text-transform:uppercase;letter-spacing:.02em}
 .home-dept{font-size:14px;font-weight:800;color:#c62828;margin-top:4px;
@@ -539,7 +540,7 @@ font-size:10px;color:var(--tx3)}
           style="width:90px;height:90px;border-radius:50%;object-fit:cover;display:block">
       </div>
       <div class="home-hdr-text">
-        <div class="home-bv-name">Bệnh viện Đa khoa<br>Trung tâm tỉnh Gia Lai</div>
+        <div class="home-bv-name">Bệnh viện Đa khoa Trung tâm<br>Tỉnh Gia Lai</div>
         <div class="home-dept">Khoa Gây mê Hồi sức</div>
         <div class="home-sys">Hệ thống quản lý nội bộ</div>
       </div>
@@ -1618,10 +1619,13 @@ font-size:10px;color:var(--tx3)}
     </div>
 
     <div class="btd-scards">
-      <div class="sc"><div class="sc-n" id="btdScAll" style="color:#27500A">0</div><div class="sc-l" style="color:#4a6030">Tổng bộ phận</div></div>
-      <div class="sc"><div class="sc-n" id="btdScOk" style="color:#1B5E20">0</div><div class="sc-l" style="color:#2E7D32">Đã giao trực</div></div>
-      <div class="sc"><div class="sc-n" id="btdScOver" style="color:#c62828">0</div><div class="sc-l" style="color:#ad1457">Trễ hạn – chưa giao</div></div>
-      <div class="sc"><div class="sc-n" id="btdScPend" style="color:#e65100">0</div><div class="sc-l" style="color:#ef6c00">Chưa đến hạn</div></div>
+      <div class="sc" id="btdScCardAll" onclick="btdQuickFilter('all')" title="Xem tất cả"><div class="sc-n" id="btdScAll" style="color:#27500A">0</div><div class="sc-l" style="color:#4a6030">Tổng bộ phận</div></div>
+      <div class="sc" id="btdScCardOk" onclick="btdQuickFilter('ok')" title="Chỉ xem đã giao trực"><div class="sc-n" id="btdScOk" style="color:#1B5E20">0</div><div class="sc-l" style="color:#2E7D32">Đã giao trực</div></div>
+      <div class="sc" id="btdScCardOver" onclick="btdQuickFilter('over')" title="Chỉ xem trễ hạn – chưa giao"><div class="sc-n" id="btdScOver" style="color:#c62828">0</div><div class="sc-l" style="color:#ad1457">Trễ hạn – chưa giao</div></div>
+      <div class="sc" id="btdScCardPend" onclick="btdQuickFilter('pend')" title="Chỉ xem chưa đến hạn"><div class="sc-n" id="btdScPend" style="color:#e65100">0</div><div class="sc-l" style="color:#ef6c00">Chưa đến hạn</div></div>
+    </div>
+    <div id="btdFilterNote" style="display:none;text-align:center;font-size:12px;font-weight:700;color:#0d6e6e;background:#e8f6f5;border:1.5px solid #a8d9d0;border-radius:8px;padding:6px 10px;margin-bottom:12px">
+      <i class="ti ti-filter"></i> <span id="btdFilterNoteTxt"></span> — <a href="javascript:void(0)" onclick="btdQuickFilter('all')" style="color:#c62828;font-weight:700;text-decoration:underline">Bỏ lọc, xem tất cả</a>
     </div>
 
     <div id="btdVesinhWrap" style="display:none;margin-bottom:16px"></div>
@@ -11818,6 +11822,7 @@ function briefGoToDctd(id){
 }
 function briefGoToBg(roomId,id){
   if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xử lý nhanh được từ đây. Vui lòng vào thẻ "Bàn giao Hồi sức" và đăng nhập Quản lý.'); return; }
+  briefReturnPending=true;
   closeBriefModal();
   enterBgScreen('admin', cu.name);
   setTimeout(function(){
@@ -11826,12 +11831,14 @@ function briefGoToBg(roomId,id){
 }
 function briefGoToPm(roomId,id){
   if(!cu||cu.role!=='admin'){ alert('Chỉ Quản lý mới xử lý nhanh được từ đây. Vui lòng vào thẻ "Bàn giao Phòng Mổ" và đăng nhập Quản lý.'); return; }
+  briefReturnPending=true;
   closeBriefModal();
   enterPmScreen('admin', cu.name);
   setTimeout(function(){
     try{ pmSelectRoom(roomId); setTimeout(function(){ pmOpenView(id); },400); }catch(e){ console.warn(e); }
   },350);
 }
+function backToBriefModal(){ briefReturnPending=false; openBriefModal(); }
 function briefGoToQt(id){
   closeBriefModal();
   goQuyTrinh();
@@ -12650,7 +12657,7 @@ function exportCSV(){
       +'<td class="td-c'+ev+stCls+'">'+(sm[c.status]||'')+'</td>'
       +'<td class="td-c'+ev+'">'+(stDate?fmtD(stDate):'')+'</td>'
       +'<td class="td-c'+ev+'" style="mso-number-format:General">'+(dtDays!==null?dtDays:'')+'</td>'
-      +'<td class="td'+ev+'" style="font-size:9pt">'+esc(c.adminNote||'')+'</td>'
+      +'<td class="td'+ev+'" style="font-size:9pt">'+escNl(c.adminNote||'')+'</td>'
       +'<td class="td-c'+ev+'" style="mso-number-format:General">'+((c.imgs||[]).length||'')+'</td>'
       +'</tr>';
   });
@@ -13211,10 +13218,10 @@ function nbRenderPublic(){
       '<td style="padding:8px 10px;font-weight:600">'+esc(r.person||'—')+'</td>'+
       '<td style="padding:8px 10px;font-size:12px;line-height:1.7">'+entries+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-weight:700;color:#1565C0">'+count+'</td>'+
-      '<td style="padding:8px 10px;font-size:12px;color:#555">'+esc(r.reason||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:12px;color:#555">'+plainQTNote(r.reason)+'</td>'+
       '<td style="padding:8px 10px;font-weight:600;color:#2e7d32">'+esc(replacer)+'</td>'+
       '<td style="padding:8px 10px;font-size:11px;color:#888">'+fmtDT(r.approvedAt||r.createdAt||'')+'</td>'+
-      '<td style="padding:8px 10px;font-size:12px;color:#7a5800">'+esc(r.adminNote||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:12px;color:#7a5800">'+plainQTNote(r.adminNote)+'</td>'+
       '</tr>';
   }).join('');
   el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
@@ -13261,9 +13268,9 @@ function npRenderPublic(){
       '<td style="padding:8px 10px"><b>'+fmtD(r.dateFrom)+'</b> → <b>'+fmtD(r.dateTo)+'</b></td>'+
       '<td style="padding:8px 10px;text-align:center;font-weight:700;color:#00695c">'+r.days+'</td>'+
       '<td style="padding:8px 10px;font-size:12px">'+esc(typeLabel[r.type]||r.type||'—')+'</td>'+
-      '<td style="padding:8px 10px;font-size:12px;color:#555">'+esc(r.reason||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:12px;color:#555">'+plainQTNote(r.reason)+'</td>'+
       '<td style="padding:8px 10px;font-weight:600;color:#2e7d32">'+esc(replacer)+'</td>'+
-      '<td style="padding:8px 10px;font-size:12px;color:#7a5800">'+esc(r.adminNote||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:12px;color:#7a5800">'+plainQTNote(r.adminNote)+'</td>'+
       '</tr>';
   }).join('');
   el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
@@ -13841,10 +13848,10 @@ function nbRenderMyList(){
         +'<td style="font-size:11px;color:#555">'+fmtDT(r.createdAt)+'</td>'
         +'<td style="font-size:12px;line-height:1.8">'+nbEntriesToStr(r)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#1565C0">'+nbEntriesCount(r)+'</td>'
-        +'<td style="max-width:160px;word-break:break-word">'+esc(r.reason||'—')+'</td>'
+        +'<td style="max-width:160px;word-break:break-word">'+plainQTNote(r.reason)+'</td>'
         +'<td><span class="nb-badge '+(statusClass[r.status]||'')+'">'+( statusLabel[r.status]||r.status)+'</span></td>'
         +'<td>'+nbReplacerDisplay(r)+'</td>'
-        +'<td style="font-size:12px;color:#555">'+esc(r.adminNote||'—')+'</td>'
+        +'<td style="font-size:12px;color:#555">'+plainQTNote(r.adminNote)+'</td>'
         +'<td>'+nbActBtn+'</td>'
         +'</tr>';
     }).join('')
@@ -13999,7 +14006,7 @@ function nbRenderList(){
       +'<td style="font-size:12px">'+fmtDT(r.createdAt)+'</td>'
       +'<td style="font-size:12px;line-height:1.8">'+nbEntriesToStr(r)+'</td>'
       +'<td style="text-align:center;font-weight:700;color:#1565C0">'+nbEntriesCount(r)+'</td>'
-      +'<td style="max-width:180px;word-break:break-word;font-size:12px">'+esc(r.reason||'—')+'</td>'
+      +'<td style="max-width:180px;word-break:break-word;font-size:12px">'+plainQTNote(r.reason)+'</td>'
       +'<td><span class="nb-badge '+(statusClass[r.status]||'')+'">'+( statusLabel[r.status]||r.status)+'</span>'+approvedDateHtml+'</td>'
       +'<td style="font-size:12px">'+nbReplacerDisplay(r)+'</td>'
       +'<td style="font-size:12px">'+esc(r.approvedBy||'—')+'</td>'
@@ -14158,7 +14165,7 @@ function openNbApprove(id){
   document.getElementById('nbApproveInfo').innerHTML =
     '<div class="nb-info-row"><i class="ti ti-user"></i><b>'+esc(r.person)+'</b></div>'+
     '<div class="nb-info-row"><i class="ti ti-tag"></i>Số ca: <b>'+entries.length+' ca</b></div>'+
-    '<div class="nb-info-row"><i class="ti ti-note"></i>Lý do: '+esc(r.reason||'—')+'</div>'+
+    '<div class="nb-info-row"><i class="ti ti-note"></i>Lý do: '+plainQTNote(r.reason)+'</div>'+
     '<div class="nb-info-row"><i class="ti ti-clock-hour-4"></i>Lập phiếu: '+fmtDT(r.createdAt)+'</div>';
 
   // Build per-entry replacer grid using string concat (no nested backticks)
@@ -14359,12 +14366,12 @@ function nbExportExcel(){
       <td class="td-c${ev}">${fmtDT(r.createdAt)}</td>
       <td class="td${ev}">${entriesStr}</td>
       <td class="td-c${ev}" style="text-align:center;font-weight:700;mso-number-format:General">${entries.length}</td>
-      <td class="td${ev}">${r.reason||''}</td>
+      <td class="td${ev}">${plainQTNote(r.reason)}</td>
       <td class="td-c${ev}${stCls}">${slb[r.status]||''}</td>
       <td class="td${ev}">${replStr}</td>
       <td class="td-c${ev}">${r.approvedBy||'—'}</td>
       <td class="td-c${ev}">${r.approvedAt?fmtD(r.approvedAt.split('T')[0]):'—'}</td>
-      <td class="td${ev}">${r.adminNote||''}</td>
+      <td class="td${ev}">${plainQTNote(r.adminNote)}</td>
     </tr>`;
   });
   // Footer totals
@@ -14519,7 +14526,7 @@ function nbExportWord(){
         <td style="text-align:center;font-size:9pt">${fmtDT(r.createdAt)}</td>
         <td style="font-size:9pt">${entStr}</td>
         <td style="text-align:center">${ents.length}</td>
-        <td>${esc(r.reason||'—')}</td>
+        <td>${plainQTNote(r.reason)}</td>
         <td class="st-${r.status==='approved'?'ok':r.status==='denied'?'deny':'pend'}" style="text-align:center">
           ${slb[r.status]||''}
         </td>
@@ -15198,11 +15205,11 @@ function npRenderMyList(){
       +'<td><b>'+fmtD(r.dateFrom)+'</b></td><td><b>'+fmtD(r.dateTo)+'</b></td>'
       +'<td style="text-align:center;font-weight:700;color:#00695c">'+r.days+'</td>'
       +'<td>'+(npTypeLabel[r.type]||r.type)+'</td>'
-      +'<td style="max-width:130px;word-break:break-word;font-size:12px">'+esc(r.reason||'—')+'</td>'
+      +'<td style="max-width:130px;word-break:break-word;font-size:12px">'+plainQTNote(r.reason)+'</td>'
       +'<td>'+npAttachBadges(r)+'</td>'
       +'<td><span class="nb-badge '+(statusClass[r.status]||'')+'">'+( statusLabel[r.status]||r.status)+'</span></td>'
       +'<td style="font-size:12px">'+npReplacerDisplay(r)+'</td>'
-      +'<td style="font-size:12px;color:#7a5800;max-width:140px;word-break:break-word">'+(r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+esc(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>')+'</td>'
+      +'<td style="font-size:12px;color:#7a5800;max-width:140px;word-break:break-word">'+(r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+plainQTNote(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>')+'</td>'
       +'<td>'+actionBtn+'</td></tr>';
   });
   el.innerHTML='<div style="overflow-x:auto"><table class="nb-tbl" style="min-width:900px">'
@@ -15340,11 +15347,11 @@ function npRenderList(){
     <td><b>${fmtD(r.dateTo)}</b></td>
     <td style="text-align:center;font-weight:700;color:#00695c">${r.days}</td>
     <td style="font-size:12px">${npTypeLabel[r.type]||r.type}</td>
-    <td style="max-width:140px;word-break:break-word;font-size:12px">${esc(r.reason||'—')}</td>
+    <td style="max-width:140px;word-break:break-word;font-size:12px">${plainQTNote(r.reason)}</td>
     <td style="min-width:100px">${npAttachBadges(r)}</td>
     <td><span class="nb-badge ${statusClass[r.status]||''}">${statusLabel[r.status]||r.status}</span></td>
     <td style="font-size:12px">${esc(r.replacer||'—')}</td>
-    <td style="font-size:12px;color:#7a5800;max-width:150px;word-break:break-word">${r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+esc(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>'}</td>
+    <td style="font-size:12px;color:#7a5800;max-width:150px;word-break:break-word">${r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+plainQTNote(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>'}</td>
     <td>
       ${(!isStaff&&r.status==='pending')?`<button class="nb-btn nb-btn-sm" style="background:#00695c" onclick="openNpApprove('${r.id}')">
         <i class="ti ti-clipboard-check"></i> Duyệt</button>`:''}
@@ -15373,7 +15380,7 @@ function openNpApprove(id){
     '<div class="nb-info-row"><i class="ti ti-user" style="color:#00695c"></i><b>'+esc(r.person)+'</b></div>'
     +'<div class="nb-info-row"><i class="ti ti-calendar" style="color:#00695c"></i>Từ: <b>'+fmtD(r.dateFrom)+'</b> → Đến: <b>'+fmtD(r.dateTo)+'</b> ('+r.days+' ngày)</div>'
     +'<div class="nb-info-row"><i class="ti ti-tag" style="color:#00695c"></i>Loại: '+(npTypeLabel[r.type]||r.type)+'</div>'
-    +'<div class="nb-info-row"><i class="ti ti-note" style="color:#00695c"></i>Lý do: '+esc(r.reason||'—')+'</div>'
+    +'<div class="nb-info-row"><i class="ti ti-note" style="color:#00695c"></i>Lý do: '+plainQTNote(r.reason)+'</div>'
     +'<div class="nb-info-row"><i class="ti ti-clock" style="color:#00695c"></i>Lập phiếu: '+fmtDT(r.createdAt)+'</div>';
 
   // Build per-day replacer grid
@@ -15620,10 +15627,10 @@ function npExportExcel(){
       <td class="td-c${ev}">${fmtD(r.dateTo)}</td>
       <td class="td-c${ev}" style="font-weight:700;color:#00695c;text-align:center;mso-number-format:General">${r.days}</td>
       <td class="td${ev}">${npTypeLabel[r.type]||''}</td>
-      <td class="td${ev}">${r.reason||''}</td>
+      <td class="td${ev}">${plainQTNote(r.reason)}</td>
       <td class="td-c${ev}${stCls}">${slb[r.status]||''}</td>
       <td class="td${ev}">${r.replacer||'—'}</td>
-      <td class="td${ev}">${r.adminNote||'—'}</td>
+      <td class="td${ev}">${plainQTNote(r.adminNote)}</td>
     </tr>`;
   });
   html+=`</table></body></html>`;
@@ -15714,7 +15721,7 @@ function npExportWord(){
         <td style="text-align:center">${fmtD(r.dateTo)}</td>
         <td style="text-align:center;font-weight:700;color:#00695c">${r.days}</td>
         <td>${npTypeLabel[r.type]||''}</td>
-        <td>${esc(r.reason||'—')}</td>
+        <td>${plainQTNote(r.reason)}</td>
         <td class="st-${r.status==='approved'?'ok':r.status==='denied'?'deny':'pend'}" style="text-align:center">${slb[r.status]||''}</td>
         <td>${esc(r.replacer||'—')}</td>
         <td style="font-size:9pt">${plainQTNote(r.adminNote)}</td>
@@ -20532,6 +20539,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   <div style="background:linear-gradient(135deg,#b45309,#7c2d12);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgGoHome()"><i class="ti ti-home"></i> Trang chủ</button>
+      <button class="kpi-btn" id="bgBackToBriefBtn2" style="display:none;background:#fff;color:#bf360c" onclick="backToBriefModal()"><i class="ti ti-sunrise"></i> Về Giao ban sáng</button>
       <div>
         <div style="font-size:16px;font-weight:700"><i class="ti ti-clipboard-check"></i> Bàn giao trực Hồi sức — Chọn phòng</div>
         <div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức</div>
@@ -20592,6 +20600,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   <div style="background:linear-gradient(135deg,#b45309,#7c2d12);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgBackToRooms()"><i class="ti ti-arrow-left"></i> Đổi phòng</button>
+      <button class="kpi-btn" id="bgBackToBriefBtn" style="display:none;background:#fff;color:#bf360c" onclick="backToBriefModal()"><i class="ti ti-sunrise"></i> Về Giao ban sáng</button>
       <div>
         <div style="font-size:16px;font-weight:700"><i class="ti ti-clipboard-check"></i> Bàn giao trực — <span id="bgRoomTitle">Phòng Hồi sức</span></div>
         <div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức — biên bản bàn giao tài sản hàng ngày, ký nhận 2 bên</div>
@@ -21014,6 +21023,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   <div style="background:linear-gradient(135deg,#0d6e6e,#0a4a4a);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmGoHome()"><i class="ti ti-home"></i> Trang chủ</button>
+      <button class="kpi-btn" id="pmBackToBtdBtn2" style="display:none;background:#fff;color:#0d6e6e" onclick="pmBackToBtd()"><i class="ti ti-arrow-back-up"></i> Về Theo dõi Giao nhận trực</button>
+      <button class="kpi-btn" id="pmBackToBriefBtn2" style="display:none;background:#fff;color:#bf360c" onclick="backToBriefModal()"><i class="ti ti-sunrise"></i> Về Giao ban sáng</button>
       <div>
         <div style="font-size:16px;font-weight:700"><i class="ti ti-building-hospital"></i> Bàn giao Phòng Mổ — Chọn phòng</div>
         <div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức</div>
@@ -21042,6 +21053,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   <div style="background:linear-gradient(135deg,#0d6e6e,#0a4a4a);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmBackToRooms()"><i class="ti ti-arrow-left"></i> Đổi phòng</button>
+      <button class="kpi-btn" id="pmBackToBtdBtn" style="display:none;background:#fff;color:#0d6e6e" onclick="pmBackToBtd()"><i class="ti ti-arrow-back-up"></i> Về Theo dõi Giao nhận trực</button>
+      <button class="kpi-btn" id="pmBackToBriefBtn" style="display:none;background:#fff;color:#bf360c" onclick="backToBriefModal()"><i class="ti ti-sunrise"></i> Về Giao ban sáng</button>
       <div>
         <div style="font-size:16px;font-weight:700"><i class="ti ti-building-hospital"></i> Bàn giao — <span id="pmRoomTitle">Phòng Mổ</span></div>
         <div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức — biên bản bàn giao tài sản hàng ngày, ký nhận 2 bên</div>
@@ -21068,11 +21081,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <h3 style="margin:0 0 12px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmFormWrap','pmFormChevron')"><span><i class="ti ti-square-plus"></i> Lập biên bản bàn giao</span><span id="pmFormChevron" style="font-size:13px">▾</span></h3>
       <div id="pmFormWrap">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin-bottom:12px">
-        <div class="fg"><label>Ngày bàn giao *</label><input type="date" id="pmInDate"></div>
+        <div class="fg"><label>Ngày bàn giao *</label><input type="date" id="pmInDate" onchange="pmRenderVeSinh()"></div>
         <div class="fg"><label>Giờ bàn giao *</label><input type="time" id="pmInGio"></div>
         <div class="fg">
           <label>Ca trực *</label>
-          <select id="pmInCa"><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option></select>
+          <select id="pmInCa" onchange="pmRenderVeSinh()"><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option></select>
         </div>
         <div class="fg"><label>Người bàn giao (ca đi) *</label><input type="text" id="pmInGiao" readonly style="background:#f2f7f6;color:#555;cursor:not-allowed"></div>
         <div class="fg" style="grid-column:1/-1">
@@ -21135,6 +21148,15 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <button type="button" id="pmVeSinhManageBtn" style="display:none;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #0d6e6e;background:#fff;color:#0d6e6e;cursor:pointer" onclick="pmVeSinhManageRooms()"><i class="ti ti-settings"></i> Quản lý phòng áp dụng</button>
         </div>
         <div id="pmVeSinhBody" style="margin-top:8px;font-size:12.5px"></div>
+      </div>
+
+      <div class="fg" style="margin-top:14px;background:#e8f6f5;border:2px solid #0d6e6e;border-radius:10px;padding:12px 14px">
+        <div style="font-weight:800;font-size:13px;color:#0d6e6e;margin-bottom:8px"><i class="ti ti-clipboard-check"></i> Các bộ dụng cụ trong tua đã làm: Đủ/Thiếu</div>
+        <div id="pmSummaryCounts" style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:4px 14px"></div>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;font-weight:700;color:#0d6e6e;cursor:pointer;background:#fff;border:1.5px dashed #0d6e6e;border-radius:8px;padding:9px 10px">
+          <input type="checkbox" id="pmCamKetChk" style="margin-top:2px;width:17px;height:17px;flex-shrink:0;accent-color:#0d6e6e">
+          <span>Tôi cam kết đã kiểm đếm toàn bộ dụng cụ trong tua và báo cáo đúng thực tế như số liệu trên — bộ nào không báo là mặc định Đủ, ca trực chịu trách nhiệm nếu sai.</span>
+        </label>
       </div>
 
       <div style="margin-top:16px;padding:12px 14px;background:#e8f6f5;border:1.5px solid #a8d9d0;border-radius:10px">
@@ -25283,6 +25305,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('bgPickerWhoBanner').innerHTML = isA
       ? '<i class="ti ti-shield-check" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Quyền Quản lý (cấu hình danh sách phòng, xem mọi biên bản mọi phòng)'
       : '<i class="ti ti-user" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b>';
+    var bgBriefBtn2=document.getElementById('bgBackToBriefBtn2'); if(bgBriefBtn2) bgBriefBtn2.style.display=briefReturnPending?'inline-flex':'none';
     bgRenderRoomGrid();
    }catch(errBg){
      alert('⚠️ LỖI khi vào Bàn giao trực (gửi ảnh chụp dòng này cho người hỗ trợ):\n\n'+(errBg&&errBg.message)+'\n\n'+(errBg&&errBg.stack||'').slice(0,400));
@@ -25303,6 +25326,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('bgWhoBanner').innerHTML = isA
       ? '<i class="ti ti-shield-check" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Quyền Quản lý (quản lý danh mục tài sản, xem mọi biên bản) — Phòng: <b>'+bgEsc(roomId)+'</b>'
       : '<i class="ti ti-user" style="color:#b45309"></i> Đăng nhập: <b>'+bgEsc(name)+'</b> — Lập biên bản bàn giao ca trực — Phòng: <b>'+bgEsc(roomId)+'</b>';
+    var bgBriefBtn=document.getElementById('bgBackToBriefBtn'); if(bgBriefBtn) bgBriefBtn.style.display=briefReturnPending?'inline-flex':'none';
     document.getElementById('bgInDate').value=bgToday();
     document.getElementById('bgInGio').value=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
     document.getElementById('bgInCa').value='Ngày';
@@ -25404,6 +25428,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('bgRoomPickerScreen').style.display='none';
     document.getElementById('bgScreen').style.display='none';
     document.getElementById('homeScreen').style.display='flex';
+    briefReturnPending=false;
   };
   window.bgLogout=function(){ window.bgGoHome(); bgCu=null; bgCurrentRoom=null; if(bgRecordsRef){try{bgRecordsRef.off();}catch(e){}} };
   window.bgBackToRooms=function(){
@@ -26968,11 +26993,16 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var f=pmVeSinhFriday(d);
     return f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-'+String(f.getDate()).padStart(2,'0');
   }
-  function pmVeSinhIsDue(d){
+  function pmVeSinhIsDue(){
     if(window.pmVeSinhDebugForceDue) return true; // chế độ test: gõ pmVeSinhDebugForceDue=true trong Console để xem thử giao diện bắt buộc
-    d = d || new Date();
-    var day=d.getDay();
-    return day===5; // CHỈ Thứ 6 — các ngày khác (kể cả T7/CN) không bắt buộc khai báo trong biên bản bàn giao thường ngày
+    var dateStr = (document.getElementById('pmInDate')||{}).value || pmToday();
+    var caVal = (document.getElementById('pmInCa')||{}).value || '';
+    var p = dateStr.split('-');
+    if(p.length!==3) return false;
+    var d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+    // CHỈ tính là đến hạn khi: Ngày bàn giao rơi đúng Thứ 6 VÀ Ca trực = Đêm (bắt đầu 19h tối Thứ 6).
+    // Biên bản 07h sáng Thứ 6 (Ca ngày) thực chất thuộc phiên trực ĐÊM THỨ 5 nên KHÔNG tính vào đây.
+    return d.getDay()===5 && caVal==='Đêm';
   }
   var PM_VESINH_HINHTHUC_LABEL={
     bemat:'Tổng vệ sinh khử khuẩn bề mặt',
@@ -27025,7 +27055,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(!due){
       pmVeSinhChoice=null;
       wrap.style.borderColor='#a8d9d0'; wrap.style.background='#e8f6f5'; lbl.style.color='#0d6e6e'; wrap.dataset.mandatory='0';
-      body.innerHTML='<div style="color:#0d6e6e"><i class="ti ti-info-circle"></i> Chưa tới hạn tổng vệ sinh cuối tuần (áp dụng từ Thứ 6 – Chủ nhật). Chưa bắt buộc khai báo lúc này.</div>';
+      body.innerHTML='<div style="color:#0d6e6e"><i class="ti ti-info-circle"></i> Chưa tới hạn tổng vệ sinh cuối tuần — chỉ bắt buộc khai báo ở đúng biên bản <b>Ca đêm Thứ 6 (bắt đầu 19h tối Thứ 6)</b>. Biên bản sáng Thứ 6 (Ca ngày, thuộc phiên trực đêm Thứ 5) không tính vào đây.</div>';
       return;
     }
 
@@ -27374,6 +27404,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b> — Quyền Quản lý (cấu hình danh mục, xem mọi biên bản mọi phòng)'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b>';
     document.getElementById('pmWhoBanner').innerHTML=whoHtml;
+    var pmBtdBtn2=document.getElementById('pmBackToBtdBtn2'); if(pmBtdBtn2) pmBtdBtn2.style.display=btdReturnPending?'inline-flex':'none';
+    var pmBriefBtn2=document.getElementById('pmBackToBriefBtn2'); if(pmBriefBtn2) pmBriefBtn2.style.display=briefReturnPending?'inline-flex':'none';
     pmRenderRoomGrid();
     pmRenderGroupBtns();
     if(pmMasterCatalogRef){
@@ -27399,6 +27431,16 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('pmRoomPickerScreen').style.display='none';
     document.getElementById('pmScreen').style.display='none';
     document.getElementById('homeScreen').style.display='flex';
+    btdReturnPending=false;
+    briefReturnPending=false;
+  };
+  window.pmBackToBtd=function(){
+    document.getElementById('pmRoomPickerScreen').style.display='none';
+    document.getElementById('pmScreen').style.display='none';
+    btdReturnPending=false;
+    briefReturnPending=false;
+    if(typeof openBtdScreen==='function'){ openBtdScreen(); }
+    else { document.getElementById('homeScreen').style.display='flex'; }
   };
   window.pmLogout=function(){ window.pmGoHome(); pmCu=null; pmCurrentRoom=null; pmGroupActive=null; if(pmRecordsRef){try{pmRecordsRef.off();}catch(e){}} };
   window.pmBackToRooms=function(){
@@ -27423,6 +27465,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b> — Quyền Quản lý'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b>';
     document.getElementById('pmWhoBanner2').innerHTML=whoHtml;
+    var pmBtdBtn=document.getElementById('pmBackToBtdBtn'); if(pmBtdBtn) pmBtdBtn.style.display=btdReturnPending?'inline-flex':'none';
+    var pmBriefBtn=document.getElementById('pmBackToBriefBtn'); if(pmBriefBtn) pmBriefBtn.style.display=briefReturnPending?'inline-flex':'none';
     document.getElementById('pmInDate').value=pmToday();
     document.getElementById('pmInGio').value=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
     document.getElementById('pmInCa').value='Ngày';
@@ -27593,6 +27637,34 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   window.pmSetNote=function(itemId,val){ pmGetState(itemId).ghiChu=val; };
   window.pmSetSoLuong=function(itemId,val){ var n=parseFloat(val); pmGetState(itemId).soLuong=isNaN(n)?null:n; };
 
+  // Tóm tắt Đủ/Thiếu/Hư hỏng của nhóm (tab) đang mở + tự động yêu cầu tick lại cam kết nếu số liệu thay đổi
+  window.pmUpdateSummaryBox=function(){
+    var box=document.getElementById('pmSummaryCounts');
+    if(!box||!pmCurrentRoom) return;
+    var items=pmRoomConfigItems(pmCurrentRoom,pmCurTab);
+    var du=0,thieu=0,hong=0,chua=0;
+    items.forEach(function(it){
+      var st=pmItemStates[it._id];
+      if(!st||!st.reviewed){chua++;return;}
+      if(st.status==='du')du++; else if(st.status==='thieu')thieu++; else if(st.status==='hong')hong++;
+    });
+    (pmOtherItemsTemp||[]).forEach(function(it){
+      if(it.nhomPM!==pmCurTab) return;
+      if(it.status==='du')du++; else if(it.status==='thieu')thieu++; else if(it.status==='hong')hong++;
+    });
+    box.innerHTML =
+      '<span style="color:#0d6e6e">✅ Đủ: '+du+'</span>'+
+      '<span style="color:#c62828">⚠ Thiếu: '+thieu+'</span>'+
+      '<span style="color:#8a6100">🔧 Hư hỏng: '+hong+'</span>'+
+      (chua?('<span style="color:#e65100">⛔ Chưa kiểm tra: '+chua+'</span>'):'');
+    var chk=document.getElementById('pmCamKetChk');
+    if(chk){
+      var sig=du+'-'+thieu+'-'+hong+'-'+chua;
+      if(chk.dataset.lastSig && chk.dataset.lastSig!==sig && chk.checked) chk.checked=false;
+      chk.dataset.lastSig=sig;
+    }
+  };
+
   window.pmRenderItemList=function(){
     var box=document.getElementById('pmItemList');
     if(!box||!pmCurrentRoom) return;
@@ -27622,6 +27694,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         (st.status!=='du'?('<input type="text" placeholder="Ghi chú (bắt buộc nếu thiếu/hư hỏng)..." value="'+pmEsc(st.ghiChu)+'" oninput="pmSetNote(\''+it._id+'\',this.value)" style="margin-top:6px;width:100%;padding:5px 8px;border:1.5px solid #ddd;border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box">'):'')+
         '</div>';
     }).join('') : '<div style="text-align:center;color:#aaa;padding:20px;font-style:italic">Chưa có tài sản nào cấu hình cho nhóm này ở phòng '+pmCurrentRoom+' — Quản lý bấm "Cấu hình phòng này" để thêm.</div>';
+    pmUpdateSummaryBox();
   };
 
   window.pmRenderOtherDatalist=function(){
@@ -27664,6 +27737,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<button type="button" onclick="pmRemoveOtherItem('+idx+')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:13px"><i class="ti ti-trash"></i></button>'+
         '</div>';
     }).join('') : '<div style="color:#aaa;font-size:12px;font-style:italic">Chưa có mục nào trong nhóm này — dùng khi cần bàn giao thêm thứ ngoài danh mục.</div>';
+    pmUpdateSummaryBox();
   };
 
   var pmQRCodeLoading=false;
@@ -27924,7 +27998,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           var vsThisWeek=pmVeSinhWeekKey();
           var vsPrev=pmVeSinhCache[roomId]||null;
           if(d.veSinhChoice==='da_lam'){
-            pmVeSinhDataRef.child(roomId).set({weekKey:vsThisWeek, trangThai:'da_lam', hinhThuc:d.veSinhHinhThuc, nguoiThucHien:lastData.nguoiGiao, thoiGianThucHien:new Date().toISOString(), ghiChu:null, lichSuBanGiao:(vsPrev&&vsPrev.lichSuBanGiao)||[]}).catch(function(){});
+            pmVeSinhDataRef.child(roomId).set({weekKey:vsThisWeek, trangThai:'da_lam', hinhThuc:d.veSinhHinhThuc, nguoiThucHien:lastData.nguoiGiao, nguoiNhan:lastData.nguoiNhan||null, thoiGianThucHien:new Date().toISOString(), gio:lastData.gio||null, recId:newRef.key, ghiChu:null, lichSuBanGiao:(vsPrev&&vsPrev.lichSuBanGiao)||[]}).catch(function(){});
           } else if(d.veSinhChoice==='chua_lam'){
             var vsHist=(vsPrev&&vsPrev.lichSuBanGiao)?vsPrev.lichSuBanGiao.slice():[];
             vsHist.push({tuNguoi:lastData.nguoiGiao, denNguoi:lastData.nguoiNhan, at:new Date().toISOString(), ghiChu:'Chưa thực hiện — bàn giao ca sau tiếp tục'});
@@ -27991,6 +28065,13 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       return st && st.status!=='du' && !st.ghiChu.trim();
     });
     if(missingNote){ pmShowFormAlert('Vui lòng ghi chú lý do cho tài sản "<b>'+pmEsc(missingNote.ten)+'</b>" (đang đánh dấu Thiếu/Hư hỏng).','err'); return; }
+
+    var pmCamKetChk=document.getElementById('pmCamKetChk');
+    if(!pmCamKetChk||!pmCamKetChk.checked){
+      pmShowFormAlert('Vui lòng tick xác nhận <b>"Các bộ dụng cụ trong tua đã làm: Đủ/Thiếu"</b> ở khung cam kết trước khi lưu biên bản.','err');
+      if(pmCamKetChk) pmCamKetChk.closest('.fg').scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
 
     // Bắt buộc khai báo Tổng vệ sinh khử khuẩn cuối tuần nếu phòng thuộc diện áp dụng và đang tới/quá hạn
     var pmVeSinhWrapEl=document.getElementById('pmVeSinhWrap');
@@ -28065,7 +28146,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         if(pmVeSinhChoice==='da_lam'){
           pmVeSinhDataRef.child(pmCurrentRoom).set({
             weekKey:vsThisWeek, trangThai:'da_lam', hinhThuc:pmVeSinhHinhThucChon.slice(),
-            nguoiThucHien:nguoiGiao, thoiGianThucHien:new Date().toISOString(),
+            nguoiThucHien:nguoiGiao, nguoiNhan:nguoiNhan||null, thoiGianThucHien:new Date().toISOString(), gio:gio||null, recId:newRef.key,
             ghiChu:null, lichSuBanGiao:(vsPrev&&vsPrev.lichSuBanGiao)||[]
           }).catch(function(e){ console.warn('Lỗi lưu Tổng vệ sinh cuối tuần', e); });
         } else if(pmVeSinhChoice==='chua_lam'){
@@ -29969,6 +30050,9 @@ let btdPmRecordsRef = null;
 try{ btdPmRecordsRef = db.ref('pmRecords'); }catch(e){ console.warn('Không đọc được dữ liệu Bàn giao Phòng Mổ cho module theo dõi.', e); }
 let _btdDpGid = null;
 let btdCollapsed = {}; // {groupId: true/false} — chỉ nhớ trong phiên đang mở, không lưu Firebase
+let btdActiveFilter = 'all'; // 'all' | 'ok' | 'over' | 'pend' — lọc theo thẻ tổng quan đang bấm
+let btdReturnPending = false; // true khi vào Phòng Mổ TỪ màn hình "Theo dõi Giao nhận trực" — để hiện nút quay lại đúng chỗ
+var briefReturnPending = false; // true khi vào Phòng Mổ/Hồi sức TỪ modal "Giao ban sáng" — để hiện nút quay lại đúng chỗ
 function btdToggleGroup(gid){ btdCollapsed[gid] = !btdCollapsed[gid]; btdRender(); }
 function btdResetToDefault(){
   if(!btdIsAdmin()){ alert('Chỉ Quản lý (Admin) mới được đặt lại cấu hình mặc định!'); return; }
@@ -30217,8 +30301,10 @@ function btdRenderVesinh(){
     if(rec && rec.weekKey===thisWeek && rec.trangThai==='da_lam'){
       okCount++;
       const methods=(rec.hinhThuc||[]).map(function(k){return BTD_VESINH_HINHTHUC_LABEL[k]||k;}).join('; ');
+      const gioTxt = rec.gio ? ('Giờ bàn giao: '+btdEsc(rec.gio)) : (rec.thoiGianThucHien ? ('Lúc: '+btdEsc(fmtDT(rec.thoiGianThucHien))) : '');
+      const nhanTxt = rec.nguoiNhan ? (' <span style="color:#999">→</span> <b>'+btdEsc(rec.nguoiNhan)+'</b>') : '';
       badge='<span class="btd-badge btd-badge-ok"><i class="ti ti-check"></i> Đã thực hiện</span>';
-      who='<span class="btd-who">'+btdEsc(rec.nguoiThucHien||'—')+'<span class="t">'+btdEsc(methods)+'</span></span>';
+      who='<span class="btd-who">'+btdEsc(rec.nguoiThucHien||'—')+nhanTxt+(gioTxt?(' <span style="color:#0d6e6e;font-weight:700">— '+gioTxt+'</span>'):'')+'<span class="t">'+btdEsc(methods)+'</span></span>';
     } else if(rec && rec.trangThai==='chua_lam'){
       overCount++;
       badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn — chưa thực hiện (nợ từ '+btdEsc((rec.weekKey||'').split('-').reverse().join('/'))+')</span>';
@@ -30230,8 +30316,12 @@ function btdRenderVesinh(){
     } else {
       badge='<span class="btd-badge btd-badge-pend"><i class="ti ti-hourglass"></i> Chưa thực hiện (chưa tới hạn — hạn Thứ 6)</span>';
     }
+    const canViewRec = rec && rec.weekKey===thisWeek && rec.trangThai==='da_lam' && rec.recId;
+    const btnHtml = canViewRec
+      ? '<button class="btd-act-btn btd-act-undo" onclick="btdGoToPmVesinhRecord(\''+btdEsc(roomId)+'\',\''+btdEsc(rec.recId)+'\')"><i class="ti ti-eye"></i> Xem biên bản đã nộp</button>'
+      : '<button class="btd-act-btn btd-act-confirm" onclick="btdGoToPmRoom(\''+btdEsc(roomId)+'\')"><i class="ti ti-arrow-right"></i> Vào xem / Lập biên bản</button>';
     rowsHtml+='<tr><td class="btd-dept-name">PM '+btdEsc(roomId)+'</td><td>'+badge+'</td><td>'+who+'</td>'+
-      '<td style="text-align:right"><button class="btd-act-btn btd-act-confirm" onclick="btdGoToPmRoom(\''+btdEsc(roomId)+'\')"><i class="ti ti-arrow-right"></i> Vào xem</button></td></tr>';
+      '<td style="text-align:right">'+btnHtml+'</td></tr>';
   });
   wrap.style.display='block';
   wrap.innerHTML =
@@ -30243,16 +30333,60 @@ function btdRenderVesinh(){
       '<div class="btd-grp-body"><table class="btd-dt"><thead><tr><th>Phòng</th><th>Trạng thái</th><th>Chi tiết</th><th></th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
     '</div>';
 }
-// Nhảy thẳng vào phòng mổ tương ứng trong "Bàn giao Phòng Mổ" (đăng nhập Admin) để xem/lập biên bản vệ sinh cuối tuần
+// Mở ĐÚNG biên bản đã nộp (không phải form trống) — dùng khi phòng đã báo "Đã thực hiện" vệ sinh cuối tuần,
+// để biết chính xác giờ giao nhận và nội dung biên bản gốc đã ghi.
+function btdGoToPmVesinhRecord(roomId, recId){
+  if(!(window.adminSession && adminSession.active)){
+    alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" (hoặc "Bàn giao Phòng Mổ") ở trang chủ trước, rồi quay lại bấm "Xem biên bản đã nộp" cho phòng "'+roomId+'".');
+    return;
+  }
+  try{
+    cu={name:'Quản lý',role:'admin'};
+    btdReturnPending=true;
+    closeBtdScreen();
+    enterPmScreen('admin', cu.name);
+    setTimeout(function(){
+      try{
+        pmSelectRoom(roomId);
+        setTimeout(function(){
+          try{ pmOpenView(recId); }
+          catch(e2){
+            console.warn('Lỗi khi mở biên bản '+recId+' của phòng '+roomId+':', e2);
+            alert('Không mở được biên bản đã nộp (có thể biên bản đã bị xóa).\nLỗi kỹ thuật: '+(e2&&e2.message?e2.message:e2));
+          }
+        }, 400);
+      }catch(e2){
+        console.warn('Lỗi khi vào phòng '+roomId+':', e2);
+        alert('Không chọn được phòng "'+roomId+'".\nLỗi kỹ thuật: '+(e2&&e2.message?e2.message:e2));
+      }
+    }, 350);
+  }catch(e){
+    console.warn('Lỗi khi chuyển sang màn hình Phòng Mổ:', e);
+    alert('Không thể mở màn hình "Bàn giao Phòng Mổ" cho phòng "'+roomId+'".\nLỗi kỹ thuật: '+(e&&e.message?e.message:e));
+  }
+}
 function btdGoToPmRoom(roomId){
   if(!(window.adminSession && adminSession.active)){
     alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" (hoặc "Bàn giao Phòng Mổ") ở trang chủ trước, rồi quay lại bấm "Vào xem" cho phòng "'+roomId+'".');
     return;
   }
-  cu={name:'Quản lý',role:'admin'};
-  closeBtdScreen();
-  try{ enterPmScreen('admin', cu.name); }catch(e){ console.warn(e); return; }
-  setTimeout(function(){ try{ pmSelectRoom(roomId); }catch(e){ console.warn(e); } }, 350);
+  try{
+    cu={name:'Quản lý',role:'admin'};
+    btdReturnPending=true;
+    closeBtdScreen();
+    enterPmScreen('admin', cu.name);
+    setTimeout(function(){
+      try{
+        pmSelectRoom(roomId);
+      }catch(e2){
+        console.warn('Lỗi khi vào phòng '+roomId+':', e2);
+        alert('Đã vào được màn hình Phòng Mổ nhưng KHÔNG chọn được phòng "'+roomId+'".\nLỗi kỹ thuật: '+(e2&&e2.message?e2.message:e2)+'\n\nAnh chụp lại thông báo này gửi cho bộ phận kỹ thuật giúp em nhé.');
+      }
+    }, 350);
+  }catch(e){
+    console.warn('Lỗi khi chuyển sang màn hình Phòng Mổ:', e);
+    alert('Không thể mở màn hình "Bàn giao Phòng Mổ" cho phòng "'+roomId+'".\nLỗi kỹ thuật: '+(e&&e.message?e.message:e)+'\n\nAnh chụp lại thông báo này gửi cho bộ phận kỹ thuật giúp em nhé.');
+  }
 }
 function closeBtdScreen(){
   document.getElementById('btdScreen').style.display='none';
@@ -30438,6 +30572,39 @@ function btdRunStats(){
   body.innerHTML=html;
 }
 
+/* ── Lọc theo thẻ tổng quan (Tổng bộ phận / Đã giao trực / Trễ hạn / Chưa đến hạn) ── */
+const BTD_FILTER_LABEL={all:'Tất cả bộ phận',ok:'Đã giao trực',over:'Trễ hạn – chưa giao',pend:'Chưa đến hạn'};
+function btdQuickFilter(status){
+  btdActiveFilter = (btdActiveFilter===status) ? 'all' : status;
+  btdApplyFilterView();
+}
+function btdApplyFilterView(){
+  const status=btdActiveFilter;
+  // Highlight thẻ đang active
+  ['btdScCardAll','btdScCardOk','btdScCardOver','btdScCardPend'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.classList.remove('sc-active');
+  });
+  var activeMap={all:'btdScCardAll',ok:'btdScCardOk',over:'btdScCardOver',pend:'btdScCardPend'};
+  var activeEl=document.getElementById(activeMap[status]); if(activeEl) activeEl.classList.add('sc-active');
+  // Ghi chú đang lọc
+  var noteEl=document.getElementById('btdFilterNote'), noteTxt=document.getElementById('btdFilterNoteTxt');
+  if(noteEl && noteTxt){
+    if(status==='all'){ noteEl.style.display='none'; }
+    else { noteEl.style.display='block'; noteTxt.textContent='Đang lọc: '+BTD_FILTER_LABEL[status]; }
+  }
+  // Ẩn/hiện từng dòng theo trạng thái
+  document.querySelectorAll('#btdGroupsWrap tr[data-status]').forEach(function(tr){
+    var st=tr.getAttribute('data-status');
+    var show = (status==='all') || (st===status) || (status!=='all' && st==='loading');
+    tr.style.display = show ? '' : 'none';
+  });
+  // Ẩn hẳn cả nhóm nếu không còn dòng nào hiển thị (thu gọn tối đa)
+  document.querySelectorAll('#btdGroupsWrap .btd-grp').forEach(function(card){
+    var anyVisible=false;
+    card.querySelectorAll('tr[data-status]').forEach(function(tr){ if(tr.style.display!=='none') anyVisible=true; });
+    card.style.display = anyVisible ? '' : 'none';
+  });
+}
 /* ── Render ── */
 function btdRender(){
   if(!btdGroupsLoaded) return;
@@ -30447,28 +30614,28 @@ function btdRender(){
   wrap.innerHTML='';
   let cAll=0, cOk=0, cOver=0, cPend=0, overNames=[];
   const groupIds = Object.keys(BTD_GROUPS).sort((a,b)=>(BTD_GROUPS[a].order||0)-(BTD_GROUPS[b].order||0));
+  const groupBuilt=[]; // {gid, order, gOver, gPend, gAll, cardHtml}
 
   groupIds.forEach(gid=>{
     const g=BTD_GROUPS[gid];
     const depts=g.depts||{};
     const deptIds=Object.keys(depts).sort((a,b)=>(depts[a].order||0)-(depts[b].order||0));
-    const card=document.createElement('div');
-    card.className='btd-grp';
     const icon = g.scheduleType==='monthly' ? 'ti-calendar-event' : (g.scheduleType==='shift1224' ? 'ti-replace' : 'ti-clock-hour-7');
     let rowsHtml='';
+    let gOver=0, gPend=0, gAll=0;
     if(deptIds.length===0){
-      rowsHtml='<tr class="btd-empty-row"><td colspan="4">Chưa có bộ phận nào trong nhóm này — bấm nút + ở góc trên để thêm.</td></tr>';
+      rowsHtml='<tr class="btd-empty-row" data-status="empty"><td colspan="4">Chưa có bộ phận nào trong nhóm này — bấm nút + ở góc trên để thêm.</td></tr>';
     } else {
       deptIds.forEach(did=>{
         const d=depts[did];
         const periods=btdGetPeriods(d.name,g);
         periods.forEach((p,pi)=>{
-          cAll++;
-          let badge='', who='<span class="btd-who" style="color:#7a9a50">—</span>', actBtn='';
+          cAll++; gAll++;
+          let badge='', who='<span class="btd-who" style="color:#7a9a50">—</span>', actBtn='', rowStatus='loading';
           if(!btdDataLoadedFor(d.name)){
             badge='<span class="btd-badge" style="background:#eee;color:#888"><i class="ti ti-loader"></i> Đang tải...</span>';
           } else if(p.status==='ok'){
-            cOk++;
+            cOk++; rowStatus='ok';
             const done = p.rec.trangThai==='hoanthanh';
             badge='<span class="btd-badge btd-badge-ok"><i class="ti ti-check"></i> '+(done?'Đã giao trực (đủ 2 bên ký)':'Đã lập biên bản (chờ ký đủ)')+'</span>';
             const nguoiGiao=btdEsc(p.rec.nguoiGiao||p.rec.createdBy||'—');
@@ -30476,7 +30643,7 @@ function btdRender(){
             who='<span class="btd-who">'+nguoiGiao+'<span class="t">'+btdEsc(p.rec.ngay||'')+(gio?(' '+gio):'')+'</span></span>';
             actBtn='<button class="btd-act-btn btd-act-undo" onclick="btdGoToRecord(\''+btdEsc(d.name).replace(/'/g,"\\'")+'\',\''+p.rec.id+'\')"><i class="ti ti-eye"></i> Xem biên bản</button>';
           } else if(p.status==='over'){
-            cOver++; overNames.push(g.name+' – '+d.name+(p.label?' ('+p.label+')':''));
+            cOver++; gOver++; rowStatus='over'; overNames.push(g.name+' – '+d.name+(p.label?' ('+p.label+')':''));
             const bl = p.backlog;
             const blTxt = (bl && bl.count>1) ? (' <span style="font-weight:700">(nợ '+bl.count+' ngày, từ '+btdDMY(bl.since)+')</span>') : (bl && bl.since ? (' (từ '+btdDMY(bl.since)+')') : '');
             badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn – chưa giao'+blTxt+'</span>';
@@ -30516,39 +30683,55 @@ function btdRender(){
               }
             }
           } else {
-            cPend++;
+            cPend++; gPend++; rowStatus='pend';
             badge='<span class="btd-badge btd-badge-pend"><i class="ti ti-hourglass"></i> Chưa đến hạn</span>';
             actBtn='<button class="btd-act-btn btd-act-confirm" onclick="btdGoToRoom(\''+btdEsc(d.name).replace(/'/g,"\\'")+'\')"><i class="ti ti-pencil"></i> Lập biên bản ngay</button>';
           }
           const nameCell = p.label
             ? ('<div class="btd-dept-name">'+btdEsc(d.name)+'</div><div style="font-size:11px;font-weight:500;color:#7a9a50;margin-top:2px">'+btdEsc(p.label)+'</div>')
             : ('<span class="btd-dept-name">'+btdEsc(d.name)+'</span>');
-          rowsHtml += '<tr><td>'+nameCell+'</td><td>'+badge+'</td><td>'+who+'</td>'+
+          rowsHtml += '<tr data-status="'+rowStatus+'"><td>'+nameCell+'</td><td>'+badge+'</td><td>'+who+'</td>'+
             '<td style="text-align:right;white-space:nowrap">'+actBtn+
             (pi===0 && btdIsAdmin() ? (' <button class="btd-del-dept" title="Xóa bộ phận khỏi bảng theo dõi" onclick="btdDeleteDept(\''+gid+'\',\''+did+'\',\''+btdEsc(d.name)+'\')"><i class="ti ti-x"></i></button>') : '')
             +'</td></tr>';
         });
       });
     }
+    // Tự thu gọn nhóm đã xong hết (không có trễ hạn) khi lần đầu hiển thị; giữ nguyên nếu người dùng đã tự bấm thu/mở trước đó
+    if(!(gid in btdCollapsed)){ btdCollapsed[gid] = (gOver===0); }
     const isAdm = btdIsAdmin();
-    card.innerHTML =
+    const accent = gOver>0 ? {bd:'#e57373',bg:'#fff5f5'} : (gPend>0 ? {bd:'#a8d9d0',bg:'#fff'} : {bd:'#a5d6a7',bg:'#f7fdf8'});
+    const statusChip = gOver>0
+      ? '<span class="btd-badge btd-badge-over" style="margin-left:8px"><i class="ti ti-alert-triangle"></i> '+gOver+' trễ hạn</span>'
+      : (gPend>0 ? '<span class="btd-badge btd-badge-pend" style="margin-left:8px">'+gPend+' chưa đến hạn</span>' : '<span class="btd-badge btd-badge-ok" style="margin-left:8px"><i class="ti ti-check"></i> Đã xong hết</span>');
+    const cardHtml =
+      '<div class="btd-grp" data-gid="'+gid+'" style="border:1.5px solid '+accent.bd+';background:'+accent.bg+'">'+
       '<div class="btd-grp-hd">'+
         '<div class="btd-grp-ic"><i class="ti '+icon+'"></i></div>'+
-        '<div><div class="btd-grp-title">'+btdEsc(g.name)+'</div><div class="btd-grp-rule">'+btdDeadlineLabel(g)+' &nbsp;·&nbsp; '+deptIds.length+' bộ phận</div></div>'+
+        '<div><div class="btd-grp-title">'+btdEsc(g.name)+statusChip+'</div><div class="btd-grp-rule">'+btdDeadlineLabel(g)+' &nbsp;·&nbsp; '+deptIds.length+' bộ phận</div></div>'+
         '<div class="btd-grp-actions">'+
           '<div class="btd-ibtn" title="'+(btdCollapsed[gid]?'Mở rộng':'Thu gọn')+'" onclick="btdToggleGroup(\''+gid+'\')"><i class="ti '+(btdCollapsed[gid]?'ti-chevron-down':'ti-chevron-up')+'"></i></div>'+
           (isAdm ? ('<div class="btd-ibtn" title="Thêm bộ phận" onclick="btdOpenDeptModal(\''+gid+'\')"><i class="ti ti-plus"></i></div>'+
           '<div class="btd-ibtn danger" title="Xóa nhóm" onclick="btdDeleteGroup(\''+gid+'\',\''+btdEsc(g.name)+'\')"><i class="ti ti-trash"></i></div>') : '')+
         '</div>'+
       '</div>'+
-      '<div class="btd-grp-body" style="display:'+(btdCollapsed[gid]?'none':'block')+'"><table class="btd-dt"><thead><tr><th>Bộ phận giao nhận theo ca</th><th>Trạng thái</th><th>Người giao / ngày</th><th></th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>';
-    wrap.appendChild(card);
+      '<div class="btd-grp-body" style="display:'+(btdCollapsed[gid]?'none':'block')+'"><table class="btd-dt"><thead><tr><th>Bộ phận giao nhận theo ca</th><th>Trạng thái</th><th>Người giao / ngày</th><th></th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+      '</div>';
+    groupBuilt.push({gid:gid, order:(g.order||0), gOver:gOver, cardHtml:cardHtml});
   });
+
+  // Ưu tiên hiển thị nhóm đang có trễ hạn lên đầu tiên, nhóm đã xong hết đẩy xuống dưới cùng cho đỡ rối mắt
+  groupBuilt.sort(function(a,b){
+    if((b.gOver>0)!==(a.gOver>0)) return (b.gOver>0)?1:-1;
+    return a.order-b.order;
+  });
+  groupBuilt.forEach(function(x){ wrap.insertAdjacentHTML('beforeend', x.cardHtml); });
 
   document.getElementById('btdScAll').textContent=cAll;
   document.getElementById('btdScOk').textContent=cOk;
   document.getElementById('btdScOver').textContent=cOver;
   document.getElementById('btdScPend').textContent=cPend;
+  btdApplyFilterView();
   const adminRow=document.getElementById('btdAdminActionsRow');
   if(adminRow) adminRow.style.display = btdIsAdmin() ? 'flex' : 'none';
 
@@ -30566,6 +30749,7 @@ function btdGoToRoom(roomName){
     return;
   }
   cu={name:'Quản lý',role:'admin'};
+  if(btdIsPmRoom(roomName)) btdReturnPending=true;
   closeBtdScreen();
   if(btdIsPmRoom(roomName)){
     try{ enterPmScreen('admin', cu.name); }catch(e){ console.warn(e); return; }
@@ -30581,6 +30765,7 @@ function btdGoToRecord(roomName, recId){
     return;
   }
   cu={name:'Quản lý',role:'admin'};
+  if(btdIsPmRoom(roomName)) btdReturnPending=true;
   closeBtdScreen();
   if(btdIsPmRoom(roomName)){
     try{ enterPmScreen('admin', cu.name); }catch(e){ console.warn(e); return; }
