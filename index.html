@@ -10315,6 +10315,8 @@ function _adminSessionUpdateBadge(){
 
 /* ── HELPERS ── */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+/* Giữ nguyên xuống dòng người dùng đã gõ khi hiển thị trong thẻ (card): chuyển \n thành <br> */
+function escNl(s){return esc(s).replace(/\r\n/g,'\n').replace(/\n/g,'<br>');}
 /* Trình bày "Ghi chú QT" theo cấu trúc ý mẹ / ý con, tự nhận diện dấu ngăn cách phổ biến */
 function fmtQTNote(note){
   const raw=String(note||'').trim();
@@ -10910,7 +10912,7 @@ function deptStatsExportExcel(){
         <td class="td-c${ev}">${i+1}</td>
         <td class="td${ev}" style="font-weight:bold">${esc(c.person||'')}</td>
         <td class="td-c${ev}">${fmtD(c.date)}</td>
-        <td class="td${ev}">${esc(c.content||c.todo||'')}</td>
+        <td class="td${ev}">${escNl(c.content||c.todo||'')}</td>
         <td class="td-c${ev}">${days!==null?days:''}</td>
         <td class="td-c${ev}">${stLbl[c.status]||c.status}</td>
       </tr>`;
@@ -11698,7 +11700,7 @@ function renderCard(c){
   }
   const imgs=imgTags?'<div class="cimgs">'+imgTags+'</div>':'';  const noteHtml=c.status==='todo'&&c.adminNote
     ?`<div class="cnote"><div class="cnote-hdr"><i class="ti ti-message-circle"></i>
-        <div class="cnote-body">${esc(c.adminNote)}</div></div>
+        <div class="cnote-body">${escNl(c.adminNote)}</div></div>
         <div class="cnote-meta"><i class="ti ti-user-shield" style="font-size:10px"></i>
         Quản lý ghi${c.adminNoteAt?' – '+fmtD(c.adminNoteAt.split('T')[0]):''}
         ${isA?`<button class="bnote-del" style="margin-left:6px" onclick="deleteNote(${c.id})">× Xóa</button>`:''}
@@ -11708,7 +11710,7 @@ function renderCard(c){
   const assignBadge=c.assignee?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#f3e8fd;color:#6a1e7e;border:1px solid #d9c2ea;vertical-align:middle;margin-left:4px"><i class="ti ti-user-check" style="font-size:10px"></i> Phụ trách: ${esc(c.assignee)}</span>`:'';
   const assignNoteHtml=c.assignee&&c.assignNote?`<div class="cnote" style="background:#f3e8fd;border-color:#d9c2ea">
       <div class="cnote-hdr"><i class="ti ti-clipboard-text" style="color:#6a1e7e"></i>
-      <div class="cnote-body">${esc(c.assignNote)}</div></div>
+      <div class="cnote-body">${escNl(c.assignNote)}</div></div>
       <div class="cnote-meta"><i class="ti ti-user-check" style="font-size:10px"></i>
       Giao việc cho ${esc(c.assignee)}${c.assignedAt?' – '+fmtD(c.assignedAt.split('T')[0]):''}</div></div>`:'';
   const assignBtn=isA?`<button class="bedit" onclick="openAssignModal(${c.id})"><i class="ti ti-user-check"></i> ${c.assignee?'Đổi phụ trách':'Phân công'}</button>`:'';
@@ -11738,10 +11740,10 @@ function renderCard(c){
       ${c.status==='done'&&c.doneAt?`<span class="cedit-info"><i class="ti ti-check" style="font-size:10px"></i> Hoàn thành: ${fmtD(c.doneAt)}</span>`:''}
       ${c.editedAt?`<span class="cedit-info"><i class="ti ti-edit" style="font-size:10px"></i> Đã sửa bởi ${esc(c.editedBy||'')} – ${fmtD(c.editedAt.split('T')[0])}</span>`:''}
     </div>
-    ${c.content?`<div class="ctext">${esc(c.content)}</div>`:''}
-    ${c.todo?`<div class="trow"><span class="chip ch-td">📋 Cần làm</span><span class="ttext">${esc(c.todo)}</span></div>`:''}
-    ${c.doing?`<div class="trow"><span class="chip ch-dg">⚙ Đang làm</span><span class="ttext">${esc(c.doing)}</span></div>`:''}
-    ${c.done?`<div class="trow"><span class="chip ch-dn">✅ Hoàn thành</span><span class="ttext">${esc(c.done)}</span></div>`:''}
+    ${c.content?`<div class="ctext">${escNl(c.content)}</div>`:''}
+    ${c.todo?`<div class="trow"><span class="chip ch-td">📋 Cần làm</span><span class="ttext">${escNl(c.todo)}</span></div>`:''}
+    ${c.doing?`<div class="trow"><span class="chip ch-dg">⚙ Đang làm</span><span class="ttext">${escNl(c.doing)}</span></div>`:''}
+    ${c.done?`<div class="trow"><span class="chip ch-dn">✅ Hoàn thành</span><span class="ttext">${escNl(c.done)}</span></div>`:''}
     ${imgs}${noteHtml}${assignNoteHtml}${footer}${histPanel}
   </div>`;
 }
@@ -11802,7 +11804,7 @@ function briefCardRow(c,mode){
   return `<div onclick="window._briefReturnPending=true;closeBriefModal();openEditModal(${c.id});" style="padding:9px 0;border-bottom:1px solid #f0f0f0;display:flex;gap:10px;align-items:flex-start;cursor:pointer" onmouseover="this.style.background='#f7f7f7'" onmouseout="this.style.background=''">
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700;color:#222">${esc(c.person||'')}${c.dept?` <span style="font-weight:400;color:#888;font-size:11px">(${esc(c.dept)})</span>`:''}</div>
-      <div style="font-size:12px;color:#555;margin-top:2px">${esc(c.content||c.todo||c.doing||'')}</div>
+      <div style="font-size:12px;color:#555;margin-top:2px;white-space:pre-wrap">${escNl(c.content||c.todo||c.doing||'')}</div>
       <div style="font-size:11px;color:#999;margin-top:2px">${mode==='urgent'?pri+' · ':''}Ngày BC: ${fmtD(c.date)}</div>
     </div>
     <div style="flex-shrink:0">${rightBit}</div>
@@ -12494,8 +12496,8 @@ function printWord(){
         <td>${esc(c.dept||'—')}</td>
         <td style="text-align:center">${fmtD(c.date)}</td>
         <td>${pm[c.pri]||'🟡 Bình thường'}</td>
-        <td>${esc(c.content||'')}</td>
-        <td>${[c.todo&&`<b>Cần làm:</b> ${esc(c.todo)}`,c.doing&&`<b>Đang làm:</b> ${esc(c.doing)}`,c.done&&`<b>Hoàn thành:</b> ${esc(c.done)}`].filter(Boolean).join('<br>')}</td>
+        <td>${escNl(c.content||'')}</td>
+        <td>${[c.todo&&`<b>Cần làm:</b> ${escNl(c.todo)}`,c.doing&&`<b>Đang làm:</b> ${escNl(c.doing)}`,c.done&&`<b>Hoàn thành:</b> ${escNl(c.done)}`].filter(Boolean).join('<br>')}</td>
         <td style="text-align:center">${stDate?fmtD(stDate):'—'}</td>
         <td style="text-align:center">${dtDays!==null?dtDays+' ngày':'—'}</td>
         <td>${sm[c.status]||''}</td>
@@ -12641,10 +12643,10 @@ function exportCSV(){
       +'<td class="td'+ev+'" style="font-weight:bold">'+esc(c.person||'')+'</td>'
       +'<td class="td-c'+ev+'">'+fmtD(c.date)+'</td>'
       +'<td class="td-c'+ev+priCls+'">'+(pm[c.pri]||'')+'</td>'
-      +'<td class="td'+ev+'">'+esc(c.content||'')+'</td>'
-      +'<td class="td'+ev+'" style="font-size:9pt">'+esc(c.todo||'')+'</td>'
-      +'<td class="td'+ev+'" style="font-size:9pt">'+esc(c.doing||'')+'</td>'
-      +'<td class="td'+ev+'" style="font-size:9pt">'+esc(c.done||'')+'</td>'
+      +'<td class="td'+ev+'">'+escNl(c.content||'')+'</td>'
+      +'<td class="td'+ev+'" style="font-size:9pt">'+escNl(c.todo||'')+'</td>'
+      +'<td class="td'+ev+'" style="font-size:9pt">'+escNl(c.doing||'')+'</td>'
+      +'<td class="td'+ev+'" style="font-size:9pt">'+escNl(c.done||'')+'</td>'
       +'<td class="td-c'+ev+stCls+'">'+(sm[c.status]||'')+'</td>'
       +'<td class="td-c'+ev+'">'+(stDate?fmtD(stDate):'')+'</td>'
       +'<td class="td-c'+ev+'" style="mso-number-format:General">'+(dtDays!==null?dtDays:'')+'</td>'
