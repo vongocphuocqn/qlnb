@@ -20138,7 +20138,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       </div>
 
       <div id="ltTabMain">
-        <div id="ltMainContent"></div>
+        <div id="ltMainCountNote" style="display:none;font-size:12px;color:#4527a0;font-weight:600;margin-bottom:8px"></div>
+        <div id="ltMainContent" style="display:flex;flex-direction:column;gap:10px"></div>
         <div id="ltNotViewedBox" style="display:none;margin-top:14px;border:1.5px solid #f5c6c2;background:#fff8f7;border-radius:10px;padding:12px 14px">
           <div style="font-weight:700;font-size:12.5px;color:#c62828;margin-bottom:6px"><i class="ti ti-alert-triangle"></i> Nhân viên CHƯA xem lịch chính tháng này (<span id="ltNotViewedCount">0</span>)</div>
           <div id="ltNotViewedList" style="font-size:12px;color:#7a1414;line-height:1.8"></div>
@@ -20165,6 +20166,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 .lt-render tr:first-child td{background:#eef0f5;font-weight:700}
 #ltPreviewBox.lt-fullscreen{max-width:100vw!important;width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0!important;position:fixed;top:0;left:0;margin:0}
 #ltPreviewBox.lt-fullscreen #ltPreviewBody{max-height:calc(100vh - 54px)!important}
+#ltPdfFrame{height:70vh}
+#ltPreviewBox.lt-fullscreen #ltPdfFrame{height:calc(100vh - 82px)}
 </style>
 <div class="kpi-modal-overlay" id="ltViewersOverlay">
   <div class="kpi-modal-box" style="max-width:440px">
@@ -20209,8 +20212,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <textarea id="ltUpNote" style="min-height:50px"></textarea>
       </div>
       <div class="fg">
-        <label id="ltUpFileLabel">Chọn file Excel (.xls / .xlsx) *</label>
-        <input type="file" id="ltUpFile" accept=".xls,.xlsx">
+        <label id="ltUpFileLabel">Chọn file lịch trực (.xls, .xlsx, .pdf) — có thể chọn NHIỀU file cùng lúc *</label>
+        <input type="file" id="ltUpFile" accept=".xls,.xlsx,.pdf" multiple>
+        <div class="sub" style="margin-top:4px">Khi Sửa 1 mục đã có, chỉ chọn 1 file để thay thế. Khi tải lên mới, có thể chọn nhiều file — mỗi file sẽ thành 1 mục riêng trong danh sách.</div>
       </div>
       <div id="ltUpAlert" style="display:none;padding:9px 12px;border-radius:8px;font-size:12.5px;margin-top:6px"></div>
       <button class="kpi-btn" id="ltUpSubmitBtn" style="background:#4527a0;color:#fff;margin-top:10px;width:100%" onclick="ltSubmitUpload()"><i class="ti ti-upload"></i> Tải lên</button>
@@ -23111,6 +23115,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     return btoa(binary);
   }
   function ltMimeFor(fileName){
+    if(/\.pdf$/i.test(fileName||'')) return 'application/pdf';
     return /\.xlsx$/i.test(fileName||'') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.ms-excel';
   }
   function ltPopulateMonthQuick(){
@@ -23212,9 +23217,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 
     var contentEl=document.getElementById('ltMainContent');
     if(contentEl){
-      contentEl.innerHTML = latestMain
-        ? ltFileCardHtml(latestMain,month,true)
+      contentEl.innerHTML = mains.length
+        ? mains.slice().reverse().map(function(it){ return ltFileCardHtml(it,month,true); }).join('')
         : '<div style="text-align:center;color:#aaa;padding:30px;font-style:italic">Chưa có lịch chính cho '+ltFmtMonth(month)+'</div>';
+    }
+    var mainCountEl=document.getElementById('ltMainCountNote');
+    if(mainCountEl){
+      if(mains.length>1){ mainCountEl.style.display='block'; mainCountEl.textContent='📎 Có '+mains.length+' file lịch chính cho tháng này (ví dụ: file Excel + file PDF cùng 1 lịch) — mới nhất hiện trên đầu.'; }
+      else { mainCountEl.style.display='none'; }
     }
 
     var nvBox=document.getElementById('ltNotViewedBox');
@@ -23270,7 +23280,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     document.getElementById('ltUpSubmitBtn').innerHTML='<i class="ti ti-upload"></i> Tải lên';
     document.getElementById('ltUpMonth').disabled=false;
     document.getElementById('ltUpType').disabled=false;
-    document.getElementById('ltUpFileLabel').textContent='Chọn file Excel (.xls / .xlsx) *';
+    document.getElementById('ltUpFileLabel').textContent='Chọn file lịch trực (.xls, .xlsx, .pdf) — có thể chọn NHIỀU file cùng lúc *';
     document.getElementById('ltUpMonth').value=document.getElementById('ltMonthPicker').value||'';
     document.getElementById('ltUpType').value='main';
     document.getElementById('ltUpNoteWrap').style.display='none';
@@ -23314,7 +23324,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var type=document.getElementById('ltUpType').value;
     var note=document.getElementById('ltUpNote').value.trim();
     var fileInput=document.getElementById('ltUpFile');
-    var file=fileInput.files && fileInput.files[0];
+    var files=fileInput.files ? Array.prototype.slice.call(fileInput.files) : [];
+    var file=files[0]||null; // dùng cho chế độ Sửa (chỉ thay 1 file)
     var alertEl=document.getElementById('ltUpAlert');
     function showAl(msg,cls){
       if(!alertEl) return;
@@ -23324,11 +23335,17 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       alertEl.textContent = msg;
     }
     if(!month){showAl('Vui lòng chọn tháng áp dụng.','err');return;}
-    if(!ltEditing && !file){showAl('Vui lòng chọn file Excel.','err');return;}
+    if(!ltEditing && !files.length){showAl('Vui lòng chọn ít nhất 1 file (Excel hoặc PDF).','err');return;}
     if(!ltRef){showAl('Chưa kết nối được Firebase.','err');return;}
+    var MAX_SIZE=4*1024*1024; // 4MB — file lớn hơn dễ lưu lỗi/chậm vì lưu trực tiếp trong Firebase Realtime Database
+    var tooBig=files.filter(function(f){return f.size>MAX_SIZE;});
+    if(tooBig.length){
+      showAl('File quá nặng (>4MB), KHÔNG lưu được: '+tooBig.map(function(f){return f.name+' ('+(f.size/1024/1024).toFixed(1)+'MB)';}).join('; ')+'. Anh nén nhỏ lại (PDF nên xuất ở chất lượng thấp hơn, ảnh nên resize) rồi thử lại.','err');
+      return;
+    }
 
     if(ltEditing){
-      // Chế độ Sửa: cập nhật ghi chú, và file mới nếu có chọn
+      // Chế độ Sửa: cập nhật ghi chú, và file mới nếu có chọn (chỉ thay được 1 file)
       showAl('Đang cập nhật, vui lòng đợi...','warn');
       var updRec={note:note||null};
       function doUpdate(){
@@ -23355,26 +23372,43 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       return;
     }
 
-    showAl('Đang tải lên, vui lòng đợi...','warn');
-    var reader=new FileReader();
-    reader.onload=function(e){
-      try{
-        var data=new Uint8Array(e.target.result);
-        var base64=ltArrayBufferToBase64(data);
-        var itemId=Date.now()+'_'+Math.floor(Math.random()*10000);
-        var rec={type:type,fileName:file.name,base64:base64,note:note||null,uploadedBy:ltCu.name,uploadedAt:new Date().toISOString()};
-        ltRef.child(month).child('items').child(itemId).set(rec).then(function(){
-          showAl('✅ Đã tải lên thành công!','ok');
-          setTimeout(function(){
-            ltCloseUpload();
-            var mp=document.getElementById('ltMonthPicker'); if(mp) mp.value=month;
-            ltSwitchTab(type==='adj'?'adj':'main');
-          },500);
-        }).catch(function(err){showAl('Lỗi khi lưu dữ liệu: '+err.message,'err');});
-      }catch(err){ showAl('Lỗi khi xử lý file: '+err.message,'err'); }
-    };
-    reader.onerror=function(){showAl('Không đọc được file.','err');};
-    reader.readAsArrayBuffer(file);
+    // Tải lên mới — cho phép NHIỀU file cùng lúc, mỗi file lưu thành 1 mục riêng (cùng tháng/loại/ghi chú)
+    showAl('Đang tải lên '+files.length+' file, vui lòng đợi...','warn');
+    var okCount=0, errFiles=[];
+    function readOneFile(f){
+      return new Promise(function(resolve){
+        var reader=new FileReader();
+        reader.onload=function(e){
+          try{
+            var data=new Uint8Array(e.target.result);
+            var base64=ltArrayBufferToBase64(data);
+            var itemId=Date.now()+'_'+Math.floor(Math.random()*100000);
+            var rec={type:type,fileName:f.name,base64:base64,note:note||null,uploadedBy:ltCu.name,uploadedAt:new Date().toISOString()};
+            ltRef.child(month).child('items').child(itemId).set(rec).then(function(){
+              okCount++; resolve();
+            }).catch(function(err){ errFiles.push(f.name+' ('+err.message+')'); resolve(); });
+          }catch(err){ errFiles.push(f.name+' ('+err.message+')'); resolve(); }
+        };
+        reader.onerror=function(){ errFiles.push(f.name+' (không đọc được file)'); resolve(); };
+        reader.readAsArrayBuffer(f);
+      });
+    }
+    (async function(){
+      for(var i=0;i<files.length;i++){ await readOneFile(files[i]); }
+      if(errFiles.length && okCount){
+        showAl('⚠️ Chỉ tải lên được '+okCount+'/'+files.length+' file. LỖI (chưa lưu được): '+errFiles.join('; ')+' — anh thử tải lại riêng (các) file lỗi này.','err');
+        return; // KHÔNG tự đóng khung, để anh đọc rõ file nào chưa lưu được và tải lại
+      } else if(errFiles.length && !okCount){
+        showAl('Lỗi khi tải lên: '+errFiles.join('; '),'err'); return;
+      } else {
+        showAl('✅ Đã tải lên thành công '+okCount+' file!','ok');
+      }
+      setTimeout(function(){
+        ltCloseUpload();
+        var mp=document.getElementById('ltMonthPicker'); if(mp) mp.value=month;
+        ltSwitchTab(type==='adj'?'adj':'main');
+      },700);
+    })();
   };
 
   window.ltOpenFile=function(itemId,month){
@@ -23395,6 +23429,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   };
 
   var ltPreviewCurrent=null; // {itemId, month}
+  var ltPreviewPdfUrl=null; // Object URL của blob PDF đang xem — cần revoke khi đóng để tránh rò bộ nhớ
   window.ltPreviewFile=function(itemId,month){
     var item=(ltData[month]&&ltData[month].items&&ltData[month].items[itemId]);
     if(!item||!item.base64){alert('Không tìm thấy file.');return;}
@@ -23409,6 +23444,22 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     if(titleEl) titleEl.innerHTML='<i class="ti ti-eye"></i> '+ltEsc(item.fileName||'');
     if(bodyEl) bodyEl.innerHTML='<div style="text-align:center;color:#888;padding:30px"><i class="ti ti-loader-2"></i> Đang tải xem trước...</div>';
     document.getElementById('ltPreviewOverlay').style.display='flex';
+    var isPdf=/\.pdf$/i.test(item.fileName||'');
+    var imgBtn2=document.getElementById('ltPreviewImgBtn'); if(imgBtn2) imgBtn2.style.display=isPdf?'none':'';
+    if(isPdf){
+      try{
+        if(ltPreviewPdfUrl){ URL.revokeObjectURL(ltPreviewPdfUrl); ltPreviewPdfUrl=null; }
+        var byteChars0=atob(item.base64);
+        var byteNumbers0=new Array(byteChars0.length);
+        for(var j=0;j<byteChars0.length;j++) byteNumbers0[j]=byteChars0.charCodeAt(j);
+        var blob0=new Blob([new Uint8Array(byteNumbers0)],{type:'application/pdf'});
+        ltPreviewPdfUrl=URL.createObjectURL(blob0);
+        if(bodyEl) bodyEl.innerHTML='<iframe id="ltPdfFrame" src="'+ltPreviewPdfUrl+'#toolbar=0&navpanes=0&view=Fit" style="width:100%;border:none;border-radius:8px;background:#525659;display:block"></iframe>';
+      }catch(errPdf){
+        if(bodyEl) bodyEl.innerHTML='<div style="text-align:center;color:#c62828;padding:30px">Không xem trước được file PDF này ('+ltEsc(errPdf.message)+'). Anh bấm "Tải xuống" ở góc trên để mở bằng trình đọc PDF khác.</div>';
+      }
+      return;
+    }
     try{
       if(typeof XLSX==='undefined'){
         if(bodyEl) bodyEl.innerHTML='<div style="text-align:center;color:#c62828;padding:30px">Không tải được công cụ xem trước (cần kết nối mạng). Anh bấm nút "Tải xuống" ở góc trên để mở file bằng Excel/LibreOffice.</div>';
@@ -23451,6 +23502,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var fs=document.getElementById('ltFsIcon'); if(fs) fs.className='ti ti-arrows-maximize';
     ltPreviewCurrent=null;
     ltPreviewImageMode=false;
+    if(ltPreviewPdfUrl){ try{ URL.revokeObjectURL(ltPreviewPdfUrl); }catch(e){} ltPreviewPdfUrl=null; }
   };
   window.ltDownloadCurrentPreview=function(){
     if(!ltPreviewCurrent){alert('Không có file đang xem.');return;}
