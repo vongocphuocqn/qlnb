@@ -1550,7 +1550,9 @@ font-size:10px;color:var(--tx3)}
 .qlp-save{margin-top:12px;padding:9px 18px;background:#3B6D11;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
 .qlp-save:hover{background:#27500A}
 .qlp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
-.qlp-sc{background:#EAF3DE;border:1.5px solid #cce0a8;border-radius:10px;padding:11px 13px}
+.qlp-sc{background:#EAF3DE;border:1.5px solid #cce0a8;border-radius:10px;padding:11px 13px;transition:transform .15s,box-shadow .15s}
+.qlp-sc[style*="cursor:pointer"]:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.qlp-sc.qlp-sc-active{border-color:#3B6D11!important;box-shadow:0 0 0 3px rgba(59,109,17,.2)!important;background:#dcecc4!important}
 .qlp-sc-n{font-size:22px;font-weight:700;color:#27500A}
 .qlp-sc-l{font-size:11px;font-weight:600;color:#4a6030;text-transform:uppercase;letter-spacing:.03em}
 .qlp-sc.qlp-warn{background:#fff3e0;border-color:#ffcc80}
@@ -1610,6 +1612,7 @@ font-size:10px;color:var(--tx3)}
       <div style="color:rgba(255,255,255,.75);font-size:11px">Đồng bộ realtime với Kanban khoa (Firebase) · <span id="btdClock" style="color:#ffe082;font-weight:700">--:--:--</span></div>
     </div>
     <button class="tbtn" onclick="btdOpenStatsModal()" style="margin-left:auto;border-color:rgba(255,255,255,.45)"><i class="ti ti-chart-bar"></i> Thống kê trễ hạn</button>
+    <button class="tbtn" id="btdToggleAllBtn" onclick="btdToggleAllGroups()" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-arrows-minimize" id="btdToggleAllIcon"></i> <span id="btdToggleAllTxt">Thu gọn tất cả</span></button>
     <button class="tbtn" onclick="btdExportWord()" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-file-text"></i> Xuất báo cáo</button>
   </div>
 
@@ -2038,6 +2041,10 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
         <i class="ti ti-info-circle"></i> Chọn đúng ngày thực tế xảy ra (không nhất thiết là hôm nay) để Downtime tính chính xác hơn.
       </div>
     </div>
+    <div class="fg">
+      <label id="moveTimeNoteLabel">Diễn giải</label>
+      <textarea id="moveTimeNote" placeholder="Ghi rõ đã/đang xử lý bằng cách nào..." style="min-height:70px"></textarea>
+    </div>
     <div class="lerr" id="moveTimeErr" style="margin-bottom:10px">
       <i class="ti ti-alert-circle"></i><span>Vui lòng chọn ngày hợp lệ!</span>
     </div>
@@ -2199,6 +2206,96 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
   </div>
 </div>
 
+<!-- ══ MODAL: PHÂN CÔNG NGƯỜI XỬ LÝ (Dụng cụ sau mổ) ══ -->
+<div class="modal-bg" id="dctdAssignModal" style="z-index:700" onclick="if(event.target===this)dctdCloseAssign()">
+  <div class="modal">
+    <h3><i class="ti ti-user-plus"></i> Phân công người xử lý</h3>
+    <div class="fg">
+      <label>Nội dung</label>
+      <textarea id="dctdAssignText" disabled style="background:#f4f8f0;font-weight:600;color:#333;min-height:60px"></textarea>
+    </div>
+    <div class="fg">
+      <label>Người phụ trách xử lý *</label>
+      <input type="text" id="dctdAssignWho" list="briefResolveWhoList" placeholder="Gõ hoặc chọn tên người phụ trách...">
+    </div>
+    <div class="fg">
+      <label>Ghi chú giao việc (không bắt buộc)</label>
+      <textarea id="dctdAssignNote" placeholder="VD: Liên hệ kho vật tư kiểm tra trước, báo lại trong ngày..." style="min-height:60px"></textarea>
+    </div>
+    <div id="dctdAssignErr" style="display:none;color:#c62828;font-size:12px;margin-bottom:8px"><i class="ti ti-alert-circle"></i> Vui lòng chọn người phụ trách xử lý.</div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="dctdSubmitAssign()"><i class="ti ti-check"></i> Phân công (→ Đang xử lý)</button>
+      <button class="btne" style="flex:1" onclick="dctdCloseAssign()"><i class="ti ti-x"></i> Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: XỬ LÝ BÁO THIẾU/MẤT DỤNG CỤ SAU MỔ ══ -->
+<div class="modal-bg" id="dctdResolveModal" style="z-index:700" onclick="if(event.target===this)briefCloseDctdResolve()">
+  <div class="modal">
+    <h3><i class="ti ti-check"></i> Xử lý báo thiếu/mất dụng cụ</h3>
+    <div class="fg">
+      <label>Nội dung</label>
+      <textarea id="dctdResolveText" disabled style="background:#f4f8f0;font-weight:600;color:#333;min-height:60px"></textarea>
+    </div>
+    <div class="fg">
+      <label>Người xử lý (ai là người thực sự khắc phục việc này)</label>
+      <input type="text" id="dctdResolveWho" list="briefResolveWhoList" placeholder="Gõ hoặc chọn tên người xử lý...">
+    </div>
+    <div class="fg">
+      <label>Thời gian xử lý</label>
+      <div style="display:flex;gap:8px">
+        <input type="date" id="dctdResolveDate" style="flex:1">
+        <input type="time" id="dctdResolveHour" style="flex:0 0 120px">
+      </div>
+    </div>
+    <div class="fg">
+      <label>Diễn giải (đã xử lý bằng cách nào — tìm thấy lại, mua bổ sung, mượn tạm...)</label>
+      <textarea id="dctdResolveNote" placeholder="VD: Đã tìm thấy trong kho vô trùng, đã bổ sung lại đủ vào bộ dụng cụ..." style="min-height:80px"></textarea>
+    </div>
+    <div id="dctdResolveErr" style="display:none;color:#c62828;font-size:12px;margin-bottom:8px"><i class="ti ti-alert-circle"></i> Vui lòng nhập đủ Người xử lý và Diễn giải trước khi xác nhận.</div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="briefSubmitDctdResolve()"><i class="ti ti-check"></i> Xác nhận đã xử lý</button>
+      <button class="btne" style="flex:1" onclick="briefCloseDctdResolve()"><i class="ti ti-x"></i> Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: XỬ LÝ DÒNG THIẾU/HƯ HỎNG TÀI SẢN (Bàn giao Hồi sức/Phòng Mổ) ══ -->
+<div class="modal-bg" id="bgPmResolveModal" style="z-index:700" onclick="if(event.target===this)briefCloseBgPmResolve()">
+  <div class="modal">
+    <h3><i class="ti ti-check"></i> Xử lý thiếu/hư hỏng tài sản</h3>
+    <div class="fg">
+      <label>Nội dung</label>
+      <textarea id="bgPmResolveText" disabled style="background:#f4f8f0;font-weight:600;color:#333;min-height:60px"></textarea>
+    </div>
+    <div class="fg">
+      <label>Người xử lý (ai là người thực sự khắc phục việc này)</label>
+      <input type="text" id="bgPmResolveWho" list="briefResolveWhoList" placeholder="Gõ hoặc chọn tên người xử lý...">
+    </div>
+    <div class="fg">
+      <label>Người nhận (ai xác nhận nhận lại tài sản đã xử lý)</label>
+      <input type="text" id="bgPmResolveNguoiNhan" list="briefResolveWhoList" placeholder="Gõ hoặc chọn tên người nhận...">
+    </div>
+    <div class="fg">
+      <label>Thời gian xử lý</label>
+      <div style="display:flex;gap:8px">
+        <input type="date" id="bgPmResolveDate" style="flex:1">
+        <input type="time" id="bgPmResolveHour" style="flex:0 0 120px">
+      </div>
+    </div>
+    <div class="fg">
+      <label>Diễn giải (đã xử lý bằng cách nào)</label>
+      <textarea id="bgPmResolveNote" placeholder="VD: Đã mượn tạm từ phòng 203, kho đã cấp bổ sung đủ số lượng..." style="min-height:80px"></textarea>
+    </div>
+    <div id="bgPmResolveErr" style="display:none;color:#c62828;font-size:12px;margin-bottom:8px"><i class="ti ti-alert-circle"></i> Vui lòng nhập đủ Người xử lý, Người nhận và Diễn giải trước khi xác nhận.</div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="briefSubmitBgPmResolve()"><i class="ti ti-check"></i> Xác nhận đã xử lý</button>
+      <button class="btne" style="flex:1" onclick="briefCloseBgPmResolve()"><i class="ti ti-x"></i> Hủy</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ GIAO BAN SÁNG — tóm tắt việc cần xử lý gấp mỗi ngày ══ -->
 <div class="modal-bg" id="briefModal" onclick="if(event.target===this)closeBriefModal()">
   <div class="modal" id="briefModalBox" style="max-width:640px;max-height:86vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
@@ -2207,6 +2304,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
         <div style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px"><i class="ti ti-sunrise"></i> Giao ban sáng</div>
         <div style="display:flex;gap:6px">
           <button onclick="briefRefresh(this)" title="Tải lại dữ liệu mới nhất" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-refresh"></i> Làm mới</button>
+          <button onclick="briefToggleAllSections()" title="Thu gọn/mở rộng tất cả các khối" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-minimize" id="briefToggleAllIcon"></i> <span id="briefToggleAllTxt">Thu gọn tất cả</span></button>
           <button id="briefMaxBtn" onclick="kpiToggleMaximizeBox('briefModalBox','briefMaxBtn')" title="Phóng to cho rộng màn hình" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:16px;padding:6px 12px;border-radius:8px;cursor:pointer"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
           <button onclick="closeBriefModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer">×</button>
         </div>
@@ -9354,6 +9452,24 @@ function qlpUpdateField(id, field, value){
   qlpRender();
 }
 
+function qlpQuickFilter(kind){
+  var searchEl=document.getElementById('qlpSearchBox'), unitEl=document.getElementById('qlpFilterUnit'),
+      groupEl=document.getElementById('qlpFilterGroup'), statusEl=document.getElementById('qlpFilterLeaveStatus');
+  if(kind==='all'){
+    searchEl.value=''; unitEl.value=''; groupEl.value=''; statusEl.value='';
+    qlpShowMissingOnly=false;
+    var mb=document.getElementById('qlpMissingBtn'); if(mb) mb.classList.remove('qlp-primary');
+  } else if(kind==='danghi'){
+    var turningOn = statusEl.value!=='da';
+    statusEl.value = turningOn ? 'da' : '';
+    qlpShowMissingOnly=false;
+    var mb2=document.getElementById('qlpMissingBtn'); if(mb2) mb2.classList.remove('qlp-primary');
+  } else if(kind==='missing'){
+    qlpShowMissingOnly = !qlpShowMissingOnly;
+    var mb3=document.getElementById('qlpMissingBtn'); if(mb3) mb3.classList.toggle('qlp-primary', qlpShowMissingOnly);
+  }
+  qlpRender();
+}
 function qlpToggleMissingOnly(){
   qlpShowMissingOnly = !qlpShowMissingOnly;
   document.getElementById('qlpMissingBtn').classList.toggle('qlp-primary', qlpShowMissingOnly);
@@ -9453,12 +9569,16 @@ function qlpRender(){
   });
 
   document.getElementById('qlpStatsRow').innerHTML = `
-    <div class="qlp-sc"><div class="qlp-sc-n">${QLP_EMPLOYEES.length}</div><div class="qlp-sc-l">Tổng nhân viên</div></div>
+    <div class="qlp-sc" id="qlpScAll" onclick="qlpQuickFilter('all')" style="cursor:pointer" title="Bấm để bỏ hết bộ lọc, xem tất cả"><div class="qlp-sc-n">${QLP_EMPLOYEES.length}</div><div class="qlp-sc-l">Tổng nhân viên</div></div>
     <div class="qlp-sc"><div class="qlp-sc-n">${totalGranted}</div><div class="qlp-sc-l">Tổng phép được cấp (đang lọc)</div></div>
-    <div class="qlp-sc"><div class="qlp-sc-n">${totalUsed}</div><div class="qlp-sc-l">Đã nghỉ (đang lọc)</div></div>
+    <div class="qlp-sc" id="qlpScDaNghi" onclick="qlpQuickFilter('danghi')" style="cursor:pointer" title="Bấm để chỉ lọc người ĐÃ nghỉ phép"><div class="qlp-sc-n">${totalUsed}</div><div class="qlp-sc-l">Đã nghỉ (đang lọc)</div></div>
     <div class="qlp-sc"><div class="qlp-sc-n">${totalRemain}</div><div class="qlp-sc-l">Còn lại (đang lọc)</div></div>
-    <div class="qlp-sc ${missingCount>0?'qlp-warn':''}"><div class="qlp-sc-n">${missingCount}</div><div class="qlp-sc-l">Thiếu năm tính thâm niên</div></div>
+    <div class="qlp-sc ${missingCount>0?'qlp-warn':''}" id="qlpScMissing" onclick="qlpQuickFilter('missing')" style="cursor:pointer" title="Bấm để chỉ lọc người thiếu năm tính thâm niên"><div class="qlp-sc-n">${missingCount}</div><div class="qlp-sc-l">Thiếu năm tính thâm niên</div></div>
   `;
+  var qAll=document.getElementById('qlpScAll'), qDa=document.getElementById('qlpScDaNghi'), qMiss=document.getElementById('qlpScMissing');
+  if(qDa) qDa.classList.toggle('qlp-sc-active', document.getElementById('qlpFilterLeaveStatus').value==='da');
+  if(qMiss) qMiss.classList.toggle('qlp-sc-active', !!qlpShowMissingOnly);
+  if(qAll) qAll.classList.toggle('qlp-sc-active', !document.getElementById('qlpSearchBox').value && !document.getElementById('qlpFilterUnit').value && !document.getElementById('qlpFilterGroup').value && !document.getElementById('qlpFilterLeaveStatus').value && !qlpShowMissingOnly);
   qlpRenderLeaveStatusLists();
   qlpApplyPermissions();
 }
@@ -9907,7 +10027,7 @@ function kpiToggleWideBox(boxId, btnId){
 }
 
 /* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
-var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,khan:0,treHan:0,cuoiThang:0,hoanThanh:0,btd1224:0,btd2424:0,btdThang:0};
+var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,khan:0,treHan:0,cuoiThang:0,hoanThanh:0,btd1224:0,btd2424:0,btdThang:0,btdAll:0};
 var notifBtdMaxDays={btd1224:0,btd2424:0,btdThang:0}; // số ngày nợ dồn (chưa bàn giao liên tiếp) cao nhất của mỗi loại lịch
 var notifBtdNames={btd1224:[],btd2424:[],btdThang:[]}; // tên các phòng/bộ phận đang trễ hạn của mỗi loại lịch (kèm số ngày nợ nếu >1)
 var notifBgKhanItems=[]; // [{roomId, id, lines:[...]}]
@@ -9951,7 +10071,8 @@ var notifMeta={
   cnkt:{label:'CNKT — chờ duyệt', icon:'ti-award'},
   btd1224:{label:'⏰ Trực 12/24 — chưa bàn giao đúng giờ', icon:'ti-replace'},
   btd2424:{label:'⏰ Trực 24/24 — chưa bàn giao theo ngày', icon:'ti-clock-hour-7'},
-  btdThang:{label:'📆 Bàn giao trực — chưa xác nhận theo tháng', icon:'ti-calendar-time'}
+  btdThang:{label:'📆 Bàn giao trực — chưa xác nhận theo tháng', icon:'ti-calendar-time'},
+  btdAll:{label:'🏢 Bộ phận chưa thực hiện bàn giao', icon:'ti-building-warehouse'}
 };
 function notifInit(){
   try{
@@ -10092,7 +10213,7 @@ function notifRenderHome(){
   var card=document.getElementById('notifHomeCard');
   if(!card) return;
   if(!adminSession.active){ card.style.display='none'; return; }
-  var total=0; Object.keys(notifCounts).forEach(function(k){ if(k!=='hoanThanh') total+=notifCounts[k]||0; });
+  var total=0; Object.keys(notifCounts).forEach(function(k){ if(k==='hoanThanh'||k==='btd1224'||k==='btd2424'||k==='btdThang') return; total+=notifCounts[k]||0; });
   var badge=document.getElementById('notifBadgeCount'); if(badge) badge.textContent=total;
   var summary=document.getElementById('notifHomeSummary');
   var detail=document.getElementById('notifHomeDetail');
@@ -10111,16 +10232,17 @@ function notifRenderHome(){
   var rows='';
   Object.keys(notifMeta).forEach(function(k){
     if(k==='hoanThanh') return;
+    if(k==='btd1224'||k==='btd2424'||k==='btdThang') return; // gộp chung vào 1 dòng "btdAll" duy nhất bên dưới cho gọn, không hiện riêng từng loại nữa ở đây
     var n=notifCounts[k]||0; if(n<=0) return;
     var m=notifMeta[k];
-    var isKhan = (k==='khan'||k==='treHan'||k==='cuoiThang'||k==='btd1224'||k==='btd2424'||k==='btdThang');
+    var isKhan = (k==='khan'||k==='treHan'||k==='cuoiThang'||k==='btdAll');
     var style = isKhan
       ? 'background:#fff;color:#c62828;border:2px solid #ffeb3b;border-radius:8px;padding:9px 10px;cursor:pointer;font-weight:800;box-shadow:0 0 8px rgba(255,235,59,.6)'
       : 'background:rgba(255,255,255,.16);border-radius:8px;padding:8px 10px;cursor:pointer;transition:background .15s';
-    var isBtd = (k==='btd1224'||k==='btd2424'||k==='btdThang');
+    var isBtd = (k==='btdAll');
     var namesLine = '';
     if(isBtd){
-      var namesArr = notifBtdNames[k]||[];
+      var namesArr = (notifBtdNames.btd1224||[]).concat(notifBtdNames.btd2424||[]).concat(notifBtdNames.btdThang||[]);
       if(namesArr.length){
         var shown = namesArr.slice(0,10).map(esc).join(', ');
         var extra = namesArr.length>10 ? (' và '+(namesArr.length-10)+' phòng khác') : '';
@@ -10186,7 +10308,7 @@ function notifGoTo(key){
   } else if(key==='cnkt'){
     enterCmeScreen('admin','Quản lý');
     scrollToOpen('cmePendingWrap','cmePendingChevron');
-  } else if(key==='btd1224'||key==='btd2424'||key==='btdThang'){
+  } else if(key==='btd1224'||key==='btd2424'||key==='btdThang'||key==='btdAll'){
     openBtdScreen();
   }
 }
@@ -11123,6 +11245,9 @@ function askMoveCard(id,st){
   dinput.value = existing || today();
   dinput.removeAttribute('min'); // không giới hạn ngày tối thiểu — cho phép ghi nhận ngày xử lý/hoàn thành sớm hơn ngày báo cáo nếu thực tế đúng như vậy
   dinput.max = today();
+  const noteLbl=document.getElementById('moveTimeNoteLabel'), noteInput=document.getElementById('moveTimeNote');
+  if(noteLbl) noteLbl.textContent = st==='doing' ? 'Đang làm gì (diễn giải)' : 'Đã xử lý bằng cách nào / kết quả';
+  if(noteInput) noteInput.value = (st==='doing' ? c.doing : c.done) || '';
   document.getElementById('moveTimeErr').style.display='none';
   document.getElementById('moveTimeModal').classList.add('on');
 }
@@ -11135,15 +11260,18 @@ function confirmMoveTime(){
   const errEl=document.getElementById('moveTimeErr');
   if(!val){errEl.style.display='flex';return;}
   errEl.style.display='none';
-  moveCard(moveTargetId, moveTargetStatus, val);
+  const noteInput=document.getElementById('moveTimeNote');
+  const noteVal = noteInput ? noteInput.value.trim() : '';
+  moveCard(moveTargetId, moveTargetStatus, val, noteVal);
   // Nếu modal "Sửa báo cáo" của đúng thẻ này đang mở, cập nhật ngay badge trạng thái (không cần đóng mở lại)
   if(typeof editTargetId!=='undefined' && editTargetId!==null && String(editTargetId)===String(moveTargetId)){
     const c0=cards.find(x=>String(x.id)===String(editTargetId)); if(c0) c0.status=moveTargetStatus;
     setTimeout(editRefreshStatusBadge,50); setTimeout(editRefreshActions,50);
   }
   closeMoveTimeModal();
+  if(typeof briefRefresh==='function' && document.getElementById('briefModal') && document.getElementById('briefModal').classList.contains('on')) briefRefresh();
 }
-function moveCard(id,st,chosenDate){
+function moveCard(id,st,chosenDate,noteVal){
   if(cu.role!=='admin'){showAl('Chỉ quản lý mới chuyển được trạng thái!','warn');return;}
   setSyncStatus('sync');
   const updates={status:st};
@@ -11153,6 +11281,10 @@ function moveCard(id,st,chosenDate){
   const who=c0&&c0.assignee?c0.assignee:null;
   hist.push({action:'Chuyển trạng thái sang "'+(stLbl[st]||st)+'"'+(who?' (người phụ trách: '+who+')':''),actor:(cu&&cu.name)?cu.name:'Quản lý',at:new Date().toISOString()});
   updates.history=hist;
+  if(noteVal){
+    if(st==='doing') updates.doing=noteVal;
+    else if(st==='done') updates.done=noteVal;
+  }
   if(st==='done'){
     updates.doneAt=chosenDate || new Date().toISOString().split('T')[0];
   } else {
@@ -11296,7 +11428,9 @@ function openEditModal(id){
   else if(editable)tmsg=`Còn khoảng ${24-hrs} giờ để chỉnh sửa (giới hạn 24h).`;
   else tmsg=`Tạo ${hrs} giờ trước — đã quá 24h, không thể sửa.`;
   document.getElementById('editTimeMsg').textContent=tmsg;
-  document.getElementById('editModal').classList.add('on');
+  var em=document.getElementById('editModal');
+  em.style.display='';
+  em.classList.add('on');
 }
 // Hiện badge trạng thái + đúng 2 nút chuyển nhanh (y hệt nút trên thẻ ngoài Kanban) ngay trong modal Sửa,
 // để tiện chuyển "Đang xử lý"/"Xong" mà không cần đóng modal ra ngoài thẻ mới bấm được.
@@ -11359,11 +11493,14 @@ function editDeleteCard(){
     .catch(()=>setSyncStatus('err'));
 }
 function closeEditModal(){
-  document.getElementById('editModal').classList.remove('on');
+  try{
+    var m=document.getElementById('editModal');
+    if(m){ m.classList.remove('on'); m.style.display='none'; }
+  }catch(e){ console.warn('closeEditModal: lỗi khi đóng modal', e); }
   editTargetId=null;
   if(window._briefReturnPending){
     window._briefReturnPending=false;
-    setTimeout(function(){ try{ openBriefModal(); }catch(e){ console.warn(e); } }, 80);
+    setTimeout(function(){ try{ openBriefModal(); }catch(e){ console.warn('closeEditModal: lỗi khi mở lại Giao ban sáng', e); } }, 80);
   }
 }
 function saveEdit(){
@@ -11805,11 +11942,15 @@ function briefCardRow(c,mode){
   } else {
     rightBit=dtBadge(c);
   }
+  const quickBtn = mode!=='done'
+    ? `<button onclick="event.stopPropagation();askMoveCard(${c.id},'${c.status==='doing'?'done':'doing'}')" style="margin-top:6px;background:${c.status==='doing'?'#00695c':'#0d47a1'};color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer"><i class="ti ti-check"></i> ${c.status==='doing'?'Xác nhận đã xong':'Xử lý nhanh'}</button>`
+    : '';
   return `<div onclick="window._briefReturnPending=true;closeBriefModal();openEditModal(${c.id});" style="padding:9px 0;border-bottom:1px solid #f0f0f0;display:flex;gap:10px;align-items:flex-start;cursor:pointer" onmouseover="this.style.background='#f7f7f7'" onmouseout="this.style.background=''">
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700;color:#222">${esc(c.person||'')}${c.dept?` <span style="font-weight:400;color:#888;font-size:11px">(${esc(c.dept)})</span>`:''}</div>
       <div style="font-size:12px;color:#555;margin-top:2px;white-space:pre-wrap">${escNl(c.content||c.todo||c.doing||'')}</div>
       <div style="font-size:11px;color:#999;margin-top:2px">${mode==='urgent'?pri+' · ':''}Ngày BC: ${fmtD(c.date)}</div>
+      ${quickBtn}
     </div>
     <div style="flex-shrink:0">${rightBit}</div>
   </div>`;
@@ -11866,51 +12007,93 @@ function openBriefModal(){
     .sort((a,b)=>(b.doneAt||'').localeCompare(a.doneAt||''));
 
   let html='';
+  function secHd(id,color,icon,title,countHtml){
+    var isColl = !!briefSecCollapsed[id];
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">'+
+      '<div style="font-size:14px;font-weight:800;color:'+color+';display:flex;align-items:center;gap:6px"><i class="ti '+icon+'"></i> '+title+countHtml+'</div>'+
+      '<div onclick="briefToggleSec(\''+id+'\')" style="cursor:pointer;color:'+color+';padding:2px 6px" title="Thu gọn/Mở rộng"><i class="ti '+(isColl?'ti-chevron-down':'ti-chevron-up')+'" id="'+id+'_ic"></i></div>'+
+    '</div><div id="'+id+'" style="display:'+(isColl?'none':'block')+'">';
+  }
   html+=`<div id="briefKhanSection" style="display:none;margin-bottom:18px;background:#fce4e4;border:2px solid #c62828;border-radius:10px;padding:10px 12px">
-    <div style="font-size:14px;font-weight:800;color:#c62828;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-alert-triangle-filled"></i> 🚨 BÁO CÁO KHẨN CẤP — thiếu/mất/sự cố (<span id="briefKhanCount">0</span>)</div>
+    ${secHd('briefKhanWrap','#c62828','ti-alert-triangle-filled','🚨 BÁO CÁO KHẨN CẤP — thiếu/mất/sự cố',' (<span id="briefKhanCount">0</span>)')}
     <div id="briefKhanBody"></div>
     <div id="briefKhanHistoryToggle" style="margin-top:8px;font-size:11px;color:#1565c0;cursor:pointer;text-decoration:underline;display:inline-block" onclick="briefToggleKhanHistory()">🕘 Xem lịch sử đã xử lý</div>
     <div id="briefKhanHistoryBody" style="display:none;margin-top:6px;max-height:200px;overflow-y:auto;font-size:11px;background:#fff;border-radius:6px;padding:8px;border:1px solid #f5c6cb"></div>
+    </div>
   </div>`;
   html+=`<div id="briefTreHanSection" style="display:none;margin-bottom:18px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;padding:10px 12px">
-    <div style="font-size:14px;font-weight:800;color:#e65100;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-clock-exclamation"></i> ⏰ BÀN GIAO TRỄ — quá 4 giờ chưa có người nhận ký (<span id="briefTreHanCount">0</span>)</div>
+    ${secHd('briefTreHanWrap','#e65100','ti-clock-exclamation','⏰ BÀN GIAO TRỄ — quá 4 giờ chưa có người nhận ký',' (<span id="briefTreHanCount">0</span>)')}
     <div id="briefTreHanBody"></div>
+    </div>
   </div>`;
   html+=`<div id="briefCuoiThangSection" style="display:none;margin-bottom:18px;background:#e3f2fd;border:2px solid #0d47a1;border-radius:10px;padding:10px 12px">
-    <div style="font-size:14px;font-weight:800;color:#0d47a1;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-calendar-exclamation"></i> 📅 PHÒNG MỔ CHƯA BÀN GIAO KIỂM CUỐI THÁNG (<span id="briefCuoiThangCount">0</span>)</div>
+    ${secHd('briefCuoiThangWrap','#0d47a1','ti-calendar-exclamation','📅 PHÒNG MỔ CHƯA BÀN GIAO KIỂM CUỐI THÁNG',' (<span id="briefCuoiThangCount">0</span>)')}
     <div id="briefCuoiThangBody"></div>
+    </div>
   </div>`;
   html+=`<div id="briefHoanThanhSection" style="display:none;margin-bottom:18px;background:#e8f5e9;border:2px solid #2e7d32;border-radius:10px;padding:10px 12px">
-    <div style="font-size:14px;font-weight:800;color:#2e7d32;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-circle-check"></i> ✅ BÀN GIAO HOÀN THÀNH HÔM NAY (<span id="briefHoanThanhCount">0</span>)</div>
+    ${secHd('briefHoanThanhWrap','#2e7d32','ti-circle-check','✅ BÀN GIAO HOÀN THÀNH HÔM NAY',' (<span id="briefHoanThanhCount">0</span>)')}
     <div id="briefHoanThanhBody"></div>
+    </div>
   </div>`;
   html+=`<div style="margin-bottom:18px">
-    <div style="font-size:13.5px;font-weight:700;color:#bf360c;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-flame"></i> Cần xử lý gấp nhất (${urgent.length}${pending.length>urgent.length?'/'+pending.length:''})</div>
+    ${secHd('briefUrgentWrap','#bf360c','ti-flame','Cần xử lý gấp nhất','('+urgent.length+(pending.length>urgent.length?'/'+pending.length:'')+')')}
     ${urgent.length?urgent.map(c=>briefCardRow(c,'urgent')).join(''):'<div style="color:#aaa;font-size:12.5px;padding:6px 0">🎉 Không còn việc tồn đọng nào — rất tốt!</div>'}
+    </div>
   </div>`;
   html+=`<div style="margin-bottom:18px">
-    <div style="font-size:13.5px;font-weight:700;color:#0d47a1;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-bell-plus"></i> Mới phát sinh (24 giờ qua) (${newOnes.length})</div>
+    ${secHd('briefNewWrap','#0d47a1','ti-bell-plus','Mới phát sinh (24 giờ qua)','('+newOnes.length+')')}
     ${newOnes.length?newOnes.map(c=>briefCardRow(c,'new')).join(''):'<div style="color:#aaa;font-size:12.5px;padding:6px 0">Chưa có báo cáo mới trong 24 giờ qua.</div>'}
+    </div>
   </div>`;
   html+=`<div>
-    <div style="font-size:13.5px;font-weight:700;color:#1b5e20;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-circle-check"></i> Vừa xử lý xong (hôm qua – hôm nay) (${doneRecent.length})</div>
+    ${secHd('briefDoneWrap','#1b5e20','ti-circle-check','Vừa xử lý xong (hôm qua – hôm nay)','('+doneRecent.length+')')}
     ${doneRecent.length?doneRecent.map(c=>briefCardRow(c,'done')).join(''):'<div style="color:#aaa;font-size:12.5px;padding:6px 0">Chưa có việc nào hoàn thành trong 2 ngày qua.</div>'}
+    </div>
   </div>`;
   html+=`<div style="margin-top:18px;border-top:1.5px dashed #ddd;padding-top:14px">
-    <div style="font-size:13.5px;font-weight:700;color:#8a5300;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-tool"></i> Báo thiếu/mất dụng cụ sau mổ — chưa xử lý (<span id="briefDctdCount">…</span>)</div>
+    ${secHd('briefDctdWrap','#8a5300','ti-tool','Báo thiếu/mất dụng cụ sau mổ — chưa xử lý',' (<span id="briefDctdCount">…</span>)')}
     <div id="briefDctdBody" style="color:#aaa;font-size:12.5px;padding:6px 0">Đang tải...</div>
+    <div id="briefDctdHistoryToggle" style="margin-top:8px;font-size:11px;color:#1565c0;cursor:pointer;text-decoration:underline;display:inline-block" onclick="briefToggleDctdHistory()">🕘 Xem lịch sử đã xử lý</div>
+    <div id="briefDctdHistoryBody" style="display:none;margin-top:6px;max-height:200px;overflow-y:auto;font-size:11px;background:#fff;border-radius:6px;padding:8px;border:1px solid #f0dfa0"></div>
+    </div>
   </div>`;
   html+=`<div style="margin-top:18px">
-    <div style="font-size:13.5px;font-weight:700;color:#c62828;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-alert-triangle"></i> Bàn giao Hồi sức/Phòng Mổ — thiếu/hư hỏng tài sản (<span id="briefBgPmCount">…</span>)</div>
+    ${secHd('briefBgPmWrap','#c62828','ti-alert-triangle','Bàn giao Hồi sức/Phòng Mổ — thiếu/hư hỏng tài sản',' (<span id="briefBgPmCount">…</span>)')}
     <div id="briefBgPmBody" style="color:#aaa;font-size:12.5px;padding:6px 0">Đang tải...</div>
+    <div id="briefBgPmHistoryToggle" style="margin-top:8px;font-size:11px;color:#1565c0;cursor:pointer;text-decoration:underline;display:inline-block" onclick="briefToggleBgPmHistory()">🕘 Xem lịch sử đã xử lý</div>
+    <div id="briefBgPmHistoryBody" style="display:none;margin-top:6px;max-height:200px;overflow-y:auto;font-size:11px;background:#fff;border-radius:6px;padding:8px;border:1px solid #f5c6cb"></div>
+    </div>
   </div>`;
   html+=`<div style="margin-top:18px">
-    <div style="font-size:13.5px;font-weight:700;color:#0d47a1;margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-file-certificate"></i> Quy trình mới ban hành — 7 ngày qua (<span id="briefQtCount">…</span>)</div>
+    ${secHd('briefQtWrap','#0d47a1','ti-file-certificate','Quy trình mới ban hành — 7 ngày qua',' (<span id="briefQtCount">…</span>)')}
     <div id="briefQtBody" style="color:#aaa;font-size:12.5px;padding:6px 0">Đang tải...</div>
+    </div>
   </div>`;
   document.getElementById('briefBody').innerHTML=html;
   document.getElementById('briefModal').classList.add('on');
   briefLoadExtra();
+}
+var briefSecCollapsed={};
+var BRIEF_SEC_IDS=['briefKhanWrap','briefTreHanWrap','briefCuoiThangWrap','briefHoanThanhWrap','briefUrgentWrap','briefNewWrap','briefDoneWrap','briefDctdWrap','briefBgPmWrap','briefQtWrap'];
+function briefToggleSec(id){
+  briefSecCollapsed[id] = !briefSecCollapsed[id];
+  var body=document.getElementById(id), ic=document.getElementById(id+'_ic');
+  if(body) body.style.display = briefSecCollapsed[id] ? 'none' : 'block';
+  if(ic) ic.className = 'ti '+(briefSecCollapsed[id] ? 'ti-chevron-down' : 'ti-chevron-up');
+}
+function briefToggleAllSections(){
+  var collapsedCount = BRIEF_SEC_IDS.filter(function(id){ return briefSecCollapsed[id]; }).length;
+  var target = collapsedCount < Math.ceil(BRIEF_SEC_IDS.length/2); // nếu đa số đang mở -> thu gọn hết, ngược lại mở hết
+  BRIEF_SEC_IDS.forEach(function(id){
+    briefSecCollapsed[id]=target;
+    var body=document.getElementById(id), ic=document.getElementById(id+'_ic');
+    if(body) body.style.display = target ? 'none' : 'block';
+    if(ic) ic.className = 'ti '+(target ? 'ti-chevron-down' : 'ti-chevron-up');
+  });
+  var btnIc=document.getElementById('briefToggleAllIcon'), btnTxt=document.getElementById('briefToggleAllTxt');
+  if(btnIc) btnIc.className = 'ti '+(target?'ti-arrows-maximize':'ti-arrows-minimize');
+  if(btnTxt) btnTxt.textContent = target ? 'Mở rộng tất cả' : 'Thu gọn tất cả';
 }
 // Tải lại toàn bộ nội dung Giao ban sáng (kể cả danh sách Báo cáo khẩn cấp) mà không cần đóng/mở lại modal
 function briefRefresh(btn){
@@ -12091,6 +12274,65 @@ function bgToday_gn(){ var d=new Date(); return d.getFullYear()+'-'+String(d.get
 // Đánh dấu 1 dòng báo cáo khẩn cấp cụ thể là đã xử lý xong: xóa khỏi baoCaoKhan của đúng biên bản gốc,
 // đồng thời lưu lại vào lịch sử đã xử lý (khanResolvedHistory) — kèm thời gian xử lý + diễn giải cách xử lý.
 let _briefResolveMapIdx=null;
+let _bgPmResolveMapIdx=null;
+let _dctdResolveRecId=null;
+window.briefOpenBgPmResolve = function(mapIdx){
+  var isAdminChk = !!((window.cu && cu.role==='admin') || (window.adminSession && adminSession.active));
+  if(!isAdminChk){ alert('Chỉ Quản lý mới xử lý được. Bạn đang ở chế độ chỉ xem.'); return; }
+  var x = window._briefBgPmMap && window._briefBgPmMap[mapIdx];
+  if(!x) return;
+  _bgPmResolveMapIdx = mapIdx;
+  var names=x.bad.map(function(it){return (it.ten||'—')+(it.status==='hong'?' (hỏng)':' (thiếu)');}).join(', ');
+  document.getElementById('bgPmResolveText').value = x.nguon+' — '+names;
+  document.getElementById('bgPmResolveWho').value='';
+  document.getElementById('bgPmResolveNguoiNhan').value='';
+  document.getElementById('bgPmResolveNote').value='';
+  document.getElementById('bgPmResolveErr').style.display='none';
+  try{
+    var dl=document.getElementById('briefResolveWhoList');
+    if(dl && typeof staffList!=='undefined' && staffList.length){
+      dl.innerHTML=staffList.map(function(n){return '<option value="'+String(n).replace(/"/g,'&quot;')+'">';}).join('');
+    }
+  }catch(e){}
+  var now=new Date();
+  var pad=function(n){return String(n).padStart(2,'0');};
+  document.getElementById('bgPmResolveDate').value=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  document.getElementById('bgPmResolveDate').max=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  document.getElementById('bgPmResolveHour').value=pad(now.getHours())+':'+pad(now.getMinutes());
+  document.getElementById('bgPmResolveModal').classList.add('on');
+  setTimeout(function(){ var el=document.getElementById('bgPmResolveWho'); if(el) el.focus(); },100);
+};
+function briefCloseBgPmResolve(){
+  document.getElementById('bgPmResolveModal').classList.remove('on');
+  _bgPmResolveMapIdx=null;
+}
+function briefSubmitBgPmResolve(){
+  var x = window._briefBgPmMap && window._briefBgPmMap[_bgPmResolveMapIdx];
+  if(!x){ briefCloseBgPmResolve(); return; }
+  var who=document.getElementById('bgPmResolveWho').value.trim();
+  var nguoiNhan=document.getElementById('bgPmResolveNguoiNhan').value.trim();
+  var note=document.getElementById('bgPmResolveNote').value.trim();
+  var date=document.getElementById('bgPmResolveDate').value;
+  var hour=document.getElementById('bgPmResolveHour').value;
+  if(!who || !nguoiNhan || !note){
+    document.getElementById('bgPmResolveErr').style.display='block';
+    return;
+  }
+  var xuLy={nguoiXuLy:who, nguoiNhan:nguoiNhan, thoiGian:(date||'')+' '+(hour||''), ghiChu:note, xuLyLuc:new Date().toISOString()};
+  var path = x.kind==='pm' ? 'pmRecords' : 'bgRecords';
+  var recRef = db.ref(path).child(x.roomId).child(x.id);
+  var updates={};
+  if(x.kind==='pm'){
+    (x.badKeysGm||[]).forEach(function(k){ updates['itemsGayme/'+k+'/xuLy']=xuLy; });
+    (x.badKeysDc||[]).forEach(function(k){ updates['itemsDungcu/'+k+'/xuLy']=xuLy; });
+  } else {
+    (x.badKeys||[]).forEach(function(k){ updates['items/'+k+'/xuLy']=xuLy; });
+  }
+  recRef.update(updates).then(function(){
+    briefCloseBgPmResolve();
+    briefRefresh();
+  }).catch(function(e){ alert('Lỗi khi lưu: '+(e&&e.message?e.message:e)); });
+}
 window.briefResolveKhanLine = function(mapIdx){
   var isAdminChk = !!((window.cu && cu.role==='admin') || (window.adminSession && adminSession.active));
   if(!isAdminChk){ alert('Chỉ Quản lý mới đánh dấu đã xử lý được. Bạn đang ở chế độ chỉ xem.'); return; }
@@ -12175,6 +12417,67 @@ function briefSubmitResolveKhan(){
       alert('✅ Đã đánh dấu xử lý xong'+dupesMsg+'.');
     })
     .catch(function(e){ alert('Lỗi: '+(e&&e.message?e.message:e)); });
+}
+function briefToggleDctdHistory(){
+  var body=document.getElementById('briefDctdHistoryBody');
+  if(!body) return;
+  if(body.style.display!=='none'){ body.style.display='none'; return; }
+  body.style.display='block';
+  body.innerHTML='Đang tải...';
+  db.ref('dctdRecords').once('value').then(function(snap){
+    var d=snap.val()||{};
+    var items=Object.keys(d).map(function(k){var r=d[k];r=Object.assign({},r);r._id=k;return r;}).filter(function(r){return r&&r.xuLy;});
+    items.sort(function(a,b){ return (b.xuLy.xuLyLuc||'').localeCompare(a.xuLy.xuLyLuc||''); });
+    items=items.slice(0,50);
+    if(!items.length){ body.innerHTML='<i style="color:#999">Chưa có mục nào được xử lý.</i>'; return; }
+    body.innerHTML = items.map(function(r){
+      var itemNames=(r.items||[]).map(function(it){return (it.name||'')+(it.qty>1?(' x'+it.qty):'');}).join(', ');
+      return '<div onclick="briefGoToDctd(\''+r._id+'\')" style="padding:6px 0;border-bottom:1px solid #eee;cursor:pointer" onmouseover="this.style.background=\'#fff5e6\'" onmouseout="this.style.background=\'\'">'+
+        '<div><b>'+esc(r.xuLy.thoiGian||'')+'</b> — '+esc(r.setName||'—')+' (thiếu: '+esc(itemNames||'—')+') <span style="color:#888">(xử lý bởi: '+esc(r.xuLy.nguoiXuLy||'')+')</span> <i class="ti ti-external-link" style="font-size:10px;color:#1565c0"></i></div>'+
+        (r.xuLy.ghiChu?('<div style="color:#555;margin-top:2px;padding-left:10px;border-left:2px solid #ddd">'+esc(r.xuLy.ghiChu)+'</div>'):'')+
+      '</div>';
+    }).join('');
+  }).catch(function(e){ body.innerHTML='Lỗi tải lịch sử: '+e.message; });
+}
+function briefToggleBgPmHistory(){
+  var body=document.getElementById('briefBgPmHistoryBody');
+  if(!body) return;
+  if(body.style.display!=='none'){ body.style.display='none'; return; }
+  body.style.display='block';
+  body.innerHTML='Đang tải...';
+  Promise.all([ db.ref('bgRecords').once('value'), db.ref('pmRecords').once('value') ]).then(function(results){
+    var items=[];
+    results[0].forEach(function(roomSnap){
+      var roomId=roomSnap.key;
+      roomSnap.forEach(function(recSnap){
+        var r=recSnap.val();
+        var itemsObj=r.items||{};
+        Object.keys(itemsObj).forEach(function(k){
+          var it=itemsObj[k];
+          if(it && it.xuLy){ items.push({nguon:'Bàn giao Hồi sức — '+roomId, ten:it.ten, status:it.status, xuLy:it.xuLy, kind:'bg', roomId:roomId, recId:recSnap.key}); }
+        });
+      });
+    });
+    results[1].forEach(function(roomSnap){
+      var roomId=roomSnap.key;
+      roomSnap.forEach(function(recSnap){
+        var r=recSnap.val();
+        var gm=r.itemsGayme||{}, dc=r.itemsDungcu||{};
+        Object.keys(gm).forEach(function(k){ var it=gm[k]; if(it && it.xuLy){ items.push({nguon:'Bàn giao Phòng Mổ '+roomId, ten:it.ten, status:it.status, xuLy:it.xuLy, kind:'pm', roomId:roomId, recId:recSnap.key}); } });
+        Object.keys(dc).forEach(function(k){ var it=dc[k]; if(it && it.xuLy){ items.push({nguon:'Bàn giao Phòng Mổ '+roomId, ten:it.ten, status:it.status, xuLy:it.xuLy, kind:'pm', roomId:roomId, recId:recSnap.key}); } });
+      });
+    });
+    items.sort(function(a,b){ return (b.xuLy.xuLyLuc||'').localeCompare(a.xuLy.xuLyLuc||''); });
+    items=items.slice(0,50);
+    if(!items.length){ body.innerHTML='<i style="color:#999">Chưa có mục nào được xử lý.</i>'; return; }
+    body.innerHTML = items.map(function(h){
+      var clickAttr = h.kind==='pm' ? ('briefGoToPm(\''+h.roomId+'\',\''+h.recId+'\')') : ('briefGoToBg(\''+h.roomId+'\',\''+h.recId+'\')');
+      return '<div onclick="'+clickAttr+'" style="padding:6px 0;border-bottom:1px solid #eee;cursor:pointer" onmouseover="this.style.background=\'#fff0f0\'" onmouseout="this.style.background=\'\'">'+
+        '<div><b>'+esc(h.xuLy.thoiGian||'')+'</b> — '+esc(h.ten||'—')+(h.status==='hong'?' (hỏng)':' (thiếu)')+' <span style="color:#888">('+esc(h.nguon)+', xử lý bởi: '+esc(h.xuLy.nguoiXuLy||'')+(h.xuLy.nguoiNhan?(' → nhận: '+esc(h.xuLy.nguoiNhan)):'')+')</span> <i class="ti ti-external-link" style="font-size:10px;color:#1565c0"></i></div>'+
+        (h.xuLy.ghiChu?('<div style="color:#555;margin-top:2px;padding-left:10px;border-left:2px solid #ddd">'+esc(h.xuLy.ghiChu)+'</div>'):'')+
+      '</div>';
+    }).join('');
+  }).catch(function(e){ body.innerHTML='Lỗi tải lịch sử: '+e.message; });
 }
 function briefToggleKhanHistory(){
   var body=document.getElementById('briefKhanHistoryBody');
@@ -12340,15 +12643,19 @@ function briefLoadExtra(){
     db.ref('dctdRecords').once('value').then(function(snap){
       var d=snap.val()||{};
       var list=Object.keys(d).map(function(k){var r=d[k];r=Object.assign({},r);r._id=k;return r;})
-        .filter(function(r){return r.status==='todo';})
+        .filter(function(r){return r.status==='todo' && !r.xuLy;})
         .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');})
         .slice(0,8);
       var cnt=document.getElementById('briefDctdCount'); if(cnt) cnt.textContent=list.length;
-      elDctd.innerHTML = list.length ? list.map(function(r){
+      window._briefDctdMap = list;
+      elDctd.innerHTML = list.length ? list.map(function(r,mi){
         var itemNames=(r.items||[]).map(function(it){return (it.name||'')+(it.qty>1?(' x'+it.qty):'');}).join(', ');
-        return '<div onclick="briefGoToDctd(\''+r._id+'\')" style="padding:8px 10px;border-radius:8px;background:#fff3e0;margin-bottom:6px;font-size:12.5px;cursor:pointer" onmouseover="this.style.background=\'#ffe0b2\'" onmouseout="this.style.background=\'#fff3e0\'">'+
+        return '<div style="padding:8px 10px;border-radius:8px;background:#fff3e0;margin-bottom:6px;font-size:12.5px">'+
+          '<div onclick="briefGoToDctd(\''+r._id+'\')" style="cursor:pointer">'+
           '<b>'+esc(r.setName||'—')+'</b> — thiếu: '+esc(itemNames||'—')+
           '<div style="color:#888;font-size:11px;margin-top:2px">Ngày: '+esc(r.date||'—')+' · Người phát hiện: '+esc(r.discoverer||'—')+(r.dept?(' — '+esc(r.dept)):'')+'</div>'+
+          '</div>'+
+          '<div style="margin-top:6px"><button onclick="event.stopPropagation();briefOpenDctdResolve('+mi+')" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer"><i class="ti ti-check"></i> Xử lý</button></div>'+
         '</div>';
       }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có báo cáo thiếu/mất dụng cụ tồn đọng.</div>';
     }).catch(function(){ elDctd.innerHTML='<div style="color:#c62828;font-size:12px">Lỗi tải dữ liệu.</div>'; });
@@ -12361,29 +12668,35 @@ function briefLoadExtra(){
         var roomId=roomSnap.key;
         roomSnap.forEach(function(recSnap){
           var r=recSnap.val();
-          var items=Object.values(r.items||{});
-          var bad=items.filter(function(it){return it&&(it.status==='thieu'||it.status==='hong');});
-          if(bad.length){ list.push({nguon:'Bàn giao Hồi sức — '+roomId, kind:'bg', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, bad:bad}); }
+          var itemsObj=r.items||{};
+          var badKeys=Object.keys(itemsObj).filter(function(k){ var it=itemsObj[k]; return it&&(it.status==='thieu'||it.status==='hong')&&!it.xuLy; });
+          if(badKeys.length){ list.push({nguon:'Bàn giao Hồi sức — '+roomId, kind:'bg', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, itemsPath:'items', badKeys:badKeys, bad:badKeys.map(function(k){return itemsObj[k];})}); }
         });
       });
       results[1].forEach(function(roomSnap){
         var roomId=roomSnap.key;
         roomSnap.forEach(function(recSnap){
           var r=recSnap.val();
-          var items=Object.values(r.itemsGayme||{}).concat(Object.values(r.itemsDungcu||{}));
-          var bad=items.filter(function(it){return it&&(it.status==='thieu'||it.status==='hong');});
-          if(bad.length){ list.push({nguon:'Bàn giao Phòng Mổ '+roomId, kind:'pm', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, bad:bad}); }
+          var gm=r.itemsGayme||{}, dc=r.itemsDungcu||{};
+          var badKeysGm=Object.keys(gm).filter(function(k){ var it=gm[k]; return it&&(it.status==='thieu'||it.status==='hong')&&!it.xuLy; });
+          var badKeysDc=Object.keys(dc).filter(function(k){ var it=dc[k]; return it&&(it.status==='thieu'||it.status==='hong')&&!it.xuLy; });
+          var bad=badKeysGm.map(function(k){return gm[k];}).concat(badKeysDc.map(function(k){return dc[k];}));
+          if(bad.length){ list.push({nguon:'Bàn giao Phòng Mổ '+roomId, kind:'pm', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, badKeysGm:badKeysGm, badKeysDc:badKeysDc, bad:bad}); }
         });
       });
       list.sort(function(a,b){return (b.ngay||'').localeCompare(a.ngay||'');});
       list=list.slice(0,8);
+      window._briefBgPmMap = list;
       var cnt=document.getElementById('briefBgPmCount'); if(cnt) cnt.textContent=list.length;
-      elBg.innerHTML = list.length ? list.map(function(x){
+      elBg.innerHTML = list.length ? list.map(function(x,mi){
         var names=x.bad.map(function(it){return (it.ten||'—')+(it.status==='hong'?' (hỏng)':' (thiếu)');}).join(', ');
         var clickAttr = x.kind==='pm' ? ('briefGoToPm(\''+x.roomId+'\',\''+x.id+'\')') : ('briefGoToBg(\''+x.roomId+'\',\''+x.id+'\')');
-        return '<div onclick="'+clickAttr+'" style="padding:8px 10px;border-radius:8px;background:#fce4ec;margin-bottom:6px;font-size:12.5px;cursor:pointer" onmouseover="this.style.background=\'#f8bbd0\'" onmouseout="this.style.background=\'#fce4ec\'">'+
+        return '<div style="padding:8px 10px;border-radius:8px;background:#fce4ec;margin-bottom:6px;font-size:12.5px">'+
+          '<div onclick="'+clickAttr+'" style="cursor:pointer">'+
           '<b>'+esc(x.nguon)+'</b> — '+esc(names)+
-          '<div style="color:#888;font-size:11px;margin-top:2px">Ngày: '+esc(x.ngay||'—')+' · '+esc(x.giao||'')+' → '+esc(x.nhan||'')+'</div>'+
+          '<div style="color:#888;font-size:11px;margin-top:2px">Ngày: '+esc(x.ngay||'—')+' · Người giao: '+esc(x.giao||'—')+' &nbsp;→&nbsp; Người nhận: '+esc(x.nhan||'—')+'</div>'+
+          '</div>'+
+          '<div style="margin-top:6px"><button onclick="event.stopPropagation();briefOpenBgPmResolve('+mi+')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer"><i class="ti ti-check"></i> Xử lý</button></div>'+
         '</div>';
       }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có bàn giao nào báo thiếu/hư hỏng gần đây.</div>';
     }).catch(function(){ elBg.innerHTML='<div style="color:#c62828;font-size:12px">Lỗi tải dữ liệu.</div>'; });
@@ -19757,8 +20070,17 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           </div>
           <div class="kpi-f" style="margin:0"><label style="font-size:11px">Từ ngày</label><input type="date" id="dtListFrom" onchange="dtRenderAll()" style="padding:7px 8px;border:1.5px solid #d9c2ea;border-radius:8px;font-size:13px;font-family:inherit"></div>
           <div class="kpi-f" style="margin:0"><label style="font-size:11px">Đến ngày</label><input type="date" id="dtListTo" onchange="dtRenderAll()" style="padding:7px 8px;border:1.5px solid #d9c2ea;border-radius:8px;font-size:13px;font-family:inherit"></div>
+          <div class="kpi-f" style="margin:0"><label style="font-size:11px">Trạng thái</label>
+            <select id="dtListFilterStatus" onchange="dtRenderAll()" style="padding:7px 8px;border:1.5px solid #d9c2ea;border-radius:8px;font-size:13px;font-family:inherit">
+              <option value="">— Tất cả —</option>
+              <option value="cho_duyet">Chờ duyệt</option>
+              <option value="da_duyet">Đã duyệt</option>
+              <option value="tu_choi">Từ chối</option>
+              <option value="vi_pham">Vi phạm</option>
+            </select>
+          </div>
           <button class="kpi-btn" style="background:#7b1fa2;color:#fff" onclick="dtRenderAll()"><i class="ti ti-filter"></i> Lọc</button>
-          <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('dtListFrom').value='';document.getElementById('dtListTo').value='';dtRenderAll()"><i class="ti ti-refresh"></i> Xóa lọc</button>
+          <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('dtListFrom').value='';document.getElementById('dtListTo').value='';document.getElementById('dtListFilterStatus').value='';dtRenderAll()"><i class="ti ti-refresh"></i> Xóa lọc</button>
           <button class="kpi-btn" style="border:1.5px solid #7b1fa2;color:#7b1fa2" onclick="dtPrintNow()"><i class="ti ti-printer"></i> In</button>
         </div>
         <div id="dtListWrap"></div>
@@ -20180,7 +20502,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 </div>
 
 <div class="kpi-modal-overlay" id="ltPreviewOverlay">
-  <div class="kpi-modal-box" id="ltPreviewBox" style="max-width:960px;width:95%">
+  <div class="kpi-modal-box" id="ltPreviewBox" style="max-width:1400px;width:95%">
     <div class="kpi-modal-head">
       <div id="ltPreviewTitle" style="font-weight:700;color:#4527a0;font-size:14px;flex:1"><i class="ti ti-eye"></i> Xem lịch trực</div>
       <button class="kpi-btn" id="ltPreviewImgBtn" style="padding:4px 10px;font-size:12px;border:1.5px solid #4527a0;color:#4527a0;margin-right:6px" onclick="ltTogglePreviewImage()"><i class="ti ti-photo"></i> Xem dạng ảnh</button>
@@ -22322,7 +22644,104 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       dctdResetForm();
     }).catch(function(err){alert('Lỗi: '+err.message);});
   };
-  window.dctdMoveStatus=function(id,st){
+  // Tìm bản ghi dctd theo id, ưu tiên mảng dctdRecords của màn hình chính (nếu đang mở), phòng khi gọi từ Giao ban sáng
+function dctdFindRecordAnywhere(recId, cb){
+  if(typeof dctdRecords!=='undefined' && dctdRecords && dctdRecords.length){
+    var found=dctdRecords.find(function(x){return x._id===recId;});
+    if(found){ cb(found); return; }
+  }
+  db.ref('dctdRecords').child(recId).once('value').then(function(snap){
+    var r=snap.val(); if(r){ r=Object.assign({},r); r._id=recId; }
+    cb(r);
+  }).catch(function(){ cb(null); });
+}
+window.dctdOpenResolve = function(recId){
+  var isAdminChk = !!((window.cu && cu.role==='admin') || (window.adminSession && adminSession.active) || (typeof dctdCu!=='undefined' && dctdCu && dctdCu.role==='admin'));
+  if(!isAdminChk){ alert('Chỉ Quản lý mới xử lý được.'); return; }
+  dctdFindRecordAnywhere(recId, function(r){
+    if(!r){ alert('Không tìm thấy phiếu.'); return; }
+    _dctdResolveRecId = recId;
+    var itemNames=(r.items||[]).map(function(it){return (it.name||'')+(it.qty>1?(' x'+it.qty):'');}).join(', ');
+    document.getElementById('dctdResolveText').value = (r.setName||'—')+' — thiếu: '+(itemNames||'—');
+    document.getElementById('dctdResolveWho').value='';
+    document.getElementById('dctdResolveNote').value='';
+    document.getElementById('dctdResolveErr').style.display='none';
+    try{
+      var dl=document.getElementById('briefResolveWhoList');
+      if(dl && typeof staffList!=='undefined' && staffList.length){
+        dl.innerHTML=staffList.map(function(n){return '<option value="'+String(n).replace(/"/g,'&quot;')+'">';}).join('');
+      }
+    }catch(e){}
+    var now=new Date();
+    var pad=function(n){return String(n).padStart(2,'0');};
+    document.getElementById('dctdResolveDate').value=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+    document.getElementById('dctdResolveDate').max=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+    document.getElementById('dctdResolveHour').value=pad(now.getHours())+':'+pad(now.getMinutes());
+    document.getElementById('dctdResolveModal').classList.add('on');
+    setTimeout(function(){ var el=document.getElementById('dctdResolveWho'); if(el) el.focus(); },100);
+  });
+};
+window.briefOpenDctdResolve = function(mapIdx){
+  var r = window._briefDctdMap && window._briefDctdMap[mapIdx];
+  if(!r) return;
+  dctdOpenResolve(r._id);
+};
+window.briefCloseDctdResolve = function(){
+  document.getElementById('dctdResolveModal').classList.remove('on');
+  _dctdResolveRecId=null;
+}
+window.briefSubmitDctdResolve = function(){
+  if(!_dctdResolveRecId){ briefCloseDctdResolve(); return; }
+  var who=document.getElementById('dctdResolveWho').value.trim();
+  var note=document.getElementById('dctdResolveNote').value.trim();
+  var date=document.getElementById('dctdResolveDate').value;
+  var hour=document.getElementById('dctdResolveHour').value;
+  if(!who || !note){
+    document.getElementById('dctdResolveErr').style.display='block';
+    return;
+  }
+  var xuLy={nguoiXuLy:who, thoiGian:(date||'')+' '+(hour||''), ghiChu:note, xuLyLuc:new Date().toISOString()};
+  db.ref('dctdRecords').child(_dctdResolveRecId).update({status:'done', doneAt:(date||new Date().toISOString().slice(0,10)), xuLy:xuLy}).then(function(){
+    briefCloseDctdResolve();
+    if(typeof briefRefresh==='function' && document.getElementById('briefModal') && document.getElementById('briefModal').classList.contains('on')) briefRefresh();
+  }).catch(function(e){ alert('Lỗi khi lưu: '+(e&&e.message?e.message:e)); });
+}
+// ── Phân công người xử lý (todo -> doing, kèm tên người phụ trách) ──
+var _dctdAssignRecId=null;
+window.dctdOpenAssign = function(recId){
+  if(!dctdCu||dctdCu.role!=='admin'){alert('Chỉ Quản lý mới phân công được!');return;}
+  var r=dctdRecords.find(function(x){return x._id===recId;});
+  if(!r){alert('Không tìm thấy phiếu.');return;}
+  _dctdAssignRecId=recId;
+  var itemNames=(r.items||[]).map(function(it){return (it.name||'')+(it.qty>1?(' x'+it.qty):'');}).join(', ');
+  document.getElementById('dctdAssignText').value=(r.setName||'—')+' — thiếu: '+(itemNames||'—');
+  document.getElementById('dctdAssignWho').value=(r.phanCong&&r.phanCong.nguoiPhuTrach)||'';
+  document.getElementById('dctdAssignNote').value='';
+  document.getElementById('dctdAssignErr').style.display='none';
+  try{
+    var dl=document.getElementById('briefResolveWhoList');
+    if(dl && typeof staffList!=='undefined' && staffList.length){
+      dl.innerHTML=staffList.map(function(n){return '<option value="'+String(n).replace(/"/g,'&quot;')+'">';}).join('');
+    }
+  }catch(e){}
+  document.getElementById('dctdAssignModal').classList.add('on');
+  setTimeout(function(){ var el=document.getElementById('dctdAssignWho'); if(el) el.focus(); },100);
+};
+window.dctdCloseAssign = function(){
+  document.getElementById('dctdAssignModal').classList.remove('on');
+  _dctdAssignRecId=null;
+}
+window.dctdSubmitAssign = function(){
+  if(!_dctdAssignRecId){ dctdCloseAssign(); return; }
+  var who=document.getElementById('dctdAssignWho').value.trim();
+  var note=document.getElementById('dctdAssignNote').value.trim();
+  if(!who){ document.getElementById('dctdAssignErr').style.display='block'; return; }
+  var phanCong={nguoiPhuTrach:who, ghiChu:note||null, luc:new Date().toISOString(), boiAi:(dctdCu&&dctdCu.name)||'Quản lý'};
+  dctdRef.child(_dctdAssignRecId).update({status:'doing', phanCong:phanCong}).then(function(){
+    dctdCloseAssign();
+  }).catch(function(err){ alert('Lỗi: '+err.message); });
+}
+window.dctdMoveStatus=function(id,st){
     if(!dctdCu||dctdCu.role!=='admin'){alert('Chỉ Quản lý mới chuyển được trạng thái!');return;}
     var updates={status:st};
     updates.doneAt = st==='done' ? dctdToday() : null;
@@ -22383,8 +22802,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         '<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #c62828;color:#c62828" onclick="dctdDeleteRecord(\''+r._id+'\')"><i class="ti ti-trash"></i></button>'):'';
     if(isA){
       var mv='';
-      if(r.status==='todo') mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;background:#0d47a1;color:#fff" onclick="dctdMoveStatus(\''+r._id+'\',\'doing\')">→ Đang xử lý</button>';
-      else if(r.status==='doing') mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;background:#00695c;color:#fff" onclick="dctdMoveStatus(\''+r._id+'\',\'done\')">→ Đã bồi hoàn/khắc phục</button><button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="dctdMoveStatus(\''+r._id+'\',\'todo\')">← Chưa xử lý</button>';
+      if(r.status==='todo') mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;background:#0d47a1;color:#fff" onclick="dctdOpenAssign(\''+r._id+'\')"><i class="ti ti-user-plus"></i> Phân công xử lý</button>';
+      else if(r.status==='doing') mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;background:#00695c;color:#fff" onclick="dctdOpenResolve(\''+r._id+'\')"><i class="ti ti-check"></i> Xác nhận đã xử lý</button><button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="dctdMoveStatus(\''+r._id+'\',\'todo\')">← Chưa xử lý</button>';
       else mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="dctdMoveStatus(\''+r._id+'\',\'doing\')">← Đang xử lý</button>';
       actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+mv+editDeleteBtns+'</div>';
     } else if(canEditThis){
@@ -22438,6 +22857,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       '<div style="font-size:11.5px;margin-top:8px;color:#555"><b>Dụng cụ thất lạc:</b></div>'+
       '<ul style="margin:3px 0 0;padding-left:18px;font-size:12.5px">'+itemsHtml+'</ul>'+
       (r.note?'<div style="font-size:12px;color:#666;margin-top:4px;font-style:italic">"'+dctdEsc(r.note)+'"</div>':'')+
+      (r.phanCong?'<div style="font-size:11.5px;margin-top:6px;color:#0d47a1;background:#eef4fb;border:1px solid #c7ddf3;border-radius:6px;padding:5px 8px"><i class="ti ti-user-plus"></i> <b>Đã phân công:</b> '+dctdEsc(r.phanCong.nguoiPhuTrach)+(r.phanCong.ghiChu?(' — '+dctdEsc(r.phanCong.ghiChu)):'')+'</div>':'')+
+      (r.xuLy?'<div style="font-size:11.5px;margin-top:6px;color:#00695c;background:#e6f4ea;border:1px solid #bfe3cc;border-radius:6px;padding:5px 8px"><i class="ti ti-check"></i> <b>Đã xử lý bởi:</b> '+dctdEsc(r.xuLy.nguoiXuLy)+' lúc '+dctdEsc(r.xuLy.thoiGian||'')+'<br>'+dctdEsc(r.xuLy.ghiChu||'')+'</div>':'')+
       '<div style="margin-top:8px">'+reportBadge+'</div>'+
       '<div style="font-size:10.5px;color:#999;margin-top:6px">Người ghi nhận: '+dctdEsc(r.createdBy||'')+'</div>'+
       actions+
@@ -23384,9 +23805,37 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
             var base64=ltArrayBufferToBase64(data);
             var itemId=Date.now()+'_'+Math.floor(Math.random()*100000);
             var rec={type:type,fileName:f.name,base64:base64,note:note||null,uploadedBy:ltCu.name,uploadedAt:new Date().toISOString()};
-            ltRef.child(month).child('items').child(itemId).set(rec).then(function(){
-              okCount++; resolve();
-            }).catch(function(err){ errFiles.push(f.name+' ('+err.message+')'); resolve(); });
+            function saveRec(){
+              ltRef.child(month).child('items').child(itemId).set(rec).then(function(){
+                okCount++; resolve();
+              }).catch(function(err){ errFiles.push(f.name+' ('+err.message+')'); resolve(); });
+            }
+            // Tải thêm file GỐC lên Firebase Storage để lấy link công khai — phục vụ xem bằng Google Docs Viewer (giống file thật hơn nhiều so với dựng lại HTML)
+            // Có giới hạn thời gian chờ: nếu Storage chưa bật/chưa cấp quyền hoặc mạng chậm, KHÔNG treo mãi mà tự chuyển về cách lưu cũ.
+            if(kpiStorage){
+              var safeName=Date.now()+'_'+f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+              var fileRef=kpiStorage.ref('lichTruc/'+month+'/'+safeName);
+              var storageDone=false;
+              var storageTimer=setTimeout(function(){
+                if(storageDone) return;
+                storageDone=true;
+                console.warn('Tải lên Storage quá thời gian chờ (15s) — có thể Storage chưa bật/chưa cấp quyền trong Firebase Console. Lưu theo cách cũ.');
+                saveRec();
+              },15000);
+              fileRef.put(f).then(function(snap){ return snap.ref.getDownloadURL(); }).then(function(url){
+                if(storageDone) return;
+                storageDone=true; clearTimeout(storageTimer);
+                rec.storageUrl=url;
+                saveRec();
+              }).catch(function(eStorage){
+                if(storageDone) return;
+                storageDone=true; clearTimeout(storageTimer);
+                console.warn('Tải lên Storage thất bại (vẫn lưu bản xem tạm trong Database):', eStorage);
+                saveRec();
+              });
+            } else {
+              saveRec();
+            }
           }catch(err){ errFiles.push(f.name+' ('+err.message+')'); resolve(); }
         };
         reader.onerror=function(){ errFiles.push(f.name+' (không đọc được file)'); resolve(); };
@@ -23454,10 +23903,19 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         for(var j=0;j<byteChars0.length;j++) byteNumbers0[j]=byteChars0.charCodeAt(j);
         var blob0=new Blob([new Uint8Array(byteNumbers0)],{type:'application/pdf'});
         ltPreviewPdfUrl=URL.createObjectURL(blob0);
-        if(bodyEl) bodyEl.innerHTML='<iframe id="ltPdfFrame" src="'+ltPreviewPdfUrl+'#toolbar=0&navpanes=0&view=Fit" style="width:100%;border:none;border-radius:8px;background:#525659;display:block"></iframe>';
+        if(bodyEl) bodyEl.innerHTML='<iframe id="ltPdfFrame" src="'+ltPreviewPdfUrl+'#toolbar=0&navpanes=0&view=FitH" style="width:100%;border:none;border-radius:8px;background:#525659;display:block"></iframe>';
       }catch(errPdf){
         if(bodyEl) bodyEl.innerHTML='<div style="text-align:center;color:#c62828;padding:30px">Không xem trước được file PDF này ('+ltEsc(errPdf.message)+'). Anh bấm "Tải xuống" ở góc trên để mở bằng trình đọc PDF khác.</div>';
       }
+      return;
+    }
+    // File Excel có link công khai trên Storage → xem bằng Google Docs Viewer (đọc bằng engine Google, giống file thật gần như 100%)
+    if(item.storageUrl){
+      var imgBtn3=document.getElementById('ltPreviewImgBtn'); if(imgBtn3) imgBtn3.style.display='none';
+      var gdocUrl='https://docs.google.com/gview?url='+encodeURIComponent(item.storageUrl)+'&embedded=true';
+      if(bodyEl) bodyEl.innerHTML=
+        '<div style="font-size:11.5px;color:#7a5b00;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:6px 10px;margin-bottom:8px"><i class="ti ti-info-circle"></i> Đang xem bằng Google Docs Viewer (giống file gốc gần như 100%). Nếu khung bên dưới không hiện được (do mạng chặn Google), anh bấm "Tải xuống" để mở bằng Excel.</div>'+
+        '<iframe id="ltGdocFrame" src="'+gdocUrl+'" style="width:100%;height:68vh;border:none;border-radius:8px;background:#fff"></iframe>';
       return;
     }
     try{
@@ -23473,9 +23931,112 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       var sheetTabs='';
       var sheetsHtml=wb.SheetNames.map(function(name,idx){
         var ws=wb.Sheets[name];
-        var fullHtml=XLSX.utils.sheet_to_html(ws);
+        // Bước 1: Ưu tiên "Vùng in" (Print Area) nếu đọc được (thường chỉ có ở .xlsx)
+        var printRange=null;
+        try{
+          if(wb.Workbook && wb.Workbook.Names){
+            var paDef=wb.Workbook.Names.find(function(n){ return n.Name==='_xlnm.Print_Area' && n.Sheet===idx; });
+            if(paDef && paDef.Ref){
+              var refAfterBang=paDef.Ref.split('!').slice(1).join('!');
+              if(refAfterBang){ printRange=refAfterBang.split(',')[0].replace(/\$/g,'').replace(/'/g,''); }
+            }
+          }
+        }catch(ePa){ printRange=null; }
+        // Bước 2: Nếu không có Vùng in, tự quét dữ liệu thô để giới hạn phạm vi tới đúng ô cuối cùng có nội dung thật
+        if(!printRange && ws['!ref']){
+          try{
+            var fullR=XLSX.utils.decode_range(ws['!ref']);
+            var lastDataRow=fullR.s.r, lastDataCol=fullR.s.c;
+            for(var rr=fullR.s.r; rr<=fullR.e.r; rr++){
+              for(var cc=fullR.s.c; cc<=fullR.e.c; cc++){
+                var cellObj=ws[XLSX.utils.encode_cell({r:rr,c:cc})];
+                if(cellObj && cellObj.v!==undefined && cellObj.v!==null){
+                  var vTxt=String(cellObj.v).replace(/[\s\u00a0\u200b\ufeff]/g,'');
+                  if(vTxt!==''){ if(rr>lastDataRow) lastDataRow=rr; if(cc>lastDataCol) lastDataCol=cc; }
+                }
+              }
+            }
+            if(lastDataRow>fullR.s.r || lastDataCol>fullR.s.c){
+              printRange={s:{r:fullR.s.r,c:fullR.s.c},e:{r:lastDataRow,c:lastDataCol}};
+            }
+          }catch(eTrim){ /* giữ nguyên, không giới hạn được thì thôi */ }
+        }
+        var fullHtml=printRange ? XLSX.utils.sheet_to_html(ws,{range:printRange}) : XLSX.utils.sheet_to_html(ws);
         var m=fullHtml.match(/<table[\s\S]*?<\/table>/i);
         var tableHtml=m?m[0]:'<div style="color:#aaa;padding:20px">Không đọc được nội dung trang tính này.</div>';
+        // Bước 3: Cắt tỉa thêm lần nữa dựa trên nội dung THẬT đã render ra (phòng khi bước 1-2 vẫn còn sót dòng/cột trống)
+        try{
+          var tmpDiv=document.createElement('div');
+          tmpDiv.innerHTML=tableHtml;
+          var tbl=tmpDiv.querySelector('table');
+          if(tbl){
+            var trList=Array.prototype.slice.call(tbl.querySelectorAll('tr'));
+            for(var ri=trList.length-1; ri>=0; ri--){
+              var rowTxt=(trList[ri].textContent||'').replace(/[\s\u00a0\u200b\ufeff]/g,'');
+              if(rowTxt===''){ trList[ri].parentNode.removeChild(trList[ri]); }
+              else break;
+            }
+            // Cắt cột trống HOÀN TOÀN ở rìa trái/phải — tính đúng theo lưới ô gộp (rowspan/colspan) để KHÔNG cắt nhầm dữ liệu thật
+            var rows2=Array.prototype.slice.call(tbl.querySelectorAll('tr'));
+            if(rows2.length){
+              var ltIsCellEmpty=function(cell){
+                return (cell.textContent||'').replace(/[\s\u00a0\u200b\ufeff]/g,'')==='';
+              };
+              // Dựng lưới occupancy: grid[r][c] = ô <td> thực sự chiếm ô lưới đó (có tính rowspan/colspan)
+              var grid=[], colFill=[], maxCols=0;
+              for(var gr=0; gr<rows2.length; gr++){
+                grid[gr]=[];
+                var cIdx=0, cellPtr=0;
+                var cellsInRow=rows2[gr].children;
+                while(cellPtr<cellsInRow.length){
+                  while(colFill[cIdx] && colFill[cIdx]>0){ colFill[cIdx]--; cIdx++; }
+                  var cellNode=cellsInRow[cellPtr];
+                  var cs=parseInt(cellNode.getAttribute('colspan')||'1',10);
+                  var rs=parseInt(cellNode.getAttribute('rowspan')||'1',10);
+                  for(var k=0;k<cs;k++){ grid[gr][cIdx+k]=cellNode; if(rs>1) colFill[cIdx+k]=(colFill[cIdx+k]||0)+(rs-1); }
+                  cIdx+=cs; cellPtr++;
+                }
+                if(cIdx>maxCols) maxCols=cIdx;
+              }
+              var colIsEmpty=function(c){
+                for(var gr2=0; gr2<grid.length; gr2++){
+                  var cellAt=grid[gr2][c];
+                  if(cellAt && !ltIsCellEmpty(cellAt)) return false;
+                }
+                return true;
+              };
+              var leftTrim=0;
+              while(leftTrim<maxCols && colIsEmpty(leftTrim)) leftTrim++;
+              var rightTrim=0;
+              while(rightTrim<(maxCols-leftTrim) && colIsEmpty(maxCols-1-rightTrim)) rightTrim++;
+              if(leftTrim>0 || rightTrim>0){
+                var keepEnd=maxCols-rightTrim-1;
+                for(var rr=0; rr<rows2.length; rr++){
+                  var rowCells=Array.prototype.slice.call(rows2[rr].children);
+                  var seenCells=[];
+                  for(var ci=0; ci<rowCells.length; ci++){
+                    var cellX=rowCells[ci];
+                    if(seenCells.indexOf(cellX)!==-1) continue;
+                    seenCells.push(cellX);
+                    var startCol=-1, endCol=-1;
+                    for(var cc2=0; cc2<maxCols; cc2++){ if(grid[rr][cc2]===cellX){ if(startCol===-1) startCol=cc2; endCol=cc2; } }
+                    if(startCol===-1) continue;
+                    if(endCol<leftTrim || startCol>keepEnd){
+                      if(cellX.parentNode) cellX.parentNode.removeChild(cellX);
+                    } else {
+                      var overlapL=Math.max(0,leftTrim-startCol), overlapR=Math.max(0,endCol-keepEnd);
+                      var origSpan=endCol-startCol+1, newSpan=Math.max(1,origSpan-overlapL-overlapR);
+                      if(newSpan!==origSpan){
+                        if(newSpan<=1) cellX.removeAttribute('colspan'); else cellX.setAttribute('colspan',String(newSpan));
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            tableHtml=tbl.outerHTML;
+          }
+        }catch(eTrimDom){ console.warn('ltPreviewFile: lỗi khi cắt tỉa dòng/cột trống', eTrimDom); }
         return '<div class="lt-render" id="ltSheetTab_'+idx+'" style="display:'+(idx===0?'block':'none')+';overflow-x:auto">'+tableHtml+'</div>';
       }).join('');
       if(wb.SheetNames.length>1){
@@ -29640,6 +30201,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   var _dtCurrentStatMeta = {};
   var _dtCurrentMonthStr = '';
 
+  window.dtQuickFilterStatus = function(status){
+    var statusEl=document.getElementById('dtListFilterStatus');
+    if(statusEl) statusEl.value=status||'';
+    dtSwitchTab(2);
+    dtRenderAll();
+  };
   window.dtRenderAll = function dtRenderAll(){
     var monthStr = document.getElementById('dtMonth').value || dtCurMonth();
     _dtCurrentMonthStr = monthStr;
@@ -29674,6 +30241,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var listDisplay = listFilterQNorm ? listBase.filter(function(r){
       return dtStripDiac(r.nguoiDangKy).indexOf(listFilterQNorm)>=0 || dtStripDiac(r.nguoiNhanThay).indexOf(listFilterQNorm)>=0;
     }) : listBase;
+    var listStatusEl = document.getElementById('dtListFilterStatus');
+    var listStatusVal = listStatusEl ? listStatusEl.value : '';
+    if(listStatusVal){
+      listDisplay = listDisplay.filter(function(r){
+        var st = r.trangThai || 'cho_duyet';
+        return st===listStatusVal;
+      });
+    }
     _dtCurrentListInScope = listDisplay;
 
     if(!listBase.length){
@@ -29735,13 +30310,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var tuChoi = statRecs.filter(function(r){ return r.trangThai==='tu_choi'; }).length;
     var viPham = statRecs.filter(function(r){ return r.trangThai==='vi_pham'; }).length;
     var ovWrap = document.getElementById('dtStatOverview');
-    function ovCard(label, val, color){
-      return '<div style="flex:1;min-width:110px;background:#fff;border:1.5px solid #e3d3ef;border-radius:10px;padding:12px;text-align:center">'+
+    function ovCard(label, val, color, status){
+      var clickAttr = status!==undefined ? ' onclick="dtQuickFilterStatus(\''+status+'\')" style="flex:1;min-width:110px;background:#fff;border:1.5px solid #e3d3ef;border-radius:10px;padding:12px;text-align:center;cursor:pointer;transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,.12)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'"' : ' style="flex:1;min-width:110px;background:#fff;border:1.5px solid #e3d3ef;border-radius:10px;padding:12px;text-align:center"';
+      return '<div'+clickAttr+'>'+
         '<div style="font-size:22px;font-weight:800;color:'+color+'">'+val+'</div>'+
         '<div style="font-size:11.5px;color:#8a6ea8">'+label+'</div></div>';
     }
-    ovWrap.innerHTML = ovCard('Tổng phiếu'+scopeLabelTxt, statRecs.length, '#4a0d5e') +
-      ovCard('Chờ duyệt', choDuyet, '#8a6d00') + ovCard('Đã duyệt', daDuyet, '#1b6b3a') + ovCard('Từ chối', tuChoi, '#a11d1d') + ovCard('Vi phạm', viPham, '#7a1414');
+    ovWrap.innerHTML = ovCard('Tổng phiếu'+scopeLabelTxt, statRecs.length, '#4a0d5e', '') +
+      ovCard('Chờ duyệt', choDuyet, '#8a6d00', 'cho_duyet') + ovCard('Đã duyệt', daDuyet, '#1b6b3a', 'da_duyet') + ovCard('Từ chối', tuChoi, '#a11d1d', 'tu_choi') + ovCard('Vi phạm', viPham, '#7a1414', 'vi_pham');
 
     var useAvg = isAllScope || isRangeScope;
     // So thang co du lieu (dung lam mau so tinh trung binh khi xem luy ke / khoang ngay)
@@ -30106,6 +30682,18 @@ let btdActiveFilter = 'all'; // 'all' | 'ok' | 'over' | 'pend' — lọc theo th
 let btdReturnPending = false; // true khi vào Phòng Mổ TỪ màn hình "Theo dõi Giao nhận trực" — để hiện nút quay lại đúng chỗ
 var briefReturnPending = false; // true khi vào Phòng Mổ/Hồi sức TỪ modal "Giao ban sáng" — để hiện nút quay lại đúng chỗ
 function btdToggleGroup(gid){ btdCollapsed[gid] = !btdCollapsed[gid]; btdRender(); }
+function btdToggleAllGroups(){
+  var gids = Object.keys(BTD_GROUPS||{});
+  var allIds = gids.concat(['_vesinh']);
+  var currentlyMostlyCollapsed = allIds.filter(function(id){ return btdCollapsed[id]; }).length >= Math.ceil(allIds.length/2);
+  var targetState = !currentlyMostlyCollapsed; // nếu đa số đang mở -> thu gọn hết; nếu đa số đang thu gọn -> mở hết
+  allIds.forEach(function(id){ btdCollapsed[id] = targetState; });
+  var icon=document.getElementById('btdToggleAllIcon'), txt=document.getElementById('btdToggleAllTxt');
+  if(icon) icon.className = targetState ? 'ti ti-arrows-maximize' : 'ti ti-arrows-minimize';
+  if(txt) txt.textContent = targetState ? 'Mở rộng tất cả' : 'Thu gọn tất cả';
+  btdRenderVesinh();
+  btdRender();
+}
 function btdResetToDefault(){
   if(!btdIsAdmin()){ alert('Chỉ Quản lý (Admin) mới được đặt lại cấu hình mặc định!'); return; }
   if(!confirm('Đặt lại TOÀN BỘ cấu hình nhóm/phòng về mặc định ban đầu:\n\n- Trực 12/24 – Hồi sức, PM 201/203/204, Tủ thuốc – Vật tư lẻ PM\n- Trực 24/24 – PM 304/403/404\n- Bàn giao theo tháng – PM 202/301/302/303/401/402\n\nMọi nhóm/phòng đang tùy chỉnh khác sẽ bị THAY THẾ. Biên bản bàn giao thật (Bàn giao Hồi sức/Phòng Mổ) KHÔNG bị ảnh hưởng gì.')) return;
@@ -30257,7 +30845,7 @@ function btdConfirmKpiPerson(inputId, fkey, deptName, dateKey){
 // Đếm tổng số bộ phận đang TRỄ HẠN giao trực (dùng cho badge thông báo tổng ở trang chủ)
 // Tách riêng theo 3 loại lịch để dễ quan sát: Trực 12/24, Trực 24/24 (theo ngày), Bàn giao theo tháng
 function notifComputeBtd(){
-  if(!btdGroupsLoaded || !btdBgLoaded || !btdPmLoaded || !btdResetLoaded){ notifCounts.btd1224=0; notifCounts.btd2424=0; notifCounts.btdThang=0; notifBtdMaxDays={btd1224:0,btd2424:0,btdThang:0}; notifBtdNames={btd1224:[],btd2424:[],btdThang:[]}; return; }
+  if(!btdGroupsLoaded || !btdBgLoaded || !btdPmLoaded || !btdResetLoaded){ notifCounts.btd1224=0; notifCounts.btd2424=0; notifCounts.btdThang=0; notifCounts.btdAll=0; notifBtdMaxDays={btd1224:0,btd2424:0,btdThang:0}; notifBtdNames={btd1224:[],btd2424:[],btdThang:[]}; return; }
   var over1224=0, over2424=0, overThang=0;
   var max1224=0, max2424=0, maxThang=0;
   var names1224=[], names2424=[], namesThang=[];
@@ -30281,6 +30869,7 @@ function notifComputeBtd(){
   notifCounts.btd1224 = over1224;
   notifCounts.btd2424 = over2424;
   notifCounts.btdThang = overThang;
+  notifCounts.btdAll = over1224 + over2424 + overThang;
   notifBtdMaxDays = {btd1224:max1224, btd2424:max2424, btdThang:maxThang};
   notifBtdNames = {btd1224:names1224, btd2424:names2424, btdThang:namesThang};
 }
@@ -30376,13 +30965,15 @@ function btdRenderVesinh(){
       '<td style="text-align:right">'+btnHtml+'</td></tr>';
   });
   wrap.style.display='block';
+  var vsCollapsed = !!btdCollapsed['_vesinh'];
   wrap.innerHTML =
     '<div class="btd-grp">'+
       '<div class="btd-grp-hd">'+
         '<div class="btd-grp-ic" style="background:#0d6e6e"><i class="ti ti-droplet"></i></div>'+
         '<div><div class="btd-grp-title">🧼 Tổng vệ sinh khử khuẩn cuối tuần — Phòng Mổ</div><div class="btd-grp-rule">Đọc trực tiếp từ "Bàn giao Phòng Mổ" — hạn Thứ 6 hằng tuần &nbsp;·&nbsp; '+overCount+' đang nợ / '+BTD_VESINH_ROOMS.length+' phòng</div></div>'+
+        '<div class="btd-grp-actions"><div class="btd-ibtn" title="'+(vsCollapsed?'Mở rộng':'Thu gọn')+'" onclick="btdCollapsed[\'_vesinh\']=!btdCollapsed[\'_vesinh\'];btdRenderVesinh();"><i class="ti '+(vsCollapsed?'ti-chevron-down':'ti-chevron-up')+'"></i></div></div>'+
       '</div>'+
-      '<div class="btd-grp-body"><table class="btd-dt"><thead><tr><th>Phòng</th><th>Trạng thái</th><th>Chi tiết</th><th></th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+      '<div class="btd-grp-body" style="display:'+(vsCollapsed?'none':'block')+'"><table class="btd-dt"><thead><tr><th>Phòng</th><th>Trạng thái</th><th>Chi tiết</th><th></th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
     '</div>';
 }
 // Mở ĐÚNG biên bản đã nộp (không phải form trống) — dùng khi phòng đã báo "Đã thực hiện" vệ sinh cuối tuần,
