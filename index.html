@@ -2107,6 +2107,13 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
       <div class="fg" style="margin:0"><label>Đang làm</label><textarea id="editDoing" style="min-height:48px"></textarea></div>
       <div class="fg" style="margin:0"><label>Hoàn thành</label><textarea id="editDone" style="min-height:48px"></textarea></div>
     </div>
+    <div class="fg" id="editImgSection"><label>Minh chứng – Đính kèm ảnh</label>
+      <div class="imgup" id="editImgUpBtn" onclick="document.getElementById('editImgInp').click()">
+        <i class="ti ti-camera-plus"></i><span>Chụp hoặc chọn ảnh</span>
+      </div>
+      <input type="file" id="editImgInp" accept="image/*" multiple style="display:none" onchange="editPreviewImgs(event)">
+      <div class="imgprev" id="editImgPrev"></div>
+    </div>
     <div id="editTimeInfo" style="font-size:11px;color:var(--tx3);background:#f4f8f0;
       border-radius:7px;padding:6px 10px;margin-bottom:11px;display:flex;align-items:center;gap:5px">
       <i class="ti ti-clock"></i><span id="editTimeMsg"></span>
@@ -10009,7 +10016,7 @@ window._notifReturnPending = false;
 const DPWD = 'gmhs2026';
 const STAFF_DEFAULT = ["Võ Huy Cường","Nguyễn Thành","Nguyễn Hà Tiến Dũng","Võ Ngọc Phước","Lê Văn Thủy","Nguyễn Trung Thành","Trần Thị Dung","Hứa Hữu Tuấn","Nguyễn Thị Quỳnh Thoa","Trần Thị Cẩm Nhung","Lê Võ Thu","Phạm Thị Chiến","Hồ Thị Chúng","Nguyễn Thị Hảo","Trương Thị Thu Hằng","Ngô Thị Lẹ","Nguyễn Đình Kim Loan","Phan Thị Thanh Nga","Hồ Thái Nhiều","Lê Thị Ái Phương","Lê Thị Thúy Vân","Nguyễn Thị Minh Châu","Lê Thị Kim Sao","Lê Thị Kim Thịnh","Nguyễn Thị Xuân Thảo","Trương Thị Tín","Nguyễn Thị Thanh Nhi","Võ Thị Tường Vi","Nguyễn Thị Diệu My","Nguyễn Thị Thúy Hằng","Hoàng Thị Ngọc Lan","Phan Thị Hòa","Trần Thị Lệ Tuyết","Nguyễn Thị Út","Trương Thị Gia Ly Ly","Phạm Thị Kim Cúc","Trương Ngọc Báu","Võ Ngọc Bình","Đặng Văn Cảnh","Nguyễn Văn Chinh","Nguyễn Văn Chung","Trần Thị Mỹ Dung","Nguyễn Tiến Dũng","Trần Văn Đại","Hoàng Minh Hải","Đặng Thu Hiền","Nguyễn Xuân Hoài","Nguyễn Thanh Hoàng","Trần Xuân Hùng","Lê Thị Huệ","Lê Văn Kha","Thân Hoàng Khang","Trần Quốc Khang","Đỗ Thành Khương","Trương Thị Bích Liễu","Đặng Thị Mỹ Lai","Nguyễn Cảnh Muộn","Nguyễn Duy Mỹ","Ngô Thị Nhựt","Trần Thị Ngâng","Nguyễn Thị Hồng Nhi","Đỗ Lê Thanh Ngọc","Nguyễn Hoàng Sơn Nữ","Đỗ Kim Oanh","Trương Văn Pháp","Đặng Hồ Hồng Phi","Nguyễn Phan Anh Quân","Lê Văn Sang","Phan Quốc Sang","Võ Đình Tây","Cao Việt Thắng","Trần Tiến Thành","Trần Đăng Trung","Nguyễn Vũ Cẩm Tú","Nguyễn Văn Tuy","Nguyễn Đình Thắng","La Thị Thanh Trà","Trần Bá Quyền","Lê Thị Mạnh Quyền","Võ Thị Xuân Việt","Đinh Kim Vũ","Lê Thị Thanh Hương","Đỗ Thị Thúy Sinh","Phạm Thị Thu Thảo","Vũ Thị Kim Lệ","Huỳnh Thị Ngọc Thơ","Đỗ Hồ Mỹ Hạnh","Trương Đình Trí","Trần Đình Bản","Phạm Thị Hoàng Cúc","Đinh Thị Thu Hoài","Trần Thị Thanh Huyền","Trần Đình Duy","Nguyễn Văn Thương","Ngô Thị Hồng Diễm","Võ Đông Kinh","Nguyễn Thị Bích Thủy","Nguyễn Hữu Phước","Hồ Thị Mỹ","Phan Thị Mỹ Duyên","Đỗ Thị Ngọc Diễm","Nguyễn Xuân Hiền","Đỗ Ngọc Vũ","Nguyễn Chí Bảo","Thân Thị Liễu","Nguyễn Kim Sơn","Đào Thị Phương Thúy","Lê Thị Quỳnh Diễm","Lê Văn Long","Lương Phan Thu Hằng","Nguyễn Thị Ngọc Mỹ","Huỳnh Thị Sự","Phan Thảo Vy","Trần Thị Bích Tuyền","Huỳnh Thị Kim Hồng","Lê Quốc Triều","Nguyễn Tài Thu"];
 
-let cards=[], cu=null, pendingImgs=[], sFiltered=[], sHi=-1, staffList=[];
+let cards=[], cu=null, pendingImgs=[], editPendingImgs=[], sFiltered=[], sHi=-1, staffList=[];
 /* Danh mục Bộ phận báo cáo — có thể thêm/sửa/xóa tại nút "Danh mục Bộ phận" (chỉ Quản lý) */
 const DEPT_DEFAULT=["PM 201","PM 202","PM 203","PM 204","PM 301","PM 302","PM 303","PM 304","PM 401","PM 402","PM 403","PM 404","HT 02","HT 03","HT 04","HS","KHÁC"];
 let DEPT_OPTS=[...DEPT_DEFAULT];
@@ -10530,6 +10537,11 @@ function startListening(){
     setSyncStatus('ok');
   }, err=>{setSyncStatus('err');});
 
+  function fillSharedStaffDatalists(){
+    var opts=staffList.map(function(n){return '<option value="'+String(n).replace(/"/g,'&quot;')+'">';}).join('');
+    var dl1=document.getElementById('kpiStaffDatalist'); if(dl1) dl1.innerHTML=opts;
+    var dl2=document.getElementById('kpiStaffDatalist2'); if(dl2) dl2.innerHTML=opts;
+  }
   staffRef.on('value', snap=>{
     const data=snap.val();
     if(data&&Array.isArray(data)&&data.length){
@@ -10542,6 +10554,7 @@ function startListening(){
     if(nbCurrentUser) nbPopulatePersonSelect();
     var staffModalEl=document.getElementById('staffModal');
     if(staffModalEl&&staffModalEl.classList.contains('on')) renderStaffList();
+    fillSharedStaffDatalists();
   });
 
   // Fallback: nếu staffList đã có khi admin login trễ hơn Firebase
@@ -10552,6 +10565,7 @@ function startListening(){
       sFiltered=[...staffList].sort((a,b)=>a.localeCompare(b,'vi'));
       populateSelect();
       if(cu&&cu.role==='admin') populatePersonAdmin();
+      fillSharedStaffDatalists();
     }
   });
 
@@ -10687,9 +10701,36 @@ function refreshPrev(){
      <button class="rm" onmousedown="rmImg(${i})" onclick="event.stopPropagation()">×</button></div>`).join('');
 }
 function rmImg(i){pendingImgs.splice(i,1);refreshPrev();}
+/* ── IMAGES (khung Chỉnh sửa báo cáo) ── */
+function editPreviewImgs(e){
+  const files=[...e.target.files],MAX=4;
+  if(editPendingImgs.length+files.length>MAX){showAl(`Tối đa ${MAX} ảnh (giới hạn Firebase)!`,'warn');return;}
+  files.forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MD=600;let w=img.width,h=img.height;
+        if(w>MD||h>MD){if(w>h){h=Math.round(h*MD/w);w=MD;}else{w=Math.round(w*MD/h);h=MD;}}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        editPendingImgs.push(cv.toDataURL('image/jpeg',0.6));editRefreshPrev();
+      };img.src=ev.target.result;
+    };r.readAsDataURL(f);
+  });e.target.value='';
+}
+function editRefreshPrev(){
+  const el=document.getElementById('editImgPrev');
+  if(!el)return;
+  el.innerHTML=editPendingImgs.map((b,i)=>
+    `<div class="imgthumb" onclick="openLbox(${i},'e')"><img src="${b}" alt="ảnh">
+     <button class="rm" onmousedown="editRmImg(${i})" onclick="event.stopPropagation()">×</button></div>`).join('');
+}
+function editRmImg(i){editPendingImgs.splice(i,1);editRefreshPrev();}
 function openLbox(idx,src,cid){
   let s='';
   if(src==='p')s=pendingImgs[idx];
+  else if(src==='e')s=editPendingImgs[idx];
   else{const c=cards.find(x=>x.id===cid);if(c&&c.imgs)s=c.imgs[idx];}
   if(!s)return;
   document.getElementById('lboxImg').src=s;
@@ -11423,7 +11464,11 @@ function openEditModal(id){
   document.getElementById('editTodo').value=c.todo||'';
   document.getElementById('editDoing').value=c.doing||'';
   document.getElementById('editDone').value=c.done||'';
+  editPendingImgs=(c.imgs&&c.imgs.length)?[...c.imgs]:[];
+  editRefreshPrev();
   const locked=!editable&&cu.role!=='admin';
+  var imgSec=document.getElementById('editImgSection');
+  if(imgSec){ imgSec.style.opacity=locked?'.55':''; imgSec.style.pointerEvents=locked?'none':''; }
   document.getElementById('editLockMsg').style.display=locked?'block':'none';
   ['editDate','editPri','editDept','editContent','editAssignInput','editAssignNote','editTodo','editDoing','editDone']
     .forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=locked;});
@@ -11527,6 +11572,7 @@ function saveEdit(){
     todo:document.getElementById('editTodo').value.trim(),
     doing:document.getElementById('editDoing').value.trim(),
     done:document.getElementById('editDone').value.trim(),
+    imgs:editPendingImgs.length?[...editPendingImgs]:[],
     editedAt:new Date().toISOString(), editedBy:cu.name
   };
   if(assigneeChanged){
