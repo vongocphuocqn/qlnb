@@ -643,6 +643,7 @@ font-size:10px;color:var(--tx3)}
       <div class="home-card" onclick="openStaffAuthModalUser('bangiao')" style="background:linear-gradient(135deg,#b45309,#7c2d12);color:#fff;border-color:#5c2308"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-clipboard-check"></i><div class="home-card-title">Bàn giao trực<br>Phòng Hồi sức</div><div class="home-card-sub">Biên bản bàn giao tài sản hàng ngày, ký nhận 2 bên</div></div>
       <div class="home-card" onclick="openStaffAuthModalUser('phongmo')" style="background:linear-gradient(135deg,#0d6e6e,#0a4a4a);color:#fff;border-color:#083838"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-building-hospital"></i><div class="home-card-title">Bàn giao<br>Phòng Mổ</div><div class="home-card-sub">12 phòng mổ — mỗi phòng 2 nhóm Gây mê / Dụng cụ, ký nhận 2 bên</div></div>
       <div class="home-card" onclick="openBtdScreen()" style="background:linear-gradient(135deg,#2e7d32,#00390d);color:#fff;border-color:#00250a"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-alarm"></i><div class="home-card-title">Theo dõi<br>Giao nhận trực</div><div class="home-card-sub">Cảnh báo phòng/bộ phận chưa giao trực đúng giờ quy định</div></div>
+      <div class="home-card" onclick="openDdnlScreen()" style="background:linear-gradient(135deg,#0d3a52,#082a3d);color:#fff;border-color:#051a26"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-users"></i><div class="home-card-title">Điều động<br>nhân lực</div><div class="home-card-sub">Lập giấy đề nghị điều động, duyệt, in/xuất Word, thống kê giờ</div></div>
       <div class="home-card" onclick="openDkpScreen()" style="background:linear-gradient(135deg,#7c3aed,#3b1a78);color:#fff;border-color:#2a1257"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-user-check"></i><div class="home-card-title">Đăng ký phụ trách<br>bàn giao</div><div class="home-card-sub">Cá nhân tự nhận bộ phận phụ trách theo tháng — làm rõ trách nhiệm để tính KPI</div></div>
       <div class="home-card" onclick="openStaffAuthModalUser('bbba')" style="background:linear-gradient(135deg,#6a1b1a,#3d0f0e);color:#fff;border-color:#2a0a09"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-report-medical"></i><div class="home-card-title">Bình<br>bệnh án</div><div class="home-card-sub">Lưu trữ biên bản bình bệnh án — xuất Word khi cần in kiểm tra</div></div>
     </div>
@@ -21803,6 +21804,1528 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════
+     ĐIỀU ĐỘNG NHÂN LỰC — Khoa Gây mê Hồi sức
+     Module độc lập, dùng chung Firebase project với Kanban (node riêng
+     "dieuDongNhanLuc"), không ảnh hưởng dữ liệu/cards/màn hình khác.
+     Toàn bộ class/id/biến CSS được đặt tiền tố "ddnl" để tránh xung đột.
+     ══════════════════════════════════════════════════════════════ -->
+<style>
+:root{
+  --ddnl-navy:#0d3a52;
+  --ddnl-navy-dark:#082a3d;
+  --ddnl-teal:#1c7f8c;
+  --ddnl-paper:#f2f5f4;
+  --ddnl-panel:#ffffff;
+  --ddnl-line:#dbe3e2;
+  --ddnl-ink:#1a2b30;
+  --ddnl-ink-soft:#5a6b70;
+  --ddnl-gold:#a9761f;
+  --ddnl-gold-bg:#fbf1de;
+  --ddnl-green:#276b46;
+  --ddnl-green-bg:#e7f3ec;
+  --ddnl-red:#a5332b;
+  --ddnl-red-bg:#faeae8;
+  --ddnl-radius:10px;
+}
+#ddnlScreen{
+  box-sizing:border-box;
+  background:var(--ddnl-paper);
+  color:var(--ddnl-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+}
+#ddnlScreen *{box-sizing:border-box;}
+#ddnlApp{max-width:1180px;margin:0 auto;padding:0 0 60px;}
+
+/* ---------- Header / letterhead strip ---------- */
+.ddnl-hdr{
+  background:linear-gradient(135deg,var(--ddnl-navy) 0%, var(--ddnl-navy-dark) 100%);
+  color:#fff;
+  padding:18px 20px 16px;
+  border-bottom:4px solid var(--ddnl-gold);
+}
+.ddnl-hdr-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.ddnl-hdr-crest{
+  width:44px;height:44px;border-radius:50%;
+  background:var(--ddnl-gold-bg);color:var(--ddnl-navy-dark);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:15px;flex:none;
+  border:2px solid var(--ddnl-gold);
+}
+.ddnl-hdr-titles{flex:1;min-width:200px;}
+.ddnl-hdr-titles .ddnl-t1{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.82;}
+.ddnl-hdr-titles .ddnl-t2{font-size:18px;font-weight:700;margin-top:2px;}
+.ddnl-hdr-titles .ddnl-t3{font-size:12px;opacity:.75;margin-top:2px;}
+.ddnl-hdr-user{
+  display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);
+  padding:8px 12px;border-radius:var(--ddnl-radius);font-size:12.5px;
+}
+.ddnl-hdr-user select{
+  background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);
+  border-radius:6px;padding:5px 8px;font-size:12.5px;max-width:220px;
+}
+.ddnl-hdr-user select option{color:#111;}
+.ddnl-hdr-badge{
+  font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700;
+  background:var(--ddnl-gold);color:var(--ddnl-navy-dark);
+}
+
+/* ---------- Tabs ---------- */
+.ddnl-tabs{
+  display:flex;gap:2px;background:var(--ddnl-navy-dark);padding:0 20px;
+  overflow-x:auto;
+}
+.ddnl-tab-btn{
+  border:none;background:transparent;color:rgba(255,255,255,.6);
+  padding:12px 16px;font-size:13.5px;font-weight:600;cursor:pointer;
+  border-bottom:3px solid transparent;white-space:nowrap;
+}
+.ddnl-tab-btn.active{color:#fff;border-bottom-color:var(--ddnl-gold);}
+.ddnl-tab-btn:hover{color:#fff;}
+
+.ddnl-view{padding:20px;}
+.ddnl-card{
+  background:var(--ddnl-panel);border:1px solid var(--ddnl-line);border-radius:var(--ddnl-radius);
+  padding:18px;margin-bottom:16px;
+}
+.ddnl-card h2{margin:0 0 4px;font-size:16px;color:var(--ddnl-navy);}
+.ddnl-card .ddnl-sub{color:var(--ddnl-ink-soft);font-size:12.5px;margin-bottom:14px;}
+
+#ddnlScreen label{display:block;font-size:12px;font-weight:600;color:var(--ddnl-ink-soft);margin-bottom:4px;}
+#ddnlScreen input[type=text],#ddnlScreen input[type=date],#ddnlScreen input[type=time],#ddnlScreen input[type=number],#ddnlScreen select,#ddnlScreen textarea{
+  width:100%;padding:8px 9px;border:1px solid var(--ddnl-line);border-radius:7px;
+  font-size:13.5px;font-family:inherit;background:#fff;color:var(--ddnl-ink);
+}
+#ddnlScreen textarea{resize:vertical;min-height:44px;}
+#ddnlScreen input:focus,#ddnlScreen select:focus,#ddnlScreen textarea:focus{outline:2px solid var(--ddnl-teal);outline-offset:1px;}
+
+.ddnl-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ddnl-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+@media(max-width:640px){.ddnl-grid2,.ddnl-grid3{grid-template-columns:1fr;}}
+.ddnl-field{margin-bottom:12px;}
+
+.ddnl-checks{display:flex;flex-direction:column;gap:8px;}
+.ddnl-chk{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;}
+.ddnl-chk input{width:auto;margin-top:3px;}
+
+.ddnl-btn{
+  border:none;border-radius:7px;padding:9px 16px;font-size:13.5px;font-weight:700;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+}
+.ddnl-btn-primary{background:var(--ddnl-navy);color:#fff;}
+.ddnl-btn-primary:hover{background:var(--ddnl-navy-dark);}
+.ddnl-btn-ghost{background:#fff;color:var(--ddnl-navy);border:1px solid var(--ddnl-line);}
+.ddnl-btn-ghost:hover{background:#f2f7f8;}
+.ddnl-btn-danger{background:var(--ddnl-red-bg);color:var(--ddnl-red);}
+.ddnl-btn-danger:hover{background:#f6d9d6;}
+.ddnl-btn-sm{padding:5px 10px;font-size:12px;}
+.ddnl-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+#ddnlScreen table{width:100%;border-collapse:collapse;font-size:13px;}
+#ddnlScreen th,#ddnlScreen td{border:1px solid var(--ddnl-line);padding:7px 8px;text-align:left;vertical-align:top;}
+#ddnlScreen th{background:#eef3f2;color:var(--ddnl-navy);font-size:11.5px;text-transform:uppercase;letter-spacing:.02em;}
+.ddnl-rows-table input,.ddnl-rows-table select{padding:5px 6px;font-size:12.5px;}
+.ddnl-rows-table td{padding:5px;}
+.ddnl-rows-wrap{overflow-x:auto;}
+.ddnl-rows-table{min-width:1000px;}
+
+.ddnl-status{
+  display:inline-block;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;
+}
+.ddnl-status-cho{background:var(--ddnl-gold-bg);color:var(--ddnl-gold);}
+.ddnl-status-duyet{background:var(--ddnl-green-bg);color:var(--ddnl-green);}
+.ddnl-status-huy{background:var(--ddnl-red-bg);color:var(--ddnl-red);}
+
+.ddnl-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px;}
+.ddnl-toolbar .ddnl-field{margin-bottom:0;min-width:150px;flex:1;}
+
+.ddnl-empty{text-align:center;padding:40px 20px;color:var(--ddnl-ink-soft);}
+.ddnl-empty .ddnl-big{font-size:32px;margin-bottom:8px;}
+
+.ddnl-list-actions{display:flex;gap:6px;flex-wrap:wrap;}
+
+.ddnl-stamp{
+  display:inline-flex;align-items:center;justify-content:center;
+  border:2.5px solid var(--ddnl-red);color:var(--ddnl-red);border-radius:50%;
+  width:66px;height:66px;font-weight:800;font-size:10.5px;text-align:center;
+  transform:rotate(-14deg);line-height:1.15;letter-spacing:.02em;
+  font-family:"Times New Roman",Times,serif;
+}
+
+.ddnl-hint{font-size:12px;color:var(--ddnl-ink-soft);margin-top:4px;}
+
+/* ---------- Modal ---------- */
+.ddnl-overlay{
+  position:fixed;inset:0;background:rgba(8,20,28,.55);display:flex;
+  align-items:flex-start;justify-content:center;padding:26px 12px;z-index:2000;overflow:auto;
+}
+.ddnl-modal{
+  background:#fff;border-radius:var(--ddnl-radius);max-width:900px;width:100%;
+  padding:0;overflow:hidden;
+}
+.ddnl-modal-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 18px;border-bottom:1px solid var(--ddnl-line);background:#f7faf9;
+}
+.ddnl-modal-head h3{margin:0;font-size:15px;color:var(--ddnl-navy);}
+.ddnl-modal-body{padding:20px;max-height:75vh;overflow:auto;}
+.ddnl-modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ddnl-ink-soft);}
+
+/* ---------- Printable document look ---------- */
+.ddnl-doc{
+  font-family:"Times New Roman",Times,serif;color:#111;font-size:13.5px;line-height:1.55;
+  min-width:640px; /* thể thức văn bản VN: quốc hiệu và các dòng tiêu đề luôn nằm 1 hàng, không co lại theo màn hình nhỏ — cuộn ngang nếu cần */
+}
+.ddnl-doc-letterhead{display:flex;justify-content:space-between;gap:20px;margin-bottom:14px;}
+.ddnl-doc-letterhead .ddnl-col{width:38%;flex:none;}
+.ddnl-doc-letterhead .ddnl-col.right{text-align:right;width:60%;}
+.ddnl-doc-hospital{font-weight:400;text-align:center;text-transform:uppercase;font-size:12.5px;white-space:nowrap;}
+.ddnl-doc-dept{font-weight:700;text-align:center;text-transform:uppercase;}
+.ddnl-doc-line{border-bottom:1px solid #111;width:60px;margin:2px auto;}
+.ddnl-doc-so{text-align:center;font-style:italic;margin-top:4px;font-size:12.5px;}
+.ddnl-doc-quochieu{font-weight:700;text-align:center;white-space:nowrap;}
+.ddnl-doc-tieungu{text-align:center;text-decoration:underline;font-weight:700;}
+.ddnl-doc-place{text-align:right;font-style:italic;font-size:12.5px;margin-top:8px;}
+.ddnl-doc-title{text-align:center;font-weight:700;font-size:16px;margin:18px 0 2px;text-transform:uppercase;}
+.ddnl-doc-subtitle{text-align:center;font-style:italic;margin-bottom:14px;}
+.ddnl-doc-section-title{font-weight:700;margin:14px 0 4px;}
+.ddnl-doc table{font-size:12.5px;margin-top:6px;}
+.ddnl-doc th{background:#eee;color:#111;font-size:11.5px;text-transform:none;}
+.ddnl-doc .ddnl-signs{display:flex;justify-content:space-between;margin-top:26px;text-align:center;}
+.ddnl-doc .ddnl-signs .ddnl-sign-col{width:46%;}
+.ddnl-doc .ddnl-signs .ddnl-sign-title{font-weight:700;text-transform:uppercase;}
+.ddnl-doc .ddnl-signs .ddnl-sign-space{height:70px;}
+.ddnl-doc-check{display:flex;gap:6px;margin:3px 0;}
+
+@media print{
+  @page{ size: A4; margin: 10mm 12mm; }
+  body{ background:#fff!important; }
+  #ddnlScreen *{visibility:hidden;}
+  #ddnlPrintArea,#ddnlPrintArea *{visibility:visible;}
+  #ddnlPrintArea{
+    position:absolute;top:0;left:0;width:100%;padding:0;margin:0;
+    font-size:12.5px;line-height:1.42;
+    transform:none!important; /* bỏ qua mức phóng to xem trước — in luôn đúng khổ A4 chuẩn */
+  }
+  #ddnlPrintArea table{table-layout:fixed;width:100%;}
+  #ddnlPrintArea td,#ddnlPrintArea th{word-break:break-word;padding:4px 5px;}
+  #ddnlPrintArea .ddnl-doc-title{font-size:15px;margin:10px 0 2px;}
+  #ddnlPrintArea .ddnl-doc-section-title{margin:8px 0 3px;}
+  #ddnlPrintArea p{margin:4px 0;}
+  .ddnl-no-print{display:none!important;}
+}
+
+.ddnl-linkbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:#eef3f2;border-bottom:1px solid var(--ddnl-line);
+  padding:8px 20px;font-size:12px;color:var(--ddnl-ink-soft);
+}
+.ddnl-linkbar .ddnl-lbl{font-weight:700;color:var(--ddnl-navy);flex:none;}
+.ddnl-linkbar .ddnl-url{
+  flex:1;min-width:160px;background:#fff;border:1px solid var(--ddnl-line);border-radius:6px;
+  padding:5px 9px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
+  overflow-x:auto;white-space:nowrap;color:var(--ddnl-ink);
+}
+.ddnl-linkbar .ddnl-copied{color:var(--ddnl-green);font-weight:700;}
+
+.ddnl-sync-dot{width:8px;height:8px;border-radius:50%;background:#2f7a4f;display:inline-block;flex:none;}
+.ddnl-sync-dot.off{background:#a5332b;}
+
+.ddnl-footer-note{text-align:center;font-size:11.5px;color:var(--ddnl-ink-soft);padding:18px 20px;}
+
+</style>
+
+<div id="ddnlScreen" style="display:none;min-height:100vh;background:#f2f5f4;flex-direction:column">
+  <div style="background:linear-gradient(135deg,#0d3a52,#082a3d 60%,#051a26);padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+    <button onclick="closeDdnlScreen()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button>
+    <i class="ti ti-users" style="font-size:22px;color:#fff"></i>
+    <div>
+      <div style="color:#fff;font-size:15px;font-weight:700">Điều động nhân lực — Khoa Gây mê Hồi sức</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px">Lập – theo dõi – thống kê giấy đề nghị điều động nhân lực</div>
+    </div>
+    <button class="tbtn" id="ddnlWideBtn" onclick="kpiToggleWideBox('ddnlApp','ddnlWideBtn')" style="margin-left:auto;border-color:rgba(255,255,255,.45)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
+  </div>
+  <div id="ddnlApp"></div>
+</div>
+
+
+
+
+
+
+
+<script>
+(function(){
+/* ============================================================
+   ĐIỀU ĐỘNG NHÂN LỰC — dùng chung Firebase project với Kanban khoa GMHS.
+   'db' đã được khởi tạo sẵn ở phần đầu file (const db = firebase.database();),
+   module này chỉ dùng thêm 1 node riêng "dieuDongNhanLuc", không đụng tới
+   cards/staffList/quanLyPhepNam/banGiaoTrucPhong/dangKyPhuTrachBanGiao...
+   ============================================================ */
+const ddRoot = db.ref('dieuDongNhanLuc');
+const ddConfigRef = ddRoot.child('danhMuc');
+const ddRequestsRef = ddRoot.child('phieu');
+let fbConnected = false;
+/* ============================================================
+   SEED DATA
+   ============================================================ */
+const SEED_EMPLOYEES = [{"ten": "Võ Huy Cường", "donVi": "Phòng Mổ", "chucVu": "Trưởng khoa", "vanBang": "BS CKII"}, {"ten": "Nguyễn Thành", "donVi": "Hồi Sức", "chucVu": "Phó trưởng khoa", "vanBang": "BS CKII"}, {"ten": "Nguyễn Hà Tiến Dũng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Ths.BS"}, {"ten": "Võ Ngọc Phước", "donVi": "Hồi Sức", "chucVu": "Điều dưỡng trưởng Khoa", "vanBang": "ĐDCKI"}, {"ten": "Lê Văn Thủy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS CKII"}, {"ten": "Nguyễn Trung Thành", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Ths.BS"}, {"ten": "Trần Thị Dung BS", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS CKII"}, {"ten": "Hứa Hữu Tuấn", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS CKI"}, {"ten": "Nguyễn Thị Quỳnh Thoa", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trần Thị Cẩm Nhung", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Lê Võ Thu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phạm Thị Chiến", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Hồ Thị Chúng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Hảo", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trương Thị Thu Hằng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Ngô Thị Lẹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Đình Kim Loan", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phan Thị Thanh Nga", "donVi": "Hồi Sức", "chucVu": "ĐDHC", "vanBang": "CĐĐD"}, {"ten": "Hồ Thái Nhiều", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Ái Phương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Thúy Vân", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Minh Châu", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Kim Sao", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Kim Thịnh", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Xuân Thảo", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Trương Thị Tín", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Nguyễn Thị Thanh Nhi", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Võ Thị Tường Vi", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Nguyễn Thị Diệu My", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Thúy Hằng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Hoàng Thị Ngọc Lan", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Phan Thị Hòa", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trần Thị Lệ Tuyết", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Nguyễn Thị Út", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trương Thị Gia Ly Ly", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Phạm Thị Kim Cúc", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trương Ngọc Báu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Võ Ngọc Bình", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đặng Văn Cảnh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Văn Chinh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Văn Chung", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Thị Mỹ Dung", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Tiến Dũng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Trần Văn Đại", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Hoàng Minh Hải", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Đặng Thu Hiền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Xuân Hoài", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thanh Hoàng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Xuân Hùng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Huệ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Văn Kha", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Thân Hoàng Khang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Quốc Khang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đỗ Thành Khương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trương Thị Bích Liễu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đặng Thị Mỹ Lai", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Cảnh Muộn", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Duy Mỹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Ngô Thị Nhựt", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Trần Thị Ngâng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "ĐDCKI"}, {"ten": "Nguyễn Thị Hồng Nhi", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đỗ Lê Thanh Ngọc", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Hoàng Sơn Nữ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Đỗ Kim Oanh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Trương Văn Pháp", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đặng Hồ Hồng Phi", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Nguyễn Phan Anh Quân", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Văn Sang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phan Quốc Sang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Võ Đình Tây", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Cao Việt Thắng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Trần Tiến Thành", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Đăng Trung", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Vũ Cẩm Tú", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Nguyễn Văn Tuy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Đình Thắng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "La Thị Thanh Trà", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Bá Quyền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Thị Mạnh Quyền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Võ Thị Xuân Việt", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Đinh Kim Vũ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Thị Thanh Hương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Đỗ Thị Thúy Sinh", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Phạm Thị Thu Thảo", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Vũ Thị Kim Lệ", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Huỳnh Thị Ngọc Thơ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Đỗ Hồ Mỹ Hạnh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trương Đình Trí", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Đình Bản", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phạm Thị Hoàng Cúc", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đinh Thị Thu Hoài", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Thị Thanh Huyền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Đình Duy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Văn Thương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS CKI"}, {"ten": "Ngô Thị Hồng Diễm", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Võ Đông Kinh", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS"}, {"ten": "Nguyễn Thị Bích Thủy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS"}, {"ten": "Nguyễn Hữu Phước", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Hồ Thị Mỹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Phan Thị Mỹ Duyên", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Đỗ Thị Ngọc Diễm", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Xuân Hiền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Đỗ Ngọc Vũ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS"}, {"ten": "Nguyễn Chí Bảo", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS"}, {"ten": "Thân Thị Liễu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Kim Sơn", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Đào Thị Phương Thúy", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Quỳnh Diễm", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Lê Văn Long", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lương Phan Thu Hằng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Nguyễn Thị Ngọc Mỹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Huỳnh Thị Sự", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phan Thảo Vy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Thị Bích Tuyền", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Huỳnh Thị Kim Hồng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Lê Quốc Triều", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Nguyễn Tài Thu", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS CKI"}]
+;
+
+const SEED_UNITS = ["Phòng Mổ","Phòng Hồi Sức","Phòng Can thiệp DSA"];
+
+// Dùng 2 ô chọn Giờ/Phút thay cho input type="time" mặc định của trình duyệt —
+// vì bộ chọn giờ gốc (kiểu bánh cuộn) trên một số máy không có nút xác nhận/thoát rõ ràng,
+// dễ gây bối rối. Chọn xong là nhận giá trị ngay, không cần bấm gì thêm.
+const DDNL_HOURS = Array.from({length:24}, (_,i)=>String(i).padStart(2,'0'));
+const DDNL_MINUTES = Array.from({length:12}, (_,i)=>String(i*5).padStart(2,'0'));
+function timeSelects(field, hVal, mVal){
+  return `<div style="display:flex;gap:2px;align-items:center;">
+    <select class="ddnl-row-field ddnl-time-part" data-field="${field}" data-part="h" style="width:56px;padding:5px 2px;text-align:center;">
+      <option value="">--</option>
+      ${DDNL_HOURS.map(x=>`<option value="${x}" ${x===hVal?"selected":""}>${x}</option>`).join("")}
+    </select><span style="color:var(--ddnl-ink-soft);">:</span><select class="ddnl-row-field ddnl-time-part" data-field="${field}" data-part="m" style="width:56px;padding:5px 2px;text-align:center;">
+      <option value="">--</option>
+      ${DDNL_MINUTES.map(x=>`<option value="${x}" ${x===mVal?"selected":""}>${x}</option>`).join("")}
+    </select>
+  </div>`;
+}
+
+const SEED_SIGNERS = [
+  { ten:"Võ Huy Cường", chucDanh:"Trưởng khoa" },
+  { ten:"Nguyễn Thành", chucDanh:"Phó trưởng khoa" },
+  { ten:"Trần Thị Dung", chucDanh:"Phó trưởng khoa" }
+];
+
+const SEED_TEMPLATES = [
+  "Phụ mổ phiên theo lịch mổ trong ngày",
+  "Gây mê hồi sức phục vụ ca mổ cấp cứu",
+  "Hỗ trợ kỹ thuật tại Phòng Can thiệp DSA",
+  "Trực tăng cường theo dõi hồi sức sau mổ",
+  "Hỗ trợ luân chuyển dụng cụ, vật tư phòng mổ"
+];
+
+const REASON_LABELS = {
+  tang:"Khối lượng phẫu thuật tăng",
+  thieu:"Thiếu nhân lực theo ca",
+  rieng:"Điều động để đảm bảo mỗi dịch vụ kỹ thuật có người thực hiện riêng, đúng người theo quy định",
+  xuatToan:"Hạn chế nguy cơ bị bảo hiểm y tế xuất toán do trùng thời gian thực hiện dịch vụ"
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let config = { employees: [], units: [], signers: [], templates: [] };
+let requests = [];
+let currentUserName = "";
+let loaded = false;
+let activeTab = "new";
+let scopeAll = false; // "xem toàn khoa" toggle
+let draftRows = [];
+let draftLyDo = { tang:false, thieu:false, rieng:false, xuatToan:false, khac:"" };
+let draftNguoiLap = "";
+let draftNgayLap = "";
+let draftTuNgay = "";
+let draftDenNgay = "";
+let draftNguoiKy = "";
+let statsTu = "";
+let statsDen = "";
+let listFilter = { trangThai:"", tu:"", den:"", nguoi:"" };
+let modalRequestId = null;
+let saving = false;
+let editingEmpIdx = null;
+let editingTplIdx = null;
+let ddnlZoom = 100; // % phóng to nội dung trong khung "Xem chi tiết phiếu" (chỉ xem trong app, không ảnh hưởng khi in/xuất Word)
+let collapsedCards = new Set(); // id các khối (card) đang bị ẩn nội dung
+
+function cardOpen(id, title, sub){
+  const collapsed = collapsedCards.has(id);
+  return `<div class="ddnl-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+      <div style="flex:1;min-width:0;">
+        <h2>${title}</h2>
+        ${sub?`<div class="ddnl-sub">${sub}</div>`:""}
+      </div>
+      <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-card-toggle="${id}" type="button" style="white-space:nowrap;flex:none;">${collapsed?'<i class="ti ti-chevron-down"></i> Hiện':'<i class="ti ti-chevron-up"></i> Ẩn'}</button>
+    </div>
+    <div class="ddnl-card-body" style="${collapsed?'display:none;':''}">`;
+}
+function cardClose(){
+  return `</div></div>`;
+}
+
+function uid(){ return 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function firstDayOfMonthISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; }
+function fmtDate(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+// Ô vuông tick thủ công (nền trắng, dấu tick đen) — không dùng ký tự Unicode ☑/☐
+// vì một số trình duyệt/Word hiển thị thành icon màu, không đúng thể thức văn bản.
+function checkboxBox(checked){
+  return `<span style="display:inline-block;width:12px;height:12px;border:1.3px solid #000;background:#fff;text-align:center;line-height:10px;font-size:10px;font-weight:700;color:#000;vertical-align:middle;">${checked?'✓':''}</span>`;
+}
+// Khi in/xuất phiếu: chỉ liệt kê các lý do ĐÃ được tick, bỏ hẳn các mục không chọn
+// (không cần vẽ ô vuông nữa vì mọi dòng hiện ra đều là lý do đã chọn).
+function selectedReasons(lyDo){
+  const items = [];
+  Object.keys(REASON_LABELS).forEach(k=>{ if(lyDo && lyDo[k]) items.push(REASON_LABELS[k]); });
+  if(lyDo && lyDo.khac && lyDo.khac.trim()) items.push(`Khác: ${lyDo.khac.trim()}`);
+  return items;
+}
+function hoursBetween(gioBd, gioKt){
+  if(!gioBd || !gioKt) return 0;
+  const [h1,m1] = gioBd.split(":").map(Number);
+  const [h2,m2] = gioKt.split(":").map(Number);
+  let mins = (h2*60+m2) - (h1*60+m1);
+  if(mins < 0) mins += 24*60; // qua đêm
+  return Math.round((mins/60)*100)/100;
+}
+function newRow(){
+  return { hoTen:"", boPhanDieuDong: config.units[0]||"", ngay: todayISO(), gioBatDau:"", gioKetThuc:"", gioBatDau_h:"", gioBatDau_m:"", gioKetThuc_h:"", gioKetThuc_m:"", soGio:0, nhiemVu:"", ghiChu:"" };
+}
+function findEmployee(name){
+  return config.employees.find(e=>e.ten===name);
+}
+function isLeader(emp){
+  if(!emp) return false;
+  const c = (emp.chucVu||"").toLowerCase();
+  return c.includes("trưởng khoa") || c.includes("điều dưỡng trưởng") || c.includes("đdhc") || c.includes("trưởng phòng");
+}
+function findSigner(name){
+  return config.signers.find(s=>s.ten===name);
+}
+// Kiểm tra: nhân viên đã có 1 lượt điều động trong ngày đang "mở" (có giờ bắt đầu,
+// chưa có giờ kết thúc) hay chưa — nếu có thì không cho điều động tiếp trong ngày đó.
+function findOpenAssignment(hoTen, ngay, opts){
+  opts = opts || {};
+  const skipDraftIdx = opts.skipDraftIdx;
+  const skipRequestId = opts.skipRequestId;
+  if(!hoTen || !ngay) return null;
+  for(let i=0;i<draftRows.length;i++){
+    if(i===skipDraftIdx) continue;
+    const r = draftRows[i];
+    if(r.hoTen===hoTen && r.ngay===ngay && r.gioBatDau && !r.gioKetThuc){
+      return { nguon:"phiếu đang lập", soPhieu:"(chưa gửi)" };
+    }
+  }
+  for(const req of requests){
+    if(req.id===skipRequestId) continue;
+    if(req.trangThai==="Đã hủy") continue;
+    for(const r of (req.rows||[])){
+      if(r.hoTen===hoTen && r.ngay===ngay && r.gioBatDau && !r.gioKetThuc){
+        return { nguon:"phiếu đã lập", soPhieu:req.soPhieu };
+      }
+    }
+  }
+  return null;
+}
+
+/* ============================================================
+   STORAGE (Firebase Realtime Database)
+   ============================================================ */
+let configLoaded = false;
+let requestsLoaded = false;
+
+function objToArray(val){
+  if(!val) return [];
+  if(Array.isArray(val)) return val.filter(x=>x!=null);
+  return Object.keys(val).map(k=>({ id:k, ...val[k] }));
+}
+
+function loadAll(){
+  // Cấu hình danh mục (nhân viên / bộ phận / người ký / mẫu nội dung)
+  ddConfigRef.on('value', snap=>{
+    const val = snap.val();
+    if(val && (val.nhanVien || val.boPhan)){
+      config = {
+        employees: Array.isArray(val.nhanVien) ? val.nhanVien : SEED_EMPLOYEES,
+        units: Array.isArray(val.boPhan) ? val.boPhan : SEED_UNITS,
+        signers: Array.isArray(val.nguoiKy) ? val.nguoiKy : SEED_SIGNERS,
+        templates: Array.isArray(val.mauNoiDung) ? val.mauNoiDung : SEED_TEMPLATES
+      };
+    } else if(!configLoaded){
+      // Chưa có dữ liệu trên Firebase -> khởi tạo lần đầu bằng dữ liệu mẫu
+      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES };
+      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES });
+    }
+    configLoaded = true;
+    if(requestsLoaded){ loaded = true; }
+    render();
+  }, err=>{
+    console.error("Lỗi tải danh mục:", err);
+    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES };
+    configLoaded = true;
+    if(requestsLoaded) loaded = true;
+    render();
+  });
+
+  // Danh sách phiếu điều động (mỗi phiếu là 1 node con, đồng bộ realtime)
+  ddRequestsRef.on('value', snap=>{
+    requests = objToArray(snap.val());
+    requestsLoaded = true;
+    if(configLoaded){ loaded = true; }
+    render();
+  }, err=>{
+    console.error("Lỗi tải danh sách phiếu:", err);
+    requests = [];
+    requestsLoaded = true;
+    if(configLoaded) loaded = true;
+    render();
+  });
+
+  // Trạng thái kết nối Firebase (chấm xanh/đỏ)
+  db.ref('.info/connected').on('value', snap=>{
+    fbConnected = !!snap.val();
+    if(loaded) render();
+  });
+}
+
+async function saveConfig(){
+  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates }); }
+  catch(e){ alert("Không lưu được cấu hình lên Firebase. Kiểm tra kết nối mạng và thử lại."); }
+}
+
+async function saveNewRequest(rec){
+  try{
+    await ddRequestsRef.child(rec.id).set(rec);
+    return true;
+  }catch(e){
+    alert("Không gửi được phiếu lên Firebase. Kiểm tra kết nối mạng và thử lại.");
+    return false;
+  }
+}
+async function updateRequest(id, patch){
+  try{
+    await ddRequestsRef.child(id).update(patch);
+    return true;
+  }catch(e){
+    alert("Không cập nhật được phiếu trên Firebase. Kiểm tra kết nối mạng và thử lại.");
+    return false;
+  }
+}
+
+/* ============================================================
+   RENDER SHELL
+   ============================================================ */
+function render(){
+  const app = document.getElementById('ddnlApp');
+  if(!loaded){
+    app.innerHTML = `<div class="ddnl-empty" style="padding:80px 20px;"><div class="ddnl-big">⏳</div>Đang tải dữ liệu…</div>`;
+    return;
+  }
+  const active = document.activeElement;
+  const focusInfo = (active && active.id) ? { id: active.id, start: active.selectionStart, end: active.selectionEnd } : null;
+  app.innerHTML = `
+    ${renderHeader()}
+    ${renderTabs()}
+    ${renderLinkBar()}
+    <div class="ddnl-view">
+      ${activeTab==="new" ? renderNewForm() : ""}
+      ${activeTab==="list" ? renderList() : ""}
+      ${activeTab==="stats" ? renderStats() : ""}
+      ${activeTab==="config" ? renderConfig() : ""}
+    </div>
+    <div class="ddnl-footer-note">Dữ liệu được lưu dùng chung cho toàn khoa (mọi người dùng ứng dụng này đều thấy chung một kho dữ liệu).</div>
+  `;
+  bindEvents();
+  if(modalRequestId){ renderModal(); }
+  if(focusInfo){
+    const el = document.getElementById(focusInfo.id);
+    if(el){
+      el.focus();
+      if(typeof focusInfo.start === "number" && el.setSelectionRange){
+        try{ el.setSelectionRange(focusInfo.start, focusInfo.end); }catch(e){}
+      }
+    }
+  }
+}
+
+function renderHeader(){
+  const emp = findEmployee(currentUserName);
+  const leader = isLeader(emp);
+  return `
+  <div class="ddnl-hdr">
+    <div class="ddnl-hdr-top">
+      <div class="ddnl-hdr-user">
+        <span>Người dùng:</span>
+        <select id="ddnlUserSelect">
+          <option value="">— Chọn tên —</option>
+          ${config.employees.map(e=>`<option value="${esc(e.ten)}" ${e.ten===currentUserName?"selected":""}>${esc(e.ten)}</option>`).join("")}
+        </select>
+        ${leader?'<span class="ddnl-hdr-badge">Quản lý khoa</span>':''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function screenLabel(){
+  if(activeTab==="list" && modalRequestId){
+    const r = requests.find(x=>x.id===modalRequestId);
+    return `Xem chi tiết phiếu ${r ? r.soPhieu : modalRequestId}`;
+  }
+  const names = { new:"Lập phiếu mới", list:"Danh sách phiếu", stats:"Thống kê giờ", config:"Danh mục / Cấu hình" };
+  return names[activeTab] || activeTab;
+}
+function renderLinkBar(){
+  const url = window.location.href;
+  return `<div class="ddnl-linkbar">
+    <span class="ddnl-lbl">🔗 Màn hình: ${esc(screenLabel())}</span>
+    <div class="ddnl-url" id="ddnlCurrentUrlBox">${esc(url)}</div>
+    <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnCopyLink">Sao chép liên kết</button>
+    <span id="ddnlCopyStatus" class="ddnl-copied" style="display:none;">Đã sao chép ✓</span>
+    <span style="display:flex;align-items:center;gap:5px;margin-left:auto;">
+      <span class="ddnl-sync-dot ${fbConnected?'':'ddnl-off'}"></span>${fbConnected?'Đã kết nối Firebase':'Mất kết nối'}
+    </span>
+  </div>`;
+}
+function renderTabs(){
+  const tabs = [
+    ["new","Lập phiếu mới"],
+    ["list","Danh sách phiếu"],
+    ["stats","Thống kê giờ"],
+    ["config","Danh mục / Cấu hình"],
+  ];
+  return `<div class="ddnl-tabs">
+    ${tabs.map(([k,label])=>`<button class="ddnl-tab-btn ${activeTab===k?'ddnl-active':''}" data-tab="${k}">${label}</button>`).join("")}
+  </div>`;
+}
+
+/* ============================================================
+   TAB: LẬP PHIẾU MỚI
+   ============================================================ */
+function renderNewForm(){
+  if(draftRows.length===0){ draftRows.push(newRow()); }
+  if(!draftNgayLap) draftNgayLap = todayISO();
+  if(!draftTuNgay) draftTuNgay = todayISO();
+  if(!draftDenNgay) draftDenNgay = draftTuNgay;
+  if(!draftNguoiLap && currentUserName) draftNguoiLap = currentUserName;
+  if(!draftNguoiKy && config.signers.length) draftNguoiKy = config.signers[0].ten;
+  const totalHours = draftRows.reduce((s,r)=>s+(Number(r.soGio)||0),0);
+  return `
+  ${cardOpen('new-form', 'Giấy đề nghị điều động nhân lực', 'Phục vụ công tác Gây mê hồi sức — điền thông tin bên dưới, hệ thống sẽ tự tính giờ điều động.')}
+
+    <div class="ddnl-grid3">
+      <div class="ddnl-field">
+        <label>Người lập phiếu *</label>
+        <select id="ddnlF_nguoiLap">
+          <option value="">— Chọn tên (hoặc chọn ở góc trên) —</option>
+          ${config.employees.map(e=>`<option value="${esc(e.ten)}" ${e.ten===draftNguoiLap?"selected":""}>${esc(e.ten)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="ddnl-field">
+        <label>Ngày lập phiếu</label>
+        <input type="date" id="ddnlF_ngayLap" value="${draftNgayLap}">
+      </div>
+      <div class="ddnl-field">
+        <label>Người ký (Trưởng/Phó khoa) *</label>
+        <select id="ddnlF_nguoiKy">
+          <option value="">— Chọn người ký —</option>
+          ${config.signers.map(s=>`<option value="${esc(s.ten)}" ${s.ten===draftNguoiKy?"selected":""}>${esc(s.ten)} — ${esc(s.chucDanh)}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+
+    <div class="ddnl-field">
+      <label>1. Lý do đề nghị</label>
+      <div class="ddnl-checks">
+        ${Object.keys(REASON_LABELS).map(k=>`
+          <label class="ddnl-chk"><input type="checkbox" id="ly_${k}" ${draftLyDo[k]?"checked":""}> <span>${REASON_LABELS[k]}</span></label>
+        `).join("")}
+        <label class="ddnl-chk" style="align-items:flex-start;">
+          <input type="checkbox" id="ddnlLy_khacChk" ${draftLyDo.khac?"checked":""} style="margin-top:8px;">
+          <span style="flex:1;">Khác:
+            <textarea id="ddnlLy_khacText" rows="2" style="width:100%;margin-top:4px;resize:vertical;" placeholder="Nêu rõ lý do khác — có thể nhập chuỗi dài, ô sẽ tự giãn">${esc(draftLyDo.khac)}</textarea>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div class="ddnl-field">
+      <label>2. Nội dung đề nghị — danh sách nhân lực điều động</label>
+      <div class="ddnl-rows-wrap">
+        <table class="ddnl-rows-table">
+          <thead><tr>
+            <th style="width:26px;">#</th>
+            <th style="min-width:150px;">Họ và tên</th>
+            <th style="min-width:140px;">Thực hiện tại bộ phận</th>
+            <th style="min-width:120px;">Ngày điều động</th>
+            <th style="min-width:130px;">Giờ bắt đầu</th>
+            <th style="min-width:130px;">Giờ kết thúc</th>
+            <th style="min-width:60px;">Số giờ</th>
+            <th style="min-width:170px;">Nhiệm vụ được phân công</th>
+            <th style="min-width:100px;">Ghi chú</th>
+            <th style="width:30px;"></th>
+          </tr></thead>
+          <tbody>
+            ${draftRows.map((r,i)=>`
+              <tr data-ddnl-idx="${i}">
+                <td>${i+1}</td>
+                <td>
+                  <select class="ddnl-row-field" data-field="hoTen">
+                    <option value="">— chọn —</option>
+                    ${config.employees.map(e=>`<option value="${esc(e.ten)}" ${e.ten===r.hoTen?"selected":""}>${esc(e.ten)}</option>`).join("")}
+                  </select>
+                </td>
+                <td>
+                  <select class="ddnl-row-field" data-field="boPhanDieuDong">
+                    ${config.units.map(u=>`<option value="${esc(u)}" ${u===r.boPhanDieuDong?"selected":""}>${esc(u)}</option>`).join("")}
+                  </select>
+                </td>
+                <td><input type="date" class="ddnl-row-field" data-field="ngay" value="${r.ngay}"></td>
+                <td>${timeSelects('gioBatDau', r.gioBatDau_h, r.gioBatDau_m)}</td>
+                <td>${timeSelects('gioKetThuc', r.gioKetThuc_h, r.gioKetThuc_m)}</td>
+                <td><input type="number" step="0.25" class="ddnl-row-field" data-field="soGio" value="${r.soGio}" style="width:56px;"></td>
+                <td>
+                  <input type="text" class="ddnl-row-field" data-field="nhiemVu" value="${esc(r.nhiemVu)}" placeholder="Gõ hoặc chọn mẫu bên dưới">
+                  ${config.templates.length?`<select class="ddnl-row-tpl" data-tplfor="${i}" style="margin-top:4px;font-size:11px;">
+                    <option value="">— Chọn mẫu nội dung —</option>
+                    ${config.templates.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+                  </select>`:``}
+                </td>
+                <td><input type="text" class="ddnl-row-field" data-field="ghiChu" value="${esc(r.ghiChu)}"></td>
+                <td><button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-remove-row="${i}" title="Xóa hàng">✕</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
+          <tfoot>
+            <tr><td colspan="6" style="text-align:left;font-weight:700;">Tổng số giờ điều động trong đợt</td><td style="font-weight:700;">${totalHours}</td><td colspan="3"></td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <div style="margin-top:8px;"><button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnAddRow">+ Thêm hàng</button></div>
+      <div class="ddnl-hint">Lưu ý: nếu 1 nhân viên đã có lượt điều động trong ngày với giờ bắt đầu nhưng chưa nhập giờ kết thúc, hệ thống sẽ chặn không cho chọn thêm người đó vào lượt điều động khác cùng ngày.</div>
+    </div>
+
+    <div class="ddnl-grid2">
+      <div class="ddnl-field">
+        <label>3. Thời gian áp dụng — từ ngày</label>
+        <input type="date" id="ddnlF_tuNgay" value="${draftTuNgay}">
+      </div>
+      <div class="ddnl-field">
+        <label>đến ngày</label>
+        <input type="date" id="ddnlF_denNgay" value="${draftDenNgay}">
+      </div>
+    </div>
+
+    <div class="ddnl-field">
+      <label>4. Cam kết</label>
+      <div class="ddnl-hint">Khoa Gây mê Hồi sức cam kết bố trí, phân công công việc phù hợp; quản lý nhân lực được điều động đúng quy định; đảm bảo hồ sơ, chứng từ và người thực hiện dịch vụ phù hợp nhằm hạn chế tối đa việc bảo hiểm y tế xuất toán do trùng giờ hoặc sai sót trong ghi nhận dịch vụ.</div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnSubmit" ${saving?"disabled":""}>${saving?"Đang gửi…":"Gửi phiếu đề nghị"}</button>
+      <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnResetForm">Xóa nhập, làm lại</button>
+    </div>
+  ${cardClose()}`;
+}
+
+/* ============================================================
+   TAB: DANH SÁCH PHIẾU
+   ============================================================ */
+function visibleRequests(){
+  let list = requests.slice().sort((a,b)=>b.createdAt-a.createdAt);
+  if(!scopeAll && currentUserName){
+    list = list.filter(r=>r.nguoiLap===currentUserName);
+  }
+  if(listFilter.trangThai) list = list.filter(r=>r.trangThai===listFilter.trangThai);
+  if(listFilter.tu) list = list.filter(r=>r.tuNgay>=listFilter.tu);
+  if(listFilter.den) list = list.filter(r=>r.denNgay<=listFilter.den);
+  if(listFilter.nguoi) list = list.filter(r=>r.nguoiLap.toLowerCase().includes(listFilter.nguoi.toLowerCase()));
+  return list;
+}
+
+function renderList(){
+  const emp = findEmployee(currentUserName);
+  const leader = isLeader(emp);
+  const list = visibleRequests();
+  return `
+  ${cardOpen('list', 'Danh sách phiếu điều động', scopeAll ? "Đang xem toàn khoa." : "Đang xem phiếu do bạn lập. Bật “Xem toàn khoa” để xem tất cả.")}
+    <div class="ddnl-toolbar">
+      <label class="ddnl-chk" style="margin:0;"><input type="checkbox" id="ddnlChkScopeAll" ${scopeAll?"checked":""}> <span>Xem toàn khoa${leader?" (khuyến nghị cho quản lý)":""}</span></label>
+      <div class="ddnl-field">
+        <label>Trạng thái</label>
+        <select id="ddnlFl_trangThai">
+          <option value="">Tất cả</option>
+          <option value="Chờ duyệt" ${listFilter.trangThai==="Chờ duyệt"?"selected":""}>Chờ duyệt</option>
+          <option value="Đã duyệt / Đã in" ${listFilter.trangThai==="Đã duyệt / Đã in"?"selected":""}>Đã duyệt / Đã in</option>
+          <option value="Đã hủy" ${listFilter.trangThai==="Đã hủy"?"selected":""}>Đã hủy</option>
+        </select>
+      </div>
+      <div class="ddnl-field"><label>Từ ngày áp dụng</label><input type="date" id="ddnlFl_tu" value="${listFilter.tu}"></div>
+      <div class="ddnl-field"><label>Đến ngày áp dụng</label><input type="date" id="ddnlFl_den" value="${listFilter.den}"></div>
+      <div class="ddnl-field"><label>Người lập</label><input type="text" id="ddnlFl_nguoi" placeholder="Tìm tên…" value="${esc(listFilter.nguoi)}"></div>
+    </div>
+
+    ${list.length===0 ? `<div class="ddnl-empty"><div class="ddnl-big">🗂️</div>Chưa có phiếu nào phù hợp bộ lọc.</div>` : `
+    <div class="ddnl-rows-wrap"><table>
+      <thead><tr>
+        <th>Số phiếu</th><th>Ngày lập</th><th>Người lập</th><th>Người ký</th><th>Người điều động</th><th>Số NV điều động</th>
+        <th>Tổng giờ</th><th>Thời gian áp dụng</th><th>Trạng thái</th><th>Thao tác</th>
+      </tr></thead>
+      <tbody>
+        ${list.map(r=>{
+          const total = r.rows.reduce((s,x)=>s+(Number(x.soGio)||0),0);
+          const cls = r.trangThai==="Chờ duyệt"?"ddnl-status-cho":(r.trangThai==="Đã hủy"?"ddnl-status-huy":"ddnl-status-duyet");
+          const tenNguoiDieuDong = r.rows.map(x=>x.hoTen).filter(Boolean).join(", ");
+          return `<tr>
+            <td>${esc(r.soPhieu)}</td>
+            <td>${fmtDate(r.ngayLap)}</td>
+            <td>${esc(r.nguoiLap)}</td>
+            <td>${esc(r.nguoiKy||"")}${r.chucDanhKy?` <span class="ddnl-hint" style="display:inline;">(${esc(r.chucDanhKy)})</span>`:""}</td>
+            <td>${esc(tenNguoiDieuDong)}</td>
+            <td>${r.rows.length}</td>
+            <td>${total}</td>
+            <td>${fmtDate(r.tuNgay)} – ${fmtDate(r.denNgay)}</td>
+            <td>
+              <span class="ddnl-status ${cls}">${esc(r.trangThai)}</span><br>
+              <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" style="margin-top:4px;padding:2px 8px;font-size:11px;" data-attach="${r.id}" title="Đính kèm quyết định điều động (link ảnh chụp/Drive/file)">
+                📎 ${r.dinhKemLink?"Đã đính kèm":"Đính kèm"}
+              </button>
+              ${r.dinhKemLink?`<a href="${esc(r.dinhKemLink)}" target="_blank" rel="noopener" style="display:block;font-size:11px;margin-top:2px;">Xem file đã đính kèm</a>`:""}
+            </td>
+            <td>
+              <div class="ddnl-list-actions">
+                <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-view="${r.id}">Xem / In</button>
+                ${r.trangThai==="Chờ duyệt"?`<button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-approve="${r.id}">Đã duyệt</button>`:""}
+                ${r.trangThai!=="Đã hủy"?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-cancel="${r.id}">Hủy</button>`:""}
+              </div>
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table></div>
+    `}
+  ${cardClose()}`;
+}
+
+function renderModal(){
+  const existing = document.getElementById('ddnlModalOverlay');
+  if(existing) existing.remove();
+  const r = requests.find(x=>x.id===modalRequestId);
+  if(!r) { modalRequestId = null; return; }
+  const total = r.rows.reduce((s,x)=>s+(Number(x.soGio)||0),0);
+  const overlay = document.createElement('div');
+  overlay.className = 'ddnl-overlay';
+  overlay.id = 'ddnlModalOverlay';
+  overlay.innerHTML = `
+    <div class="ddnl-modal">
+      <div class="ddnl-modal-head ddnl-no-print">
+        <h3>Chi tiết phiếu ${esc(r.soPhieu)}</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:2px;border:1px solid var(--ddnl-line);border-radius:7px;overflow:hidden;">
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlZoomOut" style="border:none;border-radius:0;" title="Thu nhỏ">−</button>
+            <span id="ddnlZoomLabel" style="font-size:12px;color:var(--ddnl-ink-soft);min-width:42px;text-align:center;">${ddnlZoom}%</span>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlZoomIn" style="border:none;border-radius:0;" title="Phóng to">+</button>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlZoomReset" style="border:none;border-radius:0;border-left:1px solid var(--ddnl-line);font-size:11px;" title="Về 100%">100%</button>
+          </div>
+          <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnExportWord">Xuất Word (.doc)</button>
+          <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnPrintDoc">In phiếu</button>
+          <button class="ddnl-modal-close" id="ddnlBtnCloseModal">✕</button>
+        </div>
+      </div>
+      <div class="ddnl-modal-body">
+        <div id="ddnlPrintArea" class="ddnl-doc" style="transform:scale(${ddnlZoom/100});transform-origin:top left;">
+          <div class="ddnl-doc-letterhead">
+            <div class="ddnl-col">
+              <div class="ddnl-doc-hospital" style="font-weight:400;white-space:nowrap;">Bệnh viện Đa khoa Trung tâm</div>
+              <div class="ddnl-doc-dept">Khoa Gây mê Hồi sức</div>
+              <div class="ddnl-doc-line"></div>
+              <div class="ddnl-doc-so">Số: ${esc(r.soPhieu)}</div>
+            </div>
+            <div class="ddnl-col ddnl-right">
+              <div class="ddnl-doc-quochieu">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+              <div class="ddnl-doc-tieungu">Độc lập – Tự do – Hạnh phúc</div>
+              <div class="ddnl-doc-place">Gia Lai, ngày ${r.ngayLap ? r.ngayLap.split("-")[2] : "…"} tháng ${r.ngayLap ? r.ngayLap.split("-")[1] : "…"} năm ${r.ngayLap ? r.ngayLap.split("-")[0] : "…"}</div>
+            </div>
+          </div>
+
+          <div class="ddnl-doc-title">Giấy đề nghị điều động nhân lực</div>
+
+          <p><strong>Kính gửi:</strong></p>
+          <p style="margin:2px 0 2px 20px;">– Ban Giám đốc Bệnh viện Đa khoa Trung tâm tỉnh Gia Lai;</p>
+          <p style="margin:2px 0 10px 20px;">– Phòng Tổ chức cán bộ;</p>
+          <p>Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính đề nghị Ban Giám đốc xem xét, phê duyệt điều động nhân lực tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý, cụ thể như sau:</p>
+
+          <div class="ddnl-doc-section-title">1. Lý do đề nghị</div>
+          ${(()=>{ const items = selectedReasons(r.lyDo); return items.length
+            ? items.map(t=>`<div class="ddnl-doc-check">${esc(t)}</div>`).join("")
+            : `<div class="ddnl-doc-check ddnl-hint">(Chưa chọn lý do)</div>`; })()}
+
+          <div class="ddnl-doc-section-title">2. Nội dung đề nghị</div>
+          <table style="width:100%;">
+            <thead><tr>
+              <th style="width:3%;">STT</th><th style="width:17%;">Họ và tên</th><th style="width:15%;">Thực hiện tại bộ phận</th>
+              <th style="width:8%;">Ngày</th><th style="width:7%;">Giờ bắt đầu</th><th style="width:7%;">Giờ kết thúc</th><th style="width:5%;">Số giờ</th><th style="width:24%;">Nhiệm vụ</th><th style="width:14%;">Ghi chú</th>
+            </tr></thead>
+            <tbody>
+              ${r.rows.map((x,i)=>`<tr>
+                <td>${i+1}</td><td>${esc(x.hoTen)}</td><td>${esc(x.boPhanDieuDong)}</td>
+                <td>${fmtDate(x.ngay)}</td><td>${esc(x.gioBatDau)}</td><td>${esc(x.gioKetThuc)}</td><td>${x.soGio}</td>
+                <td>${esc(x.nhiemVu)}</td><td>${esc(x.ghiChu)}</td>
+              </tr>`).join("")}
+              <tr><td colspan="6" style="text-align:left;font-weight:700;">Tổng số giờ điều động trong đợt</td><td style="font-weight:700;">${total}</td><td colspan="2"></td></tr>
+            </tbody>
+          </table>
+
+          <div class="ddnl-doc-section-title">3. Thời gian áp dụng</div>
+          <p>Từ ngày ${fmtDate(r.tuNgay)} đến ngày ${fmtDate(r.denNgay)}</p>
+
+          <div class="ddnl-doc-section-title">4. Cam kết</div>
+          <p>Khoa Gây mê Hồi sức cam kết bố trí, phân công công việc phù hợp; quản lý nhân lực được điều động đúng quy định; đảm bảo hồ sơ, chứng từ và người thực hiện dịch vụ phù hợp nhằm hạn chế tối đa việc bảo hiểm y tế xuất toán do trùng giờ hoặc sai sót trong ghi nhận dịch vụ.</p>
+
+          <div class="ddnl-signs">
+            <div class="ddnl-sign-col">
+              <div class="ddnl-sign-title">${esc((r.chucDanhKy||"Trưởng khoa").toUpperCase())}</div>
+              <div class="ddnl-sign-space">${r.trangThai!=="Chờ duyệt"?`<div style="margin-top:8px;"><span class="ddnl-stamp">ĐÃ<br>DUYỆT</span></div>`:""}</div>
+              <div style="font-weight:700;">${esc((r.nguoiKy||"").toUpperCase())}</div>
+            </div>
+            <div class="ddnl-sign-col">
+              <div class="ddnl-sign-title">PHÒNG TCCB</div>
+              <div class="ddnl-sign-space"></div>
+            </div>
+          </div>
+
+          <p class="ddnl-no-print ddnl-hint" style="margin-top:14px;">Người lập phiếu: ${esc(r.nguoiLap)} · Người ký: ${esc(r.nguoiKy||"—")} · Trạng thái hiện tại: ${esc(r.trangThai)} · Lập lúc: ${new Date(r.createdAt).toLocaleString('vi-VN')}</p>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay){ closeModal(); } });
+  document.getElementById('ddnlBtnCloseModal').onclick = closeModal;
+  document.getElementById('ddnlBtnPrintDoc').onclick = ()=>window.print();
+  document.getElementById('ddnlBtnExportWord').onclick = ()=>exportRequestToWord(r);
+  const applyZoom = ()=>{
+    const pa = document.getElementById('ddnlPrintArea');
+    const lbl = document.getElementById('ddnlZoomLabel');
+    if(pa) pa.style.transform = `scale(${ddnlZoom/100})`;
+    if(lbl) lbl.textContent = `${ddnlZoom}%`;
+  };
+  const zOut = document.getElementById('ddnlZoomOut');
+  if(zOut) zOut.onclick = ()=>{ ddnlZoom = Math.max(50, ddnlZoom-10); applyZoom(); };
+  const zIn = document.getElementById('ddnlZoomIn');
+  if(zIn) zIn.onclick = ()=>{ ddnlZoom = Math.min(200, ddnlZoom+10); applyZoom(); };
+  const zReset = document.getElementById('ddnlZoomReset');
+  if(zReset) zReset.onclick = ()=>{ ddnlZoom = 100; applyZoom(); };
+}
+function buildWordHtmlForRequest(r){
+  const total = r.rows.reduce((s,x)=>s+(Number(x.soGio)||0),0);
+  const ngayLapParts = r.ngayLap ? r.ngayLap.split("-") : ["…","…","…"];
+  const rowsHtml = r.rows.map((x,i)=>`
+    <tr>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${i+1}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(x.hoTen)}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(x.boPhanDieuDong)}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${fmtDate(x.ngay)}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${esc(x.gioBatDau)}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${esc(x.gioKetThuc)}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${x.soGio}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(x.nhiemVu)}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(x.ghiChu)}</td>
+    </tr>`).join("");
+  const reasonItems = selectedReasons(r.lyDo);
+  const reasonRows = reasonItems.length
+    ? reasonItems.map(t=>`<p style="margin:2px 0;">${esc(t)}</p>`).join("")
+    : `<p style="margin:2px 0;font-style:italic;">(Chưa chọn lý do)</p>`;
+
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<!--[if gte mso 9]><xml>
+<w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument>
+</xml><![endif]-->
+<style>
+@page{ size: 21cm 29.7cm; margin: 2cm 1.8cm; }
+body{ font-family:"Times New Roman", Times, serif; font-size:13pt; color:#000; }
+table{ border-collapse:collapse; width:100%; }
+th{ border:1px solid #000; padding:4px 6px; background:#eeeeee; font-weight:bold; font-size:11pt; }
+</style>
+</head>
+<body>
+<table style="width:100%;border:none;margin-bottom:10pt;"><tr>
+  <td nowrap="nowrap" style="border:none;width:42%;vertical-align:top;">
+    <p style="text-align:center;font-weight:normal;white-space:nowrap;margin:0;font-size:10.5pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>
+    <p style="text-align:center;font-weight:bold;margin:0;">KHOA GÂY MÊ HỒI SỨC</p>
+    <p style="text-align:center;margin:2pt 0;">­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­</p>
+    <p style="text-align:center;font-style:italic;font-size:11pt;margin:0;">Số: ${esc(r.soPhieu)}</p>
+  </td>
+  <td nowrap="nowrap" style="border:none;width:58%;vertical-align:top;text-align:center;">
+    <p style="font-weight:bold;margin:0;white-space:nowrap;font-size:12pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+    <p style="font-weight:bold;text-decoration:underline;margin:0;">Độc lập – Tự do – Hạnh phúc</p>
+    <p style="font-style:italic;font-size:11pt;text-align:right;margin-top:8pt;">Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}</p>
+  </td>
+</tr></table>
+
+<p style="text-align:center;font-weight:bold;font-size:15pt;margin:10pt 0 0;">GIẤY ĐỀ NGHỊ ĐIỀU ĐỘNG NHÂN LỰC</p>
+
+<p style="margin:4px 0;"><b>Kính gửi:</b></p>
+<p style="margin:2px 0 2px 30px;">– Ban Giám đốc Bệnh viện Đa khoa Trung tâm tỉnh Gia Lai;</p>
+<p style="margin:2px 0 10px 30px;">– Phòng Tổ chức cán bộ;</p>
+<p style="margin:4px 0;text-align:justify;">Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính đề nghị Ban Giám đốc xem xét, phê duyệt điều động nhân lực tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý, cụ thể như sau:</p>
+
+<p style="font-weight:bold;margin:8pt 0 2pt;">1. Lý do đề nghị</p>
+${reasonRows}
+
+<p style="font-weight:bold;margin:8pt 0 2pt;">2. Nội dung đề nghị</p>
+<table>
+<tr>
+  <th style="width:3%;">STT</th><th style="width:17%;">Họ và tên</th><th style="width:15%;">Thực hiện tại bộ phận</th>
+  <th style="width:8%;">Ngày</th><th style="width:7%;">Giờ bắt đầu</th><th style="width:7%;">Giờ kết thúc</th><th style="width:5%;">Số giờ</th><th style="width:24%;">Nhiệm vụ</th><th style="width:14%;">Ghi chú</th>
+</tr>
+${rowsHtml}
+<tr><td colspan="6" style="border:1px solid #000;padding:4px 6px;text-align:left;font-weight:bold;">Tổng số giờ điều động trong đợt</td><td style="border:1px solid #000;padding:4px 6px;font-weight:bold;text-align:center;">${total}</td><td colspan="2" style="border:1px solid #000;"></td></tr>
+</table>
+
+<p style="font-weight:bold;margin:8pt 0 2pt;">3. Thời gian áp dụng</p>
+<p style="margin:2px 0;">Từ ngày ${fmtDate(r.tuNgay)} đến ngày ${fmtDate(r.denNgay)}</p>
+
+<p style="font-weight:bold;margin:8pt 0 2pt;">4. Cam kết</p>
+<p style="margin:2px 0;text-align:justify;">Khoa Gây mê Hồi sức cam kết bố trí, phân công công việc phù hợp; quản lý nhân lực được điều động đúng quy định; đảm bảo hồ sơ, chứng từ và người thực hiện dịch vụ phù hợp nhằm hạn chế tối đa việc bảo hiểm y tế xuất toán do trùng giờ hoặc sai sót trong ghi nhận dịch vụ.</p>
+
+<table style="width:100%;border:none;margin-top:26pt;"><tr>
+  <td style="border:none;width:50%;text-align:center;vertical-align:top;">
+    <p style="font-weight:bold;margin:0;">${esc((r.chucDanhKy||"Trưởng khoa").toUpperCase())}</p>
+    <p style="margin-top:60pt;font-weight:bold;">${esc((r.nguoiKy||"").toUpperCase())}</p>
+  </td>
+  <td style="border:none;width:50%;text-align:center;vertical-align:top;">
+    <p style="font-weight:bold;margin:0;">PHÒNG TCCB</p>
+  </td>
+</tr></table>
+</body></html>`;
+}
+
+function exportRequestToWord(r){
+  const html = buildWordHtmlForRequest(r);
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Phieu_${(r.soPhieu||r.id).replace(/[\/\\:*?"<>|]/g,'-')}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+
+function closeModal(){
+  modalRequestId = null;
+  const el = document.getElementById('ddnlModalOverlay');
+  if(el) el.remove();
+  render();
+}
+
+/* ============================================================
+   TAB: THỐNG KÊ
+   ============================================================ */
+function renderStats(){
+  if(!statsTu) statsTu = firstDayOfMonthISO();
+  if(!statsDen) statsDen = todayISO();
+  const map = {};
+  requests.filter(r=>r.trangThai!=="Đã hủy").forEach(r=>{
+    r.rows.forEach(row=>{
+      if(!row.ngay) return;
+      if(row.ngay>=statsTu && row.ngay<=statsDen){
+        const key = row.hoTen || "(chưa chọn tên)";
+        if(!map[key]) map[key] = { hoTen:key, gio:0, luot:0, donVi:(findEmployee(key)||{}).donVi||"" };
+        map[key].gio += Number(row.soGio)||0;
+        map[key].luot += 1;
+      }
+    });
+  });
+  const arr = Object.values(map).sort((a,b)=>b.gio-a.gio);
+  const maxGio = Math.max(1, ...arr.map(a=>a.gio));
+  const totalGio = arr.reduce((s,a)=>s+a.gio,0);
+
+  return `
+  ${cardOpen('stats', 'Thống kê giờ điều động', 'Tổng hợp số giờ điều động theo từng nhân viên trong khoảng thời gian đã chọn (không tính phiếu đã hủy).')}
+    <div class="ddnl-toolbar">
+      <div class="ddnl-field" style="max-width:180px;">
+        <label>Từ ngày</label>
+        <input type="date" id="ddnlSt_tu" value="${statsTu}">
+      </div>
+      <div class="ddnl-field" style="max-width:180px;">
+        <label>Đến ngày</label>
+        <input type="date" id="ddnlSt_den" value="${statsDen}">
+      </div>
+      <div class="ddnl-field" style="max-width:220px;">
+        <label>Tổng số giờ toàn khoa trong khoảng này</label>
+        <div style="font-size:20px;font-weight:800;color:var(--ddnl-navy);padding-top:4px;">${totalGio}</div>
+      </div>
+    </div>
+    ${arr.length===0 ? `<div class="ddnl-empty"><div class="ddnl-big">📊</div>Chưa có dữ liệu điều động trong khoảng thời gian này.</div>` : `
+    <div class="ddnl-rows-wrap"><table>
+      <thead><tr><th>Nhân viên</th><th>Đơn vị</th><th>Số lượt điều động</th><th>Tổng số giờ</th><th style="width:220px;">Biểu đồ</th></tr></thead>
+      <tbody>
+        ${arr.map(a=>`<tr>
+          <td>${esc(a.hoTen)}</td><td>${esc(a.donVi)}</td><td>${a.luot}</td><td style="font-weight:700;">${a.gio}</td>
+          <td><div style="background:var(--ddnl-line);border-radius:6px;overflow:hidden;height:14px;"><div style="background:var(--ddnl-teal);height:100%;width:${(a.gio/maxGio*100).toFixed(1)}%;"></div></div></td>
+        </tr>`).join("")}
+      </tbody>
+    </table></div>
+    `}
+  ${cardClose()}`;
+}
+
+/* ============================================================
+   TAB: CẤU HÌNH DANH MỤC
+   ============================================================ */
+function renderConfig(){
+  return `
+  ${cardOpen('cfg-emp', 'Danh mục nhân lực — Khoa Gây mê Hồi sức', `Thêm / sửa / xóa nhân viên trong danh mục dùng để chọn khi lập phiếu. (${config.employees.length} người)`)}
+    <div class="ddnl-grid3" style="margin-bottom:10px;">
+      <div class="ddnl-field"><label>Họ và tên</label><input type="text" id="ddnlCf_ten" placeholder="Nguyễn Văn A"></div>
+      <div class="ddnl-field"><label>Đơn vị</label>
+        <select id="ddnlCf_donVi">
+          <option value="Phòng Mổ">Phòng Mổ</option>
+          <option value="Hồi Sức">Hồi Sức</option>
+        </select>
+      </div>
+      <div class="ddnl-field"><label>Chức vụ</label><input type="text" id="ddnlCf_chucVu" placeholder="(để trống nếu không có)"></div>
+    </div>
+    <div class="ddnl-grid2" style="margin-bottom:10px;">
+      <div class="ddnl-field"><label>Văn bằng</label><input type="text" id="ddnlCf_vanBang" placeholder="VD: CNĐD, BS CKI…"></div>
+      <div class="ddnl-field" style="display:flex;align-items:end;"><button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddEmp">+ Thêm nhân viên</button></div>
+    </div>
+    <div class="ddnl-rows-wrap" style="max-height:340px;overflow-y:auto;">
+    <table>
+      <thead><tr><th>Họ và tên</th><th>Đơn vị</th><th>Chức vụ</th><th>Văn bằng</th><th style="width:140px;"></th></tr></thead>
+      <tbody>
+        ${config.employees.map((e,i)=>{
+          if(editingEmpIdx===i){
+            return `<tr>
+              <td><input type="text" class="ddnl-edit-emp" data-ef="ten" value="${esc(e.ten)}" style="width:100%;"></td>
+              <td>
+                <select class="ddnl-edit-emp" data-ef="donVi" style="width:100%;">
+                  <option value="Phòng Mổ" ${e.donVi==="Phòng Mổ"?"selected":""}>Phòng Mổ</option>
+                  <option value="Hồi Sức" ${e.donVi==="Hồi Sức"?"selected":""}>Hồi Sức</option>
+                </select>
+              </td>
+              <td><input type="text" class="ddnl-edit-emp" data-ef="chucVu" value="${esc(e.chucVu)}" style="width:100%;"></td>
+              <td><input type="text" class="ddnl-edit-emp" data-ef="vanBang" value="${esc(e.vanBang)}" style="width:100%;"></td>
+              <td>
+                <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-save-emp="${i}">Lưu</button>
+                <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cancel-emp="${i}">Hủy</button>
+              </td>
+            </tr>`;
+          }
+          return `<tr>
+          <td>${esc(e.ten)}</td><td>${esc(e.donVi)}</td><td>${esc(e.chucVu)}</td><td>${esc(e.vanBang)}</td>
+          <td>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-emp="${i}">Sửa</button>
+            <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-emp="${i}">Xóa</button>
+          </td>
+        </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+    </div>
+  ${cardClose()}
+
+  ${cardOpen('cfg-units', 'Danh mục bộ phận thực hiện', 'Nơi nhân lực được điều động đến (Phòng Mổ, Phòng Hồi Sức, Phòng Can thiệp DSA, …)')}
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <input type="text" id="ddnlCf_unitName" placeholder="Tên bộ phận mới…" style="max-width:280px;">
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddUnit">+ Thêm bộ phận</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      ${config.units.map((u,i)=>`<span style="background:#eef3f2;border:1px solid var(--ddnl-line);border-radius:20px;padding:6px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:8px;">
+        ${esc(u)} <button data-del-unit="${i}" style="border:none;background:none;color:var(--ddnl-red);cursor:pointer;font-weight:700;">✕</button>
+      </span>`).join("")}
+    </div>
+  ${cardClose()}
+
+  ${cardOpen('cfg-signers', 'Danh sách Người ký (Trưởng khoa / Phó trưởng khoa)', 'Danh sách này dùng cho ô "Người ký" khi lập phiếu, và in đúng chức danh lên Giấy đề nghị.')}
+    <div class="ddnl-grid3" style="margin-bottom:10px;">
+      <div class="ddnl-field"><label>Họ và tên</label><input type="text" id="ddnlCf_signerTen" placeholder="VD: Võ Huy Cường"></div>
+      <div class="ddnl-field"><label>Chức danh</label>
+        <select id="ddnlCf_signerChuc">
+          <option value="Trưởng khoa">Trưởng khoa</option>
+          <option value="Phó trưởng khoa">Phó trưởng khoa</option>
+        </select>
+      </div>
+      <div class="ddnl-field" style="display:flex;align-items:end;"><button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddSigner">+ Thêm người ký</button></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      ${config.signers.map((s,i)=>`<span style="background:#eef3f2;border:1px solid var(--ddnl-line);border-radius:20px;padding:6px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:8px;">
+        ${esc(s.ten)} — ${esc(s.chucDanh)} <button data-del-signer="${i}" style="border:none;background:none;color:var(--ddnl-red);cursor:pointer;font-weight:700;">✕</button>
+      </span>`).join("")}
+    </div>
+  ${cardClose()}
+
+  ${cardOpen('cfg-templates', 'Thư viện mẫu nội dung nhiệm vụ', 'Các mẫu câu dùng để chọn nhanh vào ô "Nhiệm vụ được phân công" khi lập phiếu, khỏi phải gõ lại từ đầu.')}
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <input type="text" id="ddnlCf_tplText" placeholder="VD: Phụ mổ phiên theo lịch mổ trong ngày…" style="flex:1;min-width:200px;">
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddTpl">+ Thêm mẫu</button>
+      <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnDownloadTpl" ${config.templates.length?'':'disabled'}>⬇ Tải xuống (.txt)</button>
+    </div>
+    <div class="ddnl-rows-wrap" style="max-height:260px;overflow-y:auto;">
+    <table>
+      <thead><tr><th>Nội dung mẫu</th><th style="width:150px;"></th></tr></thead>
+      <tbody>
+        ${config.templates.map((t,i)=>{
+          if(editingTplIdx===i){
+            return `<tr>
+              <td><input type="text" class="ddnl-edit-tpl" value="${esc(t)}" style="width:100%;"></td>
+              <td>
+                <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-save-tpl="${i}">Lưu</button>
+                <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cancel-tpl="${i}">Hủy</button>
+              </td>
+            </tr>`;
+          }
+          return `<tr>
+          <td>${esc(t)}</td>
+          <td>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-tpl="${i}">Sửa</button>
+            <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-tpl="${i}">Xóa</button>
+          </td>
+        </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+    </div>
+  ${cardClose()}`;
+}
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+function bindEvents(){
+  document.querySelectorAll('.ddnl-tab-btn').forEach(b=>b.onclick = ()=>{ activeTab = b.dataset.tab; modalRequestId = null; render(); });
+
+  document.querySelectorAll('[data-card-toggle]').forEach(b=>b.onclick = ()=>{
+    const id = b.dataset.cardToggle;
+    if(collapsedCards.has(id)) collapsedCards.delete(id); else collapsedCards.add(id);
+    render();
+  });
+
+  const copyBtn = document.getElementById('ddnlBtnCopyLink');
+  if(copyBtn) copyBtn.onclick = async ()=>{
+    const url = window.location.href;
+    const status = document.getElementById('ddnlCopyStatus');
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(url);
+      } else {
+        const box = document.getElementById('ddnlCurrentUrlBox');
+        const range = document.createRange();
+        range.selectNodeContents(box);
+        const sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(range);
+        document.execCommand('copy');
+        sel.removeAllRanges();
+      }
+      if(status){ status.style.display = 'inline'; setTimeout(()=>{ status.style.display='none'; }, 1800); }
+    }catch(e){
+      alert("Không sao chép được tự động. Vui lòng bôi đen và copy thủ công dòng liên kết.");
+    }
+  };
+
+  const userSelect = document.getElementById('ddnlUserSelect');
+  if(userSelect) userSelect.onchange = (e)=>{
+    currentUserName = e.target.value;
+    const emp = findEmployee(currentUserName);
+    if(isLeader(emp)) scopeAll = true;
+    render();
+  };
+
+  if(activeTab==="new") bindNewFormEvents();
+  if(activeTab==="list") bindListEvents();
+  if(activeTab==="stats") bindStatsEvents();
+  if(activeTab==="config") bindConfigEvents();
+}
+
+function bindNewFormEvents(){
+  document.getElementById('ddnlF_nguoiLap').onchange = (e)=>{ draftNguoiLap = e.target.value; };
+  document.getElementById('ddnlF_ngayLap').onchange = (e)=>{ draftNgayLap = e.target.value; };
+  document.getElementById('ddnlF_nguoiKy').onchange = (e)=>{ draftNguoiKy = e.target.value; };
+  document.getElementById('ddnlF_tuNgay').onchange = (e)=>{ draftTuNgay = e.target.value; if(draftDenNgay < draftTuNgay) draftDenNgay = draftTuNgay; };
+  document.getElementById('ddnlF_denNgay').onchange = (e)=>{ draftDenNgay = e.target.value; };
+  document.getElementById('ddnlBtnAddRow').onclick = ()=>{ draftRows.push(newRow()); render(); };
+  document.querySelectorAll('[data-remove-row]').forEach(b=>{
+    b.onclick = ()=>{ draftRows.splice(Number(b.dataset.removeRow),1); render(); };
+  });
+  document.querySelectorAll('.ddnl-row-tpl').forEach(sel=>{
+    sel.addEventListener('change', (e)=>{
+      const idx = Number(e.target.dataset.tplfor);
+      if(e.target.value){ draftRows[idx].nhiemVu = e.target.value; }
+      render();
+    });
+  });
+  document.querySelectorAll('.ddnl-row-field').forEach(input=>{
+    input.addEventListener('change', (e)=>{
+      const tr = e.target.closest('tr');
+      const idx = Number(tr.dataset.ddnlIdx);
+      const field = e.target.dataset.field;
+      let newVal;
+      if(e.target.classList.contains('ddnl-time-part')){
+        const part = e.target.dataset.part; // 'h' hoặc 'm'
+        draftRows[idx][`${field}_${part}`] = e.target.value;
+        const hv = draftRows[idx][`${field}_h`], mv = draftRows[idx][`${field}_m`];
+        newVal = (hv && mv) ? `${hv}:${mv}` : "";
+      } else {
+        newVal = e.target.value;
+      }
+
+      if(field==="hoTen" && newVal){
+        const ngayCheck = draftRows[idx].ngay;
+        const conflict = findOpenAssignment(newVal, ngayCheck, { skipDraftIdx: idx });
+        if(conflict){
+          alert(`Không thể chọn "${newVal}" — nhân viên này đã có 1 lượt điều động ngày ${fmtDate(ngayCheck)} có giờ bắt đầu nhưng CHƯA có giờ kết thúc (${conflict.nguon}${conflict.soPhieu?': '+conflict.soPhieu:''}). Vui lòng nhập giờ kết thúc cho lượt điều động trước đó rồi mới điều động tiếp.`);
+          e.target.value = draftRows[idx].hoTen || "";
+          return;
+        }
+      }
+
+      draftRows[idx][field] = newVal;
+      if(field==="gioBatDau" || field==="gioKetThuc"){
+        draftRows[idx].soGio = hoursBetween(draftRows[idx].gioBatDau, draftRows[idx].gioKetThuc);
+      }
+      if(field==="ngay" && draftRows[idx].hoTen){
+        const conflict = findOpenAssignment(draftRows[idx].hoTen, newVal, { skipDraftIdx: idx });
+        if(conflict){
+          alert(`Nhân viên "${draftRows[idx].hoTen}" đã có 1 lượt điều động ngày ${fmtDate(newVal)} chưa có giờ kết thúc (${conflict.nguon}${conflict.soPhieu?': '+conflict.soPhieu:''}). Vui lòng kiểm tra lại ngày điều động.`);
+        }
+      }
+      render();
+    });
+  });
+  Object.keys(REASON_LABELS).forEach(k=>{
+    const el = document.getElementById('ly_'+k);
+    if(el) el.onchange = ()=>{ draftLyDo[k] = el.checked; };
+  });
+  const khacChk = document.getElementById('ddnlLy_khacChk');
+  const khacText = document.getElementById('ddnlLy_khacText');
+  if(khacText) khacText.oninput = ()=>{ draftLyDo.khac = khacText.value; };
+
+  document.getElementById('ddnlBtnResetForm').onclick = ()=>{
+    if(confirm("Xóa toàn bộ nội dung đang nhập?")){
+      draftRows = [newRow()];
+      draftLyDo = { tang:false, thieu:false, rieng:false, xuatToan:false, khac:"" };
+      draftNguoiLap = currentUserName || "";
+      draftNgayLap = todayISO();
+      draftTuNgay = todayISO();
+      draftDenNgay = todayISO();
+      draftNguoiKy = config.signers.length ? config.signers[0].ten : "";
+      render();
+    }
+  };
+
+  document.getElementById('ddnlBtnSubmit').onclick = async ()=>{
+    const nguoiLap = draftNguoiLap || currentUserName;
+    if(!nguoiLap){ alert("Vui lòng chọn Người lập phiếu."); return; }
+    if(!draftNguoiKy){ alert("Vui lòng chọn Người ký (Trưởng/Phó khoa)."); return; }
+    const rowsValid = draftRows.filter(r=>r.hoTen);
+    if(rowsValid.length===0){ alert("Vui lòng thêm ít nhất một nhân viên vào danh sách điều động."); return; }
+
+    // Kiểm tra lần cuối trước khi gửi: không cho trùng lượt điều động còn "mở" trong cùng phiếu
+    for(let i=0;i<rowsValid.length;i++){
+      const r = rowsValid[i];
+      const realIdx = draftRows.indexOf(r);
+      const conflict = findOpenAssignment(r.hoTen, r.ngay, { skipDraftIdx: realIdx });
+      if(conflict){
+        alert(`Không thể gửi phiếu: "${r.hoTen}" đã có 1 lượt điều động ngày ${fmtDate(r.ngay)} chưa có giờ kết thúc (${conflict.nguon}${conflict.soPhieu?': '+conflict.soPhieu:''}). Vui lòng bổ sung giờ kết thúc trước khi gửi.`);
+        return;
+      }
+    }
+
+    const ngayLap = draftNgayLap || todayISO();
+    const tuNgay = draftTuNgay || todayISO();
+    const denNgay = draftDenNgay || tuNgay;
+    if(khacChk) draftLyDo.khac = khacChk.checked ? (khacText.value||"") : "";
+
+    const signer = findSigner(draftNguoiKy);
+    const year = ngayLap.split("-")[0];
+    const seqNum = requests.filter(r=>r.ngayLap && r.ngayLap.startsWith(year)).length + 1;
+    const soPhieu = `${String(seqNum).padStart(2,'0')}/GĐĐ-GMHS`;
+
+    const rec = {
+      id: ddRequestsRef.push().key,
+      soPhieu,
+      ngayLap, nguoiLap,
+      nguoiKy: draftNguoiKy,
+      chucDanhKy: signer ? signer.chucDanh : "",
+      lyDo: {...draftLyDo},
+      rows: rowsValid,
+      tuNgay, denNgay,
+      trangThai: "Chờ duyệt",
+      dinhKemLink: "",
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    saving = true; render();
+    const ok = await saveNewRequest(rec);
+    saving = false;
+    if(ok){
+      draftRows = [newRow()];
+      draftLyDo = { tang:false, thieu:false, rieng:false, xuatToan:false, khac:"" };
+      draftNguoiLap = currentUserName || "";
+      draftNgayLap = todayISO();
+      draftTuNgay = todayISO();
+      draftDenNgay = todayISO();
+      draftNguoiKy = config.signers.length ? config.signers[0].ten : "";
+      activeTab = "list";
+    }
+    render();
+  };
+}
+
+function bindListEvents(){
+  const chkScope = document.getElementById('ddnlChkScopeAll');
+  if(chkScope) chkScope.onchange = ()=>{ scopeAll = chkScope.checked; render(); };
+  const flT = document.getElementById('ddnlFl_trangThai'); if(flT) flT.onchange = ()=>{ listFilter.trangThai = flT.value; render(); };
+  const flTu = document.getElementById('ddnlFl_tu'); if(flTu) flTu.onchange = ()=>{ listFilter.tu = flTu.value; render(); };
+  const flDen = document.getElementById('ddnlFl_den'); if(flDen) flDen.onchange = ()=>{ listFilter.den = flDen.value; render(); };
+  const flNguoi = document.getElementById('ddnlFl_nguoi'); if(flNguoi) flNguoi.oninput = ()=>{ listFilter.nguoi = flNguoi.value; render(); };
+
+  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ modalRequestId = b.dataset.view; render(); });
+  document.querySelectorAll('[data-approve]').forEach(b=>b.onclick= async ()=>{
+    await updateRequest(b.dataset.approve, { trangThai: "Đã duyệt / Đã in", updatedAt: Date.now() });
+  });
+  document.querySelectorAll('[data-cancel]').forEach(b=>b.onclick= async ()=>{
+    if(!confirm("Xác nhận hủy phiếu này?")) return;
+    await updateRequest(b.dataset.cancel, { trangThai: "Đã hủy", updatedAt: Date.now() });
+  });
+  document.querySelectorAll('[data-attach]').forEach(b=>b.onclick= async ()=>{
+    const r = requests.find(x=>x.id===b.dataset.attach);
+    const cur = (r && r.dinhKemLink) || "";
+    const link = prompt("Dán link ảnh chụp / Google Drive / file quyết định điều động đã ký (để trống rồi OK để xóa):", cur);
+    if(link === null) return; // bấm Hủy
+    await updateRequest(b.dataset.attach, { dinhKemLink: link.trim(), updatedAt: Date.now() });
+  });
+}
+
+function bindStatsEvents(){
+  const t = document.getElementById('ddnlSt_tu'); if(t) t.onchange = ()=>{ statsTu = t.value; if(statsDen && statsDen < statsTu) statsDen = statsTu; render(); };
+  const d = document.getElementById('ddnlSt_den'); if(d) d.onchange = ()=>{ statsDen = d.value; render(); };
+}
+
+function bindConfigEvents(){
+  document.getElementById('ddnlBtnAddEmp').onclick = async ()=>{
+    const ten = document.getElementById('ddnlCf_ten').value.trim();
+    if(!ten){ alert("Vui lòng nhập họ tên."); return; }
+    const donVi = document.getElementById('ddnlCf_donVi').value;
+    const chucVu = document.getElementById('ddnlCf_chucVu').value.trim();
+    const vanBang = document.getElementById('ddnlCf_vanBang').value.trim();
+    config.employees.push({ ten, donVi, chucVu, vanBang });
+    await saveConfig(); render();
+  };
+  document.querySelectorAll('[data-del-emp]').forEach(b=>b.onclick= async ()=>{
+    if(!confirm("Xóa nhân viên này khỏi danh mục?")) return;
+    config.employees.splice(Number(b.dataset.delEmp),1);
+    await saveConfig(); render();
+  });
+  document.querySelectorAll('[data-edit-emp]').forEach(b=>b.onclick= ()=>{
+    editingEmpIdx = Number(b.dataset.editEmp); render();
+  });
+  document.querySelectorAll('[data-cancel-emp]').forEach(b=>b.onclick= ()=>{
+    editingEmpIdx = null; render();
+  });
+  document.querySelectorAll('[data-save-emp]').forEach(b=>b.onclick= async ()=>{
+    const idx = Number(b.dataset.saveEmp);
+    const tr = b.closest('tr');
+    const fields = {};
+    tr.querySelectorAll('.ddnl-edit-emp').forEach(inp=>{ fields[inp.dataset.ef] = inp.value.trim ? inp.value.trim() : inp.value; });
+    if(!fields.ten){ alert("Họ tên không được để trống."); return; }
+    config.employees[idx] = { ...config.employees[idx], ...fields };
+    editingEmpIdx = null;
+    await saveConfig(); render();
+  });
+
+  document.getElementById('ddnlBtnAddUnit').onclick = async ()=>{
+    const el = document.getElementById('ddnlCf_unitName');
+    const v = el.value.trim();
+    if(!v) return;
+    if(!config.units.includes(v)) config.units.push(v);
+    el.value = "";
+    await saveConfig(); render();
+  };
+  document.querySelectorAll('[data-del-unit]').forEach(b=>b.onclick= async ()=>{
+    config.units.splice(Number(b.dataset.delUnit),1);
+    await saveConfig(); render();
+  });
+
+  document.getElementById('ddnlBtnAddSigner').onclick = async ()=>{
+    const ten = document.getElementById('ddnlCf_signerTen').value.trim();
+    if(!ten){ alert("Vui lòng nhập họ tên người ký."); return; }
+    const chucDanh = document.getElementById('ddnlCf_signerChuc').value;
+    config.signers.push({ ten, chucDanh });
+    await saveConfig(); render();
+  };
+  document.querySelectorAll('[data-del-signer]').forEach(b=>b.onclick= async ()=>{
+    if(!confirm("Xóa người ký này khỏi danh mục?")) return;
+    config.signers.splice(Number(b.dataset.delSigner),1);
+    await saveConfig(); render();
+  });
+
+  document.getElementById('ddnlBtnAddTpl').onclick = async ()=>{
+    const el = document.getElementById('ddnlCf_tplText');
+    const v = el.value.trim();
+    if(!v) return;
+    config.templates.push(v);
+    el.value = "";
+    await saveConfig(); render();
+  };
+  document.querySelectorAll('[data-del-tpl]').forEach(b=>b.onclick= async ()=>{
+    config.templates.splice(Number(b.dataset.delTpl),1);
+    await saveConfig(); render();
+  });
+  document.querySelectorAll('[data-edit-tpl]').forEach(b=>b.onclick= ()=>{
+    editingTplIdx = Number(b.dataset.editTpl); render();
+  });
+  document.querySelectorAll('[data-cancel-tpl]').forEach(b=>b.onclick= ()=>{
+    editingTplIdx = null; render();
+  });
+  document.querySelectorAll('[data-save-tpl]').forEach(b=>b.onclick= async ()=>{
+    const idx = Number(b.dataset.saveTpl);
+    const tr = b.closest('tr');
+    const val = tr.querySelector('.ddnl-edit-tpl').value.trim();
+    if(!val){ alert("Nội dung mẫu không được để trống."); return; }
+    config.templates[idx] = val;
+    editingTplIdx = null;
+    await saveConfig(); render();
+  });
+  const dlBtn = document.getElementById('ddnlBtnDownloadTpl');
+  if(dlBtn) dlBtn.onclick = ()=>{
+    if(!config.templates.length) return;
+    const content = config.templates.join('\r\n');
+    const blob = new Blob(['\ufeff', content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'thu_vien_mau_nhiem_vu.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  };
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+render();
+loadAll();
+
+})();
+
+
+function openDdnlScreen(){
+  document.getElementById('homeScreen').style.display='none';
+  document.getElementById('ddnlScreen').style.display='flex';
+}
+function closeDdnlScreen(){
+  document.getElementById('ddnlScreen').style.display='none';
+  document.getElementById('homeScreen').style.display='flex';
+}
+</script>
+
 <script>
 (function(){
   var DCTD_SET_DEFAULT=[
@@ -33403,6 +34926,7 @@ function clearFieldInvalid(id){
 (function(){
   var HASH_MAP=[
     ['pmScreen','phongmo'],
+    ['ddnlScreen','dieudong'],
     ['pmRoomPickerScreen','phongmo-chonphong'],
     ['bgScreen','bangiao'],
     ['bgRoomPickerScreen','bangiao-chonphong'],
