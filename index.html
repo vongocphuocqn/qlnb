@@ -522,6 +522,13 @@ font-size:10px;color:var(--tx3)}
 /* Timeline row for nb detail */
 .nb-info-row{display:flex;gap:6px;align-items:flex-start;font-size:13px;margin-bottom:4px}
 .nb-info-row i{color:#1565C0;margin-top:1px;flex-shrink:0}
+/* ── Cảnh báo trường bắt buộc (giống Google Form) ── */
+.req-star{color:#e53935;font-weight:700;margin-left:3px}
+.field-invalid{border:1.5px solid #e53935!important;background:#fff5f5!important;
+  box-shadow:0 0 0 2px rgba(229,57,53,.12)!important}
+.field-required-msg{color:#e53935;font-size:11.5px;margin-top:4px;display:flex;
+  align-items:center;gap:4px;font-weight:600;animation:reqFadeIn .15s ease-out}
+@keyframes reqFadeIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -2119,7 +2126,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     <h3><i class="ti ti-user-check"></i> Phân công người phụ trách</h3>
     <div id="assignCardInfo" style="font-size:12.5px;color:#555;background:#f4f8f0;border-radius:8px;padding:8px 11px;margin-bottom:12px"></div>
     <div class="fg">
-      <label>Người phụ trách xử lý</label>
+      <label>Người phụ trách xử lý <span class="req-star">*</span></label>
       <div style="position:relative">
         <div style="display:flex;gap:6px">
           <input type="text" id="assignPersonInput" placeholder="Chọn/gõ tên nhân viên..." autocomplete="off"
@@ -2491,7 +2498,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
             <button id="btnDeptCatalog" onclick="deptOpenCatalogPanel()" title="Quản lý danh mục Bộ phận" style="display:none;flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1.5px solid var(--bd2);background:#fff;color:var(--g600);cursor:pointer;align-items:center;justify-content:center"><i class="ti ti-settings"></i></button>
           </div>
         </div>
-        <div class="mf sp2"><label>Nội dung báo cáo</label><textarea id="inContent" placeholder="Tóm tắt nội dung, sự việc, vấn đề cần ghi nhận..."></textarea></div>
+        <div class="mf sp2"><label>Nội dung báo cáo <span class="req-star" title="Cần điền ít nhất 1 trong 4 ô: Nội dung / Cần làm / Đang làm / Hoàn thành">*</span></label><textarea id="inContent" placeholder="Tóm tắt nội dung, sự việc, vấn đề cần ghi nhận..."></textarea></div>
         <div class="mf"><label>Việc cần làm – To Do</label><textarea id="inTodo" placeholder="Công việc cần thực hiện..."></textarea></div>
         <div class="mf"><label>Đang thực hiện – Doing</label><textarea id="inDoing" placeholder="Đang trong quá trình xử lý..."></textarea></div>
         <div class="mf"><label>Hoàn thành – Done</label><textarea id="inDone" placeholder="Kết quả đã hoàn tất..."></textarea></div>
@@ -11190,8 +11197,8 @@ function addCard(){
   const dn=document.getElementById('inDone').value.trim();
   const pr=document.getElementById('inPri').value;
   const dept=document.getElementById('inDept')?document.getElementById('inDept').value:'';
-  if(!dv){showAl('Vui lòng chọn ngày báo cáo!','warn');return;}
-  if(!ct&&!td&&!dg&&!dn){showAl('Vui lòng nhập ít nhất một nội dung!','warn');return;}
+  if(!dv){showAl('Vui lòng chọn ngày báo cáo!','warn');flagFieldInvalid('inDate','Vui lòng chọn ngày báo cáo');return;}
+  if(!ct&&!td&&!dg&&!dn){showAl('Vui lòng nhập ít nhất một nội dung!','warn');flagFieldInvalid('inContent','Vui lòng nhập ít nhất một nội dung (Nội dung / Cần làm / Đang làm / Hoàn thành)');return;}
   const personName = cu.role==='admin'
     ? (document.getElementById('inPersonAdmin').value || document.getElementById('inPersonSearch').value || 'Quản lý')
     : cu.name;
@@ -11556,7 +11563,7 @@ function openNoteModal(id){
 function closeNoteModal(){document.getElementById('noteModal').classList.remove('on');noteTargetId=null;}
 function saveNote(){
   const txt=document.getElementById('noteText').value.trim();
-  if(!txt){document.getElementById('noteErr').style.display='flex';return;}
+  if(!txt){document.getElementById('noteErr').style.display='flex';flagFieldInvalid('noteText','Vui lòng nhập lý do');return;}
   setSyncStatus('sync');
   cardsRef.child(String(noteTargetId)).update({adminNote:txt,adminNoteAt:new Date().toISOString()})
     .then(()=>{
@@ -11779,7 +11786,7 @@ function confirmAssign(){
   if(!assignTargetId)return;
   const name=document.getElementById('assignPersonInput').value.trim();
   const note=document.getElementById('assignNoteInput').value.trim();
-  if(!name){showAl('Vui lòng chọn tên người phụ trách!','warn');return;}
+  if(!name){showAl('Vui lòng chọn tên người phụ trách!','warn');flagFieldInvalid('assignPersonInput','Vui lòng chọn tên người phụ trách');return;}
   const c=cards.find(x=>String(x.id)===String(assignTargetId));
   const hist=(c&&c.history)?[...c.history]:[];
   hist.push({action:'Phân công cho '+name+(note?' — Ghi chú: '+note:''),actor:(cu&&cu.name)?cu.name:'Quản lý',at:new Date().toISOString()});
@@ -12795,9 +12802,9 @@ function printWord(){
   const sm={todo:'Chưa xử lý',doing:'Đang xử lý',done:'Đã xong'};
   const pm={h:'🔴 Khẩn cấp',m:'🟡 Bình thường',l:'🟢 Thấp'};
   const data=getFiltered();
-  const td=data.filter(c=>c.status==='todo');
-  const dg=data.filter(c=>c.status==='doing');
-  const dn=data.filter(c=>c.status==='done');
+  const td=data.filter(c=>c.status==='todo').sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.id-a.id));
+  const dg=data.filter(c=>c.status==='doing').sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.id-a.id));
+  const dn=data.filter(c=>c.status==='done').sort((a,b)=>(b.doneAt||b.date||'').localeCompare(a.doneAt||a.date||'')||(b.id-a.id));
   const total=data.length;
   const pct=total?Math.round(dn.length/total*100):0;
   const now=new Date();
@@ -12909,7 +12916,7 @@ ${section('3. ĐÃ HOÀN THÀNH','#1B5E20',dn)}
 function exportCSV(){
   const sm={todo:'Chưa xử lý',doing:'Đang xử lý',done:'Đã xong'};
   const pm={h:'Khẩn cấp',m:'Bình thường',l:'Thấp'};
-  const list=getFiltered();
+  const list=getFiltered().slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.id-a.id));
   const now=new Date();
   const nowStr=String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear()
     +' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
@@ -13994,7 +14001,7 @@ function nbAddDateRange(){
   var from=document.getElementById('nbRangeFrom').value;
   var to=document.getElementById('nbRangeTo').value;
   var shift=document.getElementById('nbRangeShift').value||'ngay';
-  if(!from){nbShowAl('Vui lòng chọn ngày bắt đầu!','warn');return;}
+  if(!from){nbShowAl('Vui lòng chọn ngày bắt đầu!','warn');flagFieldInvalid('nbRangeFrom','Vui lòng chọn ngày bắt đầu');return;}
   if(!to) to=from;
   var d=new Date(from), end=new Date(to);
   if(d>end){nbShowAl('Ngày bắt đầu phải trước ngày kết thúc!','warn');return;}
@@ -14026,7 +14033,7 @@ function nbSubmitForm(){
   var nbRowsEl2=document.getElementById('nbRows');
   var nbEditId=(nbRowsEl2&&nbRowsEl2.dataset&&nbRowsEl2.dataset.editId)||'';
   if(nbEditId){
-    if(!entries.length){nbShowAl('Vui lòng thêm ít nhất 1 ngày nghỉ bù!','warn');return;}
+    if(!entries.length){nbShowAl('Vui lòng thêm ít nhất 1 ngày nghỉ bù!','warn');flagFieldInvalid('nbRangeFrom','Vui lòng thêm ít nhất 1 ngày nghỉ bù (bấm nút Thêm ngày)');return;}
     var inv2=entries.findIndex(function(e){return !e.date||!e.shift;});
     if(inv2>=0){nbShowAl('Vui lòng điền đầy đủ ngày và ca!','warn');return;}
     var btn3=document.querySelector('#nbPane1 .nb-btn[onclick="nbSubmitForm()"]');
@@ -14048,8 +14055,8 @@ function nbSubmitForm(){
       .catch(function(e){nbShowAl('Lỗi lưu: '+e.message,'err');nbSetSync('err');});
     return;
   }
-  if(!person){nbShowAl('Vui lòng chọn nhân viên!','warn');return;}
-  if(!entries.length){nbShowAl('Vui lòng thêm ít nhất 1 ngày nghỉ bù!','warn');return;}
+  if(!person){nbShowAl('Vui lòng chọn nhân viên!','warn');flagFieldInvalid(['nbPersonVal','nbPersonSearch'],'Vui lòng chọn nhân viên');return;}
+  if(!entries.length){nbShowAl('Vui lòng thêm ít nhất 1 ngày nghỉ bù!','warn');flagFieldInvalid('nbRangeFrom','Vui lòng thêm ít nhất 1 ngày nghỉ bù (bấm nút Thêm ngày)');return;}
   const invalid=entries.findIndex(e=>!e.date||!e.shift);
   if(invalid>=0){nbShowAl('Vui lòng điền đầy đủ ngày và ca cho tất cả các dòng!','warn');return;}
 
@@ -15434,10 +15441,10 @@ function npSubmitForm(){
       .catch(function(e){npShowAl('Lỗi: '+e.message,'err');});
     return;
   }
-  if(!person){npShowAl('Vui lòng chọn nhân viên!','warn');return;}
-  if(!fr||!to){npShowAl('Vui lòng chọn ngày từ – đến!','warn');return;}
+  if(!person){npShowAl('Vui lòng chọn nhân viên!','warn');flagFieldInvalid(['npPersonVal','npPersonSearch'],'Vui lòng chọn nhân viên');return;}
+  if(!fr||!to){npShowAl('Vui lòng chọn ngày từ – đến!','warn');flagFieldInvalid(!fr?'npFormFrom':'npFormTo','Vui lòng chọn ngày từ – đến');return;}
   if(new Date(to)<new Date(fr)){npShowAl('Ngày kết thúc phải ≥ ngày bắt đầu!','warn');return;}
-  if(!type){npShowAl('Vui lòng chọn loại nghỉ phép!','warn');return;}
+  if(!type){npShowAl('Vui lòng chọn loại nghỉ phép!','warn');flagFieldInvalid('npFormType','Vui lòng chọn loại nghỉ phép');return;}
   const days=npCalcDaysNum(fr,to);
   npSetSync('sync');
   const id=Date.now();
@@ -19028,7 +19035,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       alertEl.style.color = cls==='err' ? '#a11d1d' : '#1b6b3a';
       alertEl.textContent = msg;
     }
-    if(!name){ showAl('Vui lòng nhập tên loại sự kiện!','err'); return; }
+    if(!name){ showAl('Vui lòng nhập tên loại sự kiện!','err'); flagFieldInvalid('kpiTypeNewName','Vui lòng nhập tên loại sự kiện'); return; }
     name = name.replace(/\s+/g,' ').trim();
     function kpiNormForCompare(s){
       return (s||'').replace(/\s+/g,' ').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
@@ -19356,9 +19363,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       alertEl.style.color = cls==='err' ? '#a11d1d' : '#1b6b3a';
       alertEl.textContent = msg;
     }
-    if(!person){ showKpiAl('Vui lòng chọn/nhập tên nhân viên!','err'); return; }
-    if(!date){ showKpiAl('Vui lòng chọn ngày xảy ra!','err'); return; }
-    if(!type){ showKpiAl('Vui lòng chọn hoặc nhập loại sự kiện!','err'); return; }
+    if(!person){ showKpiAl('Vui lòng chọn/nhập tên nhân viên!','err'); flagFieldInvalid('kpiEvPerson','Vui lòng chọn/nhập tên nhân viên'); return; }
+    if(!date){ showKpiAl('Vui lòng chọn ngày xảy ra!','err'); flagFieldInvalid('kpiEvDate','Vui lòng chọn ngày xảy ra'); return; }
+    if(!type){ showKpiAl('Vui lòng chọn hoặc nhập loại sự kiện!','err'); flagFieldInvalid('kpiEvType','Vui lòng chọn hoặc nhập loại sự kiện'); return; }
     if(!kpiEventsRef){ showKpiAl('Chưa kết nối được Firebase!','err'); return; }
     var id = Date.now();
     var rec = {id:id, person:person, date:date, type:type, severity:severity, count:count, points:points,
@@ -22621,11 +22628,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     var hasReport=document.getElementById('dctdInHasReport').checked;
     var reportRef=document.getElementById('dctdInReportRef').value.trim();
     var note=document.getElementById('dctdInNote').value.trim();
-    if(!date){alert('Vui lòng chọn ngày phát hiện.');return;}
-    if(!setName){alert('Vui lòng chọn bộ dụng cụ.');return;}
-    if(!persons.length){alert('Vui lòng chọn ít nhất 1 người thực hiện (ê-kíp).');return;}
-    if(!dept){alert('Vui lòng chọn Bộ phận của người phát hiện.');return;}
-    if(!items.length){alert('Vui lòng nhập ít nhất 1 dòng dụng cụ thất lạc.');return;}
+    if(!date){alert('Vui lòng chọn ngày phát hiện.');flagFieldInvalid('dctdInDate','Vui lòng chọn ngày phát hiện');return;}
+    if(!setName){alert('Vui lòng chọn bộ dụng cụ.');flagFieldInvalid('dctdInSet','Vui lòng chọn bộ dụng cụ');return;}
+    if(!persons.length){alert('Vui lòng chọn ít nhất 1 người thực hiện (ê-kíp).');flagFieldInvalid('dctdPersonTags','Vui lòng chọn ít nhất 1 người thực hiện (ê-kíp)');return;}
+    if(!dept){alert('Vui lòng chọn Bộ phận của người phát hiện.');flagFieldInvalid('dctdInDept','Vui lòng chọn Bộ phận của người phát hiện');return;}
+    if(!items.length){alert('Vui lòng nhập ít nhất 1 dòng dụng cụ thất lạc.');flagFieldInvalid('dctdItemRows','Vui lòng nhập ít nhất 1 dòng dụng cụ thất lạc');return;}
     if(dctdEditingId){
       var upd={date:date,setName:setName,persons:persons,discoverer:discoverer,dept:dept,lostPersons:lostPersons,items:items,hasReport:hasReport,reportRef:reportRef||null,note:note||null};
       dctdRef.child(dctdEditingId).update(upd).then(function(){
@@ -22735,7 +22742,7 @@ window.dctdSubmitAssign = function(){
   if(!_dctdAssignRecId){ dctdCloseAssign(); return; }
   var who=document.getElementById('dctdAssignWho').value.trim();
   var note=document.getElementById('dctdAssignNote').value.trim();
-  if(!who){ document.getElementById('dctdAssignErr').style.display='block'; return; }
+  if(!who){ document.getElementById('dctdAssignErr').style.display='block'; flagFieldInvalid('dctdAssignWho','Vui lòng chọn người phụ trách'); return; }
   var phanCong={nguoiPhuTrach:who, ghiChu:note||null, luc:new Date().toISOString(), boiAi:(dctdCu&&dctdCu.name)||'Quản lý'};
   dctdRef.child(_dctdAssignRecId).update({status:'doing', phanCong:phanCong}).then(function(){
     dctdCloseAssign();
@@ -23755,8 +23762,8 @@ window.dctdMoveStatus=function(id,st){
       alertEl.style.color = cls==='err' ? '#a11d1d' : (cls==='warn' ? '#7a5b00' : '#1b6b3a');
       alertEl.textContent = msg;
     }
-    if(!month){showAl('Vui lòng chọn tháng áp dụng.','err');return;}
-    if(!ltEditing && !files.length){showAl('Vui lòng chọn ít nhất 1 file (Excel hoặc PDF).','err');return;}
+    if(!month){showAl('Vui lòng chọn tháng áp dụng.','err');flagFieldInvalid('ltUpMonth','Vui lòng chọn tháng áp dụng');return;}
+    if(!ltEditing && !files.length){showAl('Vui lòng chọn ít nhất 1 file (Excel hoặc PDF).','err');flagFieldInvalid('ltUpFile','Vui lòng chọn ít nhất 1 file');return;}
     if(!ltRef){showAl('Chưa kết nối được Firebase.','err');return;}
     var MAX_SIZE=4*1024*1024; // 4MB — file lớn hơn dễ lưu lỗi/chậm vì lưu trực tiếp trong Firebase Realtime Database
     var tooBig=files.filter(function(f){return f.size>MAX_SIZE;});
@@ -25137,9 +25144,9 @@ window.dctdMoveStatus=function(id,st){
     var ghiChu=document.getElementById('cmeInNote').value.trim();
     var fileInput=document.getElementById('cmeInFile');
     var file=fileInput.files && fileInput.files[0];
-    if(!tenHoatDong){alert('Vui lòng nhập tên hoạt động.');return;}
-    if(!tuNgay){alert('Vui lòng chọn ngày tham gia.');return;}
-    if(isNaN(soGio)||soGio<=0){alert('Vui lòng nhập số giờ/tín chỉ hợp lệ (lớn hơn 0).');return;}
+    if(!tenHoatDong){alert('Vui lòng nhập tên hoạt động.');flagFieldInvalid('cmeInName','Vui lòng nhập tên hoạt động');return;}
+    if(!tuNgay){alert('Vui lòng chọn ngày tham gia.');flagFieldInvalid('cmeInFrom','Vui lòng chọn ngày tham gia');return;}
+    if(isNaN(soGio)||soGio<=0){alert('Vui lòng nhập số giờ/tín chỉ hợp lệ (lớn hơn 0).');flagFieldInvalid('cmeInHours','Vui lòng nhập số giờ/tín chỉ hợp lệ (lớn hơn 0)');return;}
     var baseRec={name:cmeCu.name, tenHoatDong:tenHoatDong, donVi:donVi||null, hinhThuc:hinhThuc, tuNgay:tuNgay, denNgay:denNgay||tuNgay,
       soGio:soGio, soChungNhan:soChungNhan||null, ghiChu:ghiChu||null};
     var key=cmeSafeKey(cmeCu.name);
@@ -26251,9 +26258,9 @@ window.dctdMoveStatus=function(id,st){
     var ca=document.getElementById('bgInCa').value;
     var nguoiGiao=bgCu.name;
     var nguoiNhan=bgSelectedNhan||document.getElementById('bgInNhan').value.trim();
-    if(!date){bgShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return;}
-    if(!gio){bgShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return;}
-    if(!nguoiNhan){bgShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b> ở ô "Người nhận (ca đến)" — bấm đúng vào tên hiện ra trong danh sách gợi ý.','err');return;}
+    if(!date){bgShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');flagFieldInvalid('bgInDate','Vui lòng chọn ngày bàn giao');return;}
+    if(!gio){bgShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');flagFieldInvalid('bgInGio','Vui lòng chọn giờ bàn giao');return;}
+    if(!nguoiNhan){bgShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b> ở ô "Người nhận (ca đến)" — bấm đúng vào tên hiện ra trong danh sách gợi ý.','err');flagFieldInvalid('bgInNhan','Vui lòng chọn tên người nhận');return;}
     if(nguoiNhan===nguoiGiao){bgShowFormAlert('Người nhận phải khác người bàn giao.','err');return;}
     var sigGiao=bgSigDataUrl('giao'), sigNhan=bgSigDataUrl('nhan');
     if(!sigGiao || !bgSigLocked.giao){
@@ -26395,9 +26402,9 @@ window.dctdMoveStatus=function(id,st){
       var gio=document.getElementById('bgInGio').value;
       var ca=document.getElementById('bgInCa').value;
       var nguoiNhan=bgSelectedNhan||document.getElementById('bgInNhan').value.trim();
-      if(!date){bgShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return;}
-      if(!gio){bgShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return;}
-      if(!nguoiNhan){bgShowFormAlert('Vui lòng chọn <b>tên người nhận</b>.','err');return;}
+      if(!date){bgShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');flagFieldInvalid('bgInDate','Vui lòng chọn ngày bàn giao');return;}
+      if(!gio){bgShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');flagFieldInvalid('bgInGio','Vui lòng chọn giờ bàn giao');return;}
+      if(!nguoiNhan){bgShowFormAlert('Vui lòng chọn <b>tên người nhận</b>.','err');flagFieldInvalid('bgInNhan','Vui lòng chọn tên người nhận');return;}
       var items=bgCatalogItems();
       var missingNote=items.find(function(it){
         var st=bgItemStates[it._id];
@@ -28451,9 +28458,9 @@ window.dctdMoveStatus=function(id,st){
     var ca=document.getElementById('pmInCa').value;
     var nguoiGiao=pmCu.name;
     var nguoiNhan=pmSelectedNhan||document.getElementById('pmInNhan').value.trim();
-    if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return null;}
-    if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return null;}
-    if(!nguoiNhan){pmShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b>.','err');return null;}
+    if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');flagFieldInvalid('pmInDate','Vui lòng chọn ngày bàn giao');return null;}
+    if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');flagFieldInvalid('pmInGio','Vui lòng chọn giờ bàn giao');return null;}
+    if(!nguoiNhan){pmShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b>.','err');flagFieldInvalid('pmInNhan','Vui lòng chọn tên người nhận');return null;}
     if(nguoiNhan===nguoiGiao){pmShowFormAlert('Người nhận phải khác người bàn giao.','err');return null;}
     var sigGiao=null, sigNhan=null, hasNhanSig=false;
     if(requireSig){
@@ -28651,9 +28658,9 @@ window.dctdMoveStatus=function(id,st){
     var ca=document.getElementById('pmInCa').value;
     var nguoiGiao=pmCu.name;
     var nguoiNhan=pmSelectedNhan||document.getElementById('pmInNhan').value.trim();
-    if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return;}
-    if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return;}
-    if(!nguoiNhan){pmShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b>.','err');return;}
+    if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');flagFieldInvalid('pmInDate','Vui lòng chọn ngày bàn giao');return;}
+    if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');flagFieldInvalid('pmInGio','Vui lòng chọn giờ bàn giao');return;}
+    if(!nguoiNhan){pmShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b>.','err');flagFieldInvalid('pmInNhan','Vui lòng chọn tên người nhận');return;}
     if(nguoiNhan===nguoiGiao){pmShowFormAlert('Người nhận phải khác người bàn giao.','err');return;}
     var sigGiao=pmSigDataUrl('giao'), sigNhan=pmSigDataUrl('nhan');
     if(!sigGiao || !pmSigLocked.giao){
@@ -33295,6 +33302,122 @@ function dkpRender(){
     banner.style.display='none';
   }
 }
+</script>
+
+<!-- ============================================================
+     CẢNH BÁO Ô BẮT BUỘC (giống Google Form) — dùng chung cho toàn app
+     ============================================================ -->
+<script>
+// Đánh dấu 1 ô nhập bị thiếu/sai: viền đỏ + dòng chữ đỏ ngay dưới ô.
+// ids: có thể truyền 1 id (string) hoặc mảng nhiều id — sẽ chọn ô ĐANG HIỂN THỊ đầu tiên trong danh sách để đánh dấu
+//      (dùng cho các cặp ô ẩn/hiện thay nhau, ví dụ ô chọn danh sách / ô gõ tìm tên).
+function flagFieldInvalid(ids, msg){
+  var list = Array.isArray(ids) ? ids : [ids];
+  var el = null;
+  for(var i=0;i<list.length;i++){
+    var cand = document.getElementById(list[i]);
+    if(cand && getComputedStyle(cand).display!=='none'){ el = cand; break; }
+  }
+  if(!el){ el = document.getElementById(list[0]); }
+  if(!el) return;
+  el.classList.add('field-invalid');
+  var msgId = list[0]+'_reqmsg';
+  var msgEl = document.getElementById(msgId);
+  if(!msgEl){
+    msgEl = document.createElement('div');
+    msgEl.id = msgId;
+    msgEl.className = 'field-required-msg';
+    el.insertAdjacentElement('afterend', msgEl);
+  }
+  msgEl.innerHTML = '<i class="ti ti-alert-circle"></i> '+msg;
+  msgEl.style.display = 'flex';
+  try{ el.focus({preventScroll:true}); }catch(e){ try{el.focus();}catch(e2){} }
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  if(!el._reqCleanupBound){
+    el._reqCleanupBound = true;
+    var clear = function(){ clearFieldInvalid(el.id); };
+    el.addEventListener('input', clear);
+    el.addEventListener('change', clear);
+  }
+}
+function clearFieldInvalid(id){
+  var el = document.getElementById(id);
+  if(el) el.classList.remove('field-invalid');
+  var msgEl = document.getElementById(id+'_reqmsg');
+  if(msgEl) msgEl.style.display='none';
+}
+</script>
+
+<!-- ============================================================
+     URL HASH THAM KHẢO (chỉ hiển thị, KHÔNG điều hướng khi tải lại)
+     Mục đích: khi đang ở màn hình nào, thanh địa chỉ tự hiện #ten-man-hinh
+     để tiện copy link trao đổi/báo lỗi. Không ảnh hưởng logic chuyển màn hình.
+     ============================================================ -->
+<script>
+(function(){
+  var HASH_MAP=[
+    ['pmScreen','phongmo'],
+    ['pmRoomPickerScreen','phongmo-chonphong'],
+    ['bgScreen','bangiao'],
+    ['bgRoomPickerScreen','bangiao-chonphong'],
+    ['cmeScreen','cme'],
+    ['lichTrucScreen','lichtruc'],
+    ['dctdScreen','dungcu'],
+    ['kpiScreen','kpi'],
+    ['tvScreen','thanhtich'],
+    ['qtScreen','quytrinh'],
+    ['pqScreen','phanquyen'],
+    ['phepScreen','phepnam'],
+    ['npScreen','nghiphep'],
+    ['nbScreen','nghibu'],
+    ['appScreen','kanban'],
+    ['homeScreen','trangchu'],
+    ['loginScreen','dangnhap']
+  ];
+
+  function urlHashSync(){
+    for(var i=0;i<HASH_MAP.length;i++){
+      var id=HASH_MAP[i][0], slug=HASH_MAP[i][1];
+      var el=document.getElementById(id);
+      if(!el) continue;
+      if(getComputedStyle(el).display!=='none'){
+        var wanted='#'+slug;
+        if(location.hash!==wanted){
+          try{ history.replaceState(null,'',location.pathname+location.search+wanted); }catch(e){}
+        }
+        return;
+      }
+    }
+  }
+
+  var scheduled=false;
+  function scheduleSync(){
+    if(scheduled) return;
+    scheduled=true;
+    setTimeout(function(){ scheduled=false; urlHashSync(); }, 60);
+  }
+
+  function initHashWatcher(){
+    HASH_MAP.forEach(function(pair){
+      var el=document.getElementById(pair[0]);
+      if(el){
+        try{
+          new MutationObserver(scheduleSync).observe(el,{attributes:true,attributeFilter:['style','class']});
+        }catch(e){}
+      }
+    });
+    scheduleSync();
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', initHashWatcher);
+  } else {
+    initHashWatcher();
+  }
+  // Dự phòng: một số chuyển màn hình có thể không đổi qua style/class quan sát được ngay,
+  // nên kiểm tra thêm ngay sau mỗi thao tác bấm chuột trong app.
+  document.addEventListener('click', scheduleSync, true);
+})();
 </script>
 
 </body>
