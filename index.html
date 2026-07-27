@@ -11856,11 +11856,11 @@ function renderCard(c){
   const editBtn=editable?`<button class="bedit" onclick="openEditModal(${c.id})"><i class="ti ti-edit"></i> Sửa</button>`:'';
   const lockBadge=isOwn&&!editable?`<span class="lock-badge"><i class="ti ti-lock" style="font-size:10px"></i> Đã khóa</span>`:'';
   const assignBadge=c.assignee?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#f3e8fd;color:#6a1e7e;border:1px solid #d9c2ea;vertical-align:middle;margin-left:4px"><i class="ti ti-user-check" style="font-size:10px"></i> Phụ trách: ${esc(c.assignee)}</span>`:'';
-  const assignNoteHtml=c.assignee&&c.assignNote?`<div class="cnote" style="background:#f3e8fd;border-color:#d9c2ea">
+  const assignNoteHtml=c.assignNote?`<div class="cnote" style="background:#f3e8fd;border-color:#d9c2ea">
       <div class="cnote-hdr"><i class="ti ti-clipboard-text" style="color:#6a1e7e"></i>
       <div class="cnote-body">${escNl(c.assignNote)}</div></div>
       <div class="cnote-meta"><i class="ti ti-user-check" style="font-size:10px"></i>
-      Giao việc cho ${esc(c.assignee)}${c.assignedAt?' – '+fmtD(c.assignedAt.split('T')[0]):''}</div></div>`:'';
+      ${c.assignee?('Giao việc cho '+esc(c.assignee)):'Ghi chú giao việc'}${c.assignedAt?' – '+fmtD(c.assignedAt.split('T')[0]):''}</div></div>`:'';
   const assignBtn=isA?`<button class="bedit" onclick="openAssignModal(${c.id})"><i class="ti ti-user-check"></i> ${c.assignee?'Đổi phụ trách':'Phân công'}</button>`:'';
   const histCount=(c.history&&c.history.length)?c.history.length:0;
   const histBtn=histCount?`<button class="bedit" style="background:none" onclick="toggleCardHistory(${c.id})"><i class="ti ti-history"></i> Lịch sử (${histCount})</button>`:'';
