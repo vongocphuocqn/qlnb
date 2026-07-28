@@ -22056,6 +22056,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 
 
 
+
+
+
 <script>
 (function(){
 /* ============================================================
@@ -22117,7 +22120,7 @@ const REASON_LABELS = {
 /* ============================================================
    STATE
    ============================================================ */
-let config = { employees: [], units: [], signers: [], templates: [] };
+let config = { employees: [], units: [], signers: [], templates: [], adminPwd: "" };
 let requests = [];
 let currentUserName = "";
 let loaded = false;
@@ -22135,6 +22138,22 @@ let statsDen = "";
 let listFilter = { trangThai:"", tu:"", den:"", nguoi:"" };
 let modalRequestId = null;
 let saving = false;
+let ddnlLocalAdminUnlock = false; // đăng nhập admin riêng cho module này (mật khẩu DDNL_DEFAULT_ADMIN_PWD)
+// Nhận diện quyền Admin: hoặc đăng nhập riêng ở module này, HOẶC đã đăng nhập Admin chung
+// của cả hệ thống Kanban (window.cu.role==='admin' hay window.adminSession.active) —
+// dùng chung 1 lần đăng nhập cho tất cả các thẻ, khỏi phải đăng nhập lại ở đây.
+function isGlobalAdmin(){
+  try{
+    if(window.adminSession && window.adminSession.active) return true;
+    if(window.cu && window.cu.role === 'admin') return true;
+  }catch(e){}
+  return false;
+}
+function isAdmin(){
+  return ddnlLocalAdminUnlock || isGlobalAdmin();
+}
+let editingRequestId = null; // null = đang lập phiếu mới, khác null = đang sửa phiếu có id này
+const DDNL_DEFAULT_ADMIN_PWD = "gmhs2026admin"; // mật khẩu Admin mặc định lần đầu — đổi được trong tab Danh mục/Cấu hình sau khi đăng nhập
 let editingEmpIdx = null;
 let editingTplIdx = null;
 let ddnlZoom = 100; // % phóng to nội dung trong khung "Xem chi tiết phiếu" (chỉ xem trong app, không ảnh hưởng khi in/xuất Word)
@@ -22241,7 +22260,7 @@ function objToArray(val){
 }
 
 function loadAll(){
-  // Cấu hình danh mục (nhân viên / bộ phận / người ký / mẫu nội dung)
+  // Cấu hình danh mục (nhân viên / bộ phận / người ký / mẫu nội dung / mật khẩu admin)
   ddConfigRef.on('value', snap=>{
     const val = snap.val();
     if(val && (val.nhanVien || val.boPhan)){
@@ -22249,19 +22268,20 @@ function loadAll(){
         employees: Array.isArray(val.nhanVien) ? val.nhanVien : SEED_EMPLOYEES,
         units: Array.isArray(val.boPhan) ? val.boPhan : SEED_UNITS,
         signers: Array.isArray(val.nguoiKy) ? val.nguoiKy : SEED_SIGNERS,
-        templates: Array.isArray(val.mauNoiDung) ? val.mauNoiDung : SEED_TEMPLATES
+        templates: Array.isArray(val.mauNoiDung) ? val.mauNoiDung : SEED_TEMPLATES,
+        adminPwd: val.adminPwd || DDNL_DEFAULT_ADMIN_PWD
       };
     } else if(!configLoaded){
       // Chưa có dữ liệu trên Firebase -> khởi tạo lần đầu bằng dữ liệu mẫu
-      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES };
-      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES });
+      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD };
+      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD });
     }
     configLoaded = true;
     if(requestsLoaded){ loaded = true; }
     render();
   }, err=>{
     console.error("Lỗi tải danh mục:", err);
-    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES };
+    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD };
     configLoaded = true;
     if(requestsLoaded) loaded = true;
     render();
@@ -22289,7 +22309,7 @@ function loadAll(){
 }
 
 async function saveConfig(){
-  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates }); }
+  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, adminPwd: config.adminPwd }); }
   catch(e){ alert("Không lưu được cấu hình lên Firebase. Kiểm tra kết nối mạng và thử lại."); }
 }
 
@@ -22360,7 +22380,14 @@ function renderHeader(){
           <option value="">— Chọn tên —</option>
           ${config.employees.map(e=>`<option value="${esc(e.ten)}" ${e.ten===currentUserName?"selected":""}>${esc(e.ten)}</option>`).join("")}
         </select>
-        ${leader?'<span class="ddnl-hdr-badge">Quản lý khoa</span>':''}
+        ${leader?'<span class="ddnl-hdr-badge" title="Chỉ mang tính hiển thị, không tự cấp quyền Admin">Trưởng/Phó khoa</span>':''}
+      </div>
+      <div style="margin-left:auto;">
+        ${isGlobalAdmin()
+          ? `<span class="ddnl-hdr-badge" style="background:#2f7a4f;" title="Đang tính theo trạng thái Admin chung của toàn hệ thống Kanban">🔓 Admin (chung hệ thống)</span>`
+          : isAdmin()
+            ? `<span class="ddnl-hdr-badge" style="background:#2f7a4f;">🔓 Admin</span> <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlAdminLogout" style="margin-left:6px;">Thoát Admin</button>`
+            : `<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlAdminLogin">🔒 Đăng nhập Admin</button>`}
       </div>
     </div>
   </div>`;
@@ -22409,8 +22436,9 @@ function renderNewForm(){
   if(!draftNguoiLap && currentUserName) draftNguoiLap = currentUserName;
   if(!draftNguoiKy && config.signers.length) draftNguoiKy = config.signers[0].ten;
   const totalHours = draftRows.reduce((s,r)=>s+(Number(r.soGio)||0),0);
+  const editingReq = editingRequestId ? requests.find(x=>x.id===editingRequestId) : null;
   return `
-  ${cardOpen('new-form', 'Giấy đề nghị điều động nhân lực', 'Phục vụ công tác Gây mê hồi sức — điền thông tin bên dưới, hệ thống sẽ tự tính giờ điều động.')}
+  ${cardOpen('new-form', 'Giấy đề nghị điều động nhân lực', editingReq ? `⚠️ Đang SỬA phiếu ${esc(editingReq.soPhieu)} — bấm "Lưu thay đổi" để cập nhật, hoặc "Hủy sửa" để quay lại lập phiếu mới.` : 'Phục vụ công tác Gây mê hồi sức — điền thông tin bên dưới, hệ thống sẽ tự tính giờ điều động.')}
 
     <div class="ddnl-grid3">
       <div class="ddnl-field">
@@ -22521,8 +22549,8 @@ function renderNewForm(){
     </div>
 
     <div style="display:flex;gap:10px;margin-top:16px;">
-      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnSubmit" ${saving?"disabled":""}>${saving?"Đang gửi…":"Gửi phiếu đề nghị"}</button>
-      <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnResetForm">Xóa nhập, làm lại</button>
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnSubmit" ${saving?"disabled":""}>${saving?"Đang lưu…":(editingReq?"Lưu thay đổi":"Gửi phiếu đề nghị")}</button>
+      <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnResetForm">${editingReq?"Hủy sửa":"Xóa nhập, làm lại"}</button>
     </div>
   ${cardClose()}`;
 }
@@ -22594,8 +22622,9 @@ function renderList(){
             <td>
               <div class="ddnl-list-actions">
                 <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-view="${r.id}">Xem / In</button>
-                ${r.trangThai==="Chờ duyệt"?`<button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-approve="${r.id}">Đã duyệt</button>`:""}
-                ${r.trangThai!=="Đã hủy"?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-cancel="${r.id}">Hủy</button>`:""}
+                ${isAdmin()?`<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-req="${r.id}">Sửa</button>`:""}
+                ${isAdmin() && r.trangThai==="Chờ duyệt"?`<button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-approve="${r.id}">Đã duyệt</button>`:""}
+                ${isAdmin() && r.trangThai!=="Đã hủy"?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-cancel="${r.id}">Hủy</button>`:""}
               </div>
             </td>
           </tr>`;
@@ -22650,7 +22679,7 @@ function renderModal(){
           <div class="ddnl-doc-title">Giấy đề nghị điều động nhân lực</div>
 
           <p><strong>Kính gửi:</strong></p>
-          <p style="margin:2px 0 2px 20px;">– Ban Giám đốc Bệnh viện Đa khoa Trung tâm tỉnh Gia Lai;</p>
+          <p style="margin:2px 0 2px 20px;">– Ban Giám đốc;</p>
           <p style="margin:2px 0 10px 20px;">– Phòng Tổ chức cán bộ;</p>
           <p>Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính đề nghị Ban Giám đốc xem xét, phê duyệt điều động nhân lực tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý, cụ thể như sau:</p>
 
@@ -22767,7 +22796,7 @@ th{ border:1px solid #000; padding:4px 6px; background:#eeeeee; font-weight:bold
 <p style="text-align:center;font-weight:bold;font-size:15pt;margin:10pt 0 0;">GIẤY ĐỀ NGHỊ ĐIỀU ĐỘNG NHÂN LỰC</p>
 
 <p style="margin:4px 0;"><b>Kính gửi:</b></p>
-<p style="margin:2px 0 2px 30px;">– Ban Giám đốc Bệnh viện Đa khoa Trung tâm tỉnh Gia Lai;</p>
+<p style="margin:2px 0 2px 30px;">– Ban Giám đốc;</p>
 <p style="margin:2px 0 10px 30px;">– Phòng Tổ chức cán bộ;</p>
 <p style="margin:4px 0;text-align:justify;">Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính đề nghị Ban Giám đốc xem xét, phê duyệt điều động nhân lực tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý, cụ thể như sau:</p>
 
@@ -22879,7 +22908,18 @@ function renderStats(){
    ============================================================ */
 function renderConfig(){
   return `
-  ${cardOpen('cfg-emp', 'Danh mục nhân lực — Khoa Gây mê Hồi sức', `Thêm / sửa / xóa nhân viên trong danh mục dùng để chọn khi lập phiếu. (${config.employees.length} người)`)}
+  ${isAdmin()?`${cardOpen('cfg-security', 'Bảo mật — Mật khẩu Admin', 'Đổi mật khẩu đăng nhập Admin cho module Điều động nhân lực.')}
+    <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+      <div class="ddnl-field" style="margin:0;min-width:220px;">
+        <label>Mật khẩu Admin mới</label>
+        <input type="text" id="ddnlCf_newAdminPwd" placeholder="Để trống = không đổi">
+      </div>
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnChangeAdminPwd">Đổi mật khẩu</button>
+    </div>
+  ${cardClose()}`:``}
+
+  ${cardOpen('cfg-emp', 'Danh mục nhân lực — Khoa Gây mê Hồi sức', `Danh mục nhân viên dùng để chọn khi lập phiếu.${isAdmin()?' Thêm / sửa / xóa bên dưới.':''} (${config.employees.length} người)`)}
+    ${isAdmin()?`
     <div class="ddnl-grid3" style="margin-bottom:10px;">
       <div class="ddnl-field"><label>Họ và tên</label><input type="text" id="ddnlCf_ten" placeholder="Nguyễn Văn A"></div>
       <div class="ddnl-field"><label>Đơn vị</label>
@@ -22893,13 +22933,13 @@ function renderConfig(){
     <div class="ddnl-grid2" style="margin-bottom:10px;">
       <div class="ddnl-field"><label>Văn bằng</label><input type="text" id="ddnlCf_vanBang" placeholder="VD: CNĐD, BS CKI…"></div>
       <div class="ddnl-field" style="display:flex;align-items:end;"><button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddEmp">+ Thêm nhân viên</button></div>
-    </div>
+    </div>`:``}
     <div class="ddnl-rows-wrap" style="max-height:340px;overflow-y:auto;">
     <table>
-      <thead><tr><th>Họ và tên</th><th>Đơn vị</th><th>Chức vụ</th><th>Văn bằng</th><th style="width:140px;"></th></tr></thead>
+      <thead><tr><th>Họ và tên</th><th>Đơn vị</th><th>Chức vụ</th><th>Văn bằng</th>${isAdmin()?'<th style="width:140px;"></th>':''}</tr></thead>
       <tbody>
         ${config.employees.map((e,i)=>{
-          if(editingEmpIdx===i){
+          if(isAdmin() && editingEmpIdx===i){
             return `<tr>
               <td><input type="text" class="ddnl-edit-emp" data-ef="ten" value="${esc(e.ten)}" style="width:100%;"></td>
               <td>
@@ -22918,10 +22958,10 @@ function renderConfig(){
           }
           return `<tr>
           <td>${esc(e.ten)}</td><td>${esc(e.donVi)}</td><td>${esc(e.chucVu)}</td><td>${esc(e.vanBang)}</td>
-          <td>
+          ${isAdmin()?`<td>
             <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-emp="${i}">Sửa</button>
             <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-emp="${i}">Xóa</button>
-          </td>
+          </td>`:``}
         </tr>`;
         }).join("")}
       </tbody>
@@ -22930,19 +22970,19 @@ function renderConfig(){
   ${cardClose()}
 
   ${cardOpen('cfg-units', 'Danh mục bộ phận thực hiện', 'Nơi nhân lực được điều động đến (Phòng Mổ, Phòng Hồi Sức, Phòng Can thiệp DSA, …)')}
-    <div style="display:flex;gap:10px;margin-bottom:12px;">
+    ${isAdmin()?`<div style="display:flex;gap:10px;margin-bottom:12px;">
       <input type="text" id="ddnlCf_unitName" placeholder="Tên bộ phận mới…" style="max-width:280px;">
       <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddUnit">+ Thêm bộ phận</button>
-    </div>
+    </div>`:``}
     <div style="display:flex;flex-wrap:wrap;gap:8px;">
       ${config.units.map((u,i)=>`<span style="background:#eef3f2;border:1px solid var(--ddnl-line);border-radius:20px;padding:6px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:8px;">
-        ${esc(u)} <button data-del-unit="${i}" style="border:none;background:none;color:var(--ddnl-red);cursor:pointer;font-weight:700;">✕</button>
+        ${esc(u)}${isAdmin()?` <button data-del-unit="${i}" style="border:none;background:none;color:var(--ddnl-red);cursor:pointer;font-weight:700;">✕</button>`:``}
       </span>`).join("")}
     </div>
   ${cardClose()}
 
   ${cardOpen('cfg-signers', 'Danh sách Người ký (Trưởng khoa / Phó trưởng khoa)', 'Danh sách này dùng cho ô "Người ký" khi lập phiếu, và in đúng chức danh lên Giấy đề nghị.')}
-    <div class="ddnl-grid3" style="margin-bottom:10px;">
+    ${isAdmin()?`<div class="ddnl-grid3" style="margin-bottom:10px;">
       <div class="ddnl-field"><label>Họ và tên</label><input type="text" id="ddnlCf_signerTen" placeholder="VD: Võ Huy Cường"></div>
       <div class="ddnl-field"><label>Chức danh</label>
         <select id="ddnlCf_signerChuc">
@@ -22951,26 +22991,26 @@ function renderConfig(){
         </select>
       </div>
       <div class="ddnl-field" style="display:flex;align-items:end;"><button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddSigner">+ Thêm người ký</button></div>
-    </div>
+    </div>`:``}
     <div style="display:flex;flex-wrap:wrap;gap:8px;">
       ${config.signers.map((s,i)=>`<span style="background:#eef3f2;border:1px solid var(--ddnl-line);border-radius:20px;padding:6px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:8px;">
-        ${esc(s.ten)} — ${esc(s.chucDanh)} <button data-del-signer="${i}" style="border:none;background:none;color:var(--ddnl-red);cursor:pointer;font-weight:700;">✕</button>
+        ${esc(s.ten)} — ${esc(s.chucDanh)}${isAdmin()?` <button data-del-signer="${i}" style="border:none;background:none;color:var(--ddnl-red);cursor:pointer;font-weight:700;">✕</button>`:``}
       </span>`).join("")}
     </div>
   ${cardClose()}
 
   ${cardOpen('cfg-templates', 'Thư viện mẫu nội dung nhiệm vụ', 'Các mẫu câu dùng để chọn nhanh vào ô "Nhiệm vụ được phân công" khi lập phiếu, khỏi phải gõ lại từ đầu.')}
     <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-      <input type="text" id="ddnlCf_tplText" placeholder="VD: Phụ mổ phiên theo lịch mổ trong ngày…" style="flex:1;min-width:200px;">
-      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddTpl">+ Thêm mẫu</button>
+      ${isAdmin()?`<input type="text" id="ddnlCf_tplText" placeholder="VD: Phụ mổ phiên theo lịch mổ trong ngày…" style="flex:1;min-width:200px;">
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddTpl">+ Thêm mẫu</button>`:``}
       <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnDownloadTpl" ${config.templates.length?'':'disabled'}>⬇ Tải xuống (.txt)</button>
     </div>
     <div class="ddnl-rows-wrap" style="max-height:260px;overflow-y:auto;">
     <table>
-      <thead><tr><th>Nội dung mẫu</th><th style="width:150px;"></th></tr></thead>
+      <thead><tr><th>Nội dung mẫu</th>${isAdmin()?'<th style="width:150px;"></th>':''}</tr></thead>
       <tbody>
         ${config.templates.map((t,i)=>{
-          if(editingTplIdx===i){
+          if(isAdmin() && editingTplIdx===i){
             return `<tr>
               <td><input type="text" class="ddnl-edit-tpl" value="${esc(t)}" style="width:100%;"></td>
               <td>
@@ -22981,10 +23021,10 @@ function renderConfig(){
           }
           return `<tr>
           <td>${esc(t)}</td>
-          <td>
+          ${isAdmin()?`<td>
             <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-tpl="${i}">Sửa</button>
             <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-tpl="${i}">Xóa</button>
-          </td>
+          </td>`:``}
         </tr>`;
         }).join("")}
       </tbody>
@@ -23032,6 +23072,23 @@ function bindEvents(){
     currentUserName = e.target.value;
     const emp = findEmployee(currentUserName);
     if(isLeader(emp)) scopeAll = true;
+    render();
+  };
+
+  const adminLogin = document.getElementById('ddnlAdminLogin');
+  if(adminLogin) adminLogin.onclick = ()=>{
+    const pwd = prompt("Nhập mật khẩu Admin:");
+    if(pwd === null) return;
+    if(pwd === (config.adminPwd || DDNL_DEFAULT_ADMIN_PWD)){
+      ddnlLocalAdminUnlock = true; render();
+    } else {
+      alert("Mật khẩu không đúng.");
+    }
+  };
+  const adminLogout = document.getElementById('ddnlAdminLogout');
+  if(adminLogout) adminLogout.onclick = ()=>{
+    ddnlLocalAdminUnlock = false;
+    editingRequestId = null;
     render();
   };
 
@@ -23105,7 +23162,8 @@ function bindNewFormEvents(){
   if(khacText) khacText.oninput = ()=>{ draftLyDo.khac = khacText.value; };
 
   document.getElementById('ddnlBtnResetForm').onclick = ()=>{
-    if(confirm("Xóa toàn bộ nội dung đang nhập?")){
+    const msg = editingRequestId ? "Hủy sửa và bỏ các thay đổi chưa lưu?" : "Xóa toàn bộ nội dung đang nhập?";
+    if(confirm(msg)){
       draftRows = [newRow()];
       draftLyDo = { tang:false, thieu:false, rieng:false, xuatToan:false, khac:"" };
       draftNguoiLap = currentUserName || "";
@@ -23113,6 +23171,7 @@ function bindNewFormEvents(){
       draftTuNgay = todayISO();
       draftDenNgay = todayISO();
       draftNguoiKy = config.signers.length ? config.signers[0].ten : "";
+      editingRequestId = null;
       render();
     }
   };
@@ -23125,10 +23184,11 @@ function bindNewFormEvents(){
     if(rowsValid.length===0){ alert("Vui lòng thêm ít nhất một nhân viên vào danh sách điều động."); return; }
 
     // Kiểm tra lần cuối trước khi gửi: không cho trùng lượt điều động còn "mở" trong cùng phiếu
+    // (khi đang SỬA phiếu, bỏ qua xung đột với chính phiếu đang sửa)
     for(let i=0;i<rowsValid.length;i++){
       const r = rowsValid[i];
       const realIdx = draftRows.indexOf(r);
-      const conflict = findOpenAssignment(r.hoTen, r.ngay, { skipDraftIdx: realIdx });
+      const conflict = findOpenAssignment(r.hoTen, r.ngay, { skipDraftIdx: realIdx, skipRequestId: editingRequestId });
       if(conflict){
         alert(`Không thể gửi phiếu: "${r.hoTen}" đã có 1 lượt điều động ngày ${fmtDate(r.ngay)} chưa có giờ kết thúc (${conflict.nguon}${conflict.soPhieu?': '+conflict.soPhieu:''}). Vui lòng bổ sung giờ kết thúc trước khi gửi.`);
         return;
@@ -23141,26 +23201,39 @@ function bindNewFormEvents(){
     if(khacChk) draftLyDo.khac = khacChk.checked ? (khacText.value||"") : "";
 
     const signer = findSigner(draftNguoiKy);
-    const year = ngayLap.split("-")[0];
-    const seqNum = requests.filter(r=>r.ngayLap && r.ngayLap.startsWith(year)).length + 1;
-    const soPhieu = `${String(seqNum).padStart(2,'0')}/GĐĐ-GMHS`;
-
-    const rec = {
-      id: ddRequestsRef.push().key,
-      soPhieu,
-      ngayLap, nguoiLap,
-      nguoiKy: draftNguoiKy,
-      chucDanhKy: signer ? signer.chucDanh : "",
-      lyDo: {...draftLyDo},
-      rows: rowsValid,
-      tuNgay, denNgay,
-      trangThai: "Chờ duyệt",
-      dinhKemLink: "",
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
     saving = true; render();
-    const ok = await saveNewRequest(rec);
+    let ok;
+    if(editingRequestId){
+      // Đang SỬA phiếu có sẵn — cập nhật, giữ nguyên số phiếu/ngày tạo
+      ok = await updateRequest(editingRequestId, {
+        ngayLap, nguoiLap,
+        nguoiKy: draftNguoiKy,
+        chucDanhKy: signer ? signer.chucDanh : "",
+        lyDo: {...draftLyDo},
+        rows: rowsValid,
+        tuNgay, denNgay,
+        updatedAt: Date.now()
+      });
+    } else {
+      const year = ngayLap.split("-")[0];
+      const seqNum = requests.filter(r=>r.ngayLap && r.ngayLap.startsWith(year)).length + 1;
+      const soPhieu = `${String(seqNum).padStart(2,'0')}/GĐĐ-GMHS`;
+      const rec = {
+        id: ddRequestsRef.push().key,
+        soPhieu,
+        ngayLap, nguoiLap,
+        nguoiKy: draftNguoiKy,
+        chucDanhKy: signer ? signer.chucDanh : "",
+        lyDo: {...draftLyDo},
+        rows: rowsValid,
+        tuNgay, denNgay,
+        trangThai: "Chờ duyệt",
+        dinhKemLink: "",
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      ok = await saveNewRequest(rec);
+    }
     saving = false;
     if(ok){
       draftRows = [newRow()];
@@ -23170,6 +23243,7 @@ function bindNewFormEvents(){
       draftTuNgay = todayISO();
       draftDenNgay = todayISO();
       draftNguoiKy = config.signers.length ? config.signers[0].ten : "";
+      editingRequestId = null;
       activeTab = "list";
     }
     render();
@@ -23186,11 +23260,28 @@ function bindListEvents(){
 
   document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ modalRequestId = b.dataset.view; render(); });
   document.querySelectorAll('[data-approve]').forEach(b=>b.onclick= async ()=>{
+    if(!isAdmin()) return;
     await updateRequest(b.dataset.approve, { trangThai: "Đã duyệt / Đã in", updatedAt: Date.now() });
   });
   document.querySelectorAll('[data-cancel]').forEach(b=>b.onclick= async ()=>{
+    if(!isAdmin()) return;
     if(!confirm("Xác nhận hủy phiếu này?")) return;
     await updateRequest(b.dataset.cancel, { trangThai: "Đã hủy", updatedAt: Date.now() });
+  });
+  document.querySelectorAll('[data-edit-req]').forEach(b=>b.onclick= ()=>{
+    if(!isAdmin()) return;
+    const r = requests.find(x=>x.id===b.dataset.editReq);
+    if(!r) return;
+    editingRequestId = r.id;
+    draftRows = r.rows.map(row=>({...row}));
+    draftLyDo = { ...r.lyDo };
+    draftNguoiLap = r.nguoiLap;
+    draftNgayLap = r.ngayLap;
+    draftTuNgay = r.tuNgay;
+    draftDenNgay = r.denNgay;
+    draftNguoiKy = r.nguoiKy;
+    activeTab = "new";
+    render();
   });
   document.querySelectorAll('[data-attach]').forEach(b=>b.onclick= async ()=>{
     const r = requests.find(x=>x.id===b.dataset.attach);
@@ -23207,7 +23298,21 @@ function bindStatsEvents(){
 }
 
 function bindConfigEvents(){
-  document.getElementById('ddnlBtnAddEmp').onclick = async ()=>{
+  const pwdBtn = document.getElementById('ddnlBtnChangeAdminPwd');
+  if(pwdBtn) pwdBtn.onclick = async ()=>{
+    const el = document.getElementById('ddnlCf_newAdminPwd');
+    const v = el.value.trim();
+    if(!v) return;
+    if(v.length < 4){ alert("Mật khẩu nên có ít nhất 4 ký tự."); return; }
+    config.adminPwd = v;
+    el.value = "";
+    await saveConfig();
+    alert("Đã đổi mật khẩu Admin.");
+    render();
+  };
+
+  const addEmpBtn = document.getElementById('ddnlBtnAddEmp');
+  if(addEmpBtn) addEmpBtn.onclick = async ()=>{
     const ten = document.getElementById('ddnlCf_ten').value.trim();
     if(!ten){ alert("Vui lòng nhập họ tên."); return; }
     const donVi = document.getElementById('ddnlCf_donVi').value;
@@ -23238,7 +23343,8 @@ function bindConfigEvents(){
     await saveConfig(); render();
   });
 
-  document.getElementById('ddnlBtnAddUnit').onclick = async ()=>{
+  const addUnitBtn = document.getElementById('ddnlBtnAddUnit');
+  if(addUnitBtn) addUnitBtn.onclick = async ()=>{
     const el = document.getElementById('ddnlCf_unitName');
     const v = el.value.trim();
     if(!v) return;
@@ -23251,7 +23357,8 @@ function bindConfigEvents(){
     await saveConfig(); render();
   });
 
-  document.getElementById('ddnlBtnAddSigner').onclick = async ()=>{
+  const addSignerBtn = document.getElementById('ddnlBtnAddSigner');
+  if(addSignerBtn) addSignerBtn.onclick = async ()=>{
     const ten = document.getElementById('ddnlCf_signerTen').value.trim();
     if(!ten){ alert("Vui lòng nhập họ tên người ký."); return; }
     const chucDanh = document.getElementById('ddnlCf_signerChuc').value;
@@ -23264,7 +23371,8 @@ function bindConfigEvents(){
     await saveConfig(); render();
   });
 
-  document.getElementById('ddnlBtnAddTpl').onclick = async ()=>{
+  const addTplBtn = document.getElementById('ddnlBtnAddTpl');
+  if(addTplBtn) addTplBtn.onclick = async ()=>{
     const el = document.getElementById('ddnlCf_tplText');
     const v = el.value.trim();
     if(!v) return;
