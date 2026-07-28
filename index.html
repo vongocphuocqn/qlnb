@@ -22059,6 +22059,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 
 
 
+
+
+
 <script>
 (function(){
 /* ============================================================
@@ -22070,6 +22073,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 const ddRoot = db.ref('dieuDongNhanLuc');
 const ddConfigRef = ddRoot.child('danhMuc');
 const ddRequestsRef = ddRoot.child('phieu');
+const ddFileDataRef = ddRoot.child('fileVanBanData'); // lưu nội dung file (base64) riêng, tách khỏi danhMuc để không làm nặng/chậm các lần lưu cấu hình khác
 let fbConnected = false;
 /* ============================================================
    SEED DATA
@@ -22120,7 +22124,8 @@ const REASON_LABELS = {
 /* ============================================================
    STATE
    ============================================================ */
-let config = { employees: [], units: [], signers: [], templates: [], adminPwd: "" };
+let config = { employees: [], units: [], signers: [], templates: [], adminPwd: "", fileVanBan: [] };
+let uploadingFile = false;
 let requests = [];
 let currentUserName = "";
 let loaded = false;
@@ -22269,19 +22274,20 @@ function loadAll(){
         units: Array.isArray(val.boPhan) ? val.boPhan : SEED_UNITS,
         signers: Array.isArray(val.nguoiKy) ? val.nguoiKy : SEED_SIGNERS,
         templates: Array.isArray(val.mauNoiDung) ? val.mauNoiDung : SEED_TEMPLATES,
-        adminPwd: val.adminPwd || DDNL_DEFAULT_ADMIN_PWD
+        adminPwd: val.adminPwd || DDNL_DEFAULT_ADMIN_PWD,
+        fileVanBan: Array.isArray(val.fileVanBan) ? val.fileVanBan : []
       };
     } else if(!configLoaded){
       // Chưa có dữ liệu trên Firebase -> khởi tạo lần đầu bằng dữ liệu mẫu
-      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD };
-      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD });
+      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
+      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] });
     }
     configLoaded = true;
     if(requestsLoaded){ loaded = true; }
     render();
   }, err=>{
     console.error("Lỗi tải danh mục:", err);
-    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD };
+    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
     configLoaded = true;
     if(requestsLoaded) loaded = true;
     render();
@@ -22309,8 +22315,80 @@ function loadAll(){
 }
 
 async function saveConfig(){
-  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, adminPwd: config.adminPwd }); }
+  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, adminPwd: config.adminPwd, fileVanBan: config.fileVanBan }); }
   catch(e){ alert("Không lưu được cấu hình lên Firebase. Kiểm tra kết nối mạng và thử lại."); }
+}
+
+function formatFileSize(bytes){
+  if(!bytes && bytes!==0) return "";
+  if(bytes < 1024) return bytes + " B";
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + " KB";
+  return (bytes/(1024*1024)).toFixed(2) + " MB";
+}
+
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(reader.result);
+    reader.onerror = ()=> reject(reader.error || new Error("Không đọc được file"));
+    reader.readAsDataURL(file);
+  });
+}
+function withTimeout(promise, ms, msg){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||"Hết thời gian chờ")), ms))
+  ]);
+}
+
+async function uploadDocTemplateFile(file, moTa){
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB — lưu qua Realtime Database (base64) nên giữ giới hạn vừa phải
+  if(file.size > MAX_SIZE){
+    alert("File quá lớn (tối đa 5MB do lưu qua Realtime Database). Vui lòng chọn file nhỏ hơn, hoặc nén lại trước khi tải lên.");
+    return null;
+  }
+  try{
+    const dataUrl = await withTimeout(readFileAsDataURL(file), 20000, "Đọc file quá lâu, vui lòng thử lại.");
+    const id = ddFileDataRef.push().key;
+    await withTimeout(ddFileDataRef.child(id).set(dataUrl), 25000, "Tải file lên Firebase quá lâu (kiểm tra kết nối mạng) — vui lòng thử lại.");
+    return {
+      id,
+      ten: file.name,
+      moTa: moTa || "",
+      kichThuoc: file.size,
+      nguoiTai: currentUserName || "",
+      ngayTai: Date.now()
+    };
+  }catch(e){
+    console.error(e);
+    alert("Tải file lên thất bại: " + (e && e.message ? e.message : "lỗi không xác định"));
+    return null;
+  }
+}
+
+async function downloadDocTemplateFile(item){
+  try{
+    const snap = await withTimeout(ddFileDataRef.child(item.id).once('value'), 20000, "Tải file về quá lâu, vui lòng thử lại.");
+    const dataUrl = snap.val();
+    if(!dataUrl){ alert("Không tìm thấy dữ liệu file (có thể đã bị xóa)."); return; }
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = item.ten || 'file';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }catch(e){
+    console.error(e);
+    alert("Không tải được file: " + (e && e.message ? e.message : "lỗi không xác định"));
+  }
+}
+
+async function deleteDocTemplateFile(item){
+  try{
+    await ddFileDataRef.child(item.id).remove();
+  }catch(e){
+    console.warn("Không xóa được dữ liệu file (có thể đã bị xóa sẵn):", e);
+  }
 }
 
 async function saveNewRequest(rec){
@@ -23003,16 +23081,17 @@ function renderConfig(){
     <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
       ${isAdmin()?`<input type="text" id="ddnlCf_tplText" placeholder="VD: Phụ mổ phiên theo lịch mổ trong ngày…" style="flex:1;min-width:200px;">
       <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddTpl">+ Thêm mẫu</button>`:``}
-      <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnDownloadTpl" ${config.templates.length?'':'disabled'}>⬇ Tải xuống (.txt)</button>
+      <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnDownloadTpl" ${config.templates.length?'':'disabled'}>⬇ Tải xuống tất cả (.txt)</button>
     </div>
     <div class="ddnl-rows-wrap" style="max-height:260px;overflow-y:auto;">
     <table>
-      <thead><tr><th>Nội dung mẫu</th>${isAdmin()?'<th style="width:150px;"></th>':''}</tr></thead>
+      <thead><tr><th>Nội dung mẫu</th><th style="width:90px;">Tải</th>${isAdmin()?'<th style="width:150px;"></th>':''}</tr></thead>
       <tbody>
         ${config.templates.map((t,i)=>{
           if(isAdmin() && editingTplIdx===i){
             return `<tr>
               <td><input type="text" class="ddnl-edit-tpl" value="${esc(t)}" style="width:100%;"></td>
+              <td></td>
               <td>
                 <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-save-tpl="${i}">Lưu</button>
                 <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cancel-tpl="${i}">Hủy</button>
@@ -23021,12 +23100,42 @@ function renderConfig(){
           }
           return `<tr>
           <td>${esc(t)}</td>
+          <td><button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-tpl="${i}" title="Tải riêng dòng này thành 1 file .txt">⬇ Tải</button></td>
           ${isAdmin()?`<td>
             <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-tpl="${i}">Sửa</button>
             <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-tpl="${i}">Xóa</button>
           </td>`:``}
         </tr>`;
         }).join("")}
+      </tbody>
+    </table>
+    </div>
+  ${cardClose()}
+
+  ${cardOpen('cfg-filevb', 'Thư viện file mẫu văn bản', 'Tải lên file Word/PDF/Excel… làm tài liệu mẫu dùng chung cho cả khoa — ai cũng tải về xem/dùng lại được.')}
+    ${isAdmin()?`
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+      <input type="file" id="ddnlFileVbInput" style="flex:1;min-width:220px;">
+      <input type="text" id="ddnlFileVbMoTa" placeholder="Mô tả ngắn (không bắt buộc)" style="flex:1;min-width:180px;">
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnUploadFileVb" ${uploadingFile?"disabled":""}>${uploadingFile?"Đang tải lên…":"⬆ Tải file lên"}</button>
+    </div>
+    <div class="ddnl-hint" style="margin-bottom:10px;">Tối đa 5MB mỗi file (lưu qua Realtime Database, dùng chung hạ tầng với toàn bộ dữ liệu khác của module).</div>`:``}
+    <div class="ddnl-rows-wrap" style="max-height:300px;overflow-y:auto;">
+    <table>
+      <thead><tr><th>Tên file</th><th>Mô tả</th><th>Dung lượng</th><th>Người tải lên</th><th>Ngày</th><th style="width:140px;"></th></tr></thead>
+      <tbody>
+        ${config.fileVanBan.length===0?`<tr><td colspan="6" style="text-align:center;color:var(--ddnl-ink-soft);">Chưa có file mẫu nào.</td></tr>`:
+        config.fileVanBan.map((f,i)=>`<tr>
+          <td>${esc(f.ten)}</td>
+          <td>${esc(f.moTa||"")}</td>
+          <td>${formatFileSize(f.kichThuoc)}</td>
+          <td>${esc(f.nguoiTai||"")}</td>
+          <td>${f.ngayTai?new Date(f.ngayTai).toLocaleDateString('vi-VN'):""}</td>
+          <td>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-filevb="${i}">⬇ Tải</button>
+            ${isAdmin()?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-filevb="${i}">Xóa</button>`:``}
+          </td>
+        </tr>`).join("")}
       </tbody>
     </table>
     </div>
@@ -23321,6 +23430,7 @@ function bindConfigEvents(){
     config.employees.push({ ten, donVi, chucVu, vanBang });
     await saveConfig(); render();
   };
+  enterSubmits('ddnlCf_ten', addEmpBtn);
   document.querySelectorAll('[data-del-emp]').forEach(b=>b.onclick= async ()=>{
     if(!confirm("Xóa nhân viên này khỏi danh mục?")) return;
     config.employees.splice(Number(b.dataset.delEmp),1);
@@ -23343,6 +23453,11 @@ function bindConfigEvents(){
     await saveConfig(); render();
   });
 
+  function enterSubmits(inputId, btn){
+    const el = document.getElementById(inputId);
+    if(el && btn) el.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); btn.click(); } });
+  }
+
   const addUnitBtn = document.getElementById('ddnlBtnAddUnit');
   if(addUnitBtn) addUnitBtn.onclick = async ()=>{
     const el = document.getElementById('ddnlCf_unitName');
@@ -23352,6 +23467,7 @@ function bindConfigEvents(){
     el.value = "";
     await saveConfig(); render();
   };
+  enterSubmits('ddnlCf_unitName', addUnitBtn);
   document.querySelectorAll('[data-del-unit]').forEach(b=>b.onclick= async ()=>{
     config.units.splice(Number(b.dataset.delUnit),1);
     await saveConfig(); render();
@@ -23365,6 +23481,7 @@ function bindConfigEvents(){
     config.signers.push({ ten, chucDanh });
     await saveConfig(); render();
   };
+  enterSubmits('ddnlCf_signerTen', addSignerBtn);
   document.querySelectorAll('[data-del-signer]').forEach(b=>b.onclick= async ()=>{
     if(!confirm("Xóa người ký này khỏi danh mục?")) return;
     config.signers.splice(Number(b.dataset.delSigner),1);
@@ -23380,6 +23497,7 @@ function bindConfigEvents(){
     el.value = "";
     await saveConfig(); render();
   };
+  enterSubmits('ddnlCf_tplText', addTplBtn);
   document.querySelectorAll('[data-del-tpl]').forEach(b=>b.onclick= async ()=>{
     config.templates.splice(Number(b.dataset.delTpl),1);
     await saveConfig(); render();
@@ -23399,20 +23517,59 @@ function bindConfigEvents(){
     editingTplIdx = null;
     await saveConfig(); render();
   });
-  const dlBtn = document.getElementById('ddnlBtnDownloadTpl');
-  if(dlBtn) dlBtn.onclick = ()=>{
-    if(!config.templates.length) return;
-    const content = config.templates.join('\r\n');
+  function downloadTextFile(filename, content){
     const blob = new Blob(['\ufeff', content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'thu_vien_mau_nhiem_vu.txt';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }
+  const dlBtn = document.getElementById('ddnlBtnDownloadTpl');
+  if(dlBtn) dlBtn.onclick = ()=>{
+    if(!config.templates.length) return;
+    downloadTextFile('thu_vien_mau_nhiem_vu.txt', config.templates.join('\r\n'));
   };
+  document.querySelectorAll('[data-dl-tpl]').forEach(b=>b.onclick = ()=>{
+    const t = config.templates[Number(b.dataset.dlTpl)];
+    if(t==null) return;
+    const safeName = t.trim().slice(0,40).replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,'_') || 'mau';
+    downloadTextFile(`${safeName}.txt`, t);
+  });
+
+  const uploadBtn = document.getElementById('ddnlBtnUploadFileVb');
+  if(uploadBtn) uploadBtn.onclick = async ()=>{
+    const fileInput = document.getElementById('ddnlFileVbInput');
+    const moTaInput = document.getElementById('ddnlFileVbMoTa');
+    const file = fileInput.files && fileInput.files[0];
+    if(!file){ alert("Vui lòng chọn 1 file để tải lên."); return; }
+    uploadingFile = true; render();
+    const item = await uploadDocTemplateFile(file, moTaInput ? moTaInput.value.trim() : "");
+    uploadingFile = false;
+    if(item){
+      config.fileVanBan.push(item);
+      await saveConfig();
+    }
+    render();
+  };
+  document.querySelectorAll('[data-dl-filevb]').forEach(b=>b.onclick= async ()=>{
+    const item = config.fileVanBan[Number(b.dataset.dlFilevb)];
+    if(!item) return;
+    b.disabled = true; const oldTxt = b.textContent; b.textContent = "Đang tải…";
+    await downloadDocTemplateFile(item);
+    b.disabled = false; b.textContent = oldTxt;
+  });
+  document.querySelectorAll('[data-del-filevb]').forEach(b=>b.onclick= async ()=>{
+    const idx = Number(b.dataset.delFilevb);
+    const item = config.fileVanBan[idx];
+    if(!confirm(`Xóa file "${item ? item.ten : ''}" khỏi thư viện?`)) return;
+    if(item) await deleteDocTemplateFile(item);
+    config.fileVanBan.splice(idx,1);
+    await saveConfig(); render();
+  });
 }
 
 /* ============================================================
