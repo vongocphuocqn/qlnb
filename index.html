@@ -22153,6 +22153,7 @@ const ddRoot = db.ref('dieuDongNhanLuc');
 const ddConfigRef = ddRoot.child('danhMuc');
 const ddRequestsRef = ddRoot.child('phieu');
 const ddVanBanRef = ddRoot.child('vanBanDi'); // Sổ theo dõi văn bản đi (dùng chung cho mọi loại giấy đề nghị)
+const ddMauVanBanRef = ddRoot.child('mauVanBan'); // Thư viện nội dung mẫu đã lưu (để dùng lại cho văn bản sau, chia theo nhóm)
 const ddVbAuditRef = ddRoot.child('vanBanAuditLog'); // Nhật ký Admin sửa/xóa văn bản của người khác — "lưu vết"
 const ddFileDataRef = ddRoot.child('fileVanBanData'); // lưu nội dung file (base64) riêng, tách khỏi danhMuc để không làm nặng/chậm các lần lưu cấu hình khác
 let fbConnected = false;
@@ -22243,6 +22244,18 @@ const SEED_DOC_TYPES = [
   "Đề nghị khen thưởng / thi đua",
   "Văn bản khác"
 ];
+// Nhóm mẫu văn bản — dùng khi LƯU LÀM MẪU nội dung đã soạn, để lần sau tìm/dùng lại đúng nhóm,
+// khớp với cách anh/chị vẫn tự chia nhóm hồ sơ (hành chính, dược, vật tư...). Sửa/thêm được trong
+// tab "Danh mục / Cấu hình" như các danh mục khác.
+const SEED_NHOM_MAU_VB = [
+  "Hành chính",
+  "Dược",
+  "Vật tư – Trang thiết bị y tế",
+  "Nhân sự",
+  "Chuyên môn",
+  "Tài chính – Kế toán",
+  "Khác"
+];
 const SEED_NOI_NHAN = [
   "Ban Giám đốc",
   "Phòng Tổ chức cán bộ",
@@ -22276,7 +22289,7 @@ const SEED_VB_USER_AUTH = [];
 /* ============================================================
    STATE
    ============================================================ */
-let config = { employees: [], units: [], signers: [], templates: [], reasons: [], docTypes: [], noiNhan: [], nguoiLapBang: [], hinhThucVB: [], vbUserAuth: [], adminPwd: "", fileVanBan: [] };
+let config = { employees: [], units: [], signers: [], templates: [], reasons: [], docTypes: [], noiNhan: [], nguoiLapBang: [], hinhThucVB: [], nhomMauVB: [], vbUserAuth: [], adminPwd: "", fileVanBan: [] };
 let uploadingFile = false;
 let requests = [];
 let currentUserName = "";
@@ -22338,6 +22351,7 @@ let vbHangMucExpanded = false; // mặc định ẨN khối "hạng mục cụ t
 let cfgFilter = { reasons:"", docTypes:"", noiNhan:"", nguoiLapBang:"", hinhThucVB:"", vbUserAuth:"" };
 // ---- Sổ theo dõi văn bản đi ----
 let vbRecords = [];
+let vbMauList = []; // Thư viện nội dung mẫu đã lưu (chia theo nhóm: hành chính/dược/vật tư...)
 let vbLoaded = false;
 let draftVB = null;
 let editingVBId = null;
@@ -22517,21 +22531,22 @@ function loadAll(){
         noiNhan: Array.isArray(val.noiNhanMau) && val.noiNhanMau.length ? val.noiNhanMau : SEED_NOI_NHAN,
         nguoiLapBang: Array.isArray(val.nguoiLapBangMau) ? val.nguoiLapBangMau : SEED_NGUOI_LAP_BANG,
         hinhThucVB: Array.isArray(val.hinhThucVBMau) && val.hinhThucVBMau.length ? val.hinhThucVBMau : SEED_HINH_THUC_VB,
+        nhomMauVB: Array.isArray(val.nhomMauVB) && val.nhomMauVB.length ? val.nhomMauVB : SEED_NHOM_MAU_VB,
         vbUserAuth: Array.isArray(val.vbUserAuthMau) ? val.vbUserAuthMau : SEED_VB_USER_AUTH,
         adminPwd: resolvedAdminPwd,
         fileVanBan: Array.isArray(val.fileVanBan) ? val.fileVanBan : []
       };
     } else if(!configLoaded){
       // Chưa có dữ liệu trên Firebase -> khởi tạo lần đầu bằng dữ liệu mẫu
-      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
-      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, lyDoMau: SEED_REASONS, loaiVanBan: SEED_DOC_TYPES, noiNhanMau: SEED_NOI_NHAN, nguoiLapBangMau: SEED_NGUOI_LAP_BANG, hinhThucVBMau: SEED_HINH_THUC_VB, vbUserAuthMau: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] });
+      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
+      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, lyDoMau: SEED_REASONS, loaiVanBan: SEED_DOC_TYPES, noiNhanMau: SEED_NOI_NHAN, nguoiLapBangMau: SEED_NGUOI_LAP_BANG, hinhThucVBMau: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, vbUserAuthMau: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] });
     }
     configLoaded = true;
     if(requestsLoaded){ loaded = true; }
     render();
   }, err=>{
     console.error("Lỗi tải danh mục:", err);
-    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
+    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
     configLoaded = true;
     if(requestsLoaded) loaded = true;
     render();
@@ -22546,6 +22561,16 @@ function loadAll(){
     console.error("Lỗi tải sổ văn bản đi:", err);
     vbRecords = [];
     vbLoaded = true;
+    render();
+  });
+
+  // Thư viện nội dung mẫu đã lưu (chia theo nhóm: hành chính/dược/vật tư...)
+  ddMauVanBanRef.on('value', snap=>{
+    vbMauList = objToArray(snap.val());
+    render();
+  }, err=>{
+    console.error("Lỗi tải thư viện mẫu văn bản:", err);
+    vbMauList = [];
     render();
   });
 
@@ -22577,7 +22602,7 @@ function loadAll(){
 }
 
 async function saveConfig(){
-  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, lyDoMau: config.reasons, loaiVanBan: config.docTypes, noiNhanMau: config.noiNhan, nguoiLapBangMau: config.nguoiLapBang, hinhThucVBMau: config.hinhThucVB, vbUserAuthMau: config.vbUserAuth, adminPwd: config.adminPwd, fileVanBan: config.fileVanBan }); }
+  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, lyDoMau: config.reasons, loaiVanBan: config.docTypes, noiNhanMau: config.noiNhan, nguoiLapBangMau: config.nguoiLapBang, hinhThucVBMau: config.hinhThucVB, nhomMauVB: config.nhomMauVB, vbUserAuthMau: config.vbUserAuth, adminPwd: config.adminPwd, fileVanBan: config.fileVanBan }); }
   catch(e){ alert("Không lưu được cấu hình lên Firebase. Kiểm tra kết nối mạng và thử lại."); }
 }
 
@@ -23213,8 +23238,8 @@ function renderVanBan(){
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnDlMauVB">⬇ Tải mẫu</button>
         </div>
         <div class="ddnl-hint" style="margin-top:4px;">Tải mẫu về, soạn trên Word/Excel, rồi tải file đã soạn xong lên ở ô bên dưới.</div>
-        ${!draftVB.mauDangChon ? `<div style="margin-top:10px;border:1px dashed var(--ddnl-line);border-radius:8px;padding:10px;">
-          <div class="ddnl-hint" style="font-weight:700;color:var(--ddnl-navy);margin-bottom:6px;">Không có mẫu? Chọn 1 trong 3 cách soạn:</div>
+        <div style="margin-top:10px;border:1px dashed var(--ddnl-line);border-radius:8px;padding:10px;">
+          <div class="ddnl-hint" style="font-weight:700;color:var(--ddnl-navy);margin-bottom:6px;">Chọn 1 trong 3 cách soạn:</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnTaoFileWordMoi">📄 Soạn NGOÀI Word (mở bằng Microsoft Word thật)</button>
             <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnTaoFileExcelMoi">📊 Soạn bằng Excel (mở bằng Microsoft Excel thật)</button>
@@ -23226,7 +23251,7 @@ function renderVanBan(){
             • <b>Soạn ngay trong app</b>: gõ trực tiếp trong 1 khung như trang Word ngay tại đây, không cần mở phần mềm nào khác, bấm Lưu là xong.
           </div>
           ${draftVB.noiDungSoan?`<div style="margin-top:6px;"><span class="ddnl-hint" style="color:#1B5E20;font-weight:600;">✓ Đã soạn nội dung trong app — sẽ tự in kèm khi Ghi nhận/Xuất Word</span> <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaNoiDungSoan" style="margin-left:8px;">Xóa nội dung</button></div>`:``}
-        </div>`:``}
+        </div>
       </div>
     </div>
     <div class="ddnl-field">
@@ -23339,6 +23364,7 @@ function renderVanBan(){
             <div class="ddnl-list-actions">
               ${(isAdmin() || v.nguoiSoan===currentUserName) ? `<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-vb="${v.id}">Sửa</button>` : `<span class="ddnl-hint">(của người khác)</span>`}
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-use-as-mau="${v.id}" title="Tạo văn bản MỚI dựa theo văn bản này (giữ Loại văn bản, Kính gửi, Người ký, Tóm tắt — chỉ cần sửa lại phần khác)">📋 Dùng làm mẫu</button>
+              <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-xemtruoc-vb="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-export-vbword="${v.id}" title="Xuất văn bản này ra file Word đúng thể thức (quốc hiệu, kính gửi, chữ ký)">📄 Xuất Word</button>
               ${isAdmin()?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vb="${v.id}">Xóa</button>`:""}
               ${v.linkedCardId
@@ -23399,6 +23425,7 @@ function renderVanBan(){
             </td>
             <td>${esc(v.ghiChuTienDo||"")}</td>
             <td style="white-space:nowrap;">
+              <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-xemtruoc="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
               <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-exportword="${v.id}" title="Xuất bản Word đúng thể thức từ nội dung mới nhất đã ghi nhận">📄 Xuất Word</button>
               ${coFile ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-dlfile="${v.id}" title="Xem file gốc đã đính kèm (nếu có soạn ngoài Word)" style="margin-left:4px;">📎 File đính kèm</button>` : ``}
               ${suaDuoc ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-edit="${v.id}" style="margin-left:4px;">Sửa</button>` : ``}
@@ -23564,7 +23591,7 @@ function bindVanBanEvents(){
   set('ddnlVB_link', el=>el.oninput=()=>draftVB.dinhKemLink=el.value);
   set('ddnlVB_ghiChu', el=>el.oninput=()=>draftVB.ghiChu=el.value);
   set('ddnlVB_ghiChuTienDo', el=>el.oninput=()=>draftVB.ghiChuTienDo=el.value);
-  set('ddnlVB_nguoiLapLabel', el=>el.oninput=()=>draftVB.nguoiLapLabel=el.value);
+  setupComboField('ddnlVB_nguoiLapLabel', ()=>(config.nguoiLapBang&&config.nguoiLapBang.length?config.nguoiLapBang:['NGƯỜI LẬP BẢNG']), (val)=>{ draftVB.nguoiLapLabel = val; });
   set('ddnlVB_chucDanhKy', el=>el.oninput=()=>draftVB.chucDanhKy=el.value);
   const showHangMucBtn = document.getElementById('ddnlBtnShowHangMuc');
   if(showHangMucBtn) showHangMucBtn.onclick = ()=>{ vbHangMucExpanded = true; render(); };
@@ -23645,6 +23672,10 @@ function bindVanBanEvents(){
     const files = vbGetFiles(v);
     for(const f of files){ await downloadDocTemplateFile(f); }
   });
+  document.querySelectorAll('[data-track-xemtruoc]').forEach(b=>b.onclick=()=>{
+    const v = vbRecords.find(x=>x.id===b.dataset.trackXemtruoc);
+    if(v) moXemTruocVanBan(v);
+  });
   document.querySelectorAll('[data-track-exportword]').forEach(b=>b.onclick=()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.trackExportword);
     if(v) exportVanBanToWord(v);
@@ -23713,6 +23744,10 @@ function bindVanBanEvents(){
       box.style.boxShadow = '0 0 0 3px #1565C0';
       setTimeout(()=>{ box.style.boxShadow = 'none'; }, 2500);
     }
+  });
+  document.querySelectorAll('[data-xemtruoc-vb]').forEach(b=>b.onclick=()=>{
+    const v = vbRecords.find(x=>x.id===b.dataset.xemtruocVb);
+    if(v) moXemTruocVanBan(v);
   });
   document.querySelectorAll('[data-export-vbword]').forEach(b=>b.onclick=()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.exportVbword);
@@ -24523,6 +24558,86 @@ function rtfHeader(){
   return '{\\rtf1\\ansi\\ansicpg1258\\deff0\\deflang1066{\\fonttbl{\\f0\\froman Times New Roman;}}\\f0\\fs26\n';
 }
 // Xây phần nội dung RTF dùng chung cho cả "tạo file trống để soạn" và "xuất lại văn bản đã lưu"
+// Xem trước nhanh trên trình duyệt (không cần mở Word) — dùng chung dữ liệu với buildVanBanRtfBody,
+// nhưng dựng thẳng ra HTML để xem/in ngay, nhanh hơn nhiều so với quy trình Xuất Word rồi mở file lên.
+function buildVanBanPreviewHtml(data){
+  const { soVanBan, ngayLapParts, hinhThucVB, veViec, noiNhan, nguoiSoan, chucDanh, nguoiKy, noiDungHtml, isBlank, nguoiLapLabel, chucDanhKy, tomTat } = data;
+  const noiDungPhan = noiDungHtml ? noiDungHtml
+    : (isBlank ? '<p style="margin:4px 0;">……………………………………………………………………………………………………………</p>'.repeat(4)
+    : (tomTat ? `<p style="text-align:justify;margin:4px 0;">${esc(tomTat)}</p>` : ''));
+  const kinhGuiPhan = (noiNhan && noiNhan.length) ? noiNhan.map(n=>`<p style="margin:2px 0 2px 24px;">– ${esc(n)};</p>`).join('')
+    : (isBlank ? '<p style="margin:2px 0 2px 24px;">– ……………………………………;</p>' : '');
+  const noiNhanFooter = (noiNhan && noiNhan.length) ? '– Như trên;' : (isBlank ? '– ……………………………………;' : '');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Xem trước — ${esc(soVanBan||hinhThucVB||'Văn bản')}</title>
+<style>
+  body{font-family:'Times New Roman',Times,serif;font-size:14pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 22mm 30mm;}
+  table.ddnl-pv-head td{vertical-align:top;padding:0;}
+  .ddnl-pv-center{text-align:center;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
+  .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
+  .ddnl-pv-veviec{text-align:center;font-style:italic;margin:0 0 16pt;}
+  .ddnl-pv-so{display:inline-block;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
+  .ddnl-pv-noinhan{font-size:11pt;font-style:italic;margin:2px 0;}
+  .ddnl-pv-toolbar{text-align:center;margin-bottom:14px;}
+  .ddnl-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
+  .ddnl-pv-toolbar span{color:#666;font-size:12px;margin-left:10px;}
+  table, td, p { page-break-inside:auto; }
+  @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0 22mm;} }
+</style></head>
+<body>
+  <div class="ddnl-pv-toolbar ddnl-pv-no-print">
+    <button onclick="window.print()">🖨 In ngay</button>
+    <span>Bản xem trước nhanh trên trình duyệt — dùng "Xuất Word" nếu cần file .doc để gửi/lưu chính thức.</span>
+  </div>
+  <table class="ddnl-pv-head"><tr>
+    <td style="width:44%;">
+      <div class="ddnl-pv-center" style="font-size:12pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
+      <div class="ddnl-pv-center ddnl-pv-bold">KHOA GÂY MÊ HỒI SỨC</div>
+      <div class="ddnl-pv-center ddnl-pv-italic"><span class="ddnl-pv-so">Số: ${esc(soVanBan||(isBlank?'……………':''))}</span></div>
+    </td>
+    <td style="width:56%;">
+      <div class="ddnl-pv-center ddnl-pv-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div class="ddnl-pv-center ddnl-pv-bold ddnl-pv-underline">Độc lập – Tự do – Hạnh phúc</div>
+      <div class="ddnl-pv-right ddnl-pv-italic">Gia Lai, ngày ${esc(ngayLapParts[2])} tháng ${esc(ngayLapParts[1])} năm ${esc(ngayLapParts[0])}</div>
+    </td>
+  </tr></table>
+  <div class="ddnl-pv-title">${esc((hinhThucVB||'GIẤY ĐỀ NGHỊ').toUpperCase())}</div>
+  ${veViec?`<div class="ddnl-pv-veviec">(Về việc: ${esc(veViec)})</div>`:''}
+  <p class="ddnl-pv-bold" style="margin:4px 0;">Kính gửi:</p>
+  ${kinhGuiPhan}
+  <div style="margin-top:10px;">${noiDungPhan}</div>
+  <table class="ddnl-pv-head" style="margin-top:26pt;"><tr>
+    <td style="width:50%;text-align:center;">
+      <div class="ddnl-pv-bold">${esc((nguoiLapLabel||'NGƯỜI LẬP BẢNG').toUpperCase())}</div>
+      <div style="height:60pt;"></div>
+      <div class="ddnl-pv-bold">${esc((nguoiSoan||'').toUpperCase())}</div>
+    </td>
+    <td style="width:50%;text-align:center;">
+      <div class="ddnl-pv-bold">${esc((chucDanhKy||chucDanh||'Trưởng khoa').toUpperCase())}</div>
+      <div style="height:60pt;"></div>
+      <div class="ddnl-pv-bold">${esc((nguoiKy||'').toUpperCase())}</div>
+    </td>
+  </tr></table>
+  <div style="margin-top:16pt;">
+    <div class="ddnl-pv-noinhan">Nơi nhận:</div>
+    ${noiNhanFooter?`<div class="ddnl-pv-noinhan">${esc(noiNhanFooter)}</div>`:''}
+    <div class="ddnl-pv-noinhan">– Lưu: VT, Khoa GMHS.</div>
+  </div>
+</body></html>`;
+}
+function moXemTruocVanBan(v){
+  const ngayLapParts = (v.ngayLap||todayISO()).split("-");
+  const signerInfo = (config.signers||[]).find(x=>x.ten===v.nguoiKy) || { chucDanh:"Trưởng khoa" };
+  const html = buildVanBanPreviewHtml({
+    soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
+    noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
+    nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy,
+    noiDungHtml: (v.noiDungSoan&&v.noiDungSoan.trim())?v.noiDungSoan:'', tomTat: v.tomTat||'', isBlank: !(v.noiDungSoan&&v.noiDungSoan.trim())&&!v.tomTat
+  });
+  const win = window.open('', '_blank');
+  if(!win){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi thử lại.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
 function buildVanBanRtfBody(data){
   const { soVanBan, ngayLapParts, hinhThucVB, veViec, noiNhan, nguoiSoan, chucDanh, nguoiKy, bodyRtf, isBlank, nguoiLapLabel, chucDanhKy } = data;
   let out = '';
@@ -24628,12 +24743,26 @@ function openNoiDungSoanModal(){
         <h3>📝 Soạn nội dung văn bản (ngay trong ứng dụng)</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnToggleZoomNoiDung" title="Phóng to/thu nhỏ khung soạn">⤢ Phóng to</button>
+          <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnLuuLamMau" title="Lưu nội dung đang soạn thành mẫu dùng lại sau này, phân theo nhóm">📁 Lưu làm mẫu</button>
           <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnLuuNoiDungSoan">💾 Lưu nội dung</button>
           <button class="ddnl-modal-close" id="ddnlBtnCloseNoiDungSoan">✕</button>
         </div>
       </div>
       <div class="ddnl-modal-body">
         <div class="ddnl-hint" style="margin-bottom:10px;">Đánh nội dung trực tiếp như trên Word — không cần mở phần mềm nào khác. Bấm "Lưu nội dung" xong sẽ tự áp dụng cho văn bản đang soạn, in kèm khi "Ghi nhận" hoặc "Xuất Word".</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:8px;border:1px solid var(--ddnl-line);border-radius:8px;background:#fbfbf6;">
+          <span style="font-size:12.5px;font-weight:600;color:var(--ddnl-ink-soft);">📂 Dùng mẫu đã lưu:</span>
+          <select id="ddnlChonNhomMauXem" style="padding:5px 8px;border:1px solid var(--ddnl-line);border-radius:6px;font-size:12.5px;">
+            <option value="">— Tất cả nhóm —</option>
+            ${(config.nhomMauVB&&config.nhomMauVB.length?config.nhomMauVB:SEED_NHOM_MAU_VB).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}
+          </select>
+          <select id="ddnlChonMauDaLuu" style="padding:5px 8px;border:1px solid var(--ddnl-line);border-radius:6px;font-size:12.5px;flex:1;min-width:180px;">
+            <option value="">${(vbMauList&&vbMauList.length)?'— Chọn mẫu —':'(chưa có mẫu nào được lưu)'}</option>
+            ${(vbMauList||[]).map(m=>`<option value="${esc(m.id)}" data-nhom="${esc(m.nhom||'')}">${esc(m.nhom?('['+m.nhom+'] '):'')}${esc(m.ten||'(không tên)')}</option>`).join('')}
+          </select>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnDungMauDaLuu">Dùng mẫu này</button>
+          <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaMauDaLuu" title="Xóa mẫu đang chọn khỏi thư viện">🗑</button>
+        </div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;border:1px solid var(--ddnl-line);border-radius:8px;padding:6px;background:#f7f9f6;">
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="bold"><b>B</b></button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="italic"><i>I</i></button>
@@ -24959,18 +25088,86 @@ function openNoiDungSoanModal(){
       document.addEventListener('mouseup', onUp);
     });
   })();
-  document.getElementById('ddnlBtnLuuNoiDungSoan').onclick = ()=>{
-    const ed = document.getElementById('ddnlNoiDungEditable');
-    // KHÔNG dọn width ở đây nữa — vì lúc này có thể đã có cột do chính người dùng tự kéo chỉnh
-    // độ rộng (muốn giữ lại), việc dọn "width" cho mọi phần tử sẽ xóa nhầm luôn phần đó.
-    // NHƯNG cần dọn sạch tay cầm kéo (span) + dấu "đã gắn tay cầm" (data-resizable) trước khi lưu —
-    // nếu không, dấu vết này bị lưu luôn vào nội dung, khiến lần SAU mở lại (Sửa) hệ thống tưởng đã
-    // gắn tay cầm rồi nên không gắn lại, làm mất luôn chức năng kéo chỉnh cột ở lần sau.
+  function layNoiDungSachDeLuu(ed){
+    // Dùng CHUNG logic dọn sạch tay cầm kéo trước khi lấy nội dung — dùng khi Lưu nội dung LẪN khi
+    // Lưu làm mẫu, để không lỡ lưu luôn tay cầm/dấu vết kỹ thuật vào mẫu.
     ed.querySelectorAll('.ddnl-col-resize-handle').forEach(h=>h.remove());
     ed.querySelectorAll('table[data-resizable]').forEach(t=>t.removeAttribute('data-resizable'));
     ed.querySelectorAll('.ddnl-row-resize-handle').forEach(h=>h.remove());
     ed.querySelectorAll('table[data-row-resizable]').forEach(t=>t.removeAttribute('data-row-resizable'));
-    const html = ed.innerHTML.trim();
+    return ed.innerHTML.trim();
+  }
+  document.getElementById('ddnlBtnLuuLamMau').onclick = async ()=>{
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    const html = layNoiDungSachDeLuu(ed);
+    if(!html || html==='<p><br></p>'){ alert('Chưa có nội dung gì để lưu làm mẫu.'); return; }
+    const dsNhom = (config.nhomMauVB&&config.nhomMauVB.length?config.nhomMauVB:SEED_NHOM_MAU_VB);
+    const selNhom = document.getElementById('ddnlChonNhomMauXem');
+    let nhom = selNhom ? selNhom.value : '';
+    if(!nhom){
+      // Chưa chọn sẵn nhóm ở ô lọc phía trên -> hỏi ngay lúc này, hiện rõ danh sách để gõ đúng tên hoặc gõ nhóm mới.
+      const goiY = dsNhom.map((n,i)=>`${i+1}. ${n}`).join('\n');
+      const nhap = prompt(`Lưu vào NHÓM MẪU nào cho phù hợp?\n(Gõ đúng số thứ tự, hoặc gõ tên nhóm mới nếu chưa có trong danh sách)\n\n${goiY}`, '1');
+      if(nhap===null) return;
+      const idx = parseInt(nhap,10);
+      nhom = (!isNaN(idx) && dsNhom[idx-1]) ? dsNhom[idx-1] : nhap.trim();
+      if(!nhom) return;
+    }
+    const tenMauMacDinh = draftVB.veViec || draftVB.hinhThucVB || 'Mẫu chưa đặt tên';
+    const ten = prompt('Đặt tên cho mẫu này (để sau còn tìm lại cho dễ):', tenMauMacDinh);
+    if(ten===null) return;
+    // Nếu người dùng gõ 1 nhóm HOÀN TOÀN MỚI (chưa có trong danh mục) -> tự thêm vào danh mục nhóm luôn,
+    // để lần sau xuất hiện ngay trong danh sách lựa chọn (không cần vào tận "Danh mục / Cấu hình").
+    if(!dsNhom.includes(nhom)){
+      config.nhomMauVB = [...dsNhom, nhom];
+      saveConfig();
+    }
+    const rec = {
+      ten: (ten||tenMauMacDinh).trim(), nhom,
+      hinhThucVB: draftVB.hinhThucVB||'', loaiVanBan: draftVB.loaiVanBan||'', veViec: draftVB.veViec||'',
+      noiDungSoan: html, nguoiTao: currentUserName||'', ngayTao: Date.now()
+    };
+    const ok = await ddMauVanBanRef.push(rec).then(()=>true).catch(()=>false);
+    if(ok){ alert(`Đã lưu vào nhóm "${nhom}". Lần sau vào khung soạn này, chọn nhóm rồi bấm "Dùng mẫu này" là lấy lại được ngay.`); }
+    else alert('Không lưu được lên Firebase. Kiểm tra kết nối mạng và thử lại.');
+  };
+  const selNhomXem = document.getElementById('ddnlChonNhomMauXem');
+  const selMauXem = document.getElementById('ddnlChonMauDaLuu');
+  if(selNhomXem && selMauXem){
+    selNhomXem.onchange = ()=>{
+      const nhom = selNhomXem.value;
+      Array.from(selMauXem.options).forEach(opt=>{
+        if(!opt.value) return; // giữ dòng "— Chọn mẫu —"
+        opt.hidden = !!(nhom && opt.dataset.nhom !== nhom);
+      });
+      selMauXem.value = '';
+    };
+  }
+  const btnDungMau = document.getElementById('ddnlBtnDungMauDaLuu');
+  if(btnDungMau) btnDungMau.onclick = ()=>{
+    const id = selMauXem ? selMauXem.value : '';
+    if(!id){ alert('Chọn 1 mẫu trong danh sách trước đã.'); return; }
+    const mau = vbMauList.find(m=>m.id===id);
+    if(!mau){ alert('Không tìm thấy mẫu này (có thể vừa bị xóa ở máy khác).'); return; }
+    if(!confirm(`Dùng mẫu "${mau.ten}"? Nội dung đang soạn dở trong khung này (nếu có) sẽ bị THAY THẾ hoàn toàn.`)) return;
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    ed.innerHTML = mau.noiDungSoan || '';
+    enableTableColResize(ed); enableTableRowResize(ed);
+  };
+  const btnXoaMau = document.getElementById('ddnlBtnXoaMauDaLuu');
+  if(btnXoaMau) btnXoaMau.onclick = async ()=>{
+    const id = selMauXem ? selMauXem.value : '';
+    if(!id){ alert('Chọn 1 mẫu trong danh sách trước đã.'); return; }
+    const mau = vbMauList.find(m=>m.id===id);
+    if(!mau) return;
+    if(!confirm(`Xóa hẳn mẫu "${mau.ten}" khỏi thư viện? (không ảnh hưởng văn bản đã ghi nhận trước đây)`)) return;
+    await ddMauVanBanRef.child(id).remove().catch(()=>alert('Không xóa được, kiểm tra kết nối mạng.'));
+  };
+  document.getElementById('ddnlBtnLuuNoiDungSoan').onclick = ()=>{
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    // KHÔNG dọn width ở đây nữa — vì lúc này có thể đã có cột do chính người dùng tự kéo chỉnh
+    // độ rộng (muốn giữ lại), việc dọn "width" cho mọi phần tử sẽ xóa nhầm luôn phần đó.
+    const html = layNoiDungSachDeLuu(ed);
     draftVB.noiDungSoan = html;
     overlay.remove();
     render();
