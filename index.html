@@ -404,6 +404,10 @@ font-size:10px;color:var(--tx3)}
 .home-card{border-radius:14px;padding:20px 16px;text-align:center;cursor:pointer;
   border:2px solid transparent;transition:transform .25s cubic-bezier(.2,.8,.3,1),box-shadow .25s;position:relative;overflow:hidden;
   animation:homeCardIn .45s cubic-bezier(.2,.8,.3,1) backwards}
+/* Ẩn tạm chữ tiêu đề/mô tả cho tới khi nội dung tùy chỉnh (đã lưu ở Firebase) tải xong,
+   tránh hiện "nháy" nội dung gốc mặc định rồi mới đổi sang nội dung khoa đã tự sửa. */
+.home-card-title,.home-card-sub{opacity:0;transition:opacity .18s ease}
+body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
 .home-card:nth-of-type(1){animation-delay:.02s}.home-card:nth-of-type(2){animation-delay:.06s}
 .home-card:nth-of-type(3){animation-delay:.10s}.home-card:nth-of-type(4){animation-delay:.14s}
 .home-card:nth-of-type(5){animation-delay:.18s}.home-card:nth-of-type(6){animation-delay:.22s}
@@ -2041,7 +2045,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
 </div>
 
 <!-- MODAL: CHỌN NGÀY CHUYỂN TRẠNG THÁI (để tính Downtime chính xác) -->
-<div class="modal-bg" id="moveTimeModal" style="z-index:700" onclick="if(event.target===this)closeMoveTimeModal()">
+<div class="modal-bg" id="moveTimeModal" style="z-index:2200" onclick="if(event.target===this)closeMoveTimeModal()">
   <div class="modal" style="max-width:380px">
     <h3 id="moveTimeTitle"><i class="ti ti-clock-check"></i> Chuyển trạng thái</h3>
     <div id="moveTimeInfo" style="background:#f8fbf4;border:1.5px solid var(--bd);
@@ -10861,14 +10865,27 @@ function renderDt(){
     else if(days>=7){lvCls='dt-amber';lvTxt='🟡';}
     const content=(c.content||c.todo||'—');
     const isDone=c.status==='done';
+    // Tìm ghi chú tiến độ gần nhất (đã lo được phần nào) mà KHÔNG đóng báo cáo — lấy từ history
+    const progressNotes=(c.history||[]).filter(h=>h&&h.isProgressNote);
+    const lastProgress=progressNotes.length?progressNotes[progressNotes.length-1]:null;
     return`<tr>
       <td class="col-no">${i+1}</td>
       <td class="col-name">${esc(c.person||'')}</td>
       <td class="col-date">${fmtD(c.date)}</td>
-      <td class="col-content" title="${esc(content)}" style="cursor:help">${esc(content.substring(0,80))}${content.length>80?'…':''}</td>
+      <td class="col-content" title="${esc(content)}" style="cursor:help">${esc(content.substring(0,80))}${content.length>80?'…':''}
+        ${lastProgress?`<div style="margin-top:4px;color:#1a7a4a;font-size:11px;font-style:italic;" title="${esc(lastProgress.at?new Date(lastProgress.at).toLocaleString('vi-VN'):'')}">📝 ${esc(lastProgress.action.replace(/^Ghi tiến độ:\s*/,''))}</div>`:``}
+      </td>
       <td class="col-done">${c.doneAt?fmtD(c.doneAt):`<span style="color:#bbb;font-size:12px">Chưa xong</span>`}</td>
       <td class="col-dt"><span class="dt-badge ${lvCls}" style="font-size:13px;padding:3px 10px">${lvTxt} ${days} ngày${!isDone?' ⏳':''}</span></td>
-      <td class="col-st"><span style="font-size:13px">${stLbl[c.status]||c.status}</span></td>
+      <td class="col-st">
+        <span style="font-size:13px;">${stLbl[c.status]||c.status}</span>
+        ${(!isDone && cu && cu.role==='admin') ? `
+          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
+            ${c.status==='todo' ? `<button type="button" onclick="askMoveCard('${c.id}','doing')" style="background:#f9a825;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;">⚙ Đang xử lý</button>` : ``}
+            <button type="button" onclick="askMoveCard('${c.id}','done')" style="background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;">✅ Xử lý xong</button>
+            <button type="button" onclick="dtAddProgressNote('${c.id}')" style="background:#1565C0;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;" title="Ghi lại đã xử lý được phần nào, KHÔNG đóng báo cáo — dùng khi báo cáo có nhiều món nhưng chỉ mới xong 1 phần">📝 Ghi tiến độ</button>
+          </div>` : ``}
+      </td>
     </tr>`;
   }).join('');
 }
@@ -10960,13 +10977,13 @@ function renderDeptStats(){
     {val:rows[0]?(rows[0].ug||0):0,lbl:'Khẩn cấp chưa xong',color:'#b91c1c'},
     {val:pctAll+'%',lbl:'Tỷ lệ hoàn thành',color:'#1a7a4a'},
   ]:[
-    {val:totalReports,lbl:'Tổng báo cáo',color:'#2d6a1f'},
-    {val:deptCountUsed,lbl:'Số bộ phận có báo cáo',color:'#1565C0'},
-    {val:maxPending.val+(maxPending.val?` (${maxPending.label})`:''),lbl:'Bộ phận tồn đọng nhiều nhất',color:'#b45309'},
-    {val:pctAll+'%',lbl:'Tỷ lệ hoàn thành chung',color:'#1a7a4a'},
+    {val:totalReports,lbl:'Tổng báo cáo',color:'#2d6a1f',action:"document.getElementById('deptStatsFilterDept').value='';document.getElementById('deptStatsFrom').value='';document.getElementById('deptStatsTo').value='';renderDeptStats();",hint:'Bấm để xóa hết bộ lọc, xem toàn bộ báo cáo mọi bộ phận.'},
+    {val:deptCountUsed,lbl:'Số bộ phận có báo cáo',color:'#1565C0',hint:'Chỉ mang tính thống kê, không lọc được (vì gồm nhiều bộ phận khác nhau).'},
+    {val:maxPending.val+(maxPending.val?` (${maxPending.label})`:''),lbl:'Bộ phận tồn đọng nhiều nhất',color:'#b45309',action: (maxPending.val&&maxPending.label!=='—') ? `document.getElementById('deptStatsFilterDept').value=${JSON.stringify(maxPending.label)};renderDeptStats();` : '',hint: (maxPending.val&&maxPending.label!=='—') ? 'Bấm để lọc riêng đúng bộ phận này.' : 'Chưa có dữ liệu tồn đọng để lọc.'},
+    {val:pctAll+'%',lbl:'Tỷ lệ hoàn thành chung',color:'#1a7a4a',hint:'Chỉ mang tính thống kê, không lọc được (là tỷ lệ trung bình của mọi bộ phận).'},
   ];
   document.getElementById('deptStatsOv').innerHTML=ovCards.map(ov=>`
-    <div class="dt-ov-card" style="cursor:default">
+    <div class="dt-ov-card" title="${esc(ov.hint||'')}" style="cursor:${ov.action?'pointer':'default'};${ov.action?'':'opacity:.92;'}" ${ov.action?`onclick="${ov.action}"`:''}>
       <div class="dt-ov-val" style="color:${ov.color};font-size:${typeof ov.val==='string'&&ov.val.length>10?'20px':'34px'}">${ov.val}</div>
       <div class="dt-ov-lbl">${ov.lbl}</div>
     </div>`).join('');
@@ -11323,6 +11340,20 @@ function confirmMoveTime(){
   }
   closeMoveTimeModal();
   if(typeof briefRefresh==='function' && document.getElementById('briefModal') && document.getElementById('briefModal').classList.contains('on')) briefRefresh();
+  if(typeof renderDt==='function' && document.getElementById('dtPanelBg') && document.getElementById('dtPanelBg').classList.contains('on')) renderDt();
+}
+function dtAddProgressNote(id){
+  if(!cu || cu.role!=='admin'){showAl('Chỉ quản lý mới ghi được tiến độ!','warn');return;}
+  const c=cards.find(x=>String(x.id)===String(id));
+  if(!c){showAl('Không tìm thấy báo cáo!','warn');return;}
+  const note=prompt('Ghi lại đã xử lý được phần nào (báo cáo vẫn giữ nguyên "Chưa xử lý/Đang xử lý" cho tới khi xong hết):\n\nVD: "Đã cấp bao camera, bịc kính hiển vi — còn thiếu dây hút, đã báo Khoa Dược"');
+  if(!note || !note.trim()) return;
+  setSyncStatus('sync');
+  const hist=(c.history)?[...c.history]:[];
+  hist.push({action:'Ghi tiến độ: '+note.trim(), actor:(cu&&cu.name)?cu.name:'Quản lý', at:new Date().toISOString(), isProgressNote:true});
+  cardsRef.child(String(id)).update({history:hist})
+    .then(()=>{ setSyncStatus('ok'); if(typeof renderDt==='function') renderDt(); })
+    .catch(()=>setSyncStatus('err'));
 }
 function moveCard(id,st,chosenDate,noteVal){
   if(cu.role!=='admin'){showAl('Chỉ quản lý mới chuyển được trạng thái!','warn');return;}
@@ -12340,8 +12371,9 @@ window.briefOpenBgPmResolve = function(mapIdx){
   var x = window._briefBgPmMap && window._briefBgPmMap[mapIdx];
   if(!x) return;
   _bgPmResolveMapIdx = mapIdx;
-  var names=x.bad.map(function(it){return (it.ten||'—')+(it.status==='hong'?' (hỏng)':' (thiếu)');}).join(', ');
-  document.getElementById('bgPmResolveText').value = x.nguon+' — '+names;
+  var ten=(x.badItem&&x.badItem.ten)||'—';
+  var trang=(x.badItem&&x.badItem.status==='hong')?' (hỏng)':' (thiếu)';
+  document.getElementById('bgPmResolveText').value = x.nguon+' — '+ten+trang;
   document.getElementById('bgPmResolveWho').value='';
   document.getElementById('bgPmResolveNguoiNhan').value='';
   document.getElementById('bgPmResolveNote').value='';
@@ -12381,10 +12413,9 @@ function briefSubmitBgPmResolve(){
   var recRef = db.ref(path).child(x.roomId).child(x.id);
   var updates={};
   if(x.kind==='pm'){
-    (x.badKeysGm||[]).forEach(function(k){ updates['itemsGayme/'+k+'/xuLy']=xuLy; });
-    (x.badKeysDc||[]).forEach(function(k){ updates['itemsDungcu/'+k+'/xuLy']=xuLy; });
+    updates[(x.badGroup||'itemsGayme')+'/'+x.badKey+'/xuLy']=xuLy;
   } else {
-    (x.badKeys||[]).forEach(function(k){ updates['items/'+k+'/xuLy']=xuLy; });
+    updates['items/'+x.badKey+'/xuLy']=xuLy;
   }
   recRef.update(updates).then(function(){
     briefCloseBgPmResolve();
@@ -12697,16 +12728,19 @@ function briefLoadExtra(){
     }
   }
   var elDctd=document.getElementById('briefDctdBody');
+  window._briefDctdShowAll = window._briefDctdShowAll || false;
+  window._briefBgPmShowAll = window._briefBgPmShowAll || false;
   if(elDctd){
     db.ref('dctdRecords').once('value').then(function(snap){
       var d=snap.val()||{};
-      var list=Object.keys(d).map(function(k){var r=d[k];r=Object.assign({},r);r._id=k;return r;})
+      var list0=Object.keys(d).map(function(k){var r=d[k];r=Object.assign({},r);r._id=k;return r;})
         .filter(function(r){return r.status==='todo' && !r.xuLy;})
-        .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');})
-        .slice(0,8);
-      var cnt=document.getElementById('briefDctdCount'); if(cnt) cnt.textContent=list.length;
+        .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+      var cnt=document.getElementById('briefDctdCount'); if(cnt) cnt.textContent=list0.length; // số đếm dùng TỔNG THỰC TẾ, không bị giới hạn bởi số dòng hiển thị
+      var showAllDctd = window._briefDctdShowAll;
+      var list=showAllDctd ? list0 : list0.slice(0,8); // chỉ HIỂN THỊ tối đa 8 dòng đầu cho gọn, trừ khi bấm "Xem thêm"
       window._briefDctdMap = list;
-      elDctd.innerHTML = list.length ? list.map(function(r,mi){
+      elDctd.innerHTML = (list.length ? list.map(function(r,mi){
         var itemNames=(r.items||[]).map(function(it){return (it.name||'')+(it.qty>1?(' x'+it.qty):'');}).join(', ');
         return '<div style="padding:8px 10px;border-radius:8px;background:#fff3e0;margin-bottom:6px;font-size:12.5px">'+
           '<div onclick="briefGoToDctd(\''+r._id+'\')" style="cursor:pointer">'+
@@ -12715,7 +12749,8 @@ function briefLoadExtra(){
           '</div>'+
           '<div style="margin-top:6px"><button onclick="event.stopPropagation();briefOpenDctdResolve('+mi+')" style="background:#e65100;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer"><i class="ti ti-check"></i> Xử lý</button></div>'+
         '</div>';
-      }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có báo cáo thiếu/mất dụng cụ tồn đọng.</div>';
+      }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có báo cáo thiếu/mất dụng cụ tồn đọng.</div>')
+      + (list0.length>8 ? '<div style="text-align:center;margin-top:6px"><button onclick="window._briefDctdShowAll=!window._briefDctdShowAll;briefRefresh();" style="background:none;border:none;color:#e65100;font-weight:700;font-size:12.5px;cursor:pointer;text-decoration:underline">'+(showAllDctd?'▲ Thu gọn bớt':'▼ Xem thêm '+(list0.length-8)+' mục nữa')+'</button></div>' : '');
     }).catch(function(){ elDctd.innerHTML='<div style="color:#c62828;font-size:12px">Lỗi tải dữ liệu.</div>'; });
   }
   var elBg=document.getElementById('briefBgPmBody');
@@ -12728,7 +12763,10 @@ function briefLoadExtra(){
           var r=recSnap.val();
           var itemsObj=r.items||{};
           var badKeys=Object.keys(itemsObj).filter(function(k){ var it=itemsObj[k]; return it&&(it.status==='thieu'||it.status==='hong')&&!it.xuLy; });
-          if(badKeys.length){ list.push({nguon:'Bàn giao Hồi sức — '+roomId, kind:'bg', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, itemsPath:'items', badKeys:badKeys, bad:badKeys.map(function(k){return itemsObj[k];})}); }
+          // Mỗi món thiếu/hỏng tách thành 1 dòng RIÊNG để xử lý độc lập, không gộp chung với món khác trong cùng 1 biên bản.
+          badKeys.forEach(function(k){
+            list.push({nguon:'Bàn giao Hồi sức — '+roomId, kind:'bg', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, badKey:k, badItem:itemsObj[k]});
+          });
         });
       });
       results[1].forEach(function(roomSnap){
@@ -12738,25 +12776,34 @@ function briefLoadExtra(){
           var gm=r.itemsGayme||{}, dc=r.itemsDungcu||{};
           var badKeysGm=Object.keys(gm).filter(function(k){ var it=gm[k]; return it&&(it.status==='thieu'||it.status==='hong')&&!it.xuLy; });
           var badKeysDc=Object.keys(dc).filter(function(k){ var it=dc[k]; return it&&(it.status==='thieu'||it.status==='hong')&&!it.xuLy; });
-          var bad=badKeysGm.map(function(k){return gm[k];}).concat(badKeysDc.map(function(k){return dc[k];}));
-          if(bad.length){ list.push({nguon:'Bàn giao Phòng Mổ '+roomId, kind:'pm', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, badKeysGm:badKeysGm, badKeysDc:badKeysDc, bad:bad}); }
+          badKeysGm.forEach(function(k){
+            list.push({nguon:'Bàn giao Phòng Mổ '+roomId, kind:'pm', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, badGroup:'itemsGayme', badKey:k, badItem:gm[k]});
+          });
+          badKeysDc.forEach(function(k){
+            list.push({nguon:'Bàn giao Phòng Mổ '+roomId, kind:'pm', id:recSnap.key, roomId:roomId, ngay:r.ngay, giao:r.nguoiGiao, nhan:r.nguoiNhan, badGroup:'itemsDungcu', badKey:k, badItem:dc[k]});
+          });
         });
       });
       list.sort(function(a,b){return (b.ngay||'').localeCompare(a.ngay||'');});
-      list=list.slice(0,8);
+      var tongSoThucTe = list.length; // tổng số thực tế còn tồn đọng — dùng cho số đếm trên tiêu đề
+      var showAllBgPm = window._briefBgPmShowAll;
+      var listFull = list;
+      list = showAllBgPm ? listFull : listFull.slice(0,8); // chỉ HIỂN THỊ tối đa 8 dòng đầu cho gọn, trừ khi bấm "Xem thêm"
       window._briefBgPmMap = list;
-      var cnt=document.getElementById('briefBgPmCount'); if(cnt) cnt.textContent=list.length;
-      elBg.innerHTML = list.length ? list.map(function(x,mi){
-        var names=x.bad.map(function(it){return (it.ten||'—')+(it.status==='hong'?' (hỏng)':' (thiếu)');}).join(', ');
+      var cnt=document.getElementById('briefBgPmCount'); if(cnt) cnt.textContent=tongSoThucTe;
+      elBg.innerHTML = (list.length ? list.map(function(x,mi){
+        var ten=(x.badItem&&x.badItem.ten)||'—';
+        var trang=(x.badItem&&x.badItem.status==='hong')?' (hỏng)':' (thiếu)';
         var clickAttr = x.kind==='pm' ? ('briefGoToPm(\''+x.roomId+'\',\''+x.id+'\')') : ('briefGoToBg(\''+x.roomId+'\',\''+x.id+'\')');
         return '<div style="padding:8px 10px;border-radius:8px;background:#fce4ec;margin-bottom:6px;font-size:12.5px">'+
           '<div onclick="'+clickAttr+'" style="cursor:pointer">'+
-          '<b>'+esc(x.nguon)+'</b> — '+esc(names)+
+          '<b>'+esc(x.nguon)+'</b> — '+esc(ten+trang)+
           '<div style="color:#888;font-size:11px;margin-top:2px">Ngày: '+esc(x.ngay||'—')+' · Người giao: '+esc(x.giao||'—')+' &nbsp;→&nbsp; Người nhận: '+esc(x.nhan||'—')+'</div>'+
           '</div>'+
           '<div style="margin-top:6px"><button onclick="event.stopPropagation();briefOpenBgPmResolve('+mi+')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer"><i class="ti ti-check"></i> Xử lý</button></div>'+
         '</div>';
-      }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có bàn giao nào báo thiếu/hư hỏng gần đây.</div>';
+      }).join('') : '<div style="color:#aaa;font-size:12.5px;padding:6px 0">✅ Không có bàn giao nào báo thiếu/hư hỏng gần đây.</div>')
+      + (tongSoThucTe>8 ? '<div style="text-align:center;margin-top:6px"><button onclick="window._briefBgPmShowAll=!window._briefBgPmShowAll;briefRefresh();" style="background:none;border:none;color:#c62828;font-weight:700;font-size:12.5px;cursor:pointer;text-decoration:underline">'+(showAllBgPm?'▲ Thu gọn bớt':'▼ Xem thêm '+(tongSoThucTe-8)+' mục nữa')+'</button></div>' : '');
     }).catch(function(){ elBg.innerHTML='<div style="color:#c62828;font-size:12px">Lỗi tải dữ liệu.</div>'; });
   }
   var elQt=document.getElementById('briefQtBody');
@@ -20047,6 +20094,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <label style="color:#6a1e7e">Tháng xem</label>
           <input type="month" id="dtMonth" onchange="dtRenderAll()">
         </div>
+        <label class="kpi-f" style="margin:0;flex-direction:row;align-items:center;gap:6px;font-size:12.5px;color:#6a1e7e;font-weight:600;align-self:flex-end;">
+          <input type="checkbox" id="dtAllMonths" onchange="document.getElementById('dtMonth').disabled=this.checked; dtRenderAll();"> Xem tất cả các tháng
+        </label>
         <button class="kpi-btn" style="border:1.5px solid #7b1fa2;color:#7b1fa2;align-self:flex-end" onclick="dtRenderAll()"><i class="ti ti-refresh"></i> Làm mới</button>
         <button class="kpi-btn" id="dtShiftCatBtn" style="display:none;border:1.5px solid #7b1fa2;color:#7b1fa2;align-self:flex-end" onclick="dtOpenShiftCatalogPanel()"><i class="ti ti-list-details"></i> Danh mục Ca trực</button>
         <button class="kpi-btn" style="background:#1b6b3a;color:#fff;align-self:flex-end" onclick="dtExportExcel()"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
@@ -21967,6 +22017,19 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 .ddnl-combo-opt{padding:8px 12px;font-size:13px;cursor:pointer;}
 .ddnl-combo-opt:hover{background:var(--ddnl-g50,#eef3f2);}
 .ddnl-combo-empty{padding:8px 12px;font-size:12px;color:var(--ddnl-ink-soft);}
+.ddnl-col-resize-handle:hover{background:#1565C0;opacity:.75;}
+.ddnl-row-resize-handle:hover{background:#1565C0;opacity:.75;}
+/* Chặn TRIỆT ĐỂ mọi phần tử dán từ Word (kể cả khung/div bọc ngoài có độ rộng cứng theo file gốc,
+   không riêng gì bảng) vượt quá bề ngang khung soạn — dùng !important để đè lên style cứng của Word. */
+#ddnlNoiDungEditable{overflow-x:hidden !important;}
+#ddnlNoiDungEditable table,
+#ddnlNoiDungEditable div,
+#ddnlNoiDungEditable p,
+#ddnlNoiDungEditable img{max-width:100% !important; box-sizing:border-box !important;}
+#ddnlNoiDungEditable table{width:100% !important;border-collapse:collapse;}
+#ddnlNoiDungEditable td, #ddnlNoiDungEditable th{border:1px solid #999;padding:6px 8px;}
+#ddnlNoiDungEditable *{position:static !important;}
+#ddnlNoiDungEditable table, #ddnlNoiDungEditable div, #ddnlNoiDungEditable p{margin-left:0 !important;}
 @keyframes ddnlFlash{ 0%{box-shadow:0 0 0 3px var(--ddnl-gold);} 100%{box-shadow:0 0 0 3px transparent;} }
 .ddnl-flash{animation:ddnlFlash 1.4s ease-out 2;border-radius:8px;}
 
@@ -21979,6 +22042,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   background:#fff;border-radius:var(--ddnl-radius);max-width:900px;width:100%;
   padding:0;overflow:hidden;
 }
+.ddnl-modal.ddnl-modal-zoomed{max-width:98vw;width:98vw;}
+.ddnl-modal.ddnl-modal-zoomed .ddnl-modal-body{max-height:92vh;}
 .ddnl-modal-head{
   display:flex;justify-content:space-between;align-items:center;
   padding:14px 18px;border-bottom:1px solid var(--ddnl-line);background:#f7faf9;
@@ -22088,8 +22153,37 @@ const ddRoot = db.ref('dieuDongNhanLuc');
 const ddConfigRef = ddRoot.child('danhMuc');
 const ddRequestsRef = ddRoot.child('phieu');
 const ddVanBanRef = ddRoot.child('vanBanDi'); // Sổ theo dõi văn bản đi (dùng chung cho mọi loại giấy đề nghị)
+const ddVbAuditRef = ddRoot.child('vanBanAuditLog'); // Nhật ký Admin sửa/xóa văn bản của người khác — "lưu vết"
 const ddFileDataRef = ddRoot.child('fileVanBanData'); // lưu nội dung file (base64) riêng, tách khỏi danhMuc để không làm nặng/chậm các lần lưu cấu hình khác
 let fbConnected = false;
+// ---- Combo box gõ tìm DÙNG CHUNG cho toàn module Điều động nhân lực / Giấy đề nghị ----
+// NGUYÊN TẮC CHUẨN: mọi ô chọn có danh sách dài (nhân viên, loại văn bản...) đều dùng cặp hàm này
+// thay vì <select> hay <input list="datalist"> — bấm vào là hiện đủ danh sách, gõ vào là lọc dần.
+function ddnlBuildComboPanel(input, options, onPick, showAll){
+  let panel = document.getElementById(input.id+'_panel');
+  if(panel) panel.remove();
+  const q = showAll ? "" : input.value.trim().toLowerCase();
+  const filtered = options.filter(o=>!q || o.toLowerCase().includes(q));
+  panel = document.createElement('div');
+  panel.id = input.id+'_panel';
+  panel.className = 'ddnl-combo-panel';
+  panel.innerHTML = filtered.length
+    ? filtered.map(o=>`<div class="ddnl-combo-opt" data-val="${esc(o)}">${esc(o)}</div>`).join("")
+    : `<div class="ddnl-combo-empty">Không có mục nào khớp — vẫn có thể tự gõ.</div>`;
+  input.parentElement.appendChild(panel);
+  panel.querySelectorAll('[data-val]').forEach(d=>{
+    d.onmousedown = (e)=>{ e.preventDefault(); input.value = d.dataset.val; onPick(d.dataset.val); panel.remove(); };
+  });
+}
+function ddnlSetupCombo(inputId, getOptions, onPick){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  input.autocomplete = 'off';
+  input.addEventListener('focus', ()=> ddnlBuildComboPanel(input, getOptions(), onPick, true));
+  input.addEventListener('click', ()=> ddnlBuildComboPanel(input, getOptions(), onPick, true));
+  input.addEventListener('input', ()=>{ onPick(input.value); ddnlBuildComboPanel(input, getOptions(), onPick, false); });
+  input.addEventListener('blur', ()=>{ setTimeout(()=>{ const p=document.getElementById(inputId+'_panel'); if(p) p.remove(); }, 150); });
+}
 /* ============================================================
    SEED DATA
    ============================================================ */
@@ -22157,15 +22251,32 @@ const SEED_NOI_NHAN = [
   "Phòng Điều dưỡng",
   "Khoa/Phòng khác"
 ];
-const VB_TRANG_THAI = ["Đang soạn","Đã gửi","Đã phản hồi","Lưu trữ"];
+const VB_TRANG_THAI = ["Đang soạn","Đã gửi — chờ phản hồi","Đã phản hồi một phần","Đã hoàn thành","Từ chối / Không phê duyệt","Lưu trữ"];
+// Các trạng thái được coi là ĐÃ XONG — không cần theo dõi tiến độ/cảnh báo trễ hạn nữa
+const VB_TRANG_THAI_DA_XONG = ["Đã hoàn thành","Từ chối / Không phê duyệt","Lưu trữ"];
+// Trạng thái riêng cho TỪNG HẠNG MỤC cụ thể trong 1 đề nghị (VD: đề nghị có 3 món, mỗi món 1 trạng thái riêng)
+const HANG_MUC_TRANG_THAI = ["Chưa xử lý","Đã cấp đủ","Đã cấp một phần","Từ chối"];
+const HANG_MUC_TRANG_THAI_DA_XONG = ["Đã cấp đủ","Từ chối"];
+// Chuyển đổi các giá trị trạng thái CŨ (đã lưu trước khi mở rộng danh sách) sang giá trị mới tương ứng
+function vbNormTrangThai(tt){
+  if(tt==="Đã gửi") return "Đã gửi — chờ phản hồi";
+  if(tt==="Đã phản hồi") return "Đã phản hồi một phần";
+  return tt;
+}
 // Danh mục "Người lập bảng" — danh sách rút gọn để chọn nhanh khi ký ở phần "Người lập bảng"
 // của Giấy đề nghị điều động nhân lực (khác với danh sách đầy đủ nhân viên).
 const SEED_NGUOI_LAP_BANG = [];
+// Thể loại văn bản (hình thức) — quyết định TIÊU ĐỀ in hoa in trên văn bản (GIẤY ĐỀ NGHỊ / TỜ TRÌNH / CÔNG VĂN…),
+// khác với "Loại văn bản" (nhóm nội dung/nơi gửi, dùng để thống kê, không in làm tiêu đề).
+const SEED_HINH_THUC_VB = ["Giấy đề nghị","Tờ trình","Công văn","Báo cáo","Thông báo","Biên bản","Kế hoạch","Quyết định"];
+// Danh sách mật khẩu truy cập RIÊNG cho phân hệ "Giấy đề nghị" — mỗi người 1 mật khẩu, KHÁC với
+// danh sách nhân viên dùng chung toàn hệ thống (config.employees) để không ảnh hưởng các phân hệ khác.
+const SEED_VB_USER_AUTH = [];
 
 /* ============================================================
    STATE
    ============================================================ */
-let config = { employees: [], units: [], signers: [], templates: [], reasons: [], docTypes: [], noiNhan: [], nguoiLapBang: [], adminPwd: "", fileVanBan: [] };
+let config = { employees: [], units: [], signers: [], templates: [], reasons: [], docTypes: [], noiNhan: [], nguoiLapBang: [], hinhThucVB: [], vbUserAuth: [], adminPwd: "", fileVanBan: [] };
 let uploadingFile = false;
 let requests = [];
 let currentUserName = "";
@@ -22202,16 +22313,29 @@ function isGlobalAdmin(){
 function isAdmin(){
   return ddnlLocalAdminUnlock || isGlobalAdmin();
 }
+// ---- Cổng đăng nhập riêng cho phân hệ "Giấy đề nghị" (ddnlMode==='vanban') ----
+// Mỗi nhân viên có mật khẩu riêng (config.vbUserAuth) để vào xem/soạn văn bản của MÌNH.
+// Admin (mật khẩu Admin sẵn có) luôn vào được, xem/sửa được TẤT CẢ, có lưu vết khi sửa/xóa văn bản của người khác.
+let vbAuthed = false;
+let vbAuthUser = "";
+let vbLoginPickName = "";
+let vbLoginPwdErr = "";
+let vbAuditLog = [];
 let editingRequestId = null; // null = đang lập phiếu mới, khác null = đang sửa phiếu có id này
-const DDNL_DEFAULT_ADMIN_PWD = "gmhs2026admin"; // mật khẩu Admin mặc định lần đầu — đổi được trong tab Danh mục/Cấu hình sau khi đăng nhập
+const DDNL_DEFAULT_ADMIN_PWD = "gmhs2026"; // THỐNG NHẤT dùng chung 1 mật khẩu Admin cho MỌI thẻ trong toàn hệ thống (giống hệt mật khẩu Admin chung — DPWD)
+const DDNL_OLD_DEFAULT_ADMIN_PWD = "gmhs2026admin"; // mật khẩu mặc định CŨ (không dùng nữa) — chỉ giữ lại để tự động chuyển đổi cho các nơi đã cài trước đây
 let editingEmpIdx = null;
 let editingTplIdx = null;
 let editingReasonIdx = null;
 let editingDocTypeIdx = null;
 let editingNoiNhanIdx = null;
 let editingNguoiLapBangIdx = null;
+let editingHinhThucIdx = null;
+let editingVbUserAuthIdx = null;
+let vbAuthPickName = "";
+let vbHangMucExpanded = false; // mặc định ẨN khối "hạng mục cụ thể" vì phần lớn không cần dùng đến
 // Chuỗi lọc/tìm hiện tại của từng cửa sổ danh mục (chỉ lọc tại chỗ, không lưu Firebase)
-let cfgFilter = { reasons:"", docTypes:"", noiNhan:"", nguoiLapBang:"" };
+let cfgFilter = { reasons:"", docTypes:"", noiNhan:"", nguoiLapBang:"", hinhThucVB:"", vbUserAuth:"" };
 // ---- Sổ theo dõi văn bản đi ----
 let vbRecords = [];
 let vbLoaded = false;
@@ -22223,8 +22347,9 @@ function newDraftVB(){
   return {
     soVanBan:"", loaiVanBan: (config.docTypes&&config.docTypes[0])||"", nguoiSoan: currentUserName||"",
     nguoiKy: (config.signers&&config.signers[0]&&config.signers[0].ten)||"",
-    noiNhan: [], ngayLap: todayISO(), ngayGui: "", trangThai: "Đang soạn",
-    tomTat: "", dinhKemLink: "", ghiChu: "", dinhKemFile: null, mauDangChon: "", noiDungSoan: ""
+    hinhThucVB: (config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec: "",
+    noiNhan: [], ngayLap: todayISO(), ngayGui: "", trangThai: "Đang soạn", ngayHoanThanh: "",
+    tomTat: "", dinhKemLink: "", ghiChu: "", ghiChuTienDo: "", nguoiLapLabel: "", chucDanhKy: "", hangMucDeNghi: [], dinhKemFiles: [], mauDangChon: "", noiDungSoan: ""
   };
 }
 // Số văn bản TỰ ĐỘNG, chạy chung 1 mạch cho TOÀN KHOA (không tính riêng theo từng người hay từng loại văn bản) —
@@ -22375,6 +22500,13 @@ function loadAll(){
   ddConfigRef.on('value', snap=>{
     const val = snap.val();
     if(val && (val.nhanVien || val.boPhan)){
+      // Nếu Firebase đang lưu đúng mật khẩu mặc định CŨ (chưa từng bị đổi tay) -> tự động chuyển
+      // sang mật khẩu thống nhất mới, khỏi phải nhớ 2 mật khẩu khác nhau cho các thẻ khác nhau.
+      let resolvedAdminPwd = val.adminPwd || DDNL_DEFAULT_ADMIN_PWD;
+      if(resolvedAdminPwd === DDNL_OLD_DEFAULT_ADMIN_PWD){
+        resolvedAdminPwd = DDNL_DEFAULT_ADMIN_PWD;
+        ddConfigRef.child('adminPwd').set(DDNL_DEFAULT_ADMIN_PWD).catch(()=>{});
+      }
       config = {
         employees: Array.isArray(val.nhanVien) ? val.nhanVien : SEED_EMPLOYEES,
         units: Array.isArray(val.boPhan) ? val.boPhan : SEED_UNITS,
@@ -22384,20 +22516,22 @@ function loadAll(){
         docTypes: Array.isArray(val.loaiVanBan) && val.loaiVanBan.length ? val.loaiVanBan : SEED_DOC_TYPES,
         noiNhan: Array.isArray(val.noiNhanMau) && val.noiNhanMau.length ? val.noiNhanMau : SEED_NOI_NHAN,
         nguoiLapBang: Array.isArray(val.nguoiLapBangMau) ? val.nguoiLapBangMau : SEED_NGUOI_LAP_BANG,
-        adminPwd: val.adminPwd || DDNL_DEFAULT_ADMIN_PWD,
+        hinhThucVB: Array.isArray(val.hinhThucVBMau) && val.hinhThucVBMau.length ? val.hinhThucVBMau : SEED_HINH_THUC_VB,
+        vbUserAuth: Array.isArray(val.vbUserAuthMau) ? val.vbUserAuthMau : SEED_VB_USER_AUTH,
+        adminPwd: resolvedAdminPwd,
         fileVanBan: Array.isArray(val.fileVanBan) ? val.fileVanBan : []
       };
     } else if(!configLoaded){
       // Chưa có dữ liệu trên Firebase -> khởi tạo lần đầu bằng dữ liệu mẫu
-      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
-      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, lyDoMau: SEED_REASONS, loaiVanBan: SEED_DOC_TYPES, noiNhanMau: SEED_NOI_NHAN, nguoiLapBangMau: SEED_NGUOI_LAP_BANG, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] });
+      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
+      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, lyDoMau: SEED_REASONS, loaiVanBan: SEED_DOC_TYPES, noiNhanMau: SEED_NOI_NHAN, nguoiLapBangMau: SEED_NGUOI_LAP_BANG, hinhThucVBMau: SEED_HINH_THUC_VB, vbUserAuthMau: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] });
     }
     configLoaded = true;
     if(requestsLoaded){ loaded = true; }
     render();
   }, err=>{
     console.error("Lỗi tải danh mục:", err);
-    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
+    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
     configLoaded = true;
     if(requestsLoaded) loaded = true;
     render();
@@ -22414,6 +22548,12 @@ function loadAll(){
     vbLoaded = true;
     render();
   });
+
+  // Nhật ký Admin sửa/xóa văn bản của người khác (chỉ Admin xem được, phục vụ "lưu vết")
+  ddVbAuditRef.on('value', snap=>{
+    vbAuditLog = objToArray(snap.val()).sort((a,b)=>(b.thoiGian||0)-(a.thoiGian||0));
+    render();
+  }, err=>{ console.error("Lỗi tải nhật ký:", err); });
 
   // Danh sách phiếu điều động (mỗi phiếu là 1 node con, đồng bộ realtime)
   ddRequestsRef.on('value', snap=>{
@@ -22437,7 +22577,7 @@ function loadAll(){
 }
 
 async function saveConfig(){
-  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, lyDoMau: config.reasons, loaiVanBan: config.docTypes, noiNhanMau: config.noiNhan, nguoiLapBangMau: config.nguoiLapBang, adminPwd: config.adminPwd, fileVanBan: config.fileVanBan }); }
+  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, lyDoMau: config.reasons, loaiVanBan: config.docTypes, noiNhanMau: config.noiNhan, nguoiLapBangMau: config.nguoiLapBang, hinhThucVBMau: config.hinhThucVB, vbUserAuthMau: config.vbUserAuth, adminPwd: config.adminPwd, fileVanBan: config.fileVanBan }); }
   catch(e){ alert("Không lưu được cấu hình lên Firebase. Kiểm tra kết nối mạng và thử lại."); }
 }
 
@@ -22446,6 +22586,13 @@ function formatFileSize(bytes){
   if(bytes < 1024) return bytes + " B";
   if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + " KB";
   return (bytes/(1024*1024)).toFixed(2) + " MB";
+}
+// Lấy danh sách file đính kèm của 1 văn bản — tương thích cả bản ghi CŨ (chỉ có 1 file ở dinhKemFile)
+// lẫn bản ghi MỚI (nhiều file ở mảng dinhKemFiles).
+function vbGetFiles(v){
+  if(v && Array.isArray(v.dinhKemFiles) && v.dinhKemFiles.length) return v.dinhKemFiles;
+  if(v && v.dinhKemFile) return [v.dinhKemFile];
+  return [];
 }
 
 function readFileAsDataURL(file){
@@ -22560,6 +22707,17 @@ function render(){
   }
   const active = document.activeElement;
   const focusInfo = (active && active.id) ? { id: active.id, start: active.selectionStart, end: active.selectionEnd } : null;
+  // Cổng đăng nhập RIÊNG cho "Giấy đề nghị": chưa là Admin và chưa đăng nhập User thì chặn lại,
+  // không cho xem Sổ văn bản đi / Cấu hình — chỉ áp dụng cho phân hệ này (không ảnh hưởng Điều động nhân lực).
+  if(ddnlMode === 'vanban' && !isAdmin() && !vbAuthed){
+    app.innerHTML = `${renderHeader()}${renderVbLoginGate()}`;
+    bindEvents();
+    if(focusInfo){
+      const el = document.getElementById(focusInfo.id);
+      if(el){ el.focus(); if(typeof focusInfo.start === "number" && el.setSelectionRange){ try{ el.setSelectionRange(focusInfo.start, focusInfo.end); }catch(e){} } }
+    }
+    return;
+  }
   app.innerHTML = `
     ${renderHeader()}
     ${renderTabs()}
@@ -22589,16 +22747,21 @@ function render(){
 function renderHeader(){
   const emp = findEmployee(currentUserName);
   const leader = isLeader(emp);
+  const vbGated = (ddnlMode === 'vanban' && !isAdmin()); // ở Giấy đề nghị, không phải Admin -> phải qua đăng nhập User riêng
+  const userBlockHtml = vbGated
+    ? (vbAuthed
+        ? `<span>Người dùng:</span> <b>${esc(vbAuthUser)}</b> <span class="ddnl-hdr-badge" title="Đã đăng nhập bằng mật khẩu riêng của Giấy đề nghị">🔒 Đã xác thực</span> <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVbLogout" style="margin-left:6px;">Đăng xuất</button>`
+        : `<span class="ddnl-hint">🔒 Vui lòng đăng nhập ở bên dưới để vào Sổ văn bản đi</span>`)
+    : `<span>Người dùng:</span>
+        <span style="position:relative;display:inline-block;">
+          <input type="text" id="ddnlUserSelect" autocomplete="off" style="min-width:220px;" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(currentUserName||"")}">
+        </span>
+        ${leader?'<span class="ddnl-hdr-badge" title="Chỉ mang tính hiển thị, không tự cấp quyền Admin">Trưởng/Phó khoa</span>':''}`;
   return `
   <div class="ddnl-hdr">
     <div class="ddnl-hdr-top">
       <div class="ddnl-hdr-user">
-        <span>Người dùng:</span>
-        <select id="ddnlUserSelect">
-          <option value="">— Chọn tên —</option>
-          ${config.employees.map(e=>`<option value="${esc(e.ten)}" ${e.ten===currentUserName?"selected":""}>${esc(e.ten)}</option>`).join("")}
-        </select>
-        ${leader?'<span class="ddnl-hdr-badge" title="Chỉ mang tính hiển thị, không tự cấp quyền Admin">Trưởng/Phó khoa</span>':''}
+        ${userBlockHtml}
       </div>
       <div style="margin-left:auto;">
         ${isGlobalAdmin()
@@ -22607,6 +22770,28 @@ function renderHeader(){
             ? `<span class="ddnl-hdr-badge" style="background:#2f7a4f;">🔓 Admin</span> <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlAdminLogout" style="margin-left:6px;">Thoát Admin</button>`
             : `<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlAdminLogin">🔒 Đăng nhập Admin</button>`}
       </div>
+    </div>
+  </div>`;
+}
+
+function renderVbLoginGate(){
+  const names = (config.vbUserAuth||[]).map(x=>x.ten);
+  const noAuthSetup = names.length===0;
+  return `
+  <div class="ddnl-view">
+    <div class="ddnl-card" style="max-width:420px;margin:40px auto;">
+      <h2>🔒 Đăng nhập — Giấy đề nghị</h2>
+      <div class="ddnl-sub" style="margin-bottom:14px;">Chọn đúng tên của bạn để vào xem/soạn văn bản CỦA MÌNH. Admin đăng nhập ở góc trên bên phải để xem/sửa được tất cả.</div>
+      ${noAuthSetup ? `<div class="ddnl-hint" style="color:#b00020;margin-bottom:10px;">⚠ Chưa có tên nhân viên nào trong danh sách. Vào "🔒 Đăng nhập Admin" ở góc trên → tab "Danh mục / Cấu hình" → "Danh sách User được vào Giấy đề nghị" để thêm tên từng người.</div>` : ``}
+      <div class="ddnl-field">
+        <label>Tên của bạn</label>
+        <select id="ddnlVbLoginName">
+          <option value="">— Chọn tên —</option>
+          ${names.map(n=>`<option value="${esc(n)}" ${n===vbLoginPickName?"selected":""}>${esc(n)}</option>`).join("")}
+        </select>
+      </div>
+      ${vbLoginPwdErr?`<div class="ddnl-hint" style="color:#b00020;margin-bottom:8px;">${esc(vbLoginPwdErr)}</div>`:``}
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlVbLoginBtn" style="width:100%;">Đăng nhập</button>
     </div>
   </div>`;
 }
@@ -22903,9 +23088,15 @@ function renderList(){
    ============================================================ */
 function vbFiltered(){
   return vbRecords.filter(v=>{
-    if(!vbScopeAll && currentUserName && v.nguoiSoan!==currentUserName) return false;
+    // Không phải Admin -> LUÔN chỉ thấy văn bản do CHÍNH MÌNH soạn, không phụ thuộc "Xem toàn khoa"
+    // (đã đăng nhập bằng mật khẩu riêng ở cổng vào Giấy đề nghị nên currentUserName ở đây là đáng tin cậy).
+    if(!isAdmin()){
+      if(v.nguoiSoan!==currentUserName) return false;
+    } else if(!vbScopeAll && currentUserName && v.nguoiSoan!==currentUserName){
+      return false;
+    }
     if(vbFilter.loai && v.loaiVanBan!==vbFilter.loai) return false;
-    if(vbFilter.trangThai && v.trangThai!==vbFilter.trangThai) return false;
+    if(vbFilter.trangThai && vbNormTrangThai(v.trangThai)!==vbFilter.trangThai) return false;
     if(vbFilter.nguoiSoan && !(v.nguoiSoan||"").toLowerCase().includes(vbFilter.nguoiSoan.toLowerCase())) return false;
     if(vbFilter.tu && v.ngayLap && v.ngayLap < vbFilter.tu) return false;
     if(vbFilter.den && v.ngayLap && v.ngayLap > vbFilter.den) return false;
@@ -22933,8 +23124,9 @@ function vbToKanbanStatus(trangThai){
 function vbSoNgayXuLy(v){
   if(!v || !v.ngayLap) return null;
   const start = new Date(v.ngayLap);
-  const isDone = (v.trangThai==="Đã phản hồi" || v.trangThai==="Lưu trữ");
-  const end = (isDone && v.ngayGui) ? new Date(v.ngayGui) : new Date(todayISO());
+  const isDone = VB_TRANG_THAI_DA_XONG.includes(vbNormTrangThai(v.trangThai||"Đang soạn"));
+  // Ưu tiên ngày hoàn thành đã lưu (chính xác nhất) -> ngày gửi -> hôm nay (nếu bản ghi cũ chưa có ngày hoàn thành)
+  const end = isDone ? new Date(v.ngayHoanThanh || v.ngayGui || todayISO()) : new Date(todayISO());
   const days = Math.max(0, Math.round((end-start)/(1000*60*60*24)));
   return { days, isDone };
 }
@@ -22957,21 +23149,28 @@ function renderVanBan(){
   const ngayXuLyTB = soDaXong ? Math.round((tongNgayXuLyDaXong/soDaXong)*10)/10 : null;
   return `
   ${cardOpen('vb-form', editingVBId?'Sửa văn bản':'Ghi nhận văn bản mới', 'Dùng chung cho MỌI loại giấy đề nghị (Điều động nhân lực, cấp vật tư, sửa chữa thiết bị, hội chẩn…) — giúp thống kê tập trung, không phụ thuộc mẫu riêng của từng người.')}
+    <div class="ddnl-grid2">
+      <div class="ddnl-field" style="position:relative;">
+        <label>Thể loại văn bản * <span class="ddnl-hint" style="font-weight:400;">(quyết định TIÊU ĐỀ in trên văn bản — GIẤY ĐỀ NGHỊ / TỜ TRÌNH / CÔNG VĂN…)</span></label>
+        <input type="text" id="ddnlVB_hinhThuc" autocomplete="off" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(draftVB.hinhThucVB)}">
+      </div>
+      <div class="ddnl-field">
+        <label>Về việc <span class="ddnl-hint" style="font-weight:400;">(mô tả ngắn gọn nội dung cụ thể, in nghiêng dưới tiêu đề)</span></label>
+        <input type="text" id="ddnlVB_veViec" placeholder="VD: Về việc bổ sung trang thiết bị phục vụ phẫu thuật tim năm 2026" value="${esc(draftVB.veViec)}">
+      </div>
+    </div>
     <div class="ddnl-grid3">
       <div class="ddnl-field" style="position:relative;">
-        <label>Loại văn bản * <span class="ddnl-hint" style="font-weight:400;">(bấm vào ô để xem cả danh sách, gõ để lọc nhanh)</span></label>
+        <label>Nơi gửi (thống kê) * <span class="ddnl-hint" style="font-weight:400;">(bộ phận/nơi văn bản này hướng đến — dùng để phân nhóm/thống kê nội bộ, KHÔNG in làm tiêu đề)</span></label>
         <input type="text" id="ddnlVB_loai" autocomplete="off" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(draftVB.loaiVanBan)}">
       </div>
       <div class="ddnl-field">
         <label>Số văn bản <span class="ddnl-hint" style="font-weight:400;">(tự động, chạy chung toàn khoa)</span></label>
         <input type="text" id="ddnlVB_so" placeholder="Tự động sinh số" value="${esc(editingVBId ? draftVB.soVanBan : (draftVB.soVanBan || vbNextSoVanBan(draftVB.ngayLap)))}" ${isAdmin()?'':'readonly'} title="${isAdmin()?'Admin có thể sửa tay nếu cần (VD: nhập bù văn bản cũ).':'Số tự động — chỉ Admin mới sửa tay được.'}">
       </div>
-      <div class="ddnl-field">
-        <label>Người soạn * <span class="ddnl-hint" style="font-weight:400;">(gõ để tìm nhanh)</span></label>
-        <input type="text" id="ddnlVB_nguoiSoan" list="ddnlVBEmpList" placeholder="Gõ tên để tìm…" value="${esc(draftVB.nguoiSoan)}">
-        <datalist id="ddnlVBEmpList">
-          ${config.employees.map(e=>`<option value="${esc(e.ten)}">`).join("")}
-        </datalist>
+      <div class="ddnl-field" style="position:relative;">
+        <label>Người soạn * <span class="ddnl-hint" style="font-weight:400;">(bấm để xem cả danh sách, gõ để lọc nhanh)</span></label>
+        <input type="text" id="ddnlVB_nguoiSoan" autocomplete="off" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(draftVB.nguoiSoan)}">
       </div>
     </div>
     <div class="ddnl-grid3">
@@ -22980,7 +23179,7 @@ function renderVanBan(){
       <div class="ddnl-field">
         <label>Trạng thái</label>
         <select id="ddnlVB_trangThai">
-          ${VB_TRANG_THAI.map(tt=>`<option value="${tt}" ${tt===draftVB.trangThai?"selected":""}>${tt}</option>`).join("")}
+          ${VB_TRANG_THAI.map(tt=>`<option value="${tt}" ${tt===vbNormTrangThai(draftVB.trangThai)?"selected":""}>${tt}</option>`).join("")}
         </select>
       </div>
     </div>
@@ -22992,6 +23191,18 @@ function renderVanBan(){
           ${(config.signers||[]).map(s=>`<option value="${esc(s.ten)}" ${s.ten===draftVB.nguoiKy?"selected":""}>${esc(s.ten)} — ${esc(s.chucDanh)}</option>`).join("")}
         </select>
       </div>
+    </div>
+    <div class="ddnl-grid2">
+      <div class="ddnl-field">
+        <label>Nhãn "Người lập bảng" <span class="ddnl-hint" style="font-weight:400;">(tùy chỉnh tự do — mặc định NGƯỜI LẬP BẢNG)</span></label>
+        <input type="text" id="ddnlVB_nguoiLapLabel" placeholder="NGƯỜI LẬP BẢNG" value="${esc(draftVB.nguoiLapLabel||"")}">
+      </div>
+      <div class="ddnl-field">
+        <label>Chức danh người ký <span class="ddnl-hint" style="font-weight:400;">(tùy chỉnh tự do — VD: Trưởng khoa Ngoại, để trống = lấy theo Danh mục Người ký)</span></label>
+        <input type="text" id="ddnlVB_chucDanhKy" placeholder="Để trống = lấy tự động theo Người ký đã chọn" value="${esc(draftVB.chucDanhKy||"")}">
+      </div>
+    </div>
+    <div class="ddnl-grid2">
       <div class="ddnl-field">
         <label>Chọn mẫu văn bản có sẵn <span class="ddnl-hint" style="font-weight:400;">(tùy chọn)</span></label>
         <div style="display:flex;gap:8px;">
@@ -23003,13 +23214,15 @@ function renderVanBan(){
         </div>
         <div class="ddnl-hint" style="margin-top:4px;">Tải mẫu về, soạn trên Word/Excel, rồi tải file đã soạn xong lên ở ô bên dưới.</div>
         ${!draftVB.mauDangChon ? `<div style="margin-top:10px;border:1px dashed var(--ddnl-line);border-radius:8px;padding:10px;">
-          <div class="ddnl-hint" style="font-weight:700;color:var(--ddnl-navy);margin-bottom:6px;">Không có mẫu? Chọn 1 trong 2 cách soạn:</div>
+          <div class="ddnl-hint" style="font-weight:700;color:var(--ddnl-navy);margin-bottom:6px;">Không có mẫu? Chọn 1 trong 3 cách soạn:</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnTaoFileWordMoi">📄 Soạn NGOÀI Word (mở bằng Microsoft Word thật)</button>
+            <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnTaoFileExcelMoi">📊 Soạn bằng Excel (mở bằng Microsoft Excel thật)</button>
             <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnSoanNoiDung">📝 ${draftVB.noiDungSoan?'Sửa nội dung đã soạn TRONG app':'Soạn NGAY trong ứng dụng (không cần mở Word)'}</button>
           </div>
           <div class="ddnl-hint" style="margin-top:6px;">
-            • <b>Soạn ngoài Word</b>: tải về 1 file .doc đã sẵn thể thức, mở bằng Word ngoài máy để soạn, xong tải file lên lại ở ô bên dưới.<br>
+            • <b>Soạn ngoài Word</b>: tải về 1 file .rtf đã sẵn thể thức (mở bằng Word ngoài máy y như file .docx bình thường, không bị chặn bởi cảnh báo bảo mật), soạn xong tải file lên lại ở ô bên dưới.<br>
+            • <b>Soạn bằng Excel</b>: tải về 1 file .xls đã sẵn thể thức + khung bảng, phù hợp khi nội dung là bảng biểu/danh sách, mở bằng Excel ngoài máy để soạn, xong tải file lên lại ở ô bên dưới.<br>
             • <b>Soạn ngay trong app</b>: gõ trực tiếp trong 1 khung như trang Word ngay tại đây, không cần mở phần mềm nào khác, bấm Lưu là xong.
           </div>
           ${draftVB.noiDungSoan?`<div style="margin-top:6px;"><span class="ddnl-hint" style="color:#1B5E20;font-weight:600;">✓ Đã soạn nội dung trong app — sẽ tự in kèm khi Ghi nhận/Xuất Word</span> <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaNoiDungSoan" style="margin-left:8px;">Xóa nội dung</button></div>`:``}
@@ -23025,18 +23238,45 @@ function renderVanBan(){
       </div>
     </div>
     <div class="ddnl-field"><label>Tóm tắt nội dung</label><textarea id="ddnlVB_tomTat" rows="2" style="width:100%;resize:vertical;" placeholder="Tóm tắt ngắn gọn nội dung văn bản…">${esc(draftVB.tomTat)}</textarea></div>
+    ${(vbHangMucExpanded || (draftVB.hangMucDeNghi&&draftVB.hangMucDeNghi.length)) ? `
+    <div class="ddnl-field">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <label style="margin:0;">Các hạng mục đề nghị cụ thể <span class="ddnl-hint" style="font-weight:400;">(chỉ dùng khi thật sự cần theo dõi RIÊNG từng món trong 1 tờ đề nghị — phần lớn trường hợp không cần, có thể bỏ qua)</span></label>
+        <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnHideHangMuc" style="flex:none;">Ẩn mục này</button>
+      </div>
+      <div class="ddnl-rows-wrap" style="max-height:260px;overflow-y:auto;margin-bottom:8px;margin-top:6px;">
+      <table>
+        <thead><tr><th>Nội dung hạng mục</th><th style="width:170px;">Trạng thái</th><th style="width:60px;"></th></tr></thead>
+        <tbody>
+          ${(draftVB.hangMucDeNghi||[]).map((hm,hi)=>`<tr>
+            <td><input type="text" class="ddnl-hangmuc-noidung" data-hm-idx="${hi}" value="${esc(hm.noiDung)}" style="width:100%;" placeholder="VD: 02 máy gây mê kèm giúp thở"></td>
+            <td><select class="ddnl-hangmuc-trangthai" data-hm-idx="${hi}">
+              ${HANG_MUC_TRANG_THAI.map(tt=>`<option value="${tt}" ${tt===hm.trangThai?"selected":""}>${tt}</option>`).join("")}
+            </select></td>
+            <td><button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-hangmuc="${hi}">Xóa</button></td>
+          </tr>`).join("") || `<tr><td colspan="3" class="ddnl-hint" style="text-align:center;padding:10px;">Chưa khai hạng mục nào.</td></tr>`}
+        </tbody>
+      </table>
+      </div>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnAddHangMuc">+ Thêm hạng mục</button>
+      <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnAutoHangMuc" style="margin-left:6px;">⚡ Lấy hạng mục tự động (từ Tóm tắt, mỗi dòng bắt đầu bằng + hoặc -)</button>
+    </div>` : `
+    <div class="ddnl-field">
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnShowHangMuc">▶ Cần theo dõi riêng từng món trong đề nghị này? (tùy chọn — bấm để mở, đa số trường hợp không cần)</button>
+    </div>`}
+    <div class="ddnl-field"><label>Ghi chú tiến độ xử lý <span class="ddnl-hint" style="font-weight:400;">(VD: Đã cấp 02 monitor, còn thiếu 10 bơm tiêm điện, phòng VTYT hẹn tuần sau)</span></label><textarea id="ddnlVB_ghiChuTienDo" rows="2" style="width:100%;resize:vertical;" placeholder="Ghi cụ thể đã giải quyết tới đâu, còn thiếu gì, hẹn khi nào…">${esc(draftVB.ghiChuTienDo)}</textarea></div>
     <div class="ddnl-grid2">
       <div class="ddnl-field"><label>Link file đính kèm (ảnh chụp / Drive / văn bản đã ký)</label><input type="text" id="ddnlVB_link" placeholder="Dán link…" value="${esc(draftVB.dinhKemLink)}"></div>
       <div class="ddnl-field"><label>Ghi chú</label><input type="text" id="ddnlVB_ghiChu" value="${esc(draftVB.ghiChu)}"></div>
     </div>
     <div class="ddnl-field" id="ddnlVBUploadBlock">
-      <label>Bước 2 — Tải lên file văn bản ĐÃ SOẠN XONG (Word/Excel/PDF…) <span class="ddnl-hint" style="font-weight:400;">(tùy chọn, tối đa 5MB)</span></label>
-      <div class="ddnl-hint" style="margin-bottom:6px;">Soạn xong bên Word (Ctrl+S để lưu), quay lại đây chọn đúng file vừa lưu rồi bấm "Tải lên" — sau đó bấm "Ghi nhận văn bản" ở cuối để lưu vào danh sách.</div>
+      <label>Bước 2 — Tải lên file văn bản ĐÃ SOẠN XONG (Word/Excel/PDF…) <span class="ddnl-hint" style="font-weight:400;">(TÙY CHỌN — chỉ dùng nếu soạn ở Word/Excel bên ngoài, tối đa 5MB/file, có thể tải NHIỀU file)</span></label>
+      <div class="ddnl-hint" style="margin-bottom:6px;">${draftVB.noiDungSoan ? '✓ Anh đã soạn nội dung trong app rồi (mục phía trên) — <b>có thể BỎ QUA bước này</b>, kéo xuống bấm thẳng "Ghi nhận văn bản" là xong, không cần chọn/tải file gì thêm ở đây.' : 'Soạn xong bên Word (Ctrl+S để lưu), quay lại đây chọn file vừa lưu rồi bấm "Tải lên" — có thể lặp lại để đính kèm thêm file khác — sau đó bấm "Ghi nhận văn bản" ở cuối để lưu vào danh sách. Nếu không có file nào cần đính kèm thì cũng bỏ qua bước này luôn.'}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <input type="file" id="ddnlVB_fileInput" style="flex:1;min-width:200px;">
         <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnUploadVBFile" ${uploadingFile?"disabled":""}>${uploadingFile?"Đang tải lên…":"⬆ Tải lên"}</button>
       </div>
-      ${draftVB.dinhKemFile?`<div class="ddnl-hint" style="margin-top:6px;">📎 Đã đính kèm: <strong>${esc(draftVB.dinhKemFile.ten)}</strong> (${formatFileSize(draftVB.dinhKemFile.kichThuoc)}) <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnRemoveVBFile" style="margin-left:8px;">Xóa file</button></div>`:``}
+      ${(draftVB.dinhKemFiles&&draftVB.dinhKemFiles.length) ? draftVB.dinhKemFiles.map((f,fi)=>`<div class="ddnl-hint" style="margin-top:6px;">📎 Đã đính kèm: <strong>${esc(f.ten)}</strong> (${formatFileSize(f.kichThuoc)}) <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-vbfile-draft="${fi}" style="margin-left:8px;">⬇ Tải xuống xem</button> <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-remove-vbfile-draft="${fi}" style="margin-left:4px;">Xóa file</button></div>`).join("") : ``}
     </div>
     <div style="display:flex;gap:10px;">
       <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnSaveVB">${editingVBId?'Lưu thay đổi':'Ghi nhận văn bản'}</button>
@@ -23044,12 +23284,12 @@ function renderVanBan(){
     </div>
   ${cardClose()}
 
-  ${cardOpen('vb-list', 'Danh sách văn bản đi', vbScopeAll ? `Đang xem TOÀN KHOA — ${list.length} / ${vbRecords.length} văn bản.` : `Đang xem văn bản DO BẠN soạn (${esc(currentUserName||"chưa chọn tên")}) — ${list.length} / ${vbRecords.length} văn bản. Bật "Xem toàn khoa" để xem của mọi người.`)}
+  ${cardOpen('vb-list', 'Danh sách văn bản đi', isAdmin() ? (vbScopeAll ? `🔓 Admin — đang xem TOÀN KHOA — ${list.length} / ${vbRecords.length} văn bản.` : `🔓 Admin — đang thu hẹp xem theo "${esc(currentUserName||"chưa chọn tên")}" — ${list.length} / ${vbRecords.length} văn bản.`) : `🔒 Bạn chỉ xem được văn bản do CHÍNH MÌNH soạn (${esc(currentUserName||"")}) — ${list.length} văn bản.`)}
     <div class="ddnl-toolbar">
-      <label class="ddnl-chk" style="margin:0;"><input type="checkbox" id="ddnlVBChkScopeAll" ${vbScopeAll?"checked":""}> <span>Xem toàn khoa${isAdmin()?" (khuyến nghị cho quản lý)":""}</span></label>
+      ${isAdmin()?`<label class="ddnl-chk" style="margin:0;"><input type="checkbox" id="ddnlVBChkScopeAll" ${vbScopeAll?"checked":""}> <span>Xem toàn khoa (khuyến nghị cho quản lý)</span></label>`:``}
       <div class="ddnl-field" style="min-width:220px;"><label>🔍 Tìm nhanh</label><input type="text" id="ddnlVBFl_keyword" placeholder="Số VB, tóm tắt, ghi chú…" value="${esc(vbFilter.keyword||"")}"></div>
       <div class="ddnl-field" style="position:relative;">
-        <label>Loại văn bản <span class="ddnl-hint" style="font-weight:400;">(bấm để xem cả danh sách, gõ để lọc, để trống = tất cả)</span></label>
+        <label>Nơi gửi <span class="ddnl-hint" style="font-weight:400;">(bấm để xem cả danh sách, gõ để lọc, để trống = tất cả)</span></label>
         <input type="text" id="ddnlVBFl_loai" autocomplete="off" placeholder="Tất cả" value="${esc(vbFilter.loai||"")}">
       </div>
       <div class="ddnl-field">
@@ -23067,7 +23307,7 @@ function renderVanBan(){
     ${list.length===0?`<div class="ddnl-empty"><div class="ddnl-big">🗂️</div>Chưa có văn bản nào phù hợp bộ lọc.</div>`:`
     <div class="ddnl-rows-wrap"><table>
       <thead><tr>
-        <th>Số VB</th><th>Loại văn bản</th><th>Người soạn</th><th>Người ký</th><th>Nơi nhận</th><th>Ngày lập</th><th>Ngày gửi</th><th>Số ngày xử lý</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th>
+        <th>Số VB</th><th>Nơi gửi</th><th>Về việc</th><th>Người soạn</th><th>Người ký</th><th>Nơi nhận</th><th>Ngày lập</th><th>Ngày gửi</th><th>Số ngày xử lý</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th>
       </tr></thead>
       <tbody>
         ${list.map(v=>{
@@ -23082,6 +23322,7 @@ function renderVanBan(){
           return `<tr>
           <td>${esc(v.soVanBan||"")}</td>
           <td>${esc(v.loaiVanBan||"")}</td>
+          <td>${esc(v.veViec||"")}</td>
           <td>${esc(v.nguoiSoan||"")}</td>
           <td>${esc(v.nguoiKy||"")}</td>
           <td>${esc((v.noiNhan||[]).join(", "))}</td>
@@ -23090,10 +23331,10 @@ function renderVanBan(){
           <td>${xlHtml}</td>
           <td>
             <select class="ddnl-vb-status-inline" data-vb-status="${v.id}">
-              ${VB_TRANG_THAI.map(tt=>`<option value="${tt}" ${tt===v.trangThai?"selected":""}>${tt}</option>`).join("")}
+              ${VB_TRANG_THAI.map(tt=>`<option value="${tt}" ${tt===vbNormTrangThai(v.trangThai)?"selected":""}>${tt}</option>`).join("")}
             </select>
           </td>
-          <td>${esc(v.ghiChu||"")}${v.dinhKemLink?`<br><a href="${esc(v.dinhKemLink)}" target="_blank" rel="noopener" style="font-size:11px;">Xem file đính kèm</a>`:""}${v.dinhKemFile?`<br><button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-vbfile="${v.id}" style="margin-top:2px;font-size:11px;padding:2px 8px;">📎 ${esc(v.dinhKemFile.ten)}</button>`:""}</td>
+          <td>${esc(v.ghiChu||"")}${v.dinhKemLink?`<br><a href="${esc(v.dinhKemLink)}" target="_blank" rel="noopener" style="font-size:11px;">Xem file đính kèm</a>`:""}${vbGetFiles(v).map((f,fi)=>`<br><button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-vbfile="${v.id}" data-dl-vbfile-idx="${fi}" style="margin-top:2px;font-size:11px;padding:2px 8px;">📎 ${esc(f.ten)}</button>`).join("")}</td>
           <td>
             <div class="ddnl-list-actions">
               ${(isAdmin() || v.nguoiSoan===currentUserName) ? `<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-vb="${v.id}">Sửa</button>` : `<span class="ddnl-hint">(của người khác)</span>`}
@@ -23111,6 +23352,113 @@ function renderVanBan(){
     </table></div>
     `}
   ${cardClose()}
+
+  ${(function(){
+    // Phạm vi giống danh sách chính (User chỉ thấy của mình; Admin xem theo vbScopeAll) nhưng KHÔNG áp
+    // dụng các bộ lọc tìm kiếm khác — mục đích là 1 bảng riêng luôn hiện đủ mọi việc còn tồn đọng.
+    const pending = vbRecords.filter(v=>{
+      if(!isAdmin()){ if(v.nguoiSoan!==currentUserName) return false; }
+      else if(!vbScopeAll && currentUserName && v.nguoiSoan!==currentUserName){ return false; }
+      return !VB_TRANG_THAI_DA_XONG.includes(vbNormTrangThai(v.trangThai||"Đang soạn"));
+    }).map(v=>{
+      const mocThoiGian = v.ngayGui || v.ngayLap || todayISO();
+      const soNgayCho = Math.max(0, Math.round((new Date(todayISO()) - new Date(mocThoiGian)) / 86400000));
+      return { v, soNgayCho };
+    }).sort((a,b)=>b.soNgayCho-a.soNgayCho);
+    const NGUONG_CANH_BAO = 15;
+    // Màu nhãn trạng thái dạng "viên thuốc" — giống phong cách bảng "Báo cáo khẩn cấp" ở Giao ban sáng
+    const mauTrangThai = {
+      "Đang soạn": "#78909c",
+      "Đã gửi — chờ phản hồi": "#f9a825",
+      "Đã phản hồi một phần": "#fb8c00"
+    };
+    return `
+  ${cardOpen('vb-tracking', '🕐 Bảng theo dõi tiến độ xử lý', 'Chỉ hiện những văn bản CHƯA hoàn thành — sắp xếp việc chờ lâu nhất lên đầu, viền đỏ nếu chờ quá '+NGUONG_CANH_BAO+' ngày, để dễ biết cái nào cần thúc giục.')}
+    <div class="ddnl-rows-wrap" style="max-height:460px;overflow-y:auto;">
+    <table>
+      <thead><tr><th style="width:36px;">#</th><th>Số VB</th><th>Nơi gửi</th><th>Về việc</th><th>Nơi nhận</th><th>Ngày gửi</th><th>Số ngày chờ</th><th>Trạng thái</th><th>Ghi chú tiến độ</th><th>Thao tác</th></tr></thead>
+      <tbody>
+        ${pending.length ? pending.map(({v,soNgayCho},idx)=>{
+          const canhBao = soNgayCho > NGUONG_CANH_BAO;
+          const tt = vbNormTrangThai(v.trangThai||"Đang soạn");
+          const mau = mauTrangThai[tt] || "#616161";
+          const coFile = vbGetFiles(v).length > 0;
+          const suaDuoc = isAdmin() || v.nguoiSoan===currentUserName;
+          return `<tr style="${canhBao?'background:#fdecea;border-left:4px solid #d32f2f;':'border-left:4px solid transparent;'}">
+            <td style="color:var(--ddnl-ink-soft);">${idx+1}</td>
+            <td>${esc(v.soVanBan||"")}</td>
+            <td>${esc(v.loaiVanBan||"")}</td>
+            <td>${esc(v.veViec||"")}</td>
+            <td>${esc((v.noiNhan||[]).join(", "))}</td>
+            <td>${v.ngayGui?esc(v.ngayGui.split("-").reverse().join("/")):`<span class="ddnl-hint">Chưa gửi</span>`}</td>
+            <td style="font-weight:700;${canhBao?'color:#b00020;':''}">${soNgayCho} ngày${canhBao?' ⚠':''}</td>
+            <td>
+              ${suaDuoc ? `<select class="ddnl-tracking-trangthai" data-vb-id="${v.id}" style="border:none;border-radius:999px;padding:3px 8px;font-size:11.5px;font-weight:700;color:#fff;background:${mau};">
+                ${VB_TRANG_THAI.map(x=>`<option value="${x}" ${x===tt?"selected":""} style="color:#000;background:#fff;">${x}</option>`).join("")}
+              </select>` : `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;color:#fff;background:${mau};white-space:nowrap;">${esc(tt)}</span>`}
+            </td>
+            <td>${esc(v.ghiChuTienDo||"")}</td>
+            <td style="white-space:nowrap;">
+              <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-exportword="${v.id}" title="Xuất bản Word đúng thể thức từ nội dung mới nhất đã ghi nhận">📄 Xuất Word</button>
+              ${coFile ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-dlfile="${v.id}" title="Xem file gốc đã đính kèm (nếu có soạn ngoài Word)" style="margin-left:4px;">📎 File đính kèm</button>` : ``}
+              ${suaDuoc ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-edit="${v.id}" style="margin-left:4px;">Sửa</button>` : ``}
+            </td>
+          </tr>`;
+        }).join("") : `<tr><td colspan="10" class="ddnl-hint" style="text-align:center;padding:14px;">🎉 Không còn việc nào tồn đọng — tất cả đã hoàn thành/từ chối/lưu trữ.</td></tr>`}
+      </tbody>
+    </table>
+    </div>
+  ${cardClose()}
+  `;
+  })()}
+
+  ${(function(){
+    const scoped = vbRecords.filter(v=>{
+      if(!isAdmin()){ return v.nguoiSoan===currentUserName; }
+      if(!vbScopeAll && currentUserName){ return v.nguoiSoan===currentUserName; }
+      return true;
+    });
+    const rows = [];
+    scoped.forEach(v=>{
+      (v.hangMucDeNghi||[]).forEach((hm,hi)=>{
+        if(hm && hm.noiDung) rows.push({ v, hi, hm });
+      });
+    });
+    rows.sort((a,b)=>{
+      const aXong = HANG_MUC_TRANG_THAI_DA_XONG.includes(a.hm.trangThai);
+      const bXong = HANG_MUC_TRANG_THAI_DA_XONG.includes(b.hm.trangThai);
+      if(aXong!==bXong) return aXong?1:-1; // việc chưa xong lên trước
+      return (b.v.ngayLap||"").localeCompare(a.v.ngayLap||"");
+    });
+    const mauHangMuc = { "Chưa xử lý":"#78909c", "Đã cấp một phần":"#fb8c00", "Đã cấp đủ":"#2e7d32", "Từ chối":"#b00020" };
+    return `
+  ${cardOpen('vb-hangmuc', '📋 Bảng tổng hợp theo hạng mục đề nghị', 'Tách từng món cụ thể trong các đề nghị ra 1 dòng riêng, để theo dõi TỪNG MÓN đã giải quyết hay chưa (thay vì chỉ theo dõi cả tờ đề nghị chung chung).')}
+    <div class="ddnl-rows-wrap" style="max-height:460px;overflow-y:auto;">
+    <table>
+      <thead><tr><th style="width:36px;">#</th><th>Ngày đề nghị</th><th>Người gửi</th><th>Số VB</th><th>Nội dung đề nghị</th><th style="width:170px;">Trạng thái</th></tr></thead>
+      <tbody>
+        ${rows.length ? rows.map(({v,hi,hm},idx)=>{
+          const xong = HANG_MUC_TRANG_THAI_DA_XONG.includes(hm.trangThai);
+          const mau = mauHangMuc[hm.trangThai] || "#616161";
+          return `<tr style="${xong?'':'background:#fff8e1;'}">
+            <td style="color:var(--ddnl-ink-soft);">${idx+1}</td>
+            <td>${v.ngayLap?esc(v.ngayLap.split("-").reverse().join("/")):""}</td>
+            <td>${esc(v.nguoiSoan||"")}</td>
+            <td>${esc(v.soVanBan||"")}</td>
+            <td>${esc(hm.noiDung)}</td>
+            <td>
+              ${(isAdmin()||v.nguoiSoan===currentUserName) ? `<select class="ddnl-hangmuc-update" data-vb-id="${v.id}" data-hm-idx="${hi}" style="border:none;border-radius:999px;padding:3px 8px;font-size:11.5px;font-weight:700;color:#fff;background:${mau};">
+                ${HANG_MUC_TRANG_THAI.map(tt=>`<option value="${tt}" ${tt===hm.trangThai?"selected":""} style="color:#000;background:#fff;">${tt}</option>`).join("")}
+              </select>` : `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;color:#fff;background:${mau};">${esc(hm.trangThai)}</span>`}
+            </td>
+          </tr>`;
+        }).join("") : `<tr><td colspan="6" class="ddnl-hint" style="text-align:center;padding:14px;">Chưa có văn bản nào khai hạng mục cụ thể. Vào "Ghi nhận văn bản mới" → mục "Các hạng mục đề nghị cụ thể" để bắt đầu khai.</td></tr>`}
+      </tbody>
+    </table>
+    </div>
+  ${cardClose()}
+  `;
+  })()}
 
   ${cardOpen('vb-stats', 'Thống kê nhanh (theo bộ lọc đang áp dụng)', 'Tổng hợp theo loại văn bản, người soạn, trạng thái và thời gian xử lý.')}
     <div class="ddnl-grid3" style="margin-bottom:14px;">
@@ -23132,7 +23480,7 @@ function renderVanBan(){
     </div>
     <div class="ddnl-grid3">
       <div>
-        <strong>Theo loại văn bản</strong>
+        <strong>Theo nơi gửi</strong>
         <table style="margin-top:6px;"><tbody>
           ${Object.keys(byLoai).length?Object.keys(byLoai).map(k=>`<tr><td>${esc(k)}</td><td style="text-align:right;font-weight:600;">${byLoai[k]}</td></tr>`).join(""):`<tr><td colspan="2" style="color:var(--ddnl-ink-soft);">Không có dữ liệu</td></tr>`}
         </tbody></table>
@@ -23177,10 +23525,10 @@ function bindVanBanEvents(){
   // Combo box tự viết: bấm vào ô -> hiện ĐỦ danh sách (kể cả khi ô đã có giá trị / chưa gõ gì),
   // gõ vào thì lọc dần theo chữ đang gõ — khắc phục hạn chế của <input list="datalist"> chỉ hiện
   // gợi ý khớp với giá trị đang có, khiến người dùng "quên tên" không xem lại được cả danh sách.
-  function buildComboPanel(input, options, onPick){
+  function buildComboPanel(input, options, onPick, showAll){
     let panel = document.getElementById(input.id+'_panel');
     if(panel) panel.remove();
-    const q = input.value.trim().toLowerCase();
+    const q = showAll ? "" : input.value.trim().toLowerCase();
     const filtered = options.filter(o=>!q || o.toLowerCase().includes(q));
     panel = document.createElement('div');
     panel.id = input.id+'_panel';
@@ -23197,14 +23545,16 @@ function bindVanBanEvents(){
     const input = document.getElementById(inputId);
     if(!input) return;
     input.autocomplete = 'off';
-    input.addEventListener('focus', ()=> buildComboPanel(input, getOptions(), onPick));
-    input.addEventListener('click', ()=> buildComboPanel(input, getOptions(), onPick));
-    input.addEventListener('input', ()=>{ onPick(input.value); buildComboPanel(input, getOptions(), onPick); });
+    input.addEventListener('focus', ()=> buildComboPanel(input, getOptions(), onPick, true));
+    input.addEventListener('click', ()=> buildComboPanel(input, getOptions(), onPick, true));
+    input.addEventListener('input', ()=>{ onPick(input.value); buildComboPanel(input, getOptions(), onPick, false); });
     input.addEventListener('blur', ()=>{ setTimeout(()=>{ const p=document.getElementById(inputId+'_panel'); if(p) p.remove(); }, 150); });
   }
   setupComboField('ddnlVB_loai', ()=>(config.docTypes&&config.docTypes.length?config.docTypes:SEED_DOC_TYPES), (val)=>{ draftVB.loaiVanBan = val; });
+  setupComboField('ddnlVB_hinhThuc', ()=>(config.hinhThucVB&&config.hinhThucVB.length?config.hinhThucVB:SEED_HINH_THUC_VB), (val)=>{ draftVB.hinhThucVB = val; });
+  set('ddnlVB_veViec', el=>el.oninput=()=>draftVB.veViec=el.value);
   set('ddnlVB_so', el=>el.oninput=()=>draftVB.soVanBan=el.value);
-  set('ddnlVB_nguoiSoan', el=>el.oninput=()=>draftVB.nguoiSoan=el.value);
+  setupComboField('ddnlVB_nguoiSoan', ()=>config.employees.map(e=>e.ten), (val)=>{ draftVB.nguoiSoan = val; });
   set('ddnlVB_nguoiKy', el=>el.onchange=()=>draftVB.nguoiKy=el.value);
   set('ddnlVB_maU', el=>el.onchange=()=>draftVB.mauDangChon=el.value);
   set('ddnlVB_ngayLap', el=>el.onchange=()=>draftVB.ngayLap=el.value);
@@ -23213,6 +23563,101 @@ function bindVanBanEvents(){
   set('ddnlVB_tomTat', el=>el.oninput=()=>draftVB.tomTat=el.value);
   set('ddnlVB_link', el=>el.oninput=()=>draftVB.dinhKemLink=el.value);
   set('ddnlVB_ghiChu', el=>el.oninput=()=>draftVB.ghiChu=el.value);
+  set('ddnlVB_ghiChuTienDo', el=>el.oninput=()=>draftVB.ghiChuTienDo=el.value);
+  set('ddnlVB_nguoiLapLabel', el=>el.oninput=()=>draftVB.nguoiLapLabel=el.value);
+  set('ddnlVB_chucDanhKy', el=>el.oninput=()=>draftVB.chucDanhKy=el.value);
+  const showHangMucBtn = document.getElementById('ddnlBtnShowHangMuc');
+  if(showHangMucBtn) showHangMucBtn.onclick = ()=>{ vbHangMucExpanded = true; render(); };
+  const hideHangMucBtn = document.getElementById('ddnlBtnHideHangMuc');
+  if(hideHangMucBtn) hideHangMucBtn.onclick = ()=>{ vbHangMucExpanded = false; render(); };
+  const addHangMucBtn = document.getElementById('ddnlBtnAddHangMuc');
+  if(addHangMucBtn) addHangMucBtn.onclick = ()=>{
+    if(!draftVB.hangMucDeNghi) draftVB.hangMucDeNghi = [];
+    draftVB.hangMucDeNghi.push({ noiDung:"", trangThai: HANG_MUC_TRANG_THAI[0] });
+    render();
+  };
+  const autoHangMucBtn = document.getElementById('ddnlBtnAutoHangMuc');
+  if(autoHangMucBtn) autoHangMucBtn.onclick = ()=>{
+    // Gom nguồn text để dò: Tóm tắt nội dung (gõ tay) + nội dung đã soạn trong app (nếu có, bỏ thẻ HTML)
+    let nguon = draftVB.tomTat || "";
+    if(draftVB.noiDungSoan){
+      const tmp = document.createElement('div');
+      tmp.innerHTML = draftVB.noiDungSoan;
+      nguon += "\n" + (tmp.textContent || "");
+    }
+    const dongDaCo = new Set((draftVB.hangMucDeNghi||[]).map(hm=>hm.noiDung.trim().toLowerCase()));
+    const dongMoi = nguon.split(/\n|<br\s*\/?>/i)
+      .map(d=>d.trim())
+      .filter(d=>/^[+\-•]/.test(d))
+      .map(d=>d.replace(/^[+\-•]\s*/, '').trim())
+      .filter(d=>d && !dongDaCo.has(d.toLowerCase()));
+    if(!dongMoi.length){
+      alert('Không tìm thấy dòng nào bắt đầu bằng dấu "+" hoặc "-" trong Tóm tắt nội dung. Anh gõ mỗi hạng mục 1 dòng riêng, bắt đầu bằng dấu "+" (VD: "+ 02 máy gây mê kèm giúp thở") rồi bấm lại nút này.');
+      return;
+    }
+    if(!draftVB.hangMucDeNghi) draftVB.hangMucDeNghi = [];
+    dongMoi.forEach(d=> draftVB.hangMucDeNghi.push({ noiDung: d, trangThai: HANG_MUC_TRANG_THAI[0] }));
+    render();
+  };
+  document.querySelectorAll('.ddnl-hangmuc-noidung').forEach(inp=>{
+    inp.oninput = ()=>{ draftVB.hangMucDeNghi[Number(inp.dataset.hmIdx)].noiDung = inp.value; };
+  });
+  document.querySelectorAll('.ddnl-hangmuc-trangthai').forEach(sel=>{
+    sel.onchange = ()=>{ draftVB.hangMucDeNghi[Number(sel.dataset.hmIdx)].trangThai = sel.value; };
+  });
+  document.querySelectorAll('[data-del-hangmuc]').forEach(b=>b.onclick=()=>{
+    draftVB.hangMucDeNghi.splice(Number(b.dataset.delHangmuc),1);
+    render();
+  });
+  document.querySelectorAll('.ddnl-hangmuc-update').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const vbId = sel.dataset.vbId, idx = Number(sel.dataset.hmIdx);
+      const v = vbRecords.find(x=>x.id===vbId);
+      if(!v) return;
+      const arr = (v.hangMucDeNghi||[]).map(hm=>({...hm}));
+      if(!arr[idx]) return;
+      arr[idx].trangThai = sel.value;
+      await ddVanBanRef.child(vbId).update({ hangMucDeNghi: arr, updatedAt: Date.now() }).catch(()=>alert("Không cập nhật được, kiểm tra kết nối mạng."));
+    };
+  });
+  // ---- Bảng theo dõi tiến độ xử lý: đổi trạng thái / xem file / xuất Word / sửa ngay tại bảng ----
+  document.querySelectorAll('.ddnl-tracking-trangthai').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const vbId = sel.dataset.vbId;
+      const v = vbRecords.find(x=>x.id===vbId);
+      if(VB_TRANG_THAI_DA_XONG.includes(sel.value)){
+        promptNgayHoanThanhVaLuu(vbId, sel.value, ()=>{
+          if(v && v.linkedCardId && typeof cardsRef!=='undefined'){
+            cardsRef.child(String(v.linkedCardId)).update({ status: vbToKanbanStatus(sel.value) }).catch(()=>{});
+          }
+        });
+        return;
+      }
+      await ddVanBanRef.child(vbId).update({ trangThai: sel.value, updatedAt: Date.now() }).catch(()=>alert("Không cập nhật được trạng thái."));
+      if(v && v.linkedCardId && typeof cardsRef!=='undefined'){
+        cardsRef.child(String(v.linkedCardId)).update({ status: vbToKanbanStatus(sel.value) }).catch(()=>{});
+      }
+    };
+  });
+  document.querySelectorAll('[data-track-dlfile]').forEach(b=>b.onclick=async ()=>{
+    const v = vbRecords.find(x=>x.id===b.dataset.trackDlfile);
+    if(!v) return;
+    const files = vbGetFiles(v);
+    for(const f of files){ await downloadDocTemplateFile(f); }
+  });
+  document.querySelectorAll('[data-track-exportword]').forEach(b=>b.onclick=()=>{
+    const v = vbRecords.find(x=>x.id===b.dataset.trackExportword);
+    if(v) exportVanBanToWord(v);
+  });
+  document.querySelectorAll('[data-track-edit]').forEach(b=>b.onclick=()=>{
+    const v = vbRecords.find(x=>x.id===b.dataset.trackEdit);
+    if(!v) return;
+    editingVBId = v.id;
+    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
+    render();
+    const card = document.getElementById('ddnlCard_vb-form');
+    if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+  });
   set('ddnlBtnDlMauVB', el=>el.onclick=async ()=>{
     const idx = Number(draftVB.mauDangChon);
     const item = (config.fileVanBan||[])[idx];
@@ -23228,14 +23673,39 @@ function bindVanBanEvents(){
     uploadingFile = true; render();
     const item = await uploadDocTemplateFile(file, "");
     uploadingFile = false;
-    if(item){ draftVB.dinhKemFile = item; }
+    if(item){
+      if(!draftVB.dinhKemFiles) draftVB.dinhKemFiles = [];
+      draftVB.dinhKemFiles.push(item);
+      const fi2 = document.getElementById('ddnlVB_fileInput');
+      if(fi2) fi2.value = "";
+    }
     render();
   });
-  set('ddnlBtnRemoveVBFile', el=>el.onclick=()=>{ draftVB.dinhKemFile = null; render(); });
+  document.querySelectorAll('[data-remove-vbfile-draft]').forEach(b=>b.onclick=()=>{
+    draftVB.dinhKemFiles.splice(Number(b.dataset.removeVbfileDraft), 1);
+    render();
+  });
+  document.querySelectorAll('[data-dl-vbfile-draft]').forEach(b=>b.onclick=async ()=>{
+    const f = draftVB.dinhKemFiles[Number(b.dataset.dlVbfileDraft)];
+    if(!f) return;
+    b.disabled = true; const old = b.textContent; b.textContent = "Đang tải…";
+    await downloadDocTemplateFile(f);
+    b.disabled = false; b.textContent = old;
+  });
   set('ddnlBtnSoanNoiDung', el=>el.onclick=()=>openNoiDungSoanModal());
   set('ddnlBtnXoaNoiDungSoan', el=>el.onclick=()=>{ if(confirm("Xóa nội dung đã soạn trong app?")){ draftVB.noiDungSoan=""; render(); } });
   set('ddnlBtnTaoFileWordMoi', el=>el.onclick=()=>{
     taoFileWordTrongDeSoan();
+    const box = document.getElementById('ddnlVBUploadBlock');
+    if(box){
+      box.scrollIntoView({behavior:'smooth', block:'center'});
+      box.style.transition = 'box-shadow .3s';
+      box.style.boxShadow = '0 0 0 3px #1565C0';
+      setTimeout(()=>{ box.style.boxShadow = 'none'; }, 2500);
+    }
+  });
+  set('ddnlBtnTaoFileExcelMoi', el=>el.onclick=()=>{
+    taoFileExcelTrongDeSoan();
     const box = document.getElementById('ddnlVBUploadBlock');
     if(box){
       box.scrollIntoView({behavior:'smooth', block:'center'});
@@ -23255,16 +23725,20 @@ function bindVanBanEvents(){
     editingVBId = null;
     draftVB = {
       soVanBan: "", loaiVanBan: v.loaiVanBan||"", nguoiSoan: currentUserName || v.nguoiSoan || "",
-      nguoiKy: v.nguoiKy||"", noiNhan: [...(v.noiNhan||[])], ngayLap: todayISO(), ngayGui: "",
-      trangThai: "Đang soạn", tomTat: v.tomTat||"", dinhKemLink: "", ghiChu: "",
-      dinhKemFile: null, mauDangChon: "", noiDungSoan: ""
+      nguoiKy: v.nguoiKy||"", hinhThucVB: v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec: v.veViec||"",
+      noiNhan: [...(v.noiNhan||[])], ngayLap: todayISO(), ngayGui: "",
+      trangThai: "Đang soạn", tomTat: v.tomTat||"", dinhKemLink: "", ghiChu: "", ghiChuTienDo: "",
+      nguoiLapLabel: v.nguoiLapLabel||"", chucDanhKy: v.chucDanhKy||"",
+      hangMucDeNghi: (v.hangMucDeNghi||[]).map(hm=>({ noiDung: hm.noiDung, trangThai: HANG_MUC_TRANG_THAI[0] })),
+      dinhKemFiles: [], mauDangChon: "", noiDungSoan: ""
     };
     render();
     const card = document.getElementById('ddnlCard_vb-form');
     if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
-    if(v.dinhKemFile){
-      await downloadDocTemplateFile(v.dinhKemFile);
-      alert('Đã tải file văn bản cũ về máy — mở ra, chỉnh sửa nhanh phần cần thay đổi, lưu lại rồi tải file đó lên ở mục "Bước 2 — Tải lên file văn bản ĐÃ SOẠN XONG" bên dưới. Các ô khác của phiếu mới đã được điền sẵn theo văn bản cũ, chỉ cần kiểm tra lại rồi bấm "Ghi nhận văn bản".');
+    const oldFiles = vbGetFiles(v);
+    if(oldFiles.length){
+      for(const f of oldFiles){ await downloadDocTemplateFile(f); }
+      alert(`Đã tải ${oldFiles.length} file văn bản cũ về máy — mở ra, chỉnh sửa nhanh phần cần thay đổi, lưu lại rồi tải file lên ở mục "Bước 2 — Tải lên file văn bản ĐÃ SOẠN XONG" bên dưới. Các ô khác của phiếu mới đã được điền sẵn theo văn bản cũ, chỉ cần kiểm tra lại rồi bấm "Ghi nhận văn bản".`);
     } else {
       alert('Văn bản cũ này chưa có file đính kèm để tải về sửa nhanh. Các ô Loại văn bản / Kính gửi / Người ký / Tóm tắt đã được điền sẵn theo văn bản cũ — bấm "Tạo file Word mới" ở trên để có sẵn thể thức rồi soạn tiếp phần nội dung.');
     }
@@ -23277,7 +23751,8 @@ function bindVanBanEvents(){
   });
   set('ddnlBtnSaveVB', el=>el.onclick=async ()=>{
     if(!draftVB.nguoiSoan){ alert("Vui lòng chọn Người soạn."); return; }
-    if(!draftVB.loaiVanBan){ alert("Vui lòng chọn Loại văn bản."); return; }
+    if(!draftVB.hinhThucVB){ alert("Vui lòng chọn Thể loại văn bản (Giấy đề nghị/Tờ trình/Công văn…)."); return; }
+    if(!draftVB.loaiVanBan){ alert("Vui lòng chọn Nơi gửi (mục thống kê)."); return; }
     if(!draftVB.nguoiKy){ alert("Vui lòng chọn Người ký (Trưởng/Phó khoa)."); return; }
     // Văn bản MỚI: nếu chưa có số (trường hợp thường gặp vì ô này tự động, không cho gõ tay
     // với người không phải Admin) thì tự sinh số tại đúng thời điểm lưu — tránh trùng số nếu
@@ -23288,7 +23763,14 @@ function bindVanBanEvents(){
     const rec = { ...draftVB, updatedAt: Date.now() };
     let ok, newKey = null;
     if(editingVBId){
+      const originalRec = vbRecords.find(x=>x.id===editingVBId);
       ok = await ddVanBanRef.child(editingVBId).update(rec).then(()=>true).catch(()=>false);
+      if(ok && isAdmin() && originalRec && originalRec.nguoiSoan !== currentUserName){
+        ddVbAuditRef.push({
+          thoiGian: Date.now(), nguoiThucHien: currentUserName || "Admin", hanhDong: "Sửa",
+          moTa: `${originalRec.soVanBan||editingVBId} (của ${originalRec.nguoiSoan||"?"})`
+        }).catch(()=>{});
+      }
     } else {
       rec.createdAt = Date.now();
       const pushRef = ddVanBanRef.push();
@@ -23307,9 +23789,12 @@ function bindVanBanEvents(){
   set('ddnlBtnCancelEditVB', el=>el.onclick=()=>{ draftVB = newDraftVB(); editingVBId = null; render(); });
   document.querySelectorAll('[data-dl-vbfile]').forEach(b=>b.onclick=async ()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.dlVbfile);
-    if(!v || !v.dinhKemFile) return;
+    if(!v) return;
+    const files = vbGetFiles(v);
+    const f = files[Number(b.dataset.dlVbfileIdx)||0];
+    if(!f) return;
     b.disabled = true; const old = b.textContent; b.textContent = "Đang tải…";
-    await downloadDocTemplateFile(v.dinhKemFile);
+    await downloadDocTemplateFile(f);
     b.disabled = false; b.textContent = old;
   });
   document.querySelectorAll('[data-edit-vb]').forEach(b=>b.onclick=()=>{
@@ -23317,20 +23802,37 @@ function bindVanBanEvents(){
     if(!v) return;
     if(!(isAdmin() || v.nguoiSoan===currentUserName)){ alert("Bạn chỉ có thể sửa văn bản do chính mình soạn. Liên hệ Admin nếu cần sửa văn bản của người khác."); return; }
     editingVBId = v.id;
-    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:v.trangThai||"Đang soạn", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", dinhKemFile:v.dinhKemFile||null, mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
+    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
     render();
+    const cardEditVb = document.getElementById('ddnlCard_vb-form');
+    if(cardEditVb) cardEditVb.scrollIntoView({behavior:'smooth', block:'start'});
   });
   document.querySelectorAll('[data-del-vb]').forEach(b=>b.onclick=async ()=>{
     if(!isAdmin()) return;
     if(!confirm("Xóa văn bản này khỏi sổ theo dõi?")) return;
-    await ddVanBanRef.child(b.dataset.delVb).remove().catch(()=>alert("Không xóa được, kiểm tra kết nối mạng."));
+    const v = vbRecords.find(x=>x.id===b.dataset.delVb);
+    const ok = await ddVanBanRef.child(b.dataset.delVb).remove().then(()=>true).catch(()=>{ alert("Không xóa được, kiểm tra kết nối mạng."); return false; });
+    if(ok && v && v.nguoiSoan !== currentUserName){
+      ddVbAuditRef.push({
+        thoiGian: Date.now(), nguoiThucHien: currentUserName || "Admin", hanhDong: "Xóa",
+        moTa: `${v.soVanBan||b.dataset.delVb} (của ${v.nguoiSoan||"?"})`
+      }).catch(()=>{});
+    }
   });
   document.querySelectorAll('[data-vb-status]').forEach(sel=>{
     sel.onchange = async ()=>{
       const vbId = sel.dataset.vbStatus;
+      const v = vbRecords.find(x=>x.id===vbId);
+      if(VB_TRANG_THAI_DA_XONG.includes(sel.value)){
+        promptNgayHoanThanhVaLuu(vbId, sel.value, ()=>{
+          if(v && v.linkedCardId && typeof cardsRef!=='undefined'){
+            cardsRef.child(String(v.linkedCardId)).update({ status: vbToKanbanStatus(sel.value) }).catch(()=>{});
+          }
+        });
+        return;
+      }
       await ddVanBanRef.child(vbId).update({ trangThai: sel.value, updatedAt: Date.now() }).catch(()=>alert("Không cập nhật được trạng thái."));
       // Nếu văn bản này đã có thẻ Kanban liên kết, tự đồng bộ trạng thái sang thẻ đó
-      const v = vbRecords.find(x=>x.id===vbId);
       if(v && v.linkedCardId && typeof cardsRef!=='undefined'){
         cardsRef.child(String(v.linkedCardId)).update({ status: vbToKanbanStatus(sel.value) }).catch(()=>{});
       }
@@ -23611,6 +24113,43 @@ function closeModal(){
   render();
 }
 
+// Hỏi "Ngày giải quyết xong" khi đổi trạng thái văn bản sang 1 trạng thái ĐÃ XONG
+// (Đã hoàn thành / Từ chối / Lưu trữ) — để tính đúng số ngày xử lý thực tế, không bị tính
+// lố tới hôm nay như văn bản còn đang chờ.
+function promptNgayHoanThanhVaLuu(vbId, trangThaiMoi, onSaved){
+  const existing = document.getElementById('ddnlNgayHTOverlay');
+  if(existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'ddnl-overlay';
+  overlay.id = 'ddnlNgayHTOverlay';
+  overlay.innerHTML = `
+    <div class="ddnl-modal" style="max-width:380px;">
+      <div class="ddnl-modal-head ddnl-no-print">
+        <h3>📅 Ngày giải quyết xong</h3>
+        <button class="ddnl-modal-close" id="ddnlBtnCloseNgayHT">✕</button>
+      </div>
+      <div class="ddnl-modal-body">
+        <div class="ddnl-hint" style="margin-bottom:10px;">Đổi trạng thái sang "${esc(trangThaiMoi)}" — chọn đúng ngày văn bản này thực sự được giải quyết xong, để tính chính xác số ngày xử lý (không tính tới tận hôm nay nếu thực ra đã xong từ trước).</div>
+        <div class="ddnl-field">
+          <label>Ngày giải quyết xong</label>
+          <input type="date" id="ddnlNgayHTInput" value="${todayISO()}">
+        </div>
+        <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnXacNhanNgayHT" style="width:100%;margin-top:8px;">Xác nhận</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay){ overlay.remove(); render(); } });
+  document.getElementById('ddnlBtnCloseNgayHT').onclick = ()=>{ overlay.remove(); render(); };
+  document.getElementById('ddnlBtnXacNhanNgayHT').onclick = async ()=>{
+    const ngay = document.getElementById('ddnlNgayHTInput').value || todayISO();
+    await ddVanBanRef.child(vbId).update({ trangThai: trangThaiMoi, ngayHoanThanh: ngay, updatedAt: Date.now() }).catch(()=>alert("Không cập nhật được, kiểm tra kết nối mạng."));
+    overlay.remove();
+    if(onSaved) onSaved();
+    render();
+  };
+}
+
 /* ============================================================
    SOẠN NỘI DUNG NGAY (không cần Word ngoài) — dùng cho Sổ văn bản đi
    Mở 1 "trang Word" ngay trong ứng dụng để đánh nội dung trực tiếp,
@@ -23620,113 +24159,460 @@ function closeModal(){
 // Tạo 1 file .doc TRỐNG (đã sẵn quốc hiệu/tên khoa/kính gửi/chữ ký theo đúng thể thức)
 // để người dùng mở THẲNG bằng Microsoft Word ngoài máy mà soạn — không soạn trong app.
 // Soạn xong thì tải file đã soạn lên lại ở ô "Tải lên file văn bản đã soạn xong" như bình thường.
-function taoFileWordTrongDeSoan(){
+// Tạo 1 file .xlsx TRỐNG (đã sẵn khung quốc hiệu/tên khoa/kính gửi/bảng nội dung/chữ ký)
+// để người dùng mở THẲNG bằng Microsoft Excel ngoài máy — dùng khi nội dung cần trình bày
+// dạng bảng biểu/danh sách. Soạn xong thì tải file lên lại như bình thường.
+function taoFileExcelTrongDeSoan(){
+  if(typeof XLSX === 'undefined'){ alert("Không tải được thư viện xử lý Excel (XLSX). Kiểm tra kết nối mạng rồi thử lại."); return; }
   const ngayLapParts = (draftVB.ngayLap||todayISO()).split("-");
   const signer = (config.signers||[]).find(x=>x.ten===draftVB.nguoiKy) || { chucDanh:"Trưởng khoa" };
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"><title>${esc(draftVB.loaiVanBan||"VanBan")}</title>
-<!--[if gte mso 9]><xml>
-<w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument>
-</xml><![endif]-->
-<style>
-@page{ size: 21cm 29.7cm; margin: 2cm 1.8cm; }
-body{ font-family:"Times New Roman", Times, serif; font-size:13pt; color:#000; }
-</style>
-</head>
-<body>
-<table style="width:100%;border:none;margin-bottom:10pt;"><tr>
-  <td nowrap="nowrap" style="border:none;width:42%;vertical-align:top;">
-    <p style="text-align:center;font-weight:normal;white-space:nowrap;margin:0;font-size:10.5pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>
-    <p style="text-align:center;font-weight:bold;margin:0;">KHOA GÂY MÊ HỒI SỨC</p>
-    <p style="text-align:center;margin:2pt 0;">­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­</p>
-    <p style="text-align:center;font-style:italic;font-size:11pt;margin:0;">Số: ${esc(draftVB.soVanBan||"……………")}</p>
-  </td>
-  <td nowrap="nowrap" style="border:none;width:58%;vertical-align:top;text-align:center;">
-    <p style="font-weight:bold;margin:0;white-space:nowrap;font-size:12pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-    <p style="font-weight:bold;text-decoration:underline;margin:0;">Độc lập – Tự do – Hạnh phúc</p>
-    <p style="font-style:italic;font-size:11pt;text-align:right;margin-top:8pt;">Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}</p>
-  </td>
-</tr></table>
-<p style="text-align:center;font-weight:bold;font-size:15pt;margin:10pt 0 0;">${esc((draftVB.loaiVanBan||"VĂN BẢN").toUpperCase())}</p>
-<p style="margin:12pt 0 4px;"><b>Kính gửi:</b></p>
-${(draftVB.noiNhan&&draftVB.noiNhan.length) ? draftVB.noiNhan.map(n=>`<p style="margin:2px 0 2px 30px;">– ${esc(n)};</p>`).join("") : `<p style="margin:2px 0 2px 30px;">– ……………………………………;</p>`}
-<p style="margin:14pt 0 2px;">……………………………………………………………………………………………………………</p>
-<p style="margin:2px 0;">……………………………………………………………………………………………………………</p>
-<p style="margin:2px 0;">……………………………………………………………………………………………………………</p>
-<p style="margin:2px 0;">……………………………………………………………………………………………………………</p>
-<table style="width:100%;border:none;margin-top:40pt;"><tr>
-  <td style="border:none;width:50%;text-align:center;vertical-align:top;">
-    <p style="font-weight:bold;margin:0;">NGƯỜI LẬP BẢNG</p>
-    <p style="margin-top:60pt;font-weight:bold;">${esc((draftVB.nguoiSoan||"").toUpperCase())}</p>
-  </td>
-  <td style="border:none;width:50%;text-align:center;vertical-align:top;">
-    <p style="font-weight:bold;margin:0;">${esc((signer.chucDanh||"Trưởng khoa").toUpperCase())}</p>
-    <p style="margin-top:60pt;font-weight:bold;">${esc((draftVB.nguoiKy||"").toUpperCase())}</p>
-  </td>
-</tr></table>
-</body></html>`;
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const rows = [];
+  rows.push(["BỆNH VIỆN ĐA KHOA TRUNG TÂM", "", "", "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"]);
+  rows.push(["KHOA GÂY MÊ HỒI SỨC", "", "", "Độc lập - Tự do - Hạnh phúc"]);
+  rows.push(["Số: " + (draftVB.soVanBan||"…………"), "", "", `Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}`]);
+  rows.push([]);
+  rows.push([(draftVB.hinhThucVB||"GIẤY ĐỀ NGHỊ").toUpperCase()]);
+  if(draftVB.veViec) rows.push([`(Về việc: ${draftVB.veViec})`]);
+  rows.push([]);
+  rows.push(["Kính gửi:"]);
+  if(draftVB.noiNhan && draftVB.noiNhan.length){
+    draftVB.noiNhan.forEach(n=> rows.push(["- " + n]));
+  } else {
+    rows.push(["- ………………………………"]);
+  }
+  rows.push([]);
+  rows.push(["STT", "Nội dung", "Ghi chú"]);
+  for(let i=1;i<=8;i++){ rows.push([i, "", ""]); }
+  rows.push([]);
+  rows.push([]);
+  rows.push([(draftVB.nguoiLapLabel||"NGƯỜI LẬP BẢNG").toUpperCase(), "", "", (draftVB.chucDanhKy||signer.chucDanh||"Trưởng khoa").toUpperCase()]);
+  rows.push([]);
+  rows.push([]);
+  rows.push([]);
+  rows.push([(draftVB.nguoiSoan||"").toUpperCase(), "", "", (draftVB.nguoiKy||"").toUpperCase()]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:22},{wch:32},{wch:22},{wch:28}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Văn bản");
+  const filename = `VanBan_Moi_${(draftVB.hinhThucVB||"VanBan").replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+// ============================================================
+// XUẤT FILE .RTF THẬT (không phải HTML đội lốt .doc như trước) —
+// Word LUÔN mở được, không bị chặn bởi cảnh báo bảo mật "file tải từ Internet"
+// như kiểu file .doc giả trước đây từng gặp.
+// ============================================================
+// Hậu tố giờ-phút-giây để tên file luôn khác nhau mỗi lần xuất — tránh trùng tên với file
+// CÙNG TÊN đang mở sẵn trong Word (Word khóa file, trình duyệt ghi đè sẽ gây lỗi mở file).
+function fileTimeSuffix(){
+  const d = new Date();
+  const p = n=>String(n).padStart(2,'0');
+  return `_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+function rtfEsc(s){
+  s = String(s||'');
+  // Gộp các khoảng trắng LIÊN TIẾP (dấu cách/tab/xuống dòng) thành 1 khoảng trắng — giống cách
+  // trình duyệt tự động hiển thị (nên lúc soạn trong app nhìn không thấy dư), nếu không xuất ra
+  // Word sẽ giữ nguyên hết, lộ ra khoảng trắng thừa ở giữa câu.
+  s = s.replace(/[ \t\n\r]+/g, ' ');
+  let out = '';
+  for(const ch of s){
+    const code = ch.codePointAt(0);
+    if(ch==='\\'||ch==='{'||ch==='}') out += '\\'+ch;
+    // QUAN TRỌNG: RTF coi ký tự xuống dòng "trần" (\n, \r) là ký tự định dạng vô nghĩa và
+    // tự động BỎ QUA (không hiển thị ra) — nếu không đổi thành khoảng trắng thì đúng ngay
+    // chỗ có xuống dòng ẩn trong văn bản dán vào, 2 chữ hai bên sẽ bị dính liền nhau.
+    else if(ch==='\n'||ch==='\r'||ch==='\t') out += ' ';
+    else if(code < 128) out += ch;
+    else out += '\\u'+code+'?';
+  }
+  return out;
+}
+function rtfP(text, opts){
+  opts = opts || {};
+  let align = opts.align==='center' ? '\\qc ' : opts.align==='right' ? '\\qr ' : '';
+  let open = (opts.bold?'\\b ':'') + (opts.italic?'\\i ':'') + (opts.underline?'\\ul ':'');
+  let close = (opts.underline?'\\ulnone ':'') + (opts.italic?'\\i0 ':'') + (opts.bold?'\\b0 ':'');
+  return '\\pard '+align+open+rtfEsc(text)+close+'\\par\n';
+}
+// Bảng 2 cột đơn giản không viền, dùng cho khối quốc hiệu và khối chữ ký
+function rtfTwoColTable(leftLines, rightLines, opts){
+  opts = opts || {};
+  const w1 = opts.w1 || 4600, w2 = opts.w2 || 4600;
+  const rAlign = opts.alignRight==='center' ? '\\qc ' : '\\qr ';
+  let out = '\\trowd\\trgaph108\\trleft0\\cellx'+w1+'\\cellx'+(w1+w2)+'\n';
+  out += '\\qc\\intbl ';
+  leftLines.forEach((ln,i)=>{ out += (i>0?'\\line ':'') + (ln.bold?'\\b ':'') + (ln.fs?'\\fs'+ln.fs+' ':'') + rtfEsc(ln.text) + (ln.fs?'\\fs26 ':'') + (ln.bold?'\\b0 ':''); });
+  out += '\\cell\n';
+  out += rAlign+'\\intbl ';
+  rightLines.forEach((ln,i)=>{
+    // Dòng cần canh lề RIÊNG (VD: ngày tháng canh phải trong khi quốc hiệu canh giữa) hoặc cần
+    // cách dòng thêm (blank) -> phải mở ĐOẠN MỚI (\par) vì RTF không đổi canh giữa dòng qua \line.
+    if(i===0){
+      out += (ln.bold?'\\b ':'') + (ln.underline?'\\ul ':'') + rtfEsc(ln.text) + (ln.underline?'\\ulnone ':'') + (ln.bold?'\\b0 ':'');
+    } else if(ln.align){
+      const al = ln.align==='right'?'\\qr ':ln.align==='center'?'\\qc ':'\\ql ';
+      out += '\\par\n' + (ln.blank?'\\par\n':'') + '\\pard '+al+'\\intbl ' + (ln.italic?'\\i ':'') + (ln.bold?'\\b ':'') + (ln.underline?'\\ul ':'') + rtfEsc(ln.text) + (ln.underline?'\\ulnone ':'') + (ln.bold?'\\b0 ':'') + (ln.italic?'\\i0 ':'');
+    } else {
+      out += '\\line ' + (ln.bold?'\\b ':'') + (ln.underline?'\\ul ':'') + rtfEsc(ln.text) + (ln.underline?'\\ulnone ':'') + (ln.bold?'\\b0 ':'');
+    }
+  });
+  out += '\\cell\n\\row\n';
+  return out;
+}
+// Chuyển nội dung soạn trong app (HTML từ contenteditable) sang RTF — hỗ trợ đậm/nghiêng/gạch chân/căn lề/đoạn văn/danh sách cơ bản
+// Cho phép KÉO CHUỘT để đổi độ rộng từng cột trong bảng đang soạn — gắn vào mép phải mỗi ô ở
+// hàng đầu tiên của bảng. Gọi lại hàm này mỗi khi có bảng mới (dán/chèn) để luôn kéo được.
+// Dọn TOÀN BỘ độ rộng cứng (pixel) mà Word gắn kèm khi dán — không chỉ trong bảng, mà cả các khung/div/
+// đoạn văn bọc ngoài — để cả lúc HIỂN THỊ lẫn lúc XUẤT WORD sau này đều không bị tràn/lệch.
+function dedomWordFixedWidths(container){
+  if(!container) return;
+  // Word gắn RẤT NHIỀU kiểu định vị khác nhau (width, margin âm, position, transform, mso-...) mà dò
+  // từng loại rất dễ sót. Xóa hết các thuộc tính có khả năng gây LỆCH/TRÀN, nhưng GIỮ LẠI các thuộc
+  // tính định dạng chữ (đậm/nghiêng/căn lề/màu...) để không mất định dạng người dùng đã tự chỉnh.
+  const layoutProps = ['width','min-width','max-width','margin','margin-left','margin-right','margin-top','margin-bottom',
+    'position','left','right','top','bottom','transform','float','height','min-height','max-height'];
+  container.querySelectorAll('*').forEach(el=>{
+    el.removeAttribute('width');
+    el.removeAttribute('height');
+    el.removeAttribute('align');
+    if(el.style) layoutProps.forEach(p=>el.style.removeProperty(p));
+  });
+}
+// TAY CẦM KÉO-CHỈNH CỘT/HÀNG — đặt NỔI TRÊN CÙNG khung soạn (không lồng vào bên trong ô bảng nữa).
+// Lý do đổi cách làm: tay cầm lồng trong ô (cách cũ) phụ thuộc vào việc trình duyệt tính "chiều cao/rộng
+// 100%" của một ô bảng — điều này KHÔNG ổn định giữa các trình duyệt (đặc biệt là tay cầm CỘT, vì chiều
+// cao của ô bảng do nội dung quyết định chứ không cố định), nên có lúc hiện có lúc mất. Cách mới: tính
+// tọa độ THẬT (bằng getBoundingClientRect) rồi đặt tay cầm nổi ngay trên cùng khung soạn — luôn hiện,
+// không phụ thuộc cách trình duyệt vẽ bảng.
+function layoutTableResizeHandles(container){
+  if(!container) return;
+  if(getComputedStyle(container).position === 'static') container.style.position = 'relative';
+  container.querySelectorAll(':scope > .ddnl-col-resize-handle, :scope > .ddnl-row-resize-handle').forEach(h=>h.remove());
+  const contRect = container.getBoundingClientRect();
+  container.querySelectorAll('table').forEach(table=>{
+    table.style.tableLayout = 'fixed';
+    const firstRow = table.rows[0];
+    if(!firstRow || !firstRow.cells.length) return;
+    const soCot = firstRow.cells.length;
+    const tableRect = table.getBoundingClientRect();
+    const topRel = tableRect.top - contRect.top + container.scrollTop;
+    const botRel = tableRect.bottom - contRect.top + container.scrollTop;
+    const leftRel = tableRect.left - contRect.left + container.scrollLeft;
+    // --- Tay cầm CỘT: 1 thanh dọc tại mỗi đường viền cột, kéo dài suốt chiều cao bảng ---
+    for(let idx=0; idx<soCot; idx++){
+      const cell = firstRow.cells[idx];
+      const cellRect = cell.getBoundingClientRect();
+      const xRel = cellRect.right - contRect.left + container.scrollLeft;
+      const handle = document.createElement('div');
+      handle.contentEditable = 'false';
+      handle.className = 'ddnl-col-resize-handle';
+      handle.title = 'Kéo để chỉnh chiều rộng cột';
+      handle.style.cssText = `position:absolute !important;left:${Math.round(xRel-4)}px !important;top:${Math.round(topRel)}px !important;width:8px !important;height:${Math.round(botRel-topRel)}px !important;cursor:col-resize;z-index:50;user-select:none;background:rgba(21,101,192,.3);`;
+      container.appendChild(handle);
+      handle.addEventListener('mouseenter', ()=>{ handle.style.background='#1565C0'; handle.style.opacity='.75'; });
+      handle.addEventListener('mouseleave', ()=>{ handle.style.background='rgba(21,101,192,.3)'; handle.style.opacity='1'; });
+      handle.addEventListener('mousedown', function(e){
+        e.preventDefault(); e.stopPropagation();
+        const startX = e.clientX;
+        const startWidth = cell.getBoundingClientRect().width;
+        function onMove(e2){
+          const newWidth = Math.max(30, Math.round(startWidth + (e2.clientX - startX)));
+          Array.from(table.rows).forEach(r=>{ if(r.cells[idx]) r.cells[idx].style.width = newWidth+'px'; });
+          layoutTableResizeHandles(container);
+        }
+        function onUp(){
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    }
+    // --- Tay cầm HÀNG: 1 thanh ngang tại mỗi đường viền hàng, kéo dài suốt chiều rộng bảng ---
+    Array.from(table.rows).forEach(row=>{
+      const rowRect = row.getBoundingClientRect();
+      const yRel = rowRect.bottom - contRect.top + container.scrollTop;
+      const handle = document.createElement('div');
+      handle.contentEditable = 'false';
+      handle.className = 'ddnl-row-resize-handle';
+      handle.title = 'Kéo để chỉnh chiều cao hàng';
+      handle.style.cssText = `position:absolute !important;left:${Math.round(leftRel)}px !important;top:${Math.round(yRel-4)}px !important;width:${Math.round(tableRect.width)}px !important;height:8px !important;cursor:row-resize;z-index:50;user-select:none;background:rgba(21,101,192,.3);`;
+      container.appendChild(handle);
+      handle.addEventListener('mouseenter', ()=>{ handle.style.background='#1565C0'; handle.style.opacity='.75'; });
+      handle.addEventListener('mouseleave', ()=>{ handle.style.background='rgba(21,101,192,.3)'; handle.style.opacity='1'; });
+      handle.addEventListener('mousedown', function(e){
+        e.preventDefault(); e.stopPropagation();
+        const startY = e.clientY;
+        const startHeight = row.getBoundingClientRect().height;
+        function onMove(e2){
+          const newHeight = Math.max(20, Math.round(startHeight + (e2.clientY - startY)));
+          Array.from(row.cells).forEach(c=>{ c.style.height = newHeight+'px'; });
+          layoutTableResizeHandles(container);
+        }
+        function onUp(){
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  });
+}
+// Giữ lại 2 tên hàm cũ để không phải sửa mọi chỗ gọi — đều trỏ chung về cách làm mới, gọi 2 lần liền
+// nhau (như các chỗ gọi cũ vẫn làm) chỉ tính toán lại 2 lần, không gây lỗi hay trùng lặp gì (hàm luôn
+// xóa sạch tay cầm cũ trước khi vẽ lại).
+function enableTableColResize(container){ layoutTableResizeHandles(container); }
+function enableTableRowResize(container){ layoutTableResizeHandles(container); }
+
+function htmlToRtf(html){
+  const div = document.createElement('div');
+  div.innerHTML = html || '';
+  // Dán từ Word thường kèm theo <style>, <meta>, XML/VML rác — loại bỏ để không lẫn vào nội dung hiển thị.
+  div.querySelectorAll('style, script, meta, xml').forEach(el=>el.remove());
+  let out = '';
+  // Dựng 1 bảng RTF thật (đúng dòng/cột) từ 1 thẻ <table> — thay vì để chữ trong các ô bị rời rạc,
+  // mất cấu trúc như khi dán bảng từ Word mà không xử lý riêng.
+  function walkTable(tableEl){
+    const rows = Array.from(tableEl.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr'));
+    if(!rows.length) return;
+    let maxCols = 0;
+    rows.forEach(tr=>{ maxCols = Math.max(maxCols, tr.querySelectorAll(':scope > td, :scope > th').length); });
+    if(!maxCols) return;
+    const totalWidth = 9300; // twips, khớp bề rộng trang đang dùng cho các bảng khác trong file
+    // Nếu anh đã tự kéo chỉnh độ rộng từng cột trong app (mỗi ô hàng đầu có sẵn style="width:...px"),
+    // GIỮ ĐÚNG TỶ LỆ đó khi xuất Word thay vì chia đều lại từ đầu.
+    let colWidths;
+    const firstRowCells = rows[0] ? Array.from(rows[0].querySelectorAll(':scope > td, :scope > th')) : [];
+    const pxWidths = firstRowCells.map(c=>parseFloat(c.style && c.style.width) || 0);
+    const hasCustomWidths = pxWidths.length===maxCols && pxWidths.every(w=>w>0);
+    if(hasCustomWidths){
+      const sumPx = pxWidths.reduce((a,b)=>a+b,0);
+      colWidths = pxWidths.map(w=>Math.round((w/sumPx)*totalWidth));
+    } else {
+      // Chưa tự kéo chỉnh cột nào -> tính độ rộng theo ĐỘ DÀI CHỮ dài nhất trong từng cột (giống cách
+      // trình duyệt tự nhiên co giãn cột theo nội dung), thay vì chia đều — khớp với hiển thị trong app hơn.
+      const maxLenPerCol = new Array(maxCols).fill(3); // tối thiểu 3 ký tự mỗi cột, tránh cột quá hẹp
+      rows.forEach(tr=>{
+        const cs = Array.from(tr.querySelectorAll(':scope > td, :scope > th'));
+        cs.forEach((cell,i)=>{ maxLenPerCol[i] = Math.max(maxLenPerCol[i], (cell.textContent||'').trim().length); });
+      });
+      const sumLen = maxLenPerCol.reduce((a,b)=>a+b,0);
+      // Dùng CĂN BẬC HAI của độ dài thay vì tỷ lệ tuyệt đối — để cột có chữ RẤT dài (như "Diễn giải")
+      // không lấn át quá mức các cột vừa phải khác (như "Nội dung"), cân bằng tự nhiên hơn.
+      const sqrtLenPerCol = maxLenPerCol.map(len=>Math.sqrt(len));
+      const sumSqrtLen = sqrtLenPerCol.reduce((a,b)=>a+b,0);
+      colWidths = sqrtLenPerCol.map(len=>Math.round((len/sumSqrtLen)*totalWidth));
+    }
+    // Đảm bảo mỗi cột có độ rộng TỐI THIỂU (đủ chỗ cho tiêu đề ngắn như "STT" không bị co dúm lại),
+    // lấy phần chênh lệch bù từ (các) cột đang rộng nhất để tổng vẫn khớp đúng bề ngang trang.
+    const MIN_COL_WIDTH = 900; // ~1.6cm
+    let deficit = 0;
+    colWidths = colWidths.map(w=>{ if(w<MIN_COL_WIDTH){ deficit += MIN_COL_WIDTH-w; return MIN_COL_WIDTH; } return w; });
+    if(deficit>0){
+      let maxIdx = 0;
+      colWidths.forEach((w,i)=>{ if(w>colWidths[maxIdx]) maxIdx=i; });
+      colWidths[maxIdx] = Math.max(MIN_COL_WIDTH, colWidths[maxIdx]-deficit);
+    }
+    const cellBorder = '\\clbrdrt\\brdrs\\brdrw10\\clbrdrl\\brdrs\\brdrw10\\clbrdrb\\brdrs\\brdrw10\\clbrdrr\\brdrs\\brdrw10'; // viền 4 cạnh, nét đơn
+    // Nhận diện chữ đậm bất kể ghi bằng chữ ("bold"/"bolder") hay bằng số (vd "font-weight:700" —
+    // đúng như nút "Chèn bảng" có sẵn của app đang dùng cho hàng tiêu đề).
+    function isBoldCell(cell){
+      const styleAttr = cell.getAttribute('style')||'';
+      const m = /font-weight\s*:\s*([a-z0-9]+)/i.exec(styleAttr);
+      if(m){ const v = m[1].toLowerCase(); if(v==='bold'||v==='bolder') return true; const n = parseInt(v,10); if(!isNaN(n) && n>=600) return true; }
+      const fw = cell.style && cell.style.fontWeight;
+      if(fw){ if(fw==='bold'||fw==='bolder') return true; const n = parseInt(fw,10); if(!isNaN(n) && n>=600) return true; }
+      return false;
+    }
+    rows.forEach((tr, rowIdx)=>{
+      const cells = Array.from(tr.querySelectorAll(':scope > td, :scope > th'));
+      // Xác định TRƯỚC ô nào là tiêu đề (để còn gắn \clvertalc canh giữa dọc ngay trong phần khai báo hàng \trowd).
+      // Hàng ĐẦU TIÊN của bảng luôn được coi là hàng tiêu đề (khớp đúng cách "Chèn bảng" luôn dựng: hàng 1 = tiêu đề),
+      // cộng thêm nhận diện <th> hoặc chữ đậm ở bất kỳ hàng nào khác (bảng dán từ Word có thể có nhiều dòng tiêu đề).
+      // CHỈ coi là tiêu đề khi: hàng đầu tiên của bảng, HOẶC dùng đúng thẻ <th>.
+      // KHÔNG còn suy đoán qua "chữ đậm" nữa — 1 hàng dữ liệu (vd "Tổng khoản: 02") có thể được bôi đậm
+      // để nhấn mạnh nhưng vẫn là hàng NỘI DUNG bình thường, cần canh thẳng trái như mọi hàng khác,
+      // không phải hàng tiêu đề để bị ép canh giữa.
+      // CHỈ coi hàng đầu tiên là tiêu đề khi bảng có NHIỀU HƠN 1 hàng — một bảng chỉ có ĐÚNG 1 hàng
+      // (ví dụ dòng "Tổng khoản: ..." bị tách thành 1 bảng riêng lẻ ngay sau bảng chính, dù nhìn liền
+      // mạch trên màn hình) nhiều khả năng là hàng NỘI DUNG/tiếp nối, không phải hàng tiêu đề thật sự.
+      const isHeaderArr = cells.map(cell=> (rowIdx===0 && rows.length>1) || cell.tagName.toLowerCase()==='th');
+      out += '\\trowd\\trgaph108\\trleft0';
+      let acc = 0;
+      for(let c=0;c<maxCols;c++){
+        acc += colWidths[c];
+        // Tiêu đề: canh giữa theo chiều DỌC trong ô (\clvertalc). Ô nội dung thường: giữ canh trên mặc định.
+        // Ép TƯỜNG MINH canh trên (\clvertalt) cho MỌI ô nội dung thường — không để trống nữa.
+        // Để trống từng khiến 1 vài cột (ví dụ cột dán từ Excel có sẵn vertical-align riêng) bị lệch
+        // canh giữa trong khi các cột khác cùng hàng vẫn canh trên, nhìn lệch pha ngay trong 1 hàng.
+        const vAlign = isHeaderArr[c] ? '\\clvertalc' : '\\clvertalt';
+        out += cellBorder+vAlign+'\\cellx'+acc;
+      }
+      out += '\n';
+      cells.forEach((cell,idx)=>{
+        const isHeader = isHeaderArr[idx];
+        // Tiêu đề: canh giữa ngang (\qc). Ô nội dung thường (kể cả cột trái): canh THẲNG LỀ TRÁI (\ql),
+        // đúng thể thức hành chính — trước đây MỌI ô đều bị ép \qc khiến nội dung cột trái trông lệch.
+        // \\fi0\\li0 : ép THỤT LỀ = 0 một cách TƯỜNG MINH cho ô bảng — trước đây chỉ BỎ QUA không set thụt lề,
+        // để "trống" cho Word tự điền theo mặc định style Normal của MÁY người dùng (nhiều mẫu văn bản hành
+        // chính VN đặt sẵn thụt 1cm dòng đầu cho Normal), nên khi mở lại bằng Word, Word tự thụt lề vào.
+        out += '\\intbl\\fi0\\li0 ' + (isHeader?'\\qc ':'\\ql ') + (isHeader?'\\b \\fs24 ':'');
+        // Nội dung trong ô: gom lại thành text đơn giản (đậm/nghiêng cơ bản vẫn giữ qua đệ quy walk).
+        // Truyền inCell=true để các thẻ <p>/<div> lồng bên trong ô (Word hay bọc vậy) KHÔNG bị coi là
+        // đoạn văn cấp tài liệu (\pard\par sẽ phá vỡ luôn cấu trúc bảng) — chỉ xuống dòng nhẹ trong ô.
+        Array.from(cell.childNodes).forEach(n=>walk(n, true, {pending:true}));
+        if(isHeader) out += '\\fs26 \\b0 ';
+        out += '\\cell\n';
+      });
+      // Nếu hàng thiếu ô so với hàng dài nhất, bù thêm ô trống cho khớp số cột
+      for(let c=cells.length;c<maxCols;c++) out += '\\intbl\\fi0\\li0\\ql \\cell\n';
+      out += '\\row\n';
+    });
+    out += '\\pard\\par\n';
+  }
+  function walk(node, inCell, stripCtx){
+    if(node.nodeType===3){
+      let t = node.textContent;
+      // Nhiều văn bản được gõ TAB thủ công ở đầu đoạn để tạo thụt lề (thói quen soạn thảo hành chính) —
+      // 1 ký tự Tab thật trong RTF nhảy nguyên 1 tab-stop (~1.27cm) CHỈ ở dòng đầu tiên hiển thị, khiến
+      // đoạn văn bị lệch "thụt dòng đầu quá rộng" trong khi các dòng xuống hàng tự động lại thẳng lề trái
+      // như bình thường. Cắt bỏ tab/khoảng trắng/nbsp thừa ở NGAY ĐẦU mỗi đoạn (p/div/li) để tránh việc này;
+      // KHÔNG đụng tới khoảng trắng ở giữa hay cuối đoạn.
+      if(stripCtx && stripCtx.pending){
+        const stripped = t.replace(/^[\t\u00A0 ]+/, '');
+        if(stripped.length){ stripCtx.pending = false; }
+        t = stripped;
+      }
+      out += rtfEsc(t); return;
+    }
+    if(node.nodeType!==1) return;
+    const tag = node.tagName.toLowerCase();
+    if(tag==='style'||tag==='script'||tag==='meta'||tag==='xml') return; // an toàn 2 lớp, phòng khi querySelectorAll không khớp (thẻ lạ/namespace)
+    if(node.style && node.style.display==='none') return; // Word hay chèn đoạn ẩn (mso-hide) không nên hiện ra
+    if(tag==='table'){ walkTable(node); return; } // Bảng xử lý riêng ở trên, không đi tiếp xuống dưới
+    if(tag==='br'){ out += '\\line '; return; }
+    let openC='', closeC='';
+    if(tag==='b'||tag==='strong'){ openC+='\\b '; closeC='\\b0 '+closeC; }
+    if(tag==='i'||tag==='em'){ openC+='\\i '; closeC='\\i0 '+closeC; }
+    if(tag==='u'){ openC+='\\ul '; closeC='\\ulnone '+closeC; }
+    const isBlockTag = ['p','div','li'].includes(tag);
+    const isBlock = isBlockTag && !inCell; // TRONG Ô BẢNG: không coi p/div là đoạn văn cấp tài liệu nữa
+    const ta = node.style && node.style.textAlign;
+    let align = ta==='center'?'\\qc ':ta==='right'?'\\qr ':ta==='justify'?'\\qj ':'';
+    // Thụt đầu dòng 1cm cho mỗi đoạn văn (p/div) — đúng thể thức hành chính; danh sách (li) đã có
+    // thụt lề riêng qua \bullet\tab nên không cộng thêm. KHÔNG áp dụng trong ô bảng.
+    const firstLineIndent = (tag==='p'||tag==='div') && !inCell ? '\\fi567 ' : '';
+    if(isBlock) out += '\\pard '+firstLineIndent+align;
+    if(tag==='li' && !inCell) out += '\\bullet\\tab ';
+    out += openC;
+    // Mỗi đoạn/dòng (p/div/li) mở lại "chờ cắt tab đầu dòng" TỪ ĐẦU — kể cả khi tab đầu dòng đó
+    // nằm lồng bên trong 1 thẻ <b>/<i>/<span> khác ngay tại vị trí bắt đầu đoạn.
+    const childCtx = isBlockTag ? {pending:true} : stripCtx;
+    node.childNodes.forEach(n=>walk(n, inCell, childCtx));
+    out += closeC;
+    if(isBlock) out += '\\par\n';
+    else if(isBlockTag && inCell) out += '\\line '; // nhiều đoạn trong CÙNG 1 Ô -> chỉ xuống dòng nhẹ, không ngắt bảng
+  }
+  Array.from(div.childNodes).forEach(n=>walk(n, false, {pending:true}));
+  return out || '\\par\n';
+}
+function rtfHeader(){
+  return '{\\rtf1\\ansi\\ansicpg1258\\deff0\\deflang1066{\\fonttbl{\\f0\\froman Times New Roman;}}\\f0\\fs26\n';
+}
+// Xây phần nội dung RTF dùng chung cho cả "tạo file trống để soạn" và "xuất lại văn bản đã lưu"
+function buildVanBanRtfBody(data){
+  const { soVanBan, ngayLapParts, hinhThucVB, veViec, noiNhan, nguoiSoan, chucDanh, nguoiKy, bodyRtf, isBlank, nguoiLapLabel, chucDanhKy } = data;
+  let out = '';
+  out += rtfTwoColTable(
+    [{text:'BỆNH VIỆN ĐA KHOA TRUNG TÂM', fs:22}, {text:'KHOA GÂY MÊ HỒI SỨC', bold:true}, {text:'Số: '+(soVanBan||(isBlank?'……………':''))}],
+    [{text:'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', bold:true}, {text:'Độc lập – Tự do – Hạnh phúc', bold:true, underline:true}, {text:`Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}`, align:'right', italic:true, blank:true}],
+    { w1:4200, w2:5700, alignRight:'center' }
+  );
+  out += '\\pard\\par\n';
+  out += rtfP((hinhThucVB||'GIẤY ĐỀ NGHỊ').toUpperCase(), {align:'center', bold:true});
+  if(veViec) out += rtfP(`(Về việc: ${veViec})`, {align:'center', italic:true});
+  out += rtfP('Kính gửi:', {bold:true});
+  if(noiNhan && noiNhan.length){ noiNhan.forEach(n=> out += rtfP('– '+n+';')); }
+  else if(isBlank){ out += rtfP('– ……………………………………;'); }
+  if(isBlank){
+    out += '\\pard\\par\n';
+    for(let i=0;i<4;i++){ out += rtfP('……………………………………………………………………………………………………………'); }
+  } else if(bodyRtf){
+    out += '\\pard\\par\n' + bodyRtf;
+  } else if(data.tomTat){
+    out += '\\pard\\par\n' + rtfP(data.tomTat, {align:'justify'});
+  }
+  out += '\\pard\\par\n';
+  out += rtfTwoColTable(
+    [{text:(nguoiLapLabel||'NGƯỜI LẬP BẢNG').toUpperCase(), bold:true}, {text:''}, {text:''}, {text:(nguoiSoan||'').toUpperCase(), bold:true}],
+    [{text:(chucDanhKy||chucDanh||'Trưởng khoa').toUpperCase(), bold:true}, {text:''}, {text:''}, {text:(nguoiKy||'').toUpperCase(), bold:true}],
+    { alignRight:'center' }
+  );
+  out += '\\pard\\par\n';
+  out += '\\pard\\fs20\\i '+rtfEsc('Nơi nhận:')+'\\i0\\par\n';
+  const noiNhanFooter = (noiNhan && noiNhan.length) ? '– Như trên;' : (isBlank ? '– ……………………………………;' : '');
+  if(noiNhanFooter) out += '\\pard\\fs20\\i '+rtfEsc(noiNhanFooter)+'\\i0\\par\n';
+  out += '\\pard\\fs20\\i '+rtfEsc('– Lưu: VT, Khoa GMHS.')+'\\i0\\par\n';
+  return out;
+}
+function downloadRtf(filename, bodyRtf){
+  const rtf = rtfHeader() + bodyRtf + '}';
+  const blob = new Blob([rtf], { type: 'application/rtf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `VanBan_Moi_${(draftVB.loaiVanBan||"VanBan").replace(/[\/\\:*?"<>|]/g,'-')}.doc`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
 
+function taoFileWordTrongDeSoan(){
+  const ngayLapParts = (draftVB.ngayLap||todayISO()).split("-");
+  const signer = (config.signers||[]).find(x=>x.ten===draftVB.nguoiKy) || { chucDanh:"Trưởng khoa" };
+  const body = buildVanBanRtfBody({
+    soVanBan: draftVB.soVanBan, ngayLapParts, hinhThucVB: draftVB.hinhThucVB, veViec: draftVB.veViec,
+    noiNhan: draftVB.noiNhan, nguoiSoan: draftVB.nguoiSoan, chucDanh: signer.chucDanh, nguoiKy: draftVB.nguoiKy,
+    nguoiLapLabel: draftVB.nguoiLapLabel, chucDanhKy: draftVB.chucDanhKy,
+    isBlank: true
+  });
+  downloadRtf(`VanBan_Moi_${(draftVB.hinhThucVB||"VanBan").replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, body);
+}
+
 // Xuất Word cho văn bản trong Sổ văn bản đi đã dùng "Soạn nội dung ngay" (khác với phiếu Điều động nhân lực)
 function exportVanBanToWord(v){
   const ngayLapParts = (v.ngayLap||todayISO()).split("-");
   const signerInfo = (config.signers||[]).find(x=>x.ten===v.nguoiKy) || { chucDanh:"Trưởng khoa" };
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"><title>${esc(v.soVanBan||"VanBan")}</title>
-<!--[if gte mso 9]><xml>
-<w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument>
-</xml><![endif]-->
-<style>
-@page{ size: 21cm 29.7cm; margin: 2cm 1.8cm; }
-body{ font-family:"Times New Roman", Times, serif; font-size:13pt; color:#000; }
-</style>
-</head>
-<body>
-<table style="width:100%;border:none;margin-bottom:10pt;"><tr>
-  <td nowrap="nowrap" style="border:none;width:42%;vertical-align:top;">
-    <p style="text-align:center;font-weight:normal;white-space:nowrap;margin:0;font-size:10.5pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>
-    <p style="text-align:center;font-weight:bold;margin:0;">KHOA GÂY MÊ HỒI SỨC</p>
-    <p style="text-align:center;margin:2pt 0;">­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­</p>
-    <p style="text-align:center;font-style:italic;font-size:11pt;margin:0;">Số: ${esc(v.soVanBan||"")}</p>
-  </td>
-  <td nowrap="nowrap" style="border:none;width:58%;vertical-align:top;text-align:center;">
-    <p style="font-weight:bold;margin:0;white-space:nowrap;font-size:12pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-    <p style="font-weight:bold;text-decoration:underline;margin:0;">Độc lập – Tự do – Hạnh phúc</p>
-    <p style="font-style:italic;font-size:11pt;text-align:right;margin-top:8pt;">Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}</p>
-  </td>
-</tr></table>
-<p style="text-align:center;font-weight:bold;font-size:15pt;margin:10pt 0 0;">${esc((v.loaiVanBan||"VĂN BẢN").toUpperCase())}</p>
-<p style="margin:4px 0;"><b>Kính gửi:</b> ${(v.noiNhan&&v.noiNhan.length)?esc(v.noiNhan.join("; ")):""}</p>
-<div style="margin-top:8pt;">${v.noiDungSoan||""}</div>
-<table style="width:100%;border:none;margin-top:26pt;"><tr>
-  <td style="border:none;width:50%;text-align:center;vertical-align:top;">
-    <p style="font-weight:bold;margin:0;">NGƯỜI LẬP BẢNG</p>
-    <p style="margin-top:60pt;font-weight:bold;">${esc((v.nguoiSoan||"").toUpperCase())}</p>
-  </td>
-  <td style="border:none;width:50%;text-align:center;vertical-align:top;">
-    <p style="font-weight:bold;margin:0;">${esc((signerInfo.chucDanh||"Trưởng khoa").toUpperCase())}</p>
-    <p style="margin-top:60pt;font-weight:bold;">${esc((v.nguoiKy||"").toUpperCase())}</p>
-  </td>
-</tr></table>
-</body></html>`;
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `VanBan_${(v.soVanBan||v.id).replace(/[\/\\:*?"<>|]/g,'-')}.doc`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  // ƯU TIÊN nội dung đã soạn NGAY TRONG APP (đây mới là bản mới nhất, đúng với những gì đang thấy
+  // trên màn hình lúc soạn) — chỉ dùng file đính kèm cũ (nếu có) khi CHƯA soạn gì trong app cả.
+  if(v.noiDungSoan && v.noiDungSoan.trim()){
+    const body = buildVanBanRtfBody({
+      soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
+      noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
+      nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy,
+      bodyRtf: htmlToRtf(v.noiDungSoan), tomTat: v.tomTat||'', isBlank: false
+    });
+    downloadRtf(`VanBan_${(v.soVanBan||v.id).replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, body);
+    return;
+  }
+  // Chưa soạn gì trong app -> nếu có file đính kèm (đã soạn ngoài Word) thì xuất đúng file đó
+  const files = vbGetFiles(v);
+  if(files.length){
+    files.forEach(f=>downloadDocTemplateFile(f));
+    return;
+  }
+  // Không có gì cả -> xuất bản khung trống theo đúng thể thức
+  const body = buildVanBanRtfBody({
+    soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
+    noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
+    nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy,
+    tomTat: v.tomTat||'', isBlank: false
+  });
+  downloadRtf(`VanBan_${(v.soVanBan||v.id).replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, body);
 }
 function openNoiDungSoanModal(){
   const existing = document.getElementById('ddnlNoiDungOverlay');
@@ -23738,9 +24624,10 @@ function openNoiDungSoanModal(){
   overlay.id = 'ddnlNoiDungOverlay';
   overlay.innerHTML = `
     <div class="ddnl-modal">
-      <div class="ddnl-modal-head ddnl-no-print">
+      <div class="ddnl-modal-head ddnl-no-print" id="ddnlNoiDungDragHandle" style="cursor:move;" title="Kéo để di chuyển khung">
         <h3>📝 Soạn nội dung văn bản (ngay trong ứng dụng)</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnToggleZoomNoiDung" title="Phóng to/thu nhỏ khung soạn">⤢ Phóng to</button>
           <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnLuuNoiDungSoan">💾 Lưu nội dung</button>
           <button class="ddnl-modal-close" id="ddnlBtnCloseNoiDungSoan">✕</button>
         </div>
@@ -23756,6 +24643,13 @@ function openNoiDungSoanModal(){
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="justifyFull">≡ Đều 2 bên</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="insertUnorderedList">• Danh sách</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="insertOrderedList">1. Danh sách</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenBang">⊞ Chèn bảng</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenHang" title="Chèn 1 hàng mới ngay dưới hàng đang đặt con trỏ">➕ Hàng</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenCot" title="Chèn 1 cột mới ngay bên phải cột đang đặt con trỏ">➕ Cột</button>
+          <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaHang" title="Xóa hàng đang đặt con trỏ">➖ Hàng</button>
+          <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaCot" title="Xóa cột đang đặt con trỏ">➖ Cột</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnCaoHang" title="Nhập số chính xác cho chiều cao hàng đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↕ Cao hàng</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnRongCot" title="Nhập số chính xác cho chiều rộng cột đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↔ Rộng cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="undo">↶ Hoàn tác</button>
         </div>
         <div class="ddnl-doc" id="ddnlPrintArea">
@@ -23772,17 +24666,19 @@ function openNoiDungSoanModal(){
               <div class="ddnl-doc-place">Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}</div>
             </div>
           </div>
-          <div class="ddnl-doc-title">${esc((draftVB.loaiVanBan||"VĂN BẢN").toUpperCase())}</div>
-          <p><b>Kính gửi:</b> ${(draftVB.noiNhan&&draftVB.noiNhan.length)?esc(draftVB.noiNhan.join("; ")):`<span class="ddnl-hint">(chưa chọn nơi nhận ở form bên ngoài)</span>`}</p>
-          <div id="ddnlNoiDungEditable" contenteditable="true" style="min-height:260px;border:1px dashed var(--ddnl-line);border-radius:6px;padding:10px 12px;margin-top:10px;outline:none;">${draftVB.noiDungSoan || '<p>Kính đề nghị… (đánh nội dung tại đây)</p>'}</div>
+          <div class="ddnl-doc-title">${esc((draftVB.hinhThucVB||"GIẤY ĐỀ NGHỊ").toUpperCase())}</div>
+          ${draftVB.veViec?`<div style="text-align:center;font-style:italic;margin:2px 0 8px;">(Về việc: ${esc(draftVB.veViec)})</div>`:``}
+          <p><b>Kính gửi:</b></p>
+          ${(draftVB.noiNhan&&draftVB.noiNhan.length) ? draftVB.noiNhan.map(n=>`<p style="margin:2px 0 2px 30px;">– ${esc(n)};</p>`).join("") : `<p class="ddnl-hint" style="margin-left:30px;">(chưa chọn nơi nhận ở form bên ngoài)</p>`}
+          <div id="ddnlNoiDungEditable" contenteditable="true" style="min-height:260px;border:1px dashed var(--ddnl-line);border-radius:6px;padding:10px 12px;margin-top:10px;outline:none;overflow-x:auto;">${draftVB.noiDungSoan || '<p>Kính đề nghị… (đánh nội dung tại đây)</p>'}</div>
           <div class="ddnl-signs">
             <div class="ddnl-sign-col">
-              <div class="ddnl-sign-title">NGƯỜI LẬP BẢNG</div>
+              <div class="ddnl-sign-title">${esc((draftVB.nguoiLapLabel||"NGƯỜI LẬP BẢNG").toUpperCase())}</div>
               <div class="ddnl-sign-space"></div>
               <div style="font-weight:700;">${esc((draftVB.nguoiSoan||"").toUpperCase())}</div>
             </div>
             <div class="ddnl-sign-col">
-              <div class="ddnl-sign-title">${esc((signer.chucDanh||"Trưởng khoa").toUpperCase())}</div>
+              <div class="ddnl-sign-title">${esc((draftVB.chucDanhKy||signer.chucDanh||"Trưởng khoa").toUpperCase())}</div>
               <div class="ddnl-sign-space"></div>
               <div style="font-weight:700;">${esc((draftVB.nguoiKy||"").toUpperCase())}</div>
             </div>
@@ -23792,13 +24688,289 @@ function openNoiDungSoanModal(){
     </div>
   `;
   document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e)=>{ if(e.target===overlay){ overlay.remove(); } });
+  // CHỈ gắn lại tay cầm kéo-chỉnh-cột khi mở khung soạn — KHÔNG chạy dedomWordFixedWidths ở đây nữa.
+  // (Trước đây có gọi dedomWordFixedWidths ở bước mở khung, với ý định "dọn bảng dán lỗi từ Word cũ" —
+  // nhưng việc dọn dẹp đó XÓA LUÔN width mà người dùng đã tự kéo tay chỉnh và bấm "Lưu nội dung" trước đó,
+  // nên mở lại là mất ngay độ rộng cột vừa lưu, chữ bị xuống hàng. Việc dọn bảng dán lỗi từ Word đã được
+  // xử lý riêng ngay tại thời điểm DÁN (sự kiện 'paste' bên dưới), không cần lặp lại mỗi lần mở nữa.)
+  (function(){
+    const ed0 = document.getElementById('ddnlNoiDungEditable');
+    enableTableColResize(ed0); enableTableRowResize(ed0);
+  })();
+  // KHÔNG tự đóng khi bấm/kéo chuột ra ngoài khung — vì lúc anh bôi đen chữ để xóa/sửa,
+  // nếu chuột kéo lố ra viền ngoài, trình duyệt dễ hiểu nhầm thành "bấm ra ngoài" và tự đóng,
+  // làm mất nội dung đang gõ dở. Giờ chỉ đóng khi bấm đúng nút ✕ ở góc trên.
   document.getElementById('ddnlBtnCloseNoiDungSoan').onclick = ()=>overlay.remove();
   overlay.querySelectorAll('[data-cmd]').forEach(b=>{
     b.onclick = (e)=>{ e.preventDefault(); document.getElementById('ddnlNoiDungEditable').focus(); document.execCommand(b.dataset.cmd, false, null); };
   });
+  document.getElementById('ddnlBtnChenBang').onclick = (e)=>{
+    e.preventDefault();
+    const soCot = parseInt(prompt('Số cột của bảng?', '4'), 10);
+    const soHang = parseInt(prompt('Số hàng (không tính hàng tiêu đề)?', '3'), 10);
+    if(!soCot || soCot<1 || !soHang || soHang<1){ alert('Vui lòng nhập số cột/hàng hợp lệ.'); return; }
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    ed.focus();
+    let html = '<table data-vua-chen="1" style="width:100%;border-collapse:collapse;margin:10px 0;" border="1"><tbody><tr>';
+    for(let c=0;c<soCot;c++) html += `<th style="padding:6px 8px;border:1px solid #999;font-weight:700;text-align:center;">Cột ${c+1}</th>`;
+    html += '</tr>';
+    for(let r=0;r<soHang;r++){
+      html += '<tr>';
+      for(let c=0;c<soCot;c++) html += `<td style="padding:6px 8px;border:1px solid #999;">&nbsp;</td>`;
+      html += '</tr>';
+    }
+    html += '</tbody></table><p><br></p>';
+    document.execCommand('insertHTML', false, html);
+    enableTableColResize(ed); enableTableRowResize(ed);
+    // Ngay sau khi chèn, con trỏ trình duyệt tự nhảy ra NGOÀI bảng (vào đoạn trống phía sau) — nên
+    // bấm "+ Hàng"/"+ Cột" ngay lúc đó luôn báo "chưa đặt con trỏ vào ô". Chủ động đưa con trỏ vào
+    // Ô ĐẦU TIÊN của bảng vừa chèn để anh/chị dùng được các nút Hàng/Cột ngay, không cần tự bấm vào ô trước.
+    const tableVuaChen = ed.querySelector('table[data-vua-chen="1"]');
+    if(tableVuaChen){
+      tableVuaChen.removeAttribute('data-vua-chen');
+      const oCauDau = tableVuaChen.querySelector('td, th');
+      if(oCauDau){
+        const range = document.createRange();
+        range.selectNodeContents(oCauDau);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  };
+  // Tìm ô (td/th) đang đặt con trỏ, để biết đang ở hàng/cột nào mà chèn/xóa cho đúng chỗ
+  function timOConTroHienTai(){
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return null;
+    let node = sel.getRangeAt(0).startContainer;
+    if(node.nodeType===3) node = node.parentElement;
+    return node ? node.closest('td, th') : null;
+  }
+  document.getElementById('ddnlBtnChenHang').onclick = (e)=>{
+    e.preventDefault();
+    const cell = timOConTroHienTai();
+    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
+    const tr = cell.closest('tr'), table = cell.closest('table');
+    const soCot = Array.from(tr.parentNode.rows[0]?tr.parentNode.rows[0].cells:tr.cells).length || tr.cells.length;
+    const newRow = table.insertRow(Array.from(table.rows).indexOf(tr)+1);
+    for(let c=0;c<tr.cells.length;c++){ const td=newRow.insertCell(-1); td.style.cssText='padding:6px 8px;border:1px solid #999;'; td.innerHTML='&nbsp;'; }
+    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  };
+  document.getElementById('ddnlBtnChenCot').onclick = (e)=>{
+    e.preventDefault();
+    const cell = timOConTroHienTai();
+    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
+    const table = cell.closest('table');
+    const idx = Array.from(cell.parentNode.children).indexOf(cell);
+    Array.from(table.rows).forEach(row=>{
+      const newCell = row.insertCell(idx+1);
+      newCell.style.cssText='padding:6px 8px;border:1px solid #999;';
+      newCell.innerHTML = '&nbsp;';
+    });
+    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  };
+  document.getElementById('ddnlBtnXoaHang').onclick = (e)=>{
+    e.preventDefault();
+    const cell = timOConTroHienTai();
+    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
+    const tr = cell.closest('tr'), table = cell.closest('table');
+    if(table.rows.length<=1){ alert('Bảng chỉ còn 1 hàng, không xóa được nữa.'); return; }
+    if(!confirm('Xóa hàng đang chọn?')) return;
+    tr.remove();
+    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  };
+  document.getElementById('ddnlBtnXoaCot').onclick = (e)=>{
+    e.preventDefault();
+    const cell = timOConTroHienTai();
+    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
+    const table = cell.closest('table');
+    const idx = Array.from(cell.parentNode.children).indexOf(cell);
+    if(table.rows[0].cells.length<=1){ alert('Bảng chỉ còn 1 cột, không xóa được nữa.'); return; }
+    if(!confirm('Xóa cột đang chọn?')) return;
+    Array.from(table.rows).forEach(row=>{ if(row.cells[idx]) row.deleteCell(idx); });
+    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  };
+  // Cách NHẬP SỐ trực tiếp cho chiều cao hàng / chiều rộng cột — dùng khi rê chuột tìm tay cầm kéo
+  // (thanh mảnh ở viền ô) khó thấy hoặc khó bấm trúng. Thao tác giống hệt nút Hàng/Cột: đặt con trỏ
+  // vào 1 ô trong hàng/cột muốn chỉnh, rồi bấm nút.
+  document.getElementById('ddnlBtnCaoHang').onclick = (e)=>{
+    e.preventDefault();
+    const cell = timOConTroHienTai();
+    if(!cell){ alert('Đặt con trỏ vào 1 ô trong hàng muốn chỉnh chiều cao trước đã.'); return; }
+    const tr = cell.closest('tr');
+    const hienTai = parseFloat(cell.style.height) || Math.round(cell.getBoundingClientRect().height);
+    const nhap = prompt('Chiều cao hàng này (đơn vị: px)?', hienTai || 40);
+    const px = parseFloat(nhap);
+    if(!nhap || isNaN(px) || px<=0){ return; }
+    Array.from(tr.cells).forEach(c=>{ c.style.height = Math.round(px)+'px'; });
+    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  };
+  document.getElementById('ddnlBtnRongCot').onclick = (e)=>{
+    e.preventDefault();
+    const cell = timOConTroHienTai();
+    if(!cell){ alert('Đặt con trỏ vào 1 ô trong cột muốn chỉnh chiều rộng trước đã.'); return; }
+    const table = cell.closest('table');
+    const idx = Array.from(cell.parentNode.children).indexOf(cell);
+    const hienTai = parseFloat(cell.style.width) || Math.round(cell.getBoundingClientRect().width);
+    const nhap = prompt('Chiều rộng cột này (đơn vị: px)?', hienTai || 100);
+    const px = parseFloat(nhap);
+    if(!nhap || isNaN(px) || px<=0){ return; }
+    Array.from(table.rows).forEach(row=>{ if(row.cells[idx]) row.cells[idx].style.width = Math.round(px)+'px'; });
+    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  };
+  const modalEl = overlay.querySelector('.ddnl-modal');
+  // Khi dán nội dung từ Word (đặc biệt là bảng), dọn lại độ rộng cột/bảng CỨNG (tính bằng pixel từ file
+  // gốc) — nếu không sẽ bị tràn ra ngoài khung soạn, lệch cả 2 bên. Cho bảng luôn co giãn vừa đúng khung.
+  // Phím TAB để nhảy qua lại giữa các Ô trong bảng — giống Word/Excel: Tab -> ô kế tiếp, Shift+Tab ->
+  // ô trước đó, Tab ở Ô CUỐI CÙNG của bảng thì tự thêm 1 hàng mới rồi nhảy vào ô đầu hàng đó luôn.
+  // (Trước đây bấm Tab trong bảng không có tác dụng gì — vì trình duyệt không tự hiểu bảng do
+  // contenteditable dựng nên, phải tự viết xử lý riêng.)
+  function datConTroVaoO(cellDich, chonHetNoiDung){
+    const range = document.createRange();
+    range.selectNodeContents(cellDich);
+    if(!chonHetNoiDung) range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  document.getElementById('ddnlNoiDungEditable').addEventListener('keydown', function(e){
+    if(e.key !== 'Tab') return;
+    const cell = timOConTroHienTai();
+    if(!cell) return; // không đang ở trong bảng -> để trình duyệt xử lý Tab bình thường
+    e.preventDefault();
+    const table = cell.closest('table');
+    const tatCaO = [];
+    Array.from(table.rows).forEach(row=> Array.from(row.cells).forEach(c=> tatCaO.push(c)));
+    const idx = tatCaO.indexOf(cell);
+    if(e.shiftKey){
+      if(idx>0) datConTroVaoO(tatCaO[idx-1], true);
+      return;
+    }
+    if(idx < tatCaO.length-1){
+      datConTroVaoO(tatCaO[idx+1], true);
+      return;
+    }
+    // Đang ở ô cuối cùng của bảng -> tự thêm 1 hàng mới rồi nhảy vào ô đầu hàng vừa thêm.
+    const soCot = table.rows[0].cells.length;
+    const newRow = table.insertRow(-1);
+    for(let c=0;c<soCot;c++){ const td=newRow.insertCell(-1); td.style.cssText='padding:6px 8px;border:1px solid #999;'; td.innerHTML='&nbsp;'; }
+    datConTroVaoO(newRow.cells[0], true);
+    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  });
+  document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    const oHienTai = timOConTroHienTai(); // đang đặt con trỏ TRONG 1 ô của bảng CÓ SẴN không?
+    const cd = e.clipboardData || window.clipboardData;
+    const htmlDan = cd ? cd.getData('text/html') : '';
+    let bangDan = null;
+    if(htmlDan){
+      const tmp = document.createElement('div');
+      tmp.innerHTML = htmlDan;
+      bangDan = tmp.querySelector('table');
+    }
+    // TRƯỚC ĐÂY: dán 1 bảng (vd copy từ Excel/Word) trong khi con trỏ đang ở trong 1 ô của bảng có sẵn
+    // trong app -> trình duyệt mặc định NHÉT NGUYÊN bảng vừa dán lồng vào ĐÚNG 1 Ô đó, khiến 5 cột dữ
+    // liệu nguồn bị dồn hết vào 1 cột của app. Giờ CHỦ ĐỘNG rải đúng từng ô nguồn vào từng ô đích theo
+    // đúng hàng/cột (bắt đầu từ đúng ô đang đặt con trỏ), tự thêm hàng/cột nếu bảng đích chưa đủ chỗ.
+    if(oHienTai && bangDan){
+      e.preventDefault();
+      const destTable = oHienTai.closest('table');
+      const startRowIdx = Array.from(destTable.rows).indexOf(oHienTai.closest('tr'));
+      const startColIdx = Array.from(oHienTai.parentNode.children).indexOf(oHienTai);
+      const srcRows = Array.from(bangDan.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr'));
+      const themOTrongHang = (row, soCotCanCo)=>{
+        while(row.cells.length < soCotCanCo){ const td=row.insertCell(-1); td.style.cssText='padding:6px 8px;border:1px solid #999;'; td.innerHTML='&nbsp;'; }
+      };
+      let oCuoiCungDaDan = null; // ô cuối cùng vừa điền dữ liệu — dùng để đưa con trỏ vào lại sau khi dán xong
+      srcRows.forEach((srcRow, rOffset)=>{
+        const destRowIdx = startRowIdx + rOffset;
+        while(destTable.rows.length <= destRowIdx){
+          const soCotHienCo = destTable.rows[0] ? destTable.rows[0].cells.length : 0;
+          const newRow = destTable.insertRow(-1);
+          themOTrongHang(newRow, soCotHienCo);
+        }
+        const srcCells = Array.from(srcRow.querySelectorAll(':scope > td, :scope > th'));
+        const destRow = destTable.rows[destRowIdx];
+        const soCotCanCo = startColIdx + srcCells.length;
+        if(destRow.cells.length < soCotCanCo){
+          // Bảng đích chưa đủ cột -> thêm cột mới cho TẤT CẢ các hàng (không chỉ hàng đang dán), để bảng vẫn đều cột.
+          Array.from(destTable.rows).forEach(row=> themOTrongHang(row, soCotCanCo));
+        }
+        srcCells.forEach((srcCell, cOffset)=>{
+          const destCell = destTable.rows[destRowIdx].cells[startColIdx+cOffset];
+          if(!destCell) return;
+          const tayCam = destCell.querySelector('.ddnl-col-resize-handle'); // giữ lại tay cầm kéo cột nếu ô này có
+          destCell.textContent = (srcCell.textContent||'').trim();
+          if(tayCam) destCell.appendChild(tayCam);
+          oCuoiCungDaDan = destCell;
+        });
+      });
+      // QUAN TRỌNG: gán thẳng destCell.textContent như trên làm con trỏ CŨ (đang trỏ vào chữ bên trong ô
+      // gốc) bị "treo" vào 1 node chữ đã bị xóa mất — khiến ngay sau khi dán xong, bấm "+ Hàng"/"+ Cột"
+      // không tìm thấy ô nào cả (như con trỏ chưa hề đặt vào bảng). Chủ động đưa con trỏ vào lại Ô CUỐI
+      // CÙNG vừa dán để dùng ngay được các nút Hàng/Cột mà không cần tự bấm chuột vào ô trước.
+      if(oCuoiCungDaDan){
+        const range = document.createRange();
+        range.selectNodeContents(oCuoiCungDaDan);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      setTimeout(()=>{ dedomWordFixedWidths(ed); enableTableColResize(ed); enableTableRowResize(ed); }, 0);
+      return;
+    }
+    setTimeout(()=>{
+      if(!ed) return;
+      dedomWordFixedWidths(ed);
+      enableTableColResize(ed); enableTableRowResize(ed);
+    }, 0);
+  });
+  document.getElementById('ddnlBtnToggleZoomNoiDung').onclick = (e)=>{
+    e.preventDefault();
+    const zoomed = modalEl.classList.toggle('ddnl-modal-zoomed');
+    e.currentTarget.innerHTML = zoomed ? '⤡ Thu nhỏ' : '⤢ Phóng to';
+    setTimeout(()=>{ layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable')); }, 0);
+  };
+  // Kéo tiêu đề để DI CHUYỂN cả khung soạn sang trái/phải, lên/xuống — tiện khi cần xem phần bị che khuất.
+  (function(){
+    const handle = document.getElementById('ddnlNoiDungDragHandle');
+    if(!handle) return;
+    handle.addEventListener('mousedown', function(e){
+      if(e.target.closest('button')) return; // không kéo khi bấm vào các nút trong tiêu đề
+      e.preventDefault();
+      const rect = modalEl.getBoundingClientRect();
+      modalEl.style.position = 'fixed';
+      modalEl.style.margin = '0';
+      modalEl.style.top = rect.top+'px';
+      modalEl.style.left = rect.left+'px';
+      const startX = e.clientX, startY = e.clientY;
+      const origTop = rect.top, origLeft = rect.left;
+      function onMove(e2){
+        modalEl.style.top = (origTop + (e2.clientY-startY))+'px';
+        modalEl.style.left = (origLeft + (e2.clientX-startX))+'px';
+      }
+      function onUp(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  })();
   document.getElementById('ddnlBtnLuuNoiDungSoan').onclick = ()=>{
-    const html = document.getElementById('ddnlNoiDungEditable').innerHTML.trim();
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    // KHÔNG dọn width ở đây nữa — vì lúc này có thể đã có cột do chính người dùng tự kéo chỉnh
+    // độ rộng (muốn giữ lại), việc dọn "width" cho mọi phần tử sẽ xóa nhầm luôn phần đó.
+    // NHƯNG cần dọn sạch tay cầm kéo (span) + dấu "đã gắn tay cầm" (data-resizable) trước khi lưu —
+    // nếu không, dấu vết này bị lưu luôn vào nội dung, khiến lần SAU mở lại (Sửa) hệ thống tưởng đã
+    // gắn tay cầm rồi nên không gắn lại, làm mất luôn chức năng kéo chỉnh cột ở lần sau.
+    ed.querySelectorAll('.ddnl-col-resize-handle').forEach(h=>h.remove());
+    ed.querySelectorAll('table[data-resizable]').forEach(t=>t.removeAttribute('data-resizable'));
+    ed.querySelectorAll('.ddnl-row-resize-handle').forEach(h=>h.remove());
+    ed.querySelectorAll('table[data-row-resizable]').forEach(t=>t.removeAttribute('data-row-resizable'));
+    const html = ed.innerHTML.trim();
     draftVB.noiDungSoan = html;
     overlay.remove();
     render();
@@ -24021,7 +25193,79 @@ function renderConfig(){
     <div class="ddnl-hint">Nếu để trống, hệ thống sẽ dùng chung danh sách toàn bộ nhân viên cho ô "Người lập phiếu".</div>
   ${cardClose()}
 
-  ${cardOpen('cfg-doctypes', 'Danh mục Loại văn bản (dùng cho Sổ văn bản đi)', 'Các loại giấy đề nghị khác nhau mà khoa thường soạn — dùng chung cho mọi nhân viên khi ghi nhận vào Sổ văn bản đi.')}
+  ${cardOpen('cfg-vbuserauth', '🔒 Danh sách User được vào Giấy đề nghị', 'Thêm tên nhân viên vào đây để họ đăng nhập được vào phân hệ "Giấy đề nghị" (Sổ văn bản đi) — chỉ cần đúng tên, không cần mật khẩu. Mỗi người chỉ xem/soạn được văn bản của chính mình; Admin xem/sửa được tất cả và mọi thao tác sửa/xóa văn bản của người khác đều được ghi lại ở "Nhật ký chỉnh sửa".')}
+    ${isAdmin()?`<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="position:relative;flex:1;min-width:200px;">
+        <input type="text" id="ddnlCf_vbAuthName" autocomplete="off" placeholder="Bấm để chọn hoặc gõ tên để tìm…" value="${esc(vbAuthPickName||"")}">
+      </div>
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddVbAuth">+ Thêm vào danh sách</button>
+    </div>`:``}
+    <div class="ddnl-cf-search"><i class="ti ti-search"></i><input type="text" id="ddnlCfSearch_vbUserAuth" placeholder="Lọc tìm trong danh sách…" value="${esc(cfgFilter.vbUserAuth)}"></div>
+    <div class="ddnl-rows-wrap" style="max-height:260px;overflow-y:auto;">
+    <table>
+      <thead><tr><th>Nhân viên</th>${isAdmin()?'<th style="width:150px;"></th>':''}</tr></thead>
+      <tbody>
+        ${(config.vbUserAuth||[]).map((u,i)=>({u,i})).filter(({u})=>!cfgFilter.vbUserAuth || u.ten.toLowerCase().includes(cfgFilter.vbUserAuth.toLowerCase())).map(({u,i})=>{
+          return `<tr>
+          <td>${esc(u.ten)}</td>
+          ${isAdmin()?`<td>
+            <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vbauth="${i}">Xóa</button>
+          </td>`:``}
+        </tr>`;
+        }).join("") || `<tr><td colspan="2" class="ddnl-hint" style="text-align:center;padding:14px;">${(config.vbUserAuth||[]).length?"Không tìm thấy tên phù hợp.":"Chưa có ai trong danh sách — bấm \"+ Thêm vào danh sách\" ở trên."}</td></tr>`}
+      </tbody>
+    </table>
+    </div>
+    ${isAdmin()?`<div class="ddnl-hint" style="margin-top:10px;font-weight:700;">📜 Nhật ký chỉnh sửa gần đây (Admin sửa/xóa văn bản)</div>
+    <div class="ddnl-rows-wrap" style="max-height:180px;overflow-y:auto;margin-top:4px;">
+    <table>
+      <thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Thao tác</th><th>Văn bản</th></tr></thead>
+      <tbody>
+        ${vbAuditLog.slice(0,50).map(a=>`<tr>
+          <td style="white-space:nowrap;">${a.thoiGian?new Date(a.thoiGian).toLocaleString('vi-VN'):""}</td>
+          <td>${esc(a.nguoiThucHien||"")}</td>
+          <td>${esc(a.hanhDong||"")}</td>
+          <td>${esc(a.moTa||"")}</td>
+        </tr>`).join("") || `<tr><td colspan="4" class="ddnl-hint" style="text-align:center;padding:10px;">Chưa có ghi nhận nào.</td></tr>`}
+      </tbody>
+    </table>
+    </div>`:``}
+  ${cardClose()}
+
+  ${cardOpen('cfg-hinhthucvb', 'Thể loại văn bản (hình thức — quyết định TIÊU ĐỀ in trên văn bản)', 'VD: Giấy đề nghị, Tờ trình, Công văn, Báo cáo, Thông báo, Biên bản, Kế hoạch, Quyết định… Khác với "Loại văn bản" (chỉ dùng để thống kê).')}
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      ${isAdmin()?`<input type="text" id="ddnlCf_hinhThucText" placeholder="VD: Tờ trình" style="flex:1;min-width:200px;">
+      <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddHinhThuc">+ Thêm thể loại</button>`:``}
+    </div>
+    <div class="ddnl-cf-search"><i class="ti ti-search"></i><input type="text" id="ddnlCfSearch_hinhThucVB" placeholder="Lọc tìm trong danh sách…" value="${esc(cfgFilter.hinhThucVB)}"></div>
+    <div class="ddnl-rows-wrap" style="max-height:220px;overflow-y:auto;">
+    <table>
+      <thead><tr><th>Thể loại văn bản</th>${isAdmin()?'<th style="width:150px;"></th>':''}</tr></thead>
+      <tbody>
+        ${(config.hinhThucVB&&config.hinhThucVB.length?config.hinhThucVB:SEED_HINH_THUC_VB).map((t,i)=>({t,i})).filter(({t})=>!cfgFilter.hinhThucVB || t.toLowerCase().includes(cfgFilter.hinhThucVB.toLowerCase())).map(({t,i})=>{
+          if(isAdmin() && editingHinhThucIdx===i){
+            return `<tr>
+              <td><input type="text" class="ddnl-edit-hinhthuc" value="${esc(t)}" style="width:100%;"></td>
+              <td>
+                <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-save-hinhthuc="${i}">Lưu</button>
+                <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cancel-hinhthuc="${i}">Hủy</button>
+              </td>
+            </tr>`;
+          }
+          return `<tr>
+          <td>${esc(t)}</td>
+          ${isAdmin()?`<td>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-hinhthuc="${i}">Sửa</button>
+            <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-hinhthuc="${i}">Xóa</button>
+          </td>`:``}
+        </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+    </div>
+  ${cardClose()}
+
+  ${cardOpen('cfg-doctypes', 'Danh mục Nơi gửi (dùng cho Sổ văn bản đi)', 'Các bộ phận/nơi mà văn bản khoa thường gửi đến (dùng để phân nhóm/thống kê nội bộ) — dùng chung cho mọi nhân viên khi ghi nhận vào Sổ văn bản đi.')}
     <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
       ${isAdmin()?`<input type="text" id="ddnlCf_docTypeText" placeholder="VD: Đề nghị cấp phát vật tư y tế…" style="flex:1;min-width:200px;">
       <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddDocType">+ Thêm loại văn bản</button>`:``}
@@ -24029,7 +25273,7 @@ function renderConfig(){
     <div class="ddnl-cf-search"><i class="ti ti-search"></i><input type="text" id="ddnlCfSearch_docTypes" placeholder="Lọc tìm trong danh sách…" value="${esc(cfgFilter.docTypes)}"></div>
     <div class="ddnl-rows-wrap" style="max-height:220px;overflow-y:auto;">
     <table>
-      <thead><tr><th>Loại văn bản</th>${isAdmin()?'<th style="width:150px;"></th>':''}</tr></thead>
+      <thead><tr><th>Nơi gửi</th>${isAdmin()?'<th style="width:150px;"></th>':''}</tr></thead>
       <tbody>
         ${(config.docTypes&&config.docTypes.length?config.docTypes:SEED_DOC_TYPES).map((t,i)=>({t,i})).filter(({t})=>!cfgFilter.docTypes || t.toLowerCase().includes(cfgFilter.docTypes.toLowerCase())).map(({t,i})=>{
           if(isAdmin() && editingDocTypeIdx===i){
@@ -24125,11 +25369,11 @@ function renderConfig(){
   ${cardOpen('cfg-filevb', 'Thư viện file mẫu văn bản', 'Tải lên file Word/PDF/Excel… làm tài liệu mẫu dùng chung cho cả khoa — ai cũng tải về xem/dùng lại được.')}
     ${isAdmin()?`
     <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
-      <input type="file" id="ddnlFileVbInput" style="flex:1;min-width:220px;">
+      <input type="file" id="ddnlFileVbInput" multiple style="flex:1;min-width:220px;">
       <input type="text" id="ddnlFileVbMoTa" placeholder="Mô tả ngắn (không bắt buộc)" style="flex:1;min-width:180px;">
       <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnUploadFileVb" ${uploadingFile?"disabled":""}>${uploadingFile?"Đang tải lên…":"⬆ Tải file lên"}</button>
     </div>
-    <div class="ddnl-hint" style="margin-bottom:10px;">Tối đa 5MB mỗi file (lưu qua Realtime Database, dùng chung hạ tầng với toàn bộ dữ liệu khác của module).</div>`:``}
+    <div class="ddnl-hint" style="margin-bottom:10px;">Tối đa 5MB mỗi file — có thể chọn NHIỀU file cùng lúc (giữ Ctrl khi chọn) — lưu qua Realtime Database, dùng chung hạ tầng với toàn bộ dữ liệu khác của module.</div>`:``}
     <div class="ddnl-rows-wrap" style="max-height:300px;overflow-y:auto;">
     <table>
       <thead><tr><th>Tên file</th><th>Mô tả</th><th>Dung lượng</th><th>Người tải lên</th><th>Ngày</th><th style="width:140px;"></th></tr></thead>
@@ -24186,13 +25430,14 @@ function bindEvents(){
     }
   };
 
-  const userSelect = document.getElementById('ddnlUserSelect');
-  if(userSelect) userSelect.onchange = (e)=>{
-    currentUserName = e.target.value;
+  ddnlSetupCombo('ddnlUserSelect', ()=>config.employees.map(e=>e.ten), (val)=>{
+    currentUserName = val;
     const emp = findEmployee(currentUserName);
     if(isLeader(emp)) scopeAll = true;
+    // Đồng bộ luôn vào ô "Người soạn" của Giấy đề nghị nếu đang trống (chưa tự gõ tên khác)
+    if(ddnlMode === 'vanban' && draftVB && !draftVB.nguoiSoan){ draftVB.nguoiSoan = val; }
     render();
-  };
+  });
 
   const adminLogin = document.getElementById('ddnlAdminLogin');
   if(adminLogin) adminLogin.onclick = ()=>{
@@ -24210,6 +25455,25 @@ function bindEvents(){
     editingRequestId = null;
     render();
   };
+  const vbLogout = document.getElementById('ddnlVbLogout');
+  if(vbLogout) vbLogout.onclick = ()=>{
+    if(!confirm("Đăng xuất khỏi Giấy đề nghị?")) return;
+    vbAuthed = false; vbAuthUser = ""; vbLoginPickName = ""; vbLoginPwdErr = "";
+    render();
+  };
+  const vbLoginBtn = document.getElementById('ddnlVbLoginBtn');
+  if(vbLoginBtn) vbLoginBtn.onclick = ()=>{
+    const nameSel = document.getElementById('ddnlVbLoginName');
+    const name = nameSel ? nameSel.value : "";
+    if(!name){ vbLoginPwdErr = "Vui lòng chọn tên."; render(); return; }
+    const entry = (config.vbUserAuth||[]).find(x=>x.ten===name);
+    if(!entry){ vbLoginPwdErr = "Tên này chưa có trong danh sách. Liên hệ Admin để được thêm vào."; render(); return; }
+    vbAuthed = true; vbAuthUser = name; currentUserName = name; vbLoginPwdErr = "";
+    draftVB = newDraftVB(); // tạo lại bản nháp để ô "Người soạn" tự điền đúng tên vừa đăng nhập
+    render();
+  };
+  const vbLoginName = document.getElementById('ddnlVbLoginName');
+  if(vbLoginName) vbLoginName.onchange = ()=>{ vbLoginPickName = vbLoginName.value; };
 
   if(activeTab==="new") bindNewFormEvents();
   if(activeTab==="list") bindListEvents();
@@ -24703,13 +25967,91 @@ function bindConfigEvents(){
     await saveConfig(); render();
   });
 
-  // Ô lọc tìm dùng chung cho các cửa sổ danh mục (Lý do / Loại văn bản / Nơi nhận / Người lập bảng)
+  // ---- Mật khẩu truy cập Giấy đề nghị (User) ----
+  (function setupVbAuthNameCombo(){
+    const input = document.getElementById('ddnlCf_vbAuthName');
+    if(!input) return;
+    const available = config.employees.filter(e=>!(config.vbUserAuth||[]).some(x=>x.ten===e.ten)).map(e=>e.ten);
+    function buildPanel(showAll){
+      let panel = document.getElementById('ddnlCf_vbAuthName_panel');
+      if(panel) panel.remove();
+      const q = showAll ? "" : input.value.trim().toLowerCase();
+      const filtered = available.filter(n=>!q || n.toLowerCase().includes(q));
+      panel = document.createElement('div');
+      panel.id = 'ddnlCf_vbAuthName_panel';
+      panel.className = 'ddnl-combo-panel';
+      panel.innerHTML = filtered.length
+        ? filtered.map(n=>`<div class="ddnl-combo-opt" data-val="${esc(n)}">${esc(n)}</div>`).join("")
+        : `<div class="ddnl-combo-empty">Không tìm thấy — mọi người có thể đã được cấp hết.</div>`;
+      input.parentElement.appendChild(panel);
+      panel.querySelectorAll('[data-val]').forEach(d=>{
+        d.onmousedown = (e)=>{ e.preventDefault(); input.value = d.dataset.val; vbAuthPickName = d.dataset.val; panel.remove(); };
+      });
+    }
+    input.addEventListener('focus', ()=>buildPanel(true));
+    input.addEventListener('click', ()=>buildPanel(true));
+    input.addEventListener('input', ()=>{ vbAuthPickName = input.value; buildPanel(false); });
+    input.addEventListener('blur', ()=>{ setTimeout(()=>{ const p=document.getElementById('ddnlCf_vbAuthName_panel'); if(p) p.remove(); }, 150); });
+  })();
+  const addVbAuthBtn = document.getElementById('ddnlBtnAddVbAuth');
+  if(addVbAuthBtn) addVbAuthBtn.onclick = async ()=>{
+    const nameSel = document.getElementById('ddnlCf_vbAuthName');
+    const name = nameSel ? nameSel.value.trim() : "";
+    if(!name){ alert("Vui lòng chọn nhân viên."); return; }
+    if(!config.employees.some(e=>e.ten===name)){ alert("Tên này không có trong danh sách nhân viên. Vui lòng chọn từ danh sách gợi ý."); return; }
+    if(!config.vbUserAuth) config.vbUserAuth = [];
+    if(config.vbUserAuth.some(x=>x.ten===name)){ alert("Tên này đã có trong danh sách rồi."); return; }
+    config.vbUserAuth.push({ ten:name });
+    vbAuthPickName = "";
+    await saveConfig(); render();
+  };
+  document.querySelectorAll('[data-del-vbauth]').forEach(b=>b.onclick= async ()=>{
+    if(!confirm("Thu hồi quyền truy cập của người này?")) return;
+    config.vbUserAuth.splice(Number(b.dataset.delVbauth),1);
+    await saveConfig(); render();
+  });
+
+  // ---- Thể loại văn bản (hình thức) ----
+  const addHinhThucBtn = document.getElementById('ddnlBtnAddHinhThuc');
+  if(addHinhThucBtn) addHinhThucBtn.onclick = async ()=>{
+    const el = document.getElementById('ddnlCf_hinhThucText');
+    const v = el.value.trim();
+    if(!v) return;
+    if(!config.hinhThucVB) config.hinhThucVB = [...SEED_HINH_THUC_VB];
+    config.hinhThucVB.push(v);
+    el.value = "";
+    await saveConfig(); render();
+  };
+  enterSubmits('ddnlCf_hinhThucText', addHinhThucBtn);
+  document.querySelectorAll('[data-del-hinhthuc]').forEach(b=>b.onclick= async ()=>{
+    if(!confirm("Xóa thể loại văn bản này?")) return;
+    config.hinhThucVB.splice(Number(b.dataset.delHinhthuc),1);
+    await saveConfig(); render();
+  });
+  document.querySelectorAll('[data-edit-hinhthuc]').forEach(b=>b.onclick= ()=>{
+    editingHinhThucIdx = Number(b.dataset.editHinhthuc); render();
+  });
+  document.querySelectorAll('[data-cancel-hinhthuc]').forEach(b=>b.onclick= ()=>{
+    editingHinhThucIdx = null; render();
+  });
+  document.querySelectorAll('[data-save-hinhthuc]').forEach(b=>b.onclick= async ()=>{
+    const idx = Number(b.dataset.saveHinhthuc);
+    const tr = b.closest('tr');
+    const val = tr.querySelector('.ddnl-edit-hinhthuc').value.trim();
+    if(!val){ alert("Tên thể loại không được để trống."); return; }
+    config.hinhThucVB[idx] = val;
+    editingHinhThucIdx = null;
+    await saveConfig(); render();
+  });
+
+  // Ô lọc tìm dùng chung cho các cửa sổ danh mục (Lý do / Loại văn bản / Nơi nhận / Người lập bảng / Mật khẩu User / Thể loại văn bản)
   // — chỉ lọc hiển thị tại chỗ, không đụng tới dữ liệu đã lưu.
-  [['ddnlCfSearch_reasons','reasons'], ['ddnlCfSearch_docTypes','docTypes'], ['ddnlCfSearch_noiNhan','noiNhan'], ['ddnlCfSearch_nguoiLapBang','nguoiLapBang']].forEach(([elId,key])=>{
+  [['ddnlCfSearch_reasons','reasons'], ['ddnlCfSearch_docTypes','docTypes'], ['ddnlCfSearch_noiNhan','noiNhan'], ['ddnlCfSearch_nguoiLapBang','nguoiLapBang'], ['ddnlCfSearch_vbUserAuth','vbUserAuth'], ['ddnlCfSearch_hinhThucVB','hinhThucVB']].forEach(([elId,key])=>{
     const el = document.getElementById(elId);
     if(!el) return;
     el.oninput = ()=>{ cfgFilter[key] = el.value; render(); setTimeout(()=>{ const again=document.getElementById(elId); if(again){ again.focus(); const p=again.value.length; again.setSelectionRange(p,p); } },0); };
   });
+
 
   function downloadTextFile(filename, content){
     const blob = new Blob(['\ufeff', content], { type: 'text/plain;charset=utf-8' });
@@ -24738,15 +26080,16 @@ function bindConfigEvents(){
   if(uploadBtn) uploadBtn.onclick = async ()=>{
     const fileInput = document.getElementById('ddnlFileVbInput');
     const moTaInput = document.getElementById('ddnlFileVbMoTa');
-    const file = fileInput.files && fileInput.files[0];
-    if(!file){ alert("Vui lòng chọn 1 file để tải lên."); return; }
+    const files = fileInput.files ? Array.from(fileInput.files) : [];
+    if(!files.length){ alert("Vui lòng chọn ít nhất 1 file để tải lên."); return; }
     uploadingFile = true; render();
-    const item = await uploadDocTemplateFile(file, moTaInput ? moTaInput.value.trim() : "");
-    uploadingFile = false;
-    if(item){
-      config.fileVanBan.push(item);
-      await saveConfig();
+    const moTa = moTaInput ? moTaInput.value.trim() : "";
+    for(const file of files){
+      const item = await uploadDocTemplateFile(file, moTa);
+      if(item) config.fileVanBan.push(item);
     }
+    await saveConfig();
+    uploadingFile = false;
     render();
   };
   document.querySelectorAll('[data-dl-filevb]').forEach(b=>b.onclick= async ()=>{
@@ -33250,9 +34593,10 @@ window.dctdMoveStatus=function(id,st){
   window.dtRenderAll = function dtRenderAll(){
     var monthStr = document.getElementById('dtMonth').value || dtCurMonth();
     _dtCurrentMonthStr = monthStr;
+    var dtAllMonthsChecked = document.getElementById('dtAllMonths') && document.getElementById('dtAllMonths').checked;
 
     var listInScope = dtRecords.filter(function(r){
-      if(!r.ngayTruc || r.ngayTruc.slice(0,7)!==monthStr) return false;
+      if(!dtAllMonthsChecked && (!r.ngayTruc || r.ngayTruc.slice(0,7)!==monthStr)) return false;
       if(dtAllMode) return true;
       return r.nguoiDangKy===dtPersonalName || r.nguoiNhanThay===dtPersonalName;
     }).sort(function(a,b){ return (b.ngayTruc||'').localeCompare(a.ngayTruc||''); });
@@ -33292,7 +34636,7 @@ window.dctdMoveStatus=function(id,st){
     _dtCurrentListInScope = listDisplay;
 
     if(!listBase.length){
-      listWrap.innerHTML = '<div class="kpi-empty">'+((dtListFromVal||dtListToVal)?'Không có phiếu đổi trực nào trong khoảng ngày đã lọc.':'Chưa có phiếu đổi trực nào trong tháng này.')+'</div>';
+      listWrap.innerHTML = '<div class="kpi-empty">'+((dtListFromVal||dtListToVal)?'Không có phiếu đổi trực nào trong khoảng ngày đã lọc.':(dtAllMonthsChecked?'Chưa có phiếu đổi trực nào.':'Chưa có phiếu đổi trực nào trong tháng này.'))+'</div>';
     } else if(!listDisplay.length){
       listWrap.innerHTML = '<div class="kpi-empty">Không tìm thấy phiếu nào khớp với tên đang lọc.</div>';
     } else {
@@ -36464,12 +37808,17 @@ function clearFieldInvalid(id){
    ============================================================ */
 (function(){
   const HC_EDIT_PWD_KEY = 'hcEditPwdOverride'; // nếu muốn đổi mật khẩu, lưu vào localStorage với key này
-  const HC_EDIT_DEFAULT_PWD = 'gmhs2026admin'; // trùng mật khẩu mặc định của module Điều động nhân lực cho dễ nhớ
+  const HC_EDIT_DEFAULT_PWD = 'gmhs2026'; // THỐNG NHẤT dùng chung 1 mật khẩu Admin cho MỌI thẻ (giống DPWD / mật khẩu Điều động nhân lực - Giấy đề nghị)
   let hcUnlocked = false;
   let hcDefaults = {}; // cache nội dung gốc (title/sub) của từng data-hc, dùng cho nút "Khôi phục mặc định"
 
   function hcGetPwd(){
-    try{ return localStorage.getItem(HC_EDIT_PWD_KEY) || HC_EDIT_DEFAULT_PWD; }catch(e){ return HC_EDIT_DEFAULT_PWD; }
+    try{
+      const saved = localStorage.getItem(HC_EDIT_PWD_KEY);
+      // Nếu trình duyệt này từng lưu đúng mật khẩu mặc định CŨ -> dọn đi, dùng mật khẩu thống nhất mới
+      if(saved === 'gmhs2026admin'){ localStorage.removeItem(HC_EDIT_PWD_KEY); return HC_EDIT_DEFAULT_PWD; }
+      return saved || HC_EDIT_DEFAULT_PWD;
+    }catch(e){ return HC_EDIT_DEFAULT_PWD; }
   }
 
   function hcCacheDefaults(){
@@ -36492,28 +37841,41 @@ function clearFieldInvalid(id){
       const ov = overrides[key];
       const t = card.querySelector('.home-card-title');
       const s = card.querySelector('.home-card-sub');
-      if(t && ov.title) t.innerHTML = String(ov.title).split('|').map(x=>x.trim()).filter(Boolean).join('<br>');
+      if(t && ov.title!=null) t.innerHTML = String(ov.title).split('|').map(x=>x.trim()).filter(Boolean).join('<br>');
       if(s && ov.sub!=null) s.textContent = ov.sub;
     });
   }
 
   let hcLastOverrides = null; // lưu bản mới nhất đã nhận từ Firebase, dùng để tự áp lại định kỳ (phòng trường hợp có gì đó vẽ lại thẻ)
 
-  function hcLoadAndApply(){
-    if(typeof db==='undefined') return; // an toàn nếu Firebase chưa sẵn sàng
+  function hcLoadAndApply(retryCount){
+    retryCount = retryCount || 0;
+    if(typeof db==='undefined'){
+      // db có thể CHƯA KỊP khởi tạo (do 1 đoạn Firebase khác trong trang tải chậm hơn 1 nhịp) —
+      // KHÔNG bỏ cuộc ngay, thử lại vài lần trong 1-2 giây trước khi đành chấp nhận hiện mặc định.
+      if(retryCount < 20){ setTimeout(()=>hcLoadAndApply(retryCount+1), 100); return; }
+      document.body.classList.add('hc-ready');
+      return;
+    }
     // Dùng .on('value') thay vì .once('value') — lắng nghe THỜI GIAN THỰC:
     // hễ dữ liệu trên Firebase đổi (do chính mình lưu, hoặc do máy khác lưu), thẻ tự cập nhật ngay,
     // không cần tải lại trang mới thấy.
     db.ref('homeCardTexts').on('value', snap=>{
       hcLastOverrides = snap.val();
       hcApplyOverrides(hcLastOverrides);
-    }, ()=>{});
+      document.body.classList.add('hc-ready'); // đã có phản hồi (dù có tùy chỉnh hay không) -> hiện chữ ra
+    }, ()=>{ document.body.classList.add('hc-ready'); });
     // Lưới an toàn: cứ vài giây tự áp lại 1 lần bản mới nhất đã biết,
     // phòng trường hợp có đoạn code khác trong trang vẽ lại thẻ và làm mất nội dung đã sửa.
     setInterval(()=>{ if(hcLastOverrides) hcApplyOverrides(hcLastOverrides); }, 2000);
+    // Lưới an toàn thứ 2: nếu vì lý do gì đó (mất mạng...) mà Firebase không phản hồi kịp,
+    // vẫn hiện chữ mặc định ra sau 1.5s, không để trắng chữ mãi.
+    setTimeout(()=>document.body.classList.add('hc-ready'), 6000);
   }
 
   function hcOpenEditor(){
+    // Đã đăng nhập Admin chung của hệ thống rồi thì khỏi hỏi lại mật khẩu — dùng chung 1 lần đăng nhập.
+    if(!hcUnlocked && window.adminSession && window.adminSession.active){ hcUnlocked = true; }
     if(!hcUnlocked){
       const pwd = prompt('Nhập mật khẩu để sửa nội dung thẻ Trang chủ:');
       if(pwd===null) return;
@@ -36557,8 +37919,9 @@ function clearFieldInvalid(id){
       const key = card.getAttribute('data-hc');
       const t = card.querySelector('.home-card-title');
       const s = card.querySelector('.home-card-sub');
-      const curTitle = t ? t.innerHTML.replace(/<br\s*\/?>/gi,'|') : '';
-      const curSub = s ? s.textContent : '';
+      const savedOv = hcLastOverrides && hcLastOverrides[key];
+      const curTitle = savedOv && savedOv.title!=null ? savedOv.title : (t ? t.innerHTML.replace(/<br\s*\/?>/gi,'|') : '');
+      const curSub = savedOv && savedOv.sub!=null ? savedOv.sub : (s ? s.textContent : '');
       const row = document.createElement('div');
       row.style.cssText = 'border:1px solid #eee;border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr 2fr auto auto;gap:8px;align-items:center;';
       row.innerHTML = `
