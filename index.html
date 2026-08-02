@@ -14281,11 +14281,14 @@ function buildPhieuNghiHtml(loai, r, mucDich){
     const qr = qrcode(0, 'M');
     qr.addData(maPhieu);
     qr.make();
-    // cellSize=8: mỗi ô vuông của mã QR là 8px trong ảnh gốc (đủ lớn để không bị răng cưa khi phóng to)
-    // margin để trống mặc định = cellSize*4 = 32px hai bên, đúng chuẩn "vùng trắng yên tĩnh" (quiet zone)
-    // 4 module mà máy quét QR cần để nhận diện được biên của mã, tránh bị lẫn vào chữ/viền xung quanh.
-    const qrDataUrl = qr.createDataURL(8);
-    qrImgTag = `<img src="${qrDataUrl}" style="display:block;width:130px;height:130px;">`;
+    // cellSize=4: kích thước vừa phải, tránh mã QR quá to mất cân đối với phần nội dung văn bản.
+    // margin để trống mặc định = cellSize*4 = 16px hai bên, đúng chuẩn "vùng trắng yên tĩnh" (quiet zone)
+    // 4 module mà máy quét QR cần để nhận diện được biên của mã.
+    const qrDataUrl = qr.createDataURL(4);
+    // Chốt cứng kích thước hiển thị bằng THUỘC TÍNH width/height (không chỉ CSS style) — vì Word không
+    // tuân theo CSS "width/height" trên thẻ <img> như trình duyệt, mà hiển thị theo đúng kích thước ảnh
+    // gốc, khiến mã QR bị to bất cân đối khi mở bằng Word dù trên trình duyệt trông vẫn vừa mắt.
+    qrImgTag = `<img src="${qrDataUrl}" width="100" height="100" style="display:block;width:100px;height:100px;">`;
   }catch(e){ console.error('Không tạo được QR:', e); }
   const laXemTruoc = mucDich!=='word';
   // Ưu tiên lấy tên Trưởng khoa / ĐD Trưởng khoa từ mục Cấu hình (ô "Tên Trưởng khoa"/"Tên Điều dưỡng
@@ -14295,8 +14298,15 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   const chuanHoaChucVu = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ');
   const tenTruongKhoa = _cfg.tenTruongKhoa || (_cfg.employees||[]).find(e=>chuanHoaChucVu(e.chucVu)==='trưởng khoa')?.ten || '';
   const tenDieuDuongTruong = _cfg.tenDieuDuongTruong || (_cfg.employees||[]).find(e=>/[Đđ]iều\s*dưỡng\s*trưởng/i.test(chuanHoaChucVu(e.chucVu)))?.ten || '';
+  // [CHẨN ĐOÁN TẠM] xem giải thích ở nbDoApprove — in ra giá trị thực tế lúc HIỂN THỊ/IN phiếu, để so
+  // sánh với giá trị lúc DUYỆT (console.log trong nbDoApprove/npDoApprove), xác định lỗi nằm ở bước nào.
+  console.log('[CHẨN ĐOÁN buildPhieuNghiHtml] maPhieu=', maPhieu,
+    '| r.chuKyTruongKhoaAnh co khong:', !!r.chuKyTruongKhoaAnh,
+    '| r.chuKyDieuDuongTruongAnh co khong:', !!r.chuKyDieuDuongTruongAnh,
+    '| tenTruongKhoa hien thi:', JSON.stringify(tenTruongKhoa),
+    '| tenDieuDuongTruong hien thi:', JSON.stringify(tenDieuDuongTruong));
   const oKy = (anh, label, ten)=>`
-    <td style="width:33.3%;text-align:center;vertical-align:top;padding:0 6px;">
+    <td width="33%" style="width:33%;text-align:center;vertical-align:top;padding:0 6px;">
       <div style="font-weight:700;">${esc(label)}</div>
       <div style="font-size:11pt;font-style:italic;color:#555;">(Ký, ghi rõ họ và tên)</div>
       <div style="height:66pt;display:flex;align-items:center;justify-content:center;">
@@ -14322,14 +14332,17 @@ function buildPhieuNghiHtml(loai, r, mucDich){
     <button onclick="window.print()">🖨 In ngay</button>
     <span>Bản xem trước & in nhanh trên trình duyệt.</span>
   </div>`:''}
-  <div style="position:relative;">
-    <div class="pn-qr-box">
+  <table style="width:100%;border-collapse:collapse;margin-bottom:6pt;"><tr>
+    <td style="width:100px;"></td>
+    <td style="text-align:center;vertical-align:top;">
+      <div class="pn-center pn-bold">CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div class="pn-center pn-bold pn-underline">Độc lập – Tự do – Hạnh phúc</div>
+    </td>
+    <td style="width:100px;text-align:center;vertical-align:top;font-size:9pt;color:#555;">
       ${qrImgTag}
       <div>${esc(maPhieu)}</div>
-    </div>
-    <div class="pn-center pn-bold">CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-    <div class="pn-center pn-bold pn-underline">Độc lập – Tự do – Hạnh phúc</div>
-  </div>
+    </td>
+  </tr></table>
   <div class="pn-title">ĐƠN XIN NGHỈ ${isBu?'BÙ':'PHÉP'} NĂM ${nam}</div>
   <div class="pn-line">Kính gửi: – Trưởng khoa Gây mê Hồi sức</div>
   <div class="pn-line">Tôi tên: ${esc(r.person||'')}</div>
@@ -14341,7 +14354,7 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   <div class="pn-line">Lý do nghỉ ${isBu?'bù':'phép'}: ${esc(r.reason||'')}</div>
   <div class="pn-line">Tôi cam kết bàn giao công việc trước khi nghỉ ${isBu?'bù':'phép'}./.</div>
   <div style="text-align:right;font-style:italic;margin-top:16pt;">Gia Lai, ngày ${ngayLapStr}</div>
-  <table class="pn-ky" style="width:100%;border-collapse:collapse;margin-top:8pt;"><tr>
+  <table class="pn-ky" style="width:100%;table-layout:fixed;border-collapse:collapse;margin-top:8pt;"><tr>
     ${oKy(r.chuKyTruongKhoaAnh, 'TRƯỞNG KHOA', tenTruongKhoa)}
     ${oKy(r.chuKyDieuDuongTruongAnh, 'ĐD TRƯỞNG KHOA', tenDieuDuongTruong)}
     ${oKy(r.chuKyNhanVien, 'NGƯỜI VIẾT ĐƠN', r.person||'')}
@@ -15027,6 +15040,13 @@ function nbDoApprove(status){
   // thay thế để KHÔNG làm crash hàm này (trước đây gọi thẳng config.* gây lỗi "config is not defined"
   // và làm nút Duyệt/Từ chối im lặng không phản hồi vì lỗi xảy ra trước khi kịp ghi Firebase).
   const _cfgNb = (typeof config !== 'undefined' && config) ? config : {};
+  // [CHẨN ĐOÁN TẠM] In ra Console giá trị thực tế của config lúc Duyệt, để xác định vì sao chữ ký/tên
+  // Trưởng khoa - ĐD Trưởng khoa đôi khi không được gắn vào phiếu Nghỉ Bù. Không ảnh hưởng chức năng,
+  // chỉ hiện thông tin phục vụ tìm lỗi — có thể xóa dòng console.log này sau khi xác định xong nguyên nhân.
+  console.log('[CHẨN ĐOÁN nbDoApprove] status=', status,
+    '| co anh TK:', !!_cfgNb.chuKyTruongKhoa, '| ten TK:', JSON.stringify(_cfgNb.tenTruongKhoa),
+    '| co anh DD:', !!_cfgNb.chuKyDieuDuongTruong, '| ten DD:', JSON.stringify(_cfgNb.tenDieuDuongTruong),
+    '| override TK:', !!nbApproveOverride.truongKhoa, '| override DD:', !!nbApproveOverride.ddTruong);
   nbRef.child(String(nbApproveTarget)).update({
     status, replacer, replacers, adminNote:note,
     approvedBy:'Quản lý', approvedAt:new Date().toISOString(),
@@ -16341,6 +16361,11 @@ function npDoApprove(status){
   // An toàn: xem giải thích ở nbDoApprove — tránh lỗi "config is not defined" làm crash hàm
   // (khiến nút Duyệt/Từ chối im lặng không phản hồi vì lỗi xảy ra trước khi kịp ghi Firebase).
   var _cfgNp = (typeof config !== 'undefined' && config) ? config : {};
+  // [CHẨN ĐOÁN TẠM] xem giải thích ở nbDoApprove.
+  console.log('[CHẨN ĐOÁN npDoApprove] status=', status,
+    '| co anh TK:', !!_cfgNp.chuKyTruongKhoa, '| ten TK:', JSON.stringify(_cfgNp.tenTruongKhoa),
+    '| co anh DD:', !!_cfgNp.chuKyDieuDuongTruong, '| ten DD:', JSON.stringify(_cfgNp.tenDieuDuongTruong),
+    '| override TK:', !!npApproveOverride.truongKhoa, '| override DD:', !!npApproveOverride.ddTruong);
   npRef.child(String(npApproveTarget)).update({
     status:status, replacer:replacer, replacers:replacers,
     adminNote:note, approvedBy:'Quản lý', approvedAt:new Date().toISOString(),
