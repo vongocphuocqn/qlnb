@@ -14288,16 +14288,13 @@ function buildPhieuNghiHtml(loai, r, mucDich){
     qrImgTag = `<img src="${qrDataUrl}" style="display:block;width:130px;height:130px;">`;
   }catch(e){ console.error('Không tạo được QR:', e); }
   const laXemTruoc = mucDich!=='word';
-  // So khớp chức vụ Trưởng khoa / ĐD Trưởng khoa chặt chẽ hơn: chuẩn hóa bỏ khoảng trắng thừa và
-  // không phân biệt hoa/thường trước khi so sánh, để tránh trường hợp dữ liệu nhân viên được admin
-  // nhập lệch một chút (thừa dấu cách, gõ "TRƯỞNG KHOA" hoa hết, v.v...) khiến không tìm ra tên và
-  // làm trắng tên người ký dưới chữ ký (dù chữ ký ảnh vẫn hiện đúng vì được lưu sẵn theo phiếu).
+  // Ưu tiên lấy tên Trưởng khoa / ĐD Trưởng khoa từ mục Cấu hình (ô "Tên Trưởng khoa"/"Tên Điều dưỡng
+  // trưởng" — do Admin nhập tay, luôn đúng và ổn định), thay vì dò tìm trong danh sách nhân viên theo
+  // chức vụ như trước đây (dễ bị trắng nếu dữ liệu chức vụ bị lệch chữ hoặc admin chưa cập nhật).
+  // Vẫn giữ cách dò cũ làm phương án dự phòng cuối cùng, phòng khi Cấu hình cũng chưa được thiết lập.
   const chuanHoaChucVu = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ');
-  const tenTruongKhoa = (_cfg.employees||[]).find(e=>{
-    const c = chuanHoaChucVu(e.chucVu);
-    return c==='trưởng khoa'; // loại trừ "phó trưởng khoa" vì so sánh bằng đúng (===), không phải chứa (includes)
-  })?.ten || '';
-  const tenDieuDuongTruong = (_cfg.employees||[]).find(e=>/[Đđ]iều\s*dưỡng\s*trưởng/i.test(chuanHoaChucVu(e.chucVu)))?.ten || '';
+  const tenTruongKhoa = _cfg.tenTruongKhoa || (_cfg.employees||[]).find(e=>chuanHoaChucVu(e.chucVu)==='trưởng khoa')?.ten || '';
+  const tenDieuDuongTruong = _cfg.tenDieuDuongTruong || (_cfg.employees||[]).find(e=>/[Đđ]iều\s*dưỡng\s*trưởng/i.test(chuanHoaChucVu(e.chucVu)))?.ten || '';
   const oKy = (anh, label, ten)=>`
     <td style="width:33.3%;text-align:center;vertical-align:top;padding:0 6px;">
       <div style="font-weight:700;">${esc(label)}</div>
@@ -14352,11 +14349,55 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   <div style="font-size:10pt;color:#888;margin-top:20pt;">BM.01.GMHS · Trạng thái: ${r.status==='approved'?'Đã duyệt':r.status==='denied'?'Từ chối':'Chờ duyệt'}${r.approvedAt?(' · Duyệt lúc '+new Date(r.approvedAt).toLocaleString('vi-VN')):''}</div>
 </body></html>`;
 }
+// Dựng nội dung MHTML (multipart/related) cho phiếu nghỉ phép/nghỉ bù, dùng khi xuất ra Word.
+// LÝ DO: Microsoft Word (ứng dụng thật, không phải trình duyệt) không hiển thị được ảnh nhúng kiểu
+// "data:image/...;base64,..." ngay trong thẻ <img> của file HTML lưu dưới đuôi .doc — ảnh sẽ hiện icon
+// lỗi (dù bản xem trước trên trình duyệt vẫn hiển thị đúng, vì đây là hạn chế riêng của Word chứ không
+// phải lỗi định dạng ảnh PNG/GIF/SVG gì cả — đã thử nhiều định dạng ảnh khác nhau đều bị y hệt).
+// Cách khắc phục CHUẨN: đóng gói lại thành MHTML (multipart/related) — định dạng gốc mà Word tự hiểu,
+// mỗi ảnh tách thành 1 phần MIME riêng có "Content-ID", còn HTML thì tham chiếu ảnh qua "cid:..." thay
+// vì nhúng thẳng base64. Vẫn đặt tên file .doc như cũ để không gây bỡ ngỡ cho người dùng — Word tự nhận
+// diện đúng định dạng MHTML bên trong bất kể phần đuôi file là gì.
+function buildPhieuNghiMht(loai, r){
+  const html = buildPhieuNghiHtml(loai, r, 'word');
+  const imgs = [];
+  const htmlWithCid = html.replace(/src="(data:image\/([a-zA-Z0-9.+-]+);base64,([^"]+))"/g, function(m, full, mime, b64){
+    const cid = 'gmhsimg' + (imgs.length+1) + '@gmhs.local';
+    imgs.push({ cid: cid, mime: 'image/'+mime, b64: b64 });
+    return 'src="cid:'+cid+'"';
+  });
+  const boundary = '----=_NextPart_GMHS_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  var out = 'MIME-Version: 1.0\r\n'
+    + 'Content-Type: multipart/related; boundary="'+boundary+'"; type="text/html"\r\n'
+    + '\r\n'
+    + '--'+boundary+'\r\n'
+    + 'Content-Type: text/html; charset="utf-8"\r\n'
+    + 'Content-Transfer-Encoding: 8bit\r\n'
+    + '\r\n'
+    + htmlWithCid + '\r\n'
+    + '\r\n';
+  imgs.forEach(function(im){
+    // Ngắt dòng base64 mỗi 76 ký tự theo đúng chuẩn MIME (RFC 2045), tránh dòng quá dài gây lỗi ở
+    // một số trình đọc MIME nghiêm ngặt.
+    var b64Wrapped = im.b64.match(/.{1,76}/g).join('\r\n');
+    out += '--'+boundary+'\r\n'
+      + 'Content-Type: '+im.mime+'\r\n'
+      + 'Content-Transfer-Encoding: base64\r\n'
+      + 'Content-ID: <'+im.cid+'>\r\n'
+      + '\r\n'
+      + b64Wrapped + '\r\n'
+      + '\r\n';
+  });
+  out += '--'+boundary+'--\r\n';
+  return out;
+}
 function xuatPhieuNghiWord(loai, r){
   try{
-    const html = buildPhieuNghiHtml(loai, r, 'word');
+    const mht = buildPhieuNghiMht(loai, r);
     const maPhieu = 'GMHS-'+(loai==='bu'?'NB':'NP')+'-'+r.id;
-    const blob = new Blob(['\ufeff', html], {type:'application/msword'});
+    // KHÔNG thêm BOM (\ufeff) ở đây như trước — MHTML bắt buộc byte đầu tiên phải đúng là chuỗi
+    // "MIME-Version:" để Word nhận diện đúng định dạng, thêm BOM vào sẽ làm hỏng việc này.
+    const blob = new Blob([mht], {type:'application/msword'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = maPhieu+'.doc';
@@ -22583,6 +22624,12 @@ function ddnlSetupCombo(inputId, getOptions, onPick){
 const SEED_EMPLOYEES = [{"ten": "Võ Huy Cường", "donVi": "Phòng Mổ", "chucVu": "Trưởng khoa", "vanBang": "BS CKII"}, {"ten": "Nguyễn Thành", "donVi": "Hồi Sức", "chucVu": "Phó trưởng khoa", "vanBang": "BS CKII"}, {"ten": "Nguyễn Hà Tiến Dũng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Ths.BS"}, {"ten": "Võ Ngọc Phước", "donVi": "Hồi Sức", "chucVu": "Điều dưỡng trưởng Khoa", "vanBang": "ĐDCKI"}, {"ten": "Lê Văn Thủy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS CKII"}, {"ten": "Nguyễn Trung Thành", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Ths.BS"}, {"ten": "Trần Thị Dung BS", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS CKII"}, {"ten": "Hứa Hữu Tuấn", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS CKI"}, {"ten": "Nguyễn Thị Quỳnh Thoa", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trần Thị Cẩm Nhung", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Lê Võ Thu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phạm Thị Chiến", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Hồ Thị Chúng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Hảo", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trương Thị Thu Hằng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Ngô Thị Lẹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Đình Kim Loan", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phan Thị Thanh Nga", "donVi": "Hồi Sức", "chucVu": "ĐDHC", "vanBang": "CĐĐD"}, {"ten": "Hồ Thái Nhiều", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Ái Phương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Thúy Vân", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Minh Châu", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Kim Sao", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Kim Thịnh", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Xuân Thảo", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Trương Thị Tín", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Nguyễn Thị Thanh Nhi", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Võ Thị Tường Vi", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Nguyễn Thị Diệu My", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thị Thúy Hằng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Hoàng Thị Ngọc Lan", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Phan Thị Hòa", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trần Thị Lệ Tuyết", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Nguyễn Thị Út", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trương Thị Gia Ly Ly", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Phạm Thị Kim Cúc", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Trương Ngọc Báu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Võ Ngọc Bình", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đặng Văn Cảnh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Văn Chinh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Văn Chung", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Thị Mỹ Dung", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Tiến Dũng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Trần Văn Đại", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Hoàng Minh Hải", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Đặng Thu Hiền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Xuân Hoài", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Thanh Hoàng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Xuân Hùng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Huệ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Văn Kha", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Thân Hoàng Khang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Quốc Khang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đỗ Thành Khương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trương Thị Bích Liễu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đặng Thị Mỹ Lai", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Cảnh Muộn", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Duy Mỹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Ngô Thị Nhựt", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Trần Thị Ngâng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "ĐDCKI"}, {"ten": "Nguyễn Thị Hồng Nhi", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đỗ Lê Thanh Ngọc", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Hoàng Sơn Nữ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Đỗ Kim Oanh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Trương Văn Pháp", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đặng Hồ Hồng Phi", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Nguyễn Phan Anh Quân", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Văn Sang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phan Quốc Sang", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Võ Đình Tây", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Cao Việt Thắng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Trần Tiến Thành", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Đăng Trung", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Vũ Cẩm Tú", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Nguyễn Văn Tuy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Nguyễn Đình Thắng", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "La Thị Thanh Trà", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Bá Quyền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Thị Mạnh Quyền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Võ Thị Xuân Việt", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Đinh Kim Vũ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Lê Thị Thanh Hương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Đỗ Thị Thúy Sinh", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Phạm Thị Thu Thảo", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Vũ Thị Kim Lệ", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Huỳnh Thị Ngọc Thơ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Đỗ Hồ Mỹ Hạnh", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trương Đình Trí", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Đình Bản", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phạm Thị Hoàng Cúc", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Đinh Thị Thu Hoài", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Thị Thanh Huyền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Trần Đình Duy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Văn Thương", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS CKI"}, {"ten": "Ngô Thị Hồng Diễm", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Võ Đông Kinh", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS"}, {"ten": "Nguyễn Thị Bích Thủy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS"}, {"ten": "Nguyễn Hữu Phước", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Hồ Thị Mỹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Phan Thị Mỹ Duyên", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐGM"}, {"ten": "Đỗ Thị Ngọc Diễm", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Xuân Hiền", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Đỗ Ngọc Vũ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "BS"}, {"ten": "Nguyễn Chí Bảo", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS"}, {"ten": "Thân Thị Liễu", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Nguyễn Kim Sơn", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Đào Thị Phương Thúy", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lê Thị Quỳnh Diễm", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Lê Văn Long", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Lương Phan Thu Hằng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Nguyễn Thị Ngọc Mỹ", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "Hộ lý"}, {"ten": "Huỳnh Thị Sự", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Phan Thảo Vy", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CNGM"}, {"ten": "Trần Thị Bích Tuyền", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CNĐD"}, {"ten": "Huỳnh Thị Kim Hồng", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Lê Quốc Triều", "donVi": "Phòng Mổ", "chucVu": "", "vanBang": "CĐĐD"}, {"ten": "Nguyễn Tài Thu", "donVi": "Hồi Sức", "chucVu": "", "vanBang": "BS CKI"}]
 ;
 
+// Tên Trưởng khoa / Điều dưỡng trưởng mặc định — dùng làm gợi ý ban đầu cho ô "Tên Trưởng khoa" /
+// "Tên Điều dưỡng trưởng" trong Cấu hình (Admin có thể đổi tay bất cứ lúc nào khi có thay đổi nhân sự),
+// suy ra từ danh sách nhân viên mẫu (người có chucVu = "Trưởng khoa" / chứa "Điều dưỡng trưởng").
+const SEED_TEN_TRUONGKHOA = (SEED_EMPLOYEES.find(e=>e.chucVu==='Trưởng khoa')||{}).ten || '';
+const SEED_TEN_DDTRUONG = (SEED_EMPLOYEES.find(e=>/[Đđ]iều dưỡng trưởng/i.test(e.chucVu||''))||{}).ten || '';
+
 const SEED_UNITS = ["Phòng Mổ","Phòng Hồi Sức","Phòng Can thiệp DSA"];
 
 // Dùng 2 ô chọn Giờ/Phút thay cho input type="time" mặc định của trình duyệt —
@@ -22684,7 +22731,7 @@ const SEED_VB_USER_AUTH = [];
 /* ============================================================
    STATE
    ============================================================ */
-var config = { employees: [], units: [], signers: [], templates: [], reasons: [], docTypes: [], noiNhan: [], nguoiLapBang: [], hinhThucVB: [], nhomMauVB: [], chuKyTruongKhoa: "", chuKyDieuDuongTruong: "", vbUserAuth: [], adminPwd: "", fileVanBan: [] };
+var config = { employees: [], units: [], signers: [], templates: [], reasons: [], docTypes: [], noiNhan: [], nguoiLapBang: [], hinhThucVB: [], nhomMauVB: [], chuKyTruongKhoa: "", chuKyDieuDuongTruong: "", tenTruongKhoa: "", tenDieuDuongTruong: "", vbUserAuth: [], adminPwd: "", fileVanBan: [] };
 let uploadingFile = false;
 let requests = [];
 let currentUserName = "";
@@ -22930,21 +22977,23 @@ function loadAll(){
         nhomMauVB: Array.isArray(val.nhomMauVB) && val.nhomMauVB.length ? val.nhomMauVB : SEED_NHOM_MAU_VB,
         chuKyTruongKhoa: val.chuKyTruongKhoa || SEED_CHUKY_TRUONGKHOA,
         chuKyDieuDuongTruong: val.chuKyDieuDuongTruong || SEED_CHUKY_DDTRUONG,
+        tenTruongKhoa: val.tenTruongKhoa || SEED_TEN_TRUONGKHOA,
+        tenDieuDuongTruong: val.tenDieuDuongTruong || SEED_TEN_DDTRUONG,
         vbUserAuth: Array.isArray(val.vbUserAuthMau) ? val.vbUserAuthMau : SEED_VB_USER_AUTH,
         adminPwd: resolvedAdminPwd,
         fileVanBan: Array.isArray(val.fileVanBan) ? val.fileVanBan : []
       };
     } else if(!configLoaded){
       // Chưa có dữ liệu trên Firebase -> khởi tạo lần đầu bằng dữ liệu mẫu
-      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, chuKyTruongKhoa: SEED_CHUKY_TRUONGKHOA, chuKyDieuDuongTruong: SEED_CHUKY_DDTRUONG, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
-      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, lyDoMau: SEED_REASONS, loaiVanBan: SEED_DOC_TYPES, noiNhanMau: SEED_NOI_NHAN, nguoiLapBangMau: SEED_NGUOI_LAP_BANG, hinhThucVBMau: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, chuKyTruongKhoa: SEED_CHUKY_TRUONGKHOA, chuKyDieuDuongTruong: SEED_CHUKY_DDTRUONG, vbUserAuthMau: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] });
+      config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, chuKyTruongKhoa: SEED_CHUKY_TRUONGKHOA, chuKyDieuDuongTruong: SEED_CHUKY_DDTRUONG, tenTruongKhoa: SEED_TEN_TRUONGKHOA, tenDieuDuongTruong: SEED_TEN_DDTRUONG, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
+      ddConfigRef.set({ nhanVien: SEED_EMPLOYEES, boPhan: SEED_UNITS, nguoiKy: SEED_SIGNERS, mauNoiDung: SEED_TEMPLATES, lyDoMau: SEED_REASONS, loaiVanBan: SEED_DOC_TYPES, noiNhanMau: SEED_NOI_NHAN, nguoiLapBangMau: SEED_NGUOI_LAP_BANG, hinhThucVBMau: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, chuKyTruongKhoa: SEED_CHUKY_TRUONGKHOA, chuKyDieuDuongTruong: SEED_CHUKY_DDTRUONG, tenTruongKhoa: SEED_TEN_TRUONGKHOA, tenDieuDuongTruong: SEED_TEN_DDTRUONG, vbUserAuthMau: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] });
     }
     configLoaded = true;
     if(requestsLoaded){ loaded = true; }
     render();
   }, err=>{
     console.error("Lỗi tải danh mục:", err);
-    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, chuKyTruongKhoa: SEED_CHUKY_TRUONGKHOA, chuKyDieuDuongTruong: SEED_CHUKY_DDTRUONG, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
+    config = { employees: SEED_EMPLOYEES, units: SEED_UNITS, signers: SEED_SIGNERS, templates: SEED_TEMPLATES, reasons: SEED_REASONS, docTypes: SEED_DOC_TYPES, noiNhan: SEED_NOI_NHAN, nguoiLapBang: SEED_NGUOI_LAP_BANG, hinhThucVB: SEED_HINH_THUC_VB, nhomMauVB: SEED_NHOM_MAU_VB, chuKyTruongKhoa: SEED_CHUKY_TRUONGKHOA, chuKyDieuDuongTruong: SEED_CHUKY_DDTRUONG, tenTruongKhoa: SEED_TEN_TRUONGKHOA, tenDieuDuongTruong: SEED_TEN_DDTRUONG, vbUserAuth: SEED_VB_USER_AUTH, adminPwd: DDNL_DEFAULT_ADMIN_PWD, fileVanBan: [] };
     configLoaded = true;
     if(requestsLoaded) loaded = true;
     render();
@@ -23020,7 +23069,7 @@ function loadAll(){
 }
 
 async function saveConfig(){
-  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, lyDoMau: config.reasons, loaiVanBan: config.docTypes, noiNhanMau: config.noiNhan, nguoiLapBangMau: config.nguoiLapBang, hinhThucVBMau: config.hinhThucVB, nhomMauVB: config.nhomMauVB, chuKyTruongKhoa: config.chuKyTruongKhoa, chuKyDieuDuongTruong: config.chuKyDieuDuongTruong, vbUserAuthMau: config.vbUserAuth, adminPwd: config.adminPwd, fileVanBan: config.fileVanBan }); }
+  try{ await ddConfigRef.set({ nhanVien: config.employees, boPhan: config.units, nguoiKy: config.signers, mauNoiDung: config.templates, lyDoMau: config.reasons, loaiVanBan: config.docTypes, noiNhanMau: config.noiNhan, nguoiLapBangMau: config.nguoiLapBang, hinhThucVBMau: config.hinhThucVB, nhomMauVB: config.nhomMauVB, chuKyTruongKhoa: config.chuKyTruongKhoa, chuKyDieuDuongTruong: config.chuKyDieuDuongTruong, tenTruongKhoa: config.tenTruongKhoa, tenDieuDuongTruong: config.tenDieuDuongTruong, vbUserAuthMau: config.vbUserAuth, adminPwd: config.adminPwd, fileVanBan: config.fileVanBan }); }
   catch(e){ alert("Không lưu được cấu hình lên Firebase. Kiểm tra kết nối mạng và thử lại."); }
 }
 
@@ -25853,21 +25902,29 @@ function renderConfig(){
     </div>`:``}
   ${cardClose()}
 
-  ${cardOpen('cfg-chuky', '✍️ Chữ ký Trưởng khoa / Điều dưỡng trưởng', 'Ảnh chữ ký này được TỰ ĐỘNG gắn vào phiếu nghỉ phép/nghỉ bù ngay khi Admin bấm "Duyệt" — không cần ký tay từng phiếu.')}
+  ${cardOpen('cfg-chuky', '✍️ Chữ ký & Tên Trưởng khoa / Điều dưỡng trưởng', 'Ảnh chữ ký và tên này được TỰ ĐỘNG gắn vào phiếu nghỉ phép/nghỉ bù ngay khi Admin bấm "Duyệt" (không cần ký tay từng phiếu) và cũng là tên in dưới chữ ký khi xem/xuất Word. Nhớ cập nhật lại khi có thay đổi nhân sự.')}
     <div style="display:flex;gap:20px;flex-wrap:wrap;">
-      <div style="text-align:center;">
+      <div style="text-align:center;min-width:220px;">
         <div style="font-weight:600;margin-bottom:6px;">Chữ ký Trưởng khoa</div>
         <div style="border:1px solid var(--ddnl-line);border-radius:8px;padding:8px;background:#fafafa;min-height:80px;display:flex;align-items:center;justify-content:center;">
           ${config.chuKyTruongKhoa?`<img src="${config.chuKyTruongKhoa}" style="max-height:70px;max-width:220px;">`:`<span class="ddnl-hint">Chưa có</span>`}
         </div>
         ${isAdmin()?`<label class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" style="margin-top:6px;display:inline-block;cursor:pointer;">📤 Đổi ảnh <input type="file" accept="image/*" id="ddnlCf_chuKyTruongKhoaFile" style="display:none;"></label>`:``}
+        <div style="margin-top:8px;text-align:left;">
+          <label style="font-size:12px;color:#666;">Tên Trưởng khoa (in dưới chữ ký)</label>
+          <input type="text" id="ddnlCf_tenTruongKhoa" value="${esc(config.tenTruongKhoa||'')}" placeholder="VD: Nguyễn Văn A" ${isAdmin()?'':'disabled'} style="width:100%;">
+        </div>
       </div>
-      <div style="text-align:center;">
+      <div style="text-align:center;min-width:220px;">
         <div style="font-weight:600;margin-bottom:6px;">Chữ ký Điều dưỡng trưởng</div>
         <div style="border:1px solid var(--ddnl-line);border-radius:8px;padding:8px;background:#fafafa;min-height:80px;display:flex;align-items:center;justify-content:center;">
           ${config.chuKyDieuDuongTruong?`<img src="${config.chuKyDieuDuongTruong}" style="max-height:70px;max-width:220px;">`:`<span class="ddnl-hint">Chưa có</span>`}
         </div>
         ${isAdmin()?`<label class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" style="margin-top:6px;display:inline-block;cursor:pointer;">📤 Đổi ảnh <input type="file" accept="image/*" id="ddnlCf_chuKyDDTruongFile" style="display:none;"></label>`:``}
+        <div style="margin-top:8px;text-align:left;">
+          <label style="font-size:12px;color:#666;">Tên Điều dưỡng trưởng (in dưới chữ ký)</label>
+          <input type="text" id="ddnlCf_tenDieuDuongTruong" value="${esc(config.tenDieuDuongTruong||'')}" placeholder="VD: Nguyễn Thị B" ${isAdmin()?'':'disabled'} style="width:100%;">
+        </div>
       </div>
     </div>
   ${cardClose()}
@@ -26693,6 +26750,20 @@ function bindConfigEvents(){
   }
   ganAnhLenConfig('ddnlCf_chuKyTruongKhoaFile', 'chuKyTruongKhoa');
   ganAnhLenConfig('ddnlCf_chuKyDDTruongFile', 'chuKyDieuDuongTruong');
+
+  // Tên Trưởng khoa / ĐD Trưởng khoa (in dưới chữ ký trên phiếu nghỉ phép/nghỉ bù) — chỉ lưu khi admin
+  // thực sự sửa xong (sự kiện "change", tức rời khỏi ô hoặc bấm Enter), tránh gọi lưu liên tục theo
+  // từng phím gõ.
+  function ganTenLenConfig(inputId, tenTruong){
+    const el = document.getElementById(inputId);
+    if(!el) return;
+    el.onchange = async ()=>{
+      config[tenTruong] = el.value.trim();
+      await saveConfig();
+    };
+  }
+  ganTenLenConfig('ddnlCf_tenTruongKhoa', 'tenTruongKhoa');
+  ganTenLenConfig('ddnlCf_tenDieuDuongTruong', 'tenDieuDuongTruong');
 
   // ---- Chữ ký MẪU của từng nhân viên (chỉ để nhân viên tự đối chiếu khi ký, không dùng để Admin duyệt) ----
   document.querySelectorAll('.ddnl-chukymau-file').forEach(el=>{
