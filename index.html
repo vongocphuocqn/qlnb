@@ -1479,6 +1479,8 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         <button class="qlp-btn2" onclick="qlpToggleMissingOnly()" id="qlpMissingBtn">Chỉ hiện thiếu dữ liệu</button>
         <button class="qlp-btn2 qlp-primary" id="qlpRecalcBtn" onclick="qlpRecalcAll()" title="Cột Thâm niên đã tự động tính sẵn; nút này chỉ lưu lại giá trị đó vào dữ liệu để xuất báo cáo"><i class="ti ti-device-floppy"></i> Lưu chốt số thâm niên hiện tại</button>
         <button class="qlp-btn2 qlp-primary" onclick="qlpToggleAddForm()" id="qlpAddBtn"><i class="ti ti-user-plus"></i> Thêm nhân viên mới</button>
+        <button class="qlp-btn2" style="background:#1D6F42;color:#fff;border-color:#1D6F42" onclick="qlpExportExcel()" title="Xuất bảng đang lọc ra file Excel"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+        <button class="qlp-btn2" style="background:#2B579A;color:#fff;border-color:#2B579A" onclick="qlpExportWord()" title="Xuất bảng đang lọc ra file Word để in đối chiếu"><i class="ti ti-file-word"></i> Xuất Word (in đối chiếu)</button>
       </div>
 
       <div id="qlpAddForm" style="display:none;background:#EAF3DE;border:1.5px solid #a0c87a;border-radius:10px;padding:14px;margin-bottom:14px">
@@ -9607,6 +9609,137 @@ function qlpRender(){
   if(qAll) qAll.classList.toggle('qlp-sc-active', !document.getElementById('qlpSearchBox').value && !document.getElementById('qlpFilterUnit').value && !document.getElementById('qlpFilterGroup').value && !document.getElementById('qlpFilterLeaveStatus').value && !qlpShowMissingOnly);
   qlpRenderLeaveStatusLists();
   qlpApplyPermissions();
+}
+
+/* ══════════════════════════════
+   XUẤT EXCEL / WORD — Bảng phép nhân viên (theo đúng bộ lọc đang chọn trên màn hình)
+   ══════════════════════════════ */
+function qlpGetFilteredList(){
+  const search = document.getElementById('qlpSearchBox').value.trim().toLowerCase();
+  const fUnit = document.getElementById('qlpFilterUnit').value;
+  const fGroup = document.getElementById('qlpFilterGroup').value;
+  const fLeaveStatus = (document.getElementById('qlpFilterLeaveStatus')||{}).value||'';
+  return QLP_EMPLOYEES.filter(e=>{
+    if(search && !(e.name.toLowerCase().includes(search) || vnNoAccent(e.name).includes(vnNoAccent(search)))) return false;
+    if(fUnit && e.unit!==fUnit) return false;
+    if(fGroup && e.group!==fGroup) return false;
+    if(fLeaveStatus==='da' && !(e.daNghi>0)) return false;
+    if(fLeaveStatus==='chua' && (e.daNghi>0)) return false;
+    if(qlpShowMissingOnly && e.namtn) return false;
+    return true;
+  });
+}
+
+function qlpBuildExportRows(){
+  const list = qlpGetFilteredList();
+  return list.map((e, idx)=>{
+    const base = qlpBaseLeave();
+    const autoTham = qlpSeniorityAuto(e);
+    const tham = autoTham !== null ? autoTham : (e.thamManual || 0);
+    const khac = e.khac || 0;
+    const total = base + tham + khac;
+    const carry = e.carryover || 0;
+    const used = e.daNghi || 0;
+    const remainThisYear = total - used;
+    const remain = total + carry - used;
+    return {
+      stt: idx+1, name: e.name||'', title: e.title||'', unit: e.unit||'', group: e.group||'',
+      namtn: (e.namtn===null||e.namtn===undefined||e.namtn==='') ? '' : e.namtn,
+      base, tham, khac, total, carry, used, remainThisYear, remain
+    };
+  });
+}
+
+function qlpExportExcel(){
+  const rows = qlpBuildExportRows();
+  if(rows.length===0){ alert('Không có dữ liệu để xuất (kiểm tra lại bộ lọc đang chọn).'); return; }
+  const header = ['STT','Họ và tên','Chức vụ','Đơn nguyên','Nhóm','Năm tính thâm niên','Phép cơ bản','Thâm niên','Khác','Tổng phép năm nay','Phép năm trước còn lại','Đã nghỉ năm nay','Còn lại phép năm nay','Còn lại (tổng cộng)'];
+  const data = rows.map(r=>[r.stt,r.name,r.title,r.unit,r.group,r.namtn,r.base,r.tham,r.khac,r.total,r.carry,r.used,r.remainThisYear,r.remain]);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+  ws['!cols'] = [{wch:5},{wch:24},{wch:20},{wch:12},{wch:12},{wch:14},{wch:9},{wch:8},{wch:7},{wch:13},{wch:16},{wch:12},{wch:16},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Bang phep nam');
+  const dt = new Date();
+  const fname = 'Bang_phep_nam_KhoaGMHS_' + dt.getFullYear()+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0') + '.xlsx';
+  XLSX.writeFile(wb, fname);
+}
+
+function qlpExportWord(){
+  const rows = qlpBuildExportRows();
+  if(rows.length===0){ alert('Không có dữ liệu để xuất (kiểm tra lại bộ lọc đang chọn).'); return; }
+  const dt = new Date();
+  const ngayXuat = dt.getDate() + '/' + (dt.getMonth()+1) + '/' + dt.getFullYear() + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+
+  const bodyRows = rows.map(r=>`
+    <tr>
+      <td style="text-align:center">${r.stt}</td>
+      <td>${qlpEscapeHtml(r.name)}</td>
+      <td>${qlpEscapeHtml(r.title)}</td>
+      <td style="text-align:center">${qlpEscapeHtml(r.unit)}</td>
+      <td style="text-align:center">${qlpEscapeHtml(r.group)}</td>
+      <td style="text-align:center">${r.namtn}</td>
+      <td style="text-align:center">${r.base}</td>
+      <td style="text-align:center">${r.tham}</td>
+      <td style="text-align:center">${r.khac}</td>
+      <td style="text-align:center"><b>${r.total}</b></td>
+      <td style="text-align:center">${r.carry}</td>
+      <td style="text-align:center">${r.used}</td>
+      <td style="text-align:center">${r.remainThisYear}</td>
+      <td style="text-align:center"><b>${r.remain}</b></td>
+    </tr>`).join('');
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="utf-8">
+  <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
+  <style>
+    @page { size: 29.7cm 21cm; margin: 1.5cm; }
+    body { font-family:'Times New Roman',serif; font-size:13px; }
+    p { font-family:'Times New Roman',serif; }
+    h3 { text-align:center; margin:2px 0; text-transform:uppercase; }
+    table { border-collapse:collapse; width:100%; margin-top:10px; }
+    th, td { border:1px solid #000; padding:4px 6px; font-size:12.5px; font-family:'Times New Roman',serif; }
+    th { background:#EAF3DE; text-align:center; font-weight:bold; }
+  </style>
+  </head>
+  <body>
+    <p style="text-align:center;font-weight:bold;margin-bottom:0">SỞ Y TẾ TỈNH GIA LAI</p>
+    <p style="text-align:center;font-weight:bold;margin-top:0">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</p>
+    <h3>Bảng đối chiếu phép năm — Khoa Gây mê Hồi sức</h3>
+    <p style="text-align:center;margin-top:0;font-style:italic">(Số liệu xuất lúc: ${ngayXuat} — tổng ${rows.length} người)</p>
+    <table>
+      <thead>
+        <tr>
+          <th>STT</th><th>Họ và tên</th><th>Chức vụ</th><th>Đơn nguyên</th><th>Nhóm</th>
+          <th>Năm tính<br>thâm niên</th><th>Phép<br>cơ bản</th><th>Thâm<br>niên</th><th>Khác</th>
+          <th>Tổng phép<br>năm nay</th><th>Phép năm<br>trước còn lại</th><th>Đã nghỉ<br>năm nay</th>
+          <th>Còn lại<br>phép năm nay</th><th>Còn lại<br>(tổng cộng)</th>
+        </tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+    <table style="border:none;width:100%;margin-top:40px">
+      <tr>
+        <td style="border:none;text-align:right" colspan="2">
+          <i>Gia Lai, ngày ${dt.getDate()} tháng ${dt.getMonth()+1} năm ${dt.getFullYear()}</i>
+        </td>
+      </tr>
+      <tr>
+        <td style="border:none;text-align:center;width:50%"><b>NGƯỜI LẬP BẢNG</b><br><i style="font-size:11.5px">(Ký, ghi rõ họ tên)</i></td>
+        <td style="border:none;text-align:center;width:50%"><b>TRƯỞNG KHOA</b><br><i style="font-size:11.5px">(Ký, ghi rõ họ tên)</i></td>
+      </tr>
+    </table>
+  </body>
+  </html>`;
+
+  const blob = new Blob(['\ufeff', html], {type:'application/msword'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Bang_doi_chieu_phep_nam_KhoaGMHS_' + dt.getFullYear()+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0') + '.doc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function qlpRenderLeaveStatusLists(){
