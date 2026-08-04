@@ -651,6 +651,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <div class="home-card" data-hc="17" onclick="openDdnlScreen('vanban')" style="background:linear-gradient(135deg,#a9761f,#6e4c10);color:#fff;border-color:#4a3208"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-files"></i><div class="home-card-title">Giấy đề<br>nghị</div><div class="home-card-sub">Theo dõi & thống kê mọi loại văn bản đề nghị gửi đi</div></div>
       <div class="home-card" data-hc="18" onclick="openDkpScreen()" style="background:linear-gradient(135deg,#7c3aed,#3b1a78);color:#fff;border-color:#2a1257"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-user-check"></i><div class="home-card-title">Đăng ký phụ trách<br>bàn giao</div><div class="home-card-sub">Cá nhân tự nhận bộ phận phụ trách theo tháng — làm rõ trách nhiệm để tính KPI</div></div>
       <div class="home-card" data-hc="19" onclick="openStaffAuthModalUser('bbba')" style="background:linear-gradient(135deg,#6a1b1a,#3d0f0e);color:#fff;border-color:#2a0a09"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-report-medical"></i><div class="home-card-title">Bình<br>bệnh án</div><div class="home-card-sub">Lưu trữ biên bản bình bệnh án — xuất Word khi cần in kiểm tra</div></div>
+      <div class="home-card" data-hc="22" onclick="openSvttScreen()" style="background:linear-gradient(135deg,#1e3a5f,#0f2338);color:#fff;border-color:#0a1a28"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-school"></i><div class="home-card-title">SV/HV Thực hành<br>(Nghị định 96)</div><div class="home-card-sub">Quản lý sinh viên thực tập & học viên chứng chỉ hành nghề tại khoa</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -1479,8 +1480,6 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         <button class="qlp-btn2" onclick="qlpToggleMissingOnly()" id="qlpMissingBtn">Chỉ hiện thiếu dữ liệu</button>
         <button class="qlp-btn2 qlp-primary" id="qlpRecalcBtn" onclick="qlpRecalcAll()" title="Cột Thâm niên đã tự động tính sẵn; nút này chỉ lưu lại giá trị đó vào dữ liệu để xuất báo cáo"><i class="ti ti-device-floppy"></i> Lưu chốt số thâm niên hiện tại</button>
         <button class="qlp-btn2 qlp-primary" onclick="qlpToggleAddForm()" id="qlpAddBtn"><i class="ti ti-user-plus"></i> Thêm nhân viên mới</button>
-        <button class="qlp-btn2" style="background:#1D6F42;color:#fff;border-color:#1D6F42" onclick="qlpExportExcel()" title="Xuất bảng đang lọc ra file Excel"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
-        <button class="qlp-btn2" style="background:#2B579A;color:#fff;border-color:#2B579A" onclick="qlpExportWord()" title="Xuất bảng đang lọc ra file Word để in đối chiếu"><i class="ti ti-file-word"></i> Xuất Word (in đối chiếu)</button>
       </div>
 
       <div id="qlpAddForm" style="display:none;background:#EAF3DE;border:1.5px solid #a0c87a;border-radius:10px;padding:14px;margin-bottom:14px">
@@ -9611,137 +9610,6 @@ function qlpRender(){
   qlpApplyPermissions();
 }
 
-/* ══════════════════════════════
-   XUẤT EXCEL / WORD — Bảng phép nhân viên (theo đúng bộ lọc đang chọn trên màn hình)
-   ══════════════════════════════ */
-function qlpGetFilteredList(){
-  const search = document.getElementById('qlpSearchBox').value.trim().toLowerCase();
-  const fUnit = document.getElementById('qlpFilterUnit').value;
-  const fGroup = document.getElementById('qlpFilterGroup').value;
-  const fLeaveStatus = (document.getElementById('qlpFilterLeaveStatus')||{}).value||'';
-  return QLP_EMPLOYEES.filter(e=>{
-    if(search && !(e.name.toLowerCase().includes(search) || vnNoAccent(e.name).includes(vnNoAccent(search)))) return false;
-    if(fUnit && e.unit!==fUnit) return false;
-    if(fGroup && e.group!==fGroup) return false;
-    if(fLeaveStatus==='da' && !(e.daNghi>0)) return false;
-    if(fLeaveStatus==='chua' && (e.daNghi>0)) return false;
-    if(qlpShowMissingOnly && e.namtn) return false;
-    return true;
-  });
-}
-
-function qlpBuildExportRows(){
-  const list = qlpGetFilteredList();
-  return list.map((e, idx)=>{
-    const base = qlpBaseLeave();
-    const autoTham = qlpSeniorityAuto(e);
-    const tham = autoTham !== null ? autoTham : (e.thamManual || 0);
-    const khac = e.khac || 0;
-    const total = base + tham + khac;
-    const carry = e.carryover || 0;
-    const used = e.daNghi || 0;
-    const remainThisYear = total - used;
-    const remain = total + carry - used;
-    return {
-      stt: idx+1, name: e.name||'', title: e.title||'', unit: e.unit||'', group: e.group||'',
-      namtn: (e.namtn===null||e.namtn===undefined||e.namtn==='') ? '' : e.namtn,
-      base, tham, khac, total, carry, used, remainThisYear, remain
-    };
-  });
-}
-
-function qlpExportExcel(){
-  const rows = qlpBuildExportRows();
-  if(rows.length===0){ alert('Không có dữ liệu để xuất (kiểm tra lại bộ lọc đang chọn).'); return; }
-  const header = ['STT','Họ và tên','Chức vụ','Đơn nguyên','Nhóm','Năm tính thâm niên','Phép cơ bản','Thâm niên','Khác','Tổng phép năm nay','Phép năm trước còn lại','Đã nghỉ năm nay','Còn lại phép năm nay','Còn lại (tổng cộng)'];
-  const data = rows.map(r=>[r.stt,r.name,r.title,r.unit,r.group,r.namtn,r.base,r.tham,r.khac,r.total,r.carry,r.used,r.remainThisYear,r.remain]);
-  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-  ws['!cols'] = [{wch:5},{wch:24},{wch:20},{wch:12},{wch:12},{wch:14},{wch:9},{wch:8},{wch:7},{wch:13},{wch:16},{wch:12},{wch:16},{wch:14}];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Bang phep nam');
-  const dt = new Date();
-  const fname = 'Bang_phep_nam_KhoaGMHS_' + dt.getFullYear()+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0') + '.xlsx';
-  XLSX.writeFile(wb, fname);
-}
-
-function qlpExportWord(){
-  const rows = qlpBuildExportRows();
-  if(rows.length===0){ alert('Không có dữ liệu để xuất (kiểm tra lại bộ lọc đang chọn).'); return; }
-  const dt = new Date();
-  const ngayXuat = dt.getDate() + '/' + (dt.getMonth()+1) + '/' + dt.getFullYear() + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
-
-  const bodyRows = rows.map(r=>`
-    <tr>
-      <td style="text-align:center">${r.stt}</td>
-      <td>${qlpEscapeHtml(r.name)}</td>
-      <td>${qlpEscapeHtml(r.title)}</td>
-      <td style="text-align:center">${qlpEscapeHtml(r.unit)}</td>
-      <td style="text-align:center">${qlpEscapeHtml(r.group)}</td>
-      <td style="text-align:center">${r.namtn}</td>
-      <td style="text-align:center">${r.base}</td>
-      <td style="text-align:center">${r.tham}</td>
-      <td style="text-align:center">${r.khac}</td>
-      <td style="text-align:center"><b>${r.total}</b></td>
-      <td style="text-align:center">${r.carry}</td>
-      <td style="text-align:center">${r.used}</td>
-      <td style="text-align:center">${r.remainThisYear}</td>
-      <td style="text-align:center"><b>${r.remain}</b></td>
-    </tr>`).join('');
-
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-  <head><meta charset="utf-8">
-  <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
-  <style>
-    @page { size: 29.7cm 21cm; margin: 1.5cm; }
-    body { font-family:'Times New Roman',serif; font-size:13px; }
-    p { font-family:'Times New Roman',serif; }
-    h3 { text-align:center; margin:2px 0; text-transform:uppercase; }
-    table { border-collapse:collapse; width:100%; margin-top:10px; }
-    th, td { border:1px solid #000; padding:4px 6px; font-size:12.5px; font-family:'Times New Roman',serif; }
-    th { background:#EAF3DE; text-align:center; font-weight:bold; }
-  </style>
-  </head>
-  <body>
-    <p style="text-align:center;font-weight:bold;margin-bottom:0">SỞ Y TẾ TỈNH GIA LAI</p>
-    <p style="text-align:center;font-weight:bold;margin-top:0">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</p>
-    <h3>Bảng đối chiếu phép năm — Khoa Gây mê Hồi sức</h3>
-    <p style="text-align:center;margin-top:0;font-style:italic">(Số liệu xuất lúc: ${ngayXuat} — tổng ${rows.length} người)</p>
-    <table>
-      <thead>
-        <tr>
-          <th>STT</th><th>Họ và tên</th><th>Chức vụ</th><th>Đơn nguyên</th><th>Nhóm</th>
-          <th>Năm tính<br>thâm niên</th><th>Phép<br>cơ bản</th><th>Thâm<br>niên</th><th>Khác</th>
-          <th>Tổng phép<br>năm nay</th><th>Phép năm<br>trước còn lại</th><th>Đã nghỉ<br>năm nay</th>
-          <th>Còn lại<br>phép năm nay</th><th>Còn lại<br>(tổng cộng)</th>
-        </tr>
-      </thead>
-      <tbody>${bodyRows}</tbody>
-    </table>
-    <table style="border:none;width:100%;margin-top:40px">
-      <tr>
-        <td style="border:none;text-align:right" colspan="2">
-          <i>Gia Lai, ngày ${dt.getDate()} tháng ${dt.getMonth()+1} năm ${dt.getFullYear()}</i>
-        </td>
-      </tr>
-      <tr>
-        <td style="border:none;text-align:center;width:50%"><b>NGƯỜI LẬP BẢNG</b><br><i style="font-size:11.5px">(Ký, ghi rõ họ tên)</i></td>
-        <td style="border:none;text-align:center;width:50%"><b>TRƯỞNG KHOA</b><br><i style="font-size:11.5px">(Ký, ghi rõ họ tên)</i></td>
-      </tr>
-    </table>
-  </body>
-  </html>`;
-
-  const blob = new Blob(['\ufeff', html], {type:'application/msword'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'Bang_doi_chieu_phep_nam_KhoaGMHS_' + dt.getFullYear()+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0') + '.doc';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 function qlpRenderLeaveStatusLists(){
   const wrap = document.getElementById('qlpLeaveStatusLists');
   if(!wrap) return;
@@ -12122,14 +11990,20 @@ function urgencyWeight(c){
 function urgencySort(arr){
   return arr.slice().sort((a,b)=>urgencyWeight(b)-urgencyWeight(a));
 }
+// Sắp xếp theo ngày báo cáo mới nhất lên đầu (thay vì theo mức độ khẩn cấp/số ngày tồn đọng như
+// urgencySort) — dùng riêng cho 2 cột "Chưa xử lý" và "Đang xử lý" trên bảng Kanban chính, theo yêu
+// cầu để tiện theo dõi việc mới báo cáo. Không đổi urgencySort gốc vì hàm đó vẫn dùng ở "Giao ban sáng".
+function dateFirstSort(arr){
+  return arr.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
 function renderBoard(){
   // Keep addsec hidden for viewer
   var addsec2=document.querySelector('.addsec');
   if(addsec2&&cu&&cu.role==='viewer')addsec2.style.display='none';
   if(!cu)return;
   const data=getFiltered();
-  const td=urgencySort(data.filter(c=>c.status==='todo'));
-  const dg=urgencySort(data.filter(c=>c.status==='doing'));
+  const td=dateFirstSort(data.filter(c=>c.status==='todo'));
+  const dg=dateFirstSort(data.filter(c=>c.status==='doing'));
   const dn=data.filter(c=>c.status==='done').sort((a,b)=>(b.doneAt||b.date||'').localeCompare(a.doneAt||a.date||''));
   const ug=data.filter(c=>c.pri==='h'&&c.status!=='done');
   const emp=t=>`<div class="empty"><i class="ti ti-inbox"></i>${t}</div>`;
@@ -39027,6 +38901,1217 @@ function clearFieldInvalid(id){
   } else {
     hcInit();
   }
+})();
+</script>
+
+<!-- ============================================================
+     THẺ MỚI — HOÀN TOÀN ĐỘC LẬP — không dùng chung dữ liệu/hàm/id với
+     bất kỳ thẻ nào khác trong file. Toàn bộ id/hàm/biến đều có tiền tố "svtt".
+     Firebase node riêng: quanLySinhVienThucHanh (config/dot/thanhVien).
+     ============================================================ -->
+<div id="svttScreen" style="display:none;min-height:100vh;background:#eef2f7;flex-direction:column">
+  <div style="background:linear-gradient(135deg,#1e3a5f,#0f2338);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+    <button onclick="closeSvttScreen()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button>
+    <i class="ti ti-school" style="font-size:22px;color:#fff"></i>
+    <div>
+      <div style="color:#fff;font-size:15px;font-weight:700">SV/HV Thực hành — Nghị định 96 — Khoa Gây mê Hồi sức</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px">Quản lý sinh viên thực tập & học viên chứng chỉ hành nghề</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+      <button class="tbtn" id="svttLoginBtn" onclick="svttOpenLogin()" style="border-color:rgba(255,255,255,.45);background:#fff;color:#1e3a5f;font-weight:700"><i class="ti ti-lock"></i> Đăng nhập Quản lý/HD</button>
+      <button class="tbtn" id="svttLogoutBtn" onclick="svttLogout()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-logout"></i> Đăng xuất</button>
+      <button class="tbtn" id="svttStatsBtn" onclick="svttToggleStats()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-chart-bar"></i> Thống kê</button>
+      <button class="tbtn" id="svttExportExcelBtn" onclick="svttExportExcel()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+      <button class="tbtn" id="svttExportWordBtn" onclick="svttExportWord()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-file-word"></i> Xuất Word</button>
+      <button class="tbtn" id="svttExportPL1Btn" onclick="svttExportPhuLucI()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-file-text"></i> Phụ lục I</button>
+      <button class="tbtn" id="svttExportPL2Btn" onclick="svttExportPhuLucII()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-file-text"></i> Phụ lục II</button>
+    </div>
+  </div>
+
+  <div style="max-width:1100px;margin:0 auto;padding:16px 14px 60px;width:100%">
+
+    <!-- Tra cứu công khai — luôn hiện, không cần đăng nhập -->
+    <div class="svtt-box" style="border-color:#90a4c9">
+      <div style="font-weight:800;font-size:14px;color:#1e3a5f;margin-bottom:8px"><i class="ti ti-search"></i> Sinh viên/Học viên tự tra cứu hồ sơ của mình</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg" style="margin:0;flex:1;min-width:220px">
+          <label>Nhập mã tra cứu (do khoa cấp)</label>
+          <input type="text" id="svttLookupCode" placeholder="VD: A1B2C3" style="text-transform:uppercase">
+        </div>
+        <button class="kpi-btn" style="background:#1e3a5f;color:#fff" onclick="svttDoLookup()"><i class="ti ti-search"></i> Tra cứu</button>
+      </div>
+      <div id="svttLookupResult" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Đăng nhập Quản lý/Người hướng dẫn -->
+    <div class="svtt-box" id="svttLoginBox">
+      <div style="font-weight:800;font-size:14px;color:#1e3a5f;margin-bottom:8px"><i class="ti ti-shield-lock"></i> Khu vực Quản lý / Người hướng dẫn</div>
+      <div class="sub">Đăng nhập để thêm/sửa đợt thực tập, danh sách sinh viên/học viên, nhập nhận xét & đánh giá.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
+        <div class="fg" style="margin:0;flex:1;min-width:180px">
+          <label>Họ tên người đăng nhập</label>
+          <input type="text" id="svttLoginName" placeholder="Họ tên của anh/chị...">
+        </div>
+        <div class="fg" style="margin:0;flex:1;min-width:180px">
+          <label>Mật khẩu module</label>
+          <input type="password" id="svttLoginPwd" placeholder="Mật khẩu dùng chung module này">
+        </div>
+        <button class="kpi-btn" style="background:#1e3a5f;color:#fff" onclick="svttDoLogin()"><i class="ti ti-login"></i> Đăng nhập</button>
+      </div>
+      <div id="svttLoginMsg" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
+      <div class="sub" style="margin-top:8px">Mật khẩu mặc định ban đầu: <b>gmhs2026</b> (giống mật khẩu Admin dùng chung các thẻ khác trong hệ thống) — có thể đổi riêng cho thẻ này sau khi đăng nhập lần đầu (nút "Đổi mật khẩu" hiện ra sau khi đăng nhập).</div>
+    </div>
+
+    <!-- Khu vực quản lý (chỉ hiện sau khi đăng nhập) -->
+    <div id="svttManagerBox" style="display:none">
+      <div id="svttWhoBanner" class="svtt-box" style="background:#e3f2fd;border-color:#90caf9;font-size:13px;color:#0d47a1"></div>
+
+      <div class="svtt-box" id="svttStatsBox" style="display:none">
+        <div style="font-weight:800;font-size:14px;color:#1e3a5f;margin-bottom:8px"><i class="ti ti-chart-bar"></i> Thống kê tổng quan</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+          <div class="fg" style="margin:0"><label>Từ ngày</label><input type="date" id="svttStatsTu"></div>
+          <div class="fg" style="margin:0"><label>Đến ngày</label><input type="date" id="svttStatsDen"></div>
+          <button class="kpi-btn" style="background:#1e3a5f;color:#fff" onclick="svttRenderStats()"><i class="ti ti-filter"></i> Lọc</button>
+          <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="svttClearStatsFilter()"><i class="ti ti-x"></i> Bỏ lọc (xem tất cả)</button>
+          <button class="kpi-btn" style="background:#0d6e6e;color:#fff;margin-left:auto" onclick="svttExportStats()"><i class="ti ti-file-spreadsheet"></i> Xuất thống kê Excel</button>
+        </div>
+        <div id="svttStatsSummary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div style="font-weight:700;font-size:13px;color:#1e3a5f;margin-bottom:6px">Theo người hướng dẫn</div>
+        <div id="svttStatsHdTable"></div>
+      </div>
+
+      <div class="svtt-box">
+        <h3 style="margin:0 0 12px;font-size:15px;color:#1e3a5f;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('svttDotFormWrap','svttDotFormChevron')"><span><i class="ti ti-square-plus"></i> Tạo đợt thực tập mới</span><span id="svttDotFormChevron" style="font-size:13px">▾</span></h3>
+        <div id="svttDotFormWrap">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+            <div class="fg" style="grid-column:1/-1"><label>Tên đợt *</label><input type="text" id="svttDotTen" placeholder="VD: Đợt thực tập tháng 8/2026 — Trường CĐ Y tế Gia Lai"></div>
+            <div class="fg"><label>Cơ sở đào tạo *</label><input type="text" id="svttDotCoSo" placeholder="Tên trường/cơ sở đào tạo"></div>
+            <div class="fg">
+              <label>Loại đối tượng chính *</label>
+              <select id="svttDotLoai">
+                <option value="sinh_vien_thuc_tap">Sinh viên thực tập</option>
+                <option value="hoc_vien_cchn">Học viên chứng chỉ hành nghề</option>
+                <option value="hon_hop">Hỗn hợp (cả 2 loại)</option>
+              </select>
+            </div>
+            <div class="fg"><label>Từ ngày *</label><input type="date" id="svttDotTuNgay"></div>
+            <div class="fg"><label>Đến ngày *</label><input type="date" id="svttDotDenNgay"></div>
+            <div class="fg" style="grid-column:1/-1;position:relative">
+              <label>Người hướng dẫn chính (chung cả đợt)</label>
+              <input type="text" id="svttDotNguoiHD" autocomplete="off" placeholder="Bấm để chọn hoặc gõ tên..." onfocus="svttShowHdDrop('svttDotNguoiHD')" oninput="svttFilterHdDrop('svttDotNguoiHD')" onblur="setTimeout(svttHideHdDrop,180)">
+              <div id="svttDotNguoiHD_drop" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1.5px solid #90a4c9;border-top:none;border-radius:0 0 8px 8px;z-index:999;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div>
+              <div id="svttDotNguoiHD_info" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+            </div>
+            <div class="fg" style="grid-column:1/-1"><label>Ghi chú</label><textarea id="svttDotGhiChu" placeholder="Ghi chú thêm (nếu có)..." style="min-height:50px"></textarea></div>
+          </div>
+          <div style="margin-top:10px;padding:10px 12px;background:#f7f9fc;border:1.5px dashed #90a4c9;border-radius:8px">
+            <div style="font-weight:700;font-size:12.5px;color:#1e3a5f;margin-bottom:6px"><i class="ti ti-clipboard-list"></i> Kế hoạch thực tập (nếu có)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px">
+              <div class="fg" style="margin:0"><label>Số kế hoạch</label><input type="text" id="svttDotSoKH" placeholder="VD: 45/KH-GMHS"></div>
+              <div class="fg" style="margin:0"><label>Ngày lập</label><input type="date" id="svttDotNgayLapKH"></div>
+            </div>
+            <div class="fg" style="margin-top:8px">
+              <label>Ảnh chụp/scan kế hoạch</label>
+              <input type="file" id="svttDotKHFile" accept="image/*" onchange="svttHandleAttach(this,'dotKH')">
+              <div id="svttDotKHPreview" style="margin-top:6px"></div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:10px 12px;background:#f7f9fc;border:1.5px dashed #90a4c9;border-radius:8px">
+            <div style="font-weight:700;font-size:12.5px;color:#1e3a5f;margin-bottom:6px"><i class="ti ti-file-certificate"></i> Quyết định tiếp nhận đợt thực tập (nếu có)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px">
+              <div class="fg" style="margin:0"><label>Số quyết định</label><input type="text" id="svttDotSoQD" placeholder="VD: 123/QĐ-BVĐKTT"></div>
+              <div class="fg" style="margin:0"><label>Ngày ký</label><input type="date" id="svttDotNgayKyQD"></div>
+            </div>
+            <div class="fg" style="margin-top:8px">
+              <label>Ảnh chụp/scan quyết định</label>
+              <input type="file" id="svttDotQDFile" accept="image/*" onchange="svttHandleAttach(this,'dot')">
+              <div id="svttDotQDPreview" style="margin-top:6px"></div>
+            </div>
+          </div>
+          <button class="kpi-btn" id="svttDotSaveBtn" style="background:#1e3a5f;color:#fff;margin-top:10px" onclick="svttSaveDot()"><i class="ti ti-device-floppy"></i> Lưu đợt thực tập</button>
+          <button class="kpi-btn" id="svttDotCancelEditBtn" style="display:none;border:1.5px solid #999;color:#666;margin-top:10px;margin-left:8px" onclick="svttCancelEditDot()"><i class="ti ti-x"></i> Hủy sửa</button>
+          <div id="svttDotFormAlert" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
+        </div>
+      </div>
+
+      <div class="svtt-box">
+        <h3 style="margin:0 0 12px;font-size:15px;color:#1e3a5f;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('svttHdFormWrap','svttHdFormChevron')"><span><i class="ti ti-stethoscope"></i> Danh sách người hướng dẫn (nhân viên khoa)</span><span id="svttHdFormChevron" style="font-size:13px">▾</span></h3>
+        <div id="svttHdFormWrap">
+          <div class="sub" style="margin-bottom:8px">Quản lý riêng cho module này — không lấy dữ liệu từ danh sách nhân viên của các thẻ khác. Dùng để theo dõi số chứng chỉ hành nghề và cân đối số học viên đang hướng dẫn khi phân công.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;align-items:flex-end">
+            <div class="fg" style="margin:0"><label>Họ tên *</label><input type="text" id="svttHdHoTen" placeholder="Họ tên nhân viên"></div>
+            <div class="fg" style="margin:0"><label>Số chứng chỉ hành nghề</label><input type="text" id="svttHdSoCCHN" placeholder="VD: 001234/GMHS-CCHN"></div>
+            <div class="fg" style="margin:0"><label>Ngày cấp CCHN</label><input type="date" id="svttHdNgayCap"></div>
+          </div>
+          <div class="fg"><label>Ghi chú (chức danh, chuyên khoa...)</label><input type="text" id="svttHdGhiChu" placeholder="VD: Bác sĩ CKI Gây mê hồi sức"></div>
+          <button class="kpi-btn" id="svttHdSaveBtn" style="background:#1e3a5f;color:#fff" onclick="svttSaveHd()"><i class="ti ti-device-floppy"></i> Lưu người hướng dẫn</button>
+          <button class="kpi-btn" id="svttHdCancelEditBtn" style="display:none;border:1.5px solid #999;color:#666;margin-left:8px" onclick="svttCancelEditHd()"><i class="ti ti-x"></i> Hủy sửa</button>
+          <button class="kpi-btn" style="background:#5b21b6;color:#fff;margin-left:8px" onclick="svttImportGmhsStaff()"><i class="ti ti-download"></i> Nhập nhanh 101 nhân viên khoa GMHS</button>
+          <button class="kpi-btn" style="border:1.5px solid #c62828;color:#c62828;margin-left:8px" onclick="svttDedupHd()"><i class="ti ti-copy-off"></i> Dọn trùng lặp</button>
+          <div id="svttHdFormAlert" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
+          <div class="fg" style="margin-top:12px;margin-bottom:0">
+            <input type="text" id="svttHdSearch" placeholder="🔍 Tìm theo tên..." oninput="svttRenderHdList()">
+          </div>
+          <div id="svttHdList" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="svtt-box">
+        <h3 style="margin:0 0 12px;font-size:15px;color:#1e3a5f"><i class="ti ti-list"></i> Danh sách đợt thực tập (<span id="svttDotCount">0</span>)</h3>
+        <div id="svttDotList"></div>
+      </div>
+    </div>
+
+    <div style="text-align:center;font-size:11.5px;color:#7a8aa5;margin-top:16px;line-height:1.6">
+      Dữ liệu lưu trên Firebase khoa (node <code>quanLySinhVienThucHanh</code>) — hoàn toàn độc lập, không ảnh hưởng dữ liệu các thẻ khác trong hệ thống.
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Thêm/Sửa thành viên (SV/HV) trong 1 đợt -->
+<div class="kpi-modal-overlay" id="svttMemberOverlay">
+  <div class="kpi-modal-box" style="max-width:560px">
+    <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px">
+      <div style="font-weight:700;font-size:15px;color:#1e3a5f;flex:1" id="svttMemberModalTitle">Thêm sinh viên/học viên</div>
+      <button class="kpi-modal-close" onclick="svttCloseMemberModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:16px 20px;max-height:70vh;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="fg" style="grid-column:1/-1"><label>Họ và tên *</label><input type="text" id="svttMHoTen"></div>
+        <div class="fg"><label>Ngày sinh</label><input type="date" id="svttMNgaySinh"></div>
+        <div class="fg">
+          <label>Giới tính</label>
+          <select id="svttMGioiTinh"><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select>
+        </div>
+        <div class="fg"><label>Mã SV/HV (nếu có)</label><input type="text" id="svttMMaSo"></div>
+        <div class="fg"><label>Lớp/Khóa</label><input type="text" id="svttMLopKhoa"></div>
+        <div class="fg" style="grid-column:1/-1">
+          <label>Loại *</label>
+          <select id="svttMLoai">
+            <option value="sinh_vien_thuc_tap">Sinh viên thực tập</option>
+            <option value="hoc_vien_cchn">Học viên chứng chỉ hành nghề</option>
+          </select>
+        </div>
+        <div class="fg"><label>Từ ngày (để trống = lấy theo đợt)</label><input type="date" id="svttMTuNgay"></div>
+        <div class="fg"><label>Đến ngày (để trống = lấy theo đợt)</label><input type="date" id="svttMDenNgay"></div>
+        <div class="fg" style="grid-column:1/-1;position:relative">
+          <label>Người hướng dẫn riêng (để trống = lấy theo đợt)</label>
+          <input type="text" id="svttMNguoiHD" autocomplete="off" placeholder="Bấm để chọn hoặc gõ tên..." onfocus="svttShowHdDrop('svttMNguoiHD')" oninput="svttFilterHdDrop('svttMNguoiHD')" onblur="setTimeout(svttHideHdDrop,180)">
+          <div id="svttMNguoiHD_drop" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1.5px solid #90a4c9;border-top:none;border-radius:0 0 8px 8px;z-index:999;box-shadow:0 6px 16px rgba(0,0,0,.15)"></div>
+          <div id="svttMNguoiHD_info" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+        <div class="fg"><label>Số điện thoại</label><input type="text" id="svttMSdt"></div>
+        <div class="fg"><label>Email</label><input type="text" id="svttMEmail"></div>
+        <div class="fg" style="grid-column:1/-1">
+          <label>Khu vực thực hành trong khoa</label>
+          <select id="svttMKhuVuc">
+            <option value="">— Chưa xác định —</option>
+            <option value="Phòng mổ">Phòng mổ</option>
+            <option value="Phòng Hồi sức">Phòng Hồi sức</option>
+            <option value="Cả Phòng mổ và Hồi sức">Cả Phòng mổ và Hồi sức</option>
+          </select>
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <label>Ảnh giấy tờ đính kèm (giấy giới thiệu/quyết định riêng, nếu có)</label>
+          <input type="file" id="svttMAttachFile" accept="image/*" onchange="svttHandleAttach(this,'member')">
+          <div id="svttMAttachPreview" style="margin-top:6px"></div>
+        </div>
+      </div>
+      <div id="svttMemberModalAlert" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+      <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="svttCloseMemberModal()">Hủy</button>
+      <button class="kpi-btn" style="background:#1e3a5f;color:#fff" onclick="svttSaveMember()"><i class="ti ti-device-floppy"></i> Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nhận xét / Đánh giá kết quả thực hành -->
+<div class="kpi-modal-overlay" id="svttReviewOverlay">
+  <div class="kpi-modal-box" style="max-width:480px">
+    <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px">
+      <div style="font-weight:700;font-size:15px;color:#1e3a5f;flex:1">Nhận xét / Đánh giá — <span id="svttReviewName"></span></div>
+      <button class="kpi-modal-close" onclick="svttCloseReviewModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:16px 20px">
+      <div class="fg"><label>Số giờ/buổi đã hoàn thành</label><input type="number" id="svttRSoGio" min="0" style="width:100%"></div>
+      <div class="fg">
+        <label>Trạng thái</label>
+        <select id="svttRTrangThai">
+          <option value="dang_thuc_hanh">Đang thực hành</option>
+          <option value="hoan_thanh">Đã hoàn thành</option>
+          <option value="nghi">Nghỉ giữa chừng</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Xếp loại</label>
+        <select id="svttRXepLoai">
+          <option value="">— Chưa xếp loại —</option>
+          <option value="Xuất sắc">Xuất sắc</option>
+          <option value="Giỏi">Giỏi</option>
+          <option value="Khá">Khá</option>
+          <option value="Trung bình">Trung bình</option>
+          <option value="Yếu">Yếu</option>
+          <option value="Không đạt">Không đạt</option>
+        </select>
+      </div>
+      <div class="fg"><label>Nhận xét chi tiết</label><textarea id="svttRNhanXet" style="min-height:80px"></textarea></div>
+      <div id="svttReviewModalAlert" style="display:none;margin-top:8px;padding:9px 12px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+      <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="svttCloseReviewModal()">Hủy</button>
+      <button class="kpi-btn" style="background:#1e3a5f;color:#fff" onclick="svttSaveReview()"><i class="ti ti-device-floppy"></i> Lưu nhận xét</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Chấm công theo ngày -->
+<div class="kpi-modal-overlay" id="svttChamCongOverlay">
+  <div class="kpi-modal-box" style="max-width:520px">
+    <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px">
+      <div style="font-weight:700;font-size:15px;color:#1e3a5f;flex:1">Chấm công — <span id="svttCcName"></span></div>
+      <button class="kpi-modal-close" onclick="svttCloseChamCong()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:16px 20px;max-height:65vh;overflow-y:auto" id="svttCcBody"></div>
+    <div style="padding:12px 20px;border-top:1px solid #eee;font-size:11.5px;color:#888">Bấm vào từng ngày để chuyển trạng thái: Có mặt → Vắng → Nghỉ phép → (xóa). Tự động lưu.</div>
+  </div>
+</div>
+
+<style>
+.svtt-box{background:#fff;border:1.5px solid #dbe3ee;border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.svtt-dot-card{background:#f7f9fc;border:1.5px solid #dbe3ee;border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.svtt-dot-hd{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;cursor:pointer}
+.svtt-dot-title{font-weight:700;font-size:14px;color:#1e3a5f}
+.svtt-dot-sub{font-size:12px;color:#666;margin-top:2px}
+table.svtt-dt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+table.svtt-dt th{background:#eef2f7;color:#1e3a5f;font-weight:700;padding:6px 8px;text-align:left;border:1px solid #dbe3ee}
+table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
+.svtt-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px}
+.svtt-badge.dang{background:#fff3e0;color:#8a5300}
+.svtt-badge.xong{background:#e8f5e9;color:#1b5e20}
+.svtt-badge.nghi{background:#fce4e4;color:#a02020}
+.svtt-code{font-family:monospace;font-weight:700;background:#eef2f7;padding:2px 6px;border-radius:5px;letter-spacing:1px}
+.svtt-stat-card{background:#f7f9fc;border:1.5px solid #dbe3ee;border-radius:10px;padding:10px 16px;min-width:130px}
+.svtt-stat-card .n{font-size:22px;font-weight:700;color:#1e3a5f}
+.svtt-stat-card .l{font-size:11.5px;color:#666;margin-top:2px}
+.svtt-cc-day{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:64px;height:52px;border-radius:8px;border:1.5px solid #dbe3ee;cursor:pointer;font-size:11px;margin:3px;user-select:none}
+.svtt-cc-day .d{font-weight:700;font-size:12px}
+.svtt-cc-day.co{background:#e8f5e9;border-color:#66bb6a;color:#1b5e20}
+.svtt-cc-day.vang{background:#fce4e4;border-color:#e57373;color:#a02020}
+.svtt-cc-day.phep{background:#fff3e0;border-color:#ffb74d;color:#8a5300}
+</style>
+<!-- /svttScreen -->
+
+<script>
+/* ============================================================
+   THẺ "SV/HV Thực hành — Nghị định 96" — HOÀN TOÀN ĐỘC LẬP.
+   Mọi biến/hàm đều tiền tố "svtt". Firebase node riêng: quanLySinhVienThucHanh.
+   Không đọc/ghi bất kỳ node hay biến toàn cục nào của các thẻ khác (trừ hàm tiện
+   ích UI dùng chung không mang dữ liệu: cmeToggleSection, kpiToggleWideBox...).
+   ============================================================ */
+(function(){
+  var svttRoot = db.ref('quanLySinhVienThucHanh');
+  var svttConfigRef = svttRoot.child('config');
+  var svttDotRef = svttRoot.child('dot');
+  var svttTvRef = svttRoot.child('thanhVien');
+  var svttHdRef = svttRoot.child('nguoiHuongDan');
+
+  var svttConfig = { matKhau: 'gmhs2026' }; // đồng bộ mặc định với mật khẩu Admin chung toàn hệ thống (DPWD) cho tiện — vẫn lưu/đổi riêng, không phụ thuộc dữ liệu module khác
+  var svttDots = {};
+  var svttHds = {};
+  var svttMembers = {};
+  var svttListenersOn = false;
+  var svttCu = null; // { name } — người đang đăng nhập Quản lý/HD, chỉ lưu trong phiên (không persist)
+  var svttExpandedDot = null; // id đợt đang mở rộng xem danh sách
+  var svttEditingDotId = null;
+  var svttEditingMemberId = null;
+  var svttReviewingMemberId = null;
+  var svttPendingAttach = {}; // { dot: dataUrl, member: dataUrl } — ảnh vừa chọn, chờ lưu cùng form
+
+  function svttEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function svttFmtD(iso){ if(!iso) return ''; var p=iso.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso; }
+  function svttRandCode(){
+    var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var out='';
+    for(var i=0;i<6;i++) out+=chars.charAt(Math.floor(Math.random()*chars.length));
+    return out;
+  }
+  function svttLoaiLabel(l){ return l==='hoc_vien_cchn' ? 'Học viên CCHN' : 'Sinh viên thực tập'; }
+  // Nén ảnh trước khi lưu (giảm kích thước để nhẹ cho Firebase) — resize chiều rộng tối đa 1000px, JPEG 70%.
+  function svttCompressImage(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        var img = new Image();
+        img.onload = function(){
+          var maxW = 1000;
+          var w = img.width, h = img.height;
+          if (w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.onerror = function(){ reject(new Error('Không đọc được ảnh. Vui lòng chọn lại file ảnh khác.')); };
+        img.src = e.target.result;
+      };
+      reader.onerror = function(){ reject(new Error('Lỗi đọc file.')); };
+      reader.readAsDataURL(file);
+    });
+  }
+  window.svttHandleAttach = function(inputEl, kind){
+    var file = inputEl.files && inputEl.files[0];
+    if(!file) return;
+    var previewId = kind==='dot' ? 'svttDotQDPreview' : (kind==='dotKH' ? 'svttDotKHPreview' : 'svttMAttachPreview');
+    var previewEl = document.getElementById(previewId);
+    previewEl.innerHTML = '<span style="font-size:11.5px;color:#888"><i class="ti ti-loader-2"></i> Đang xử lý ảnh...</span>';
+    svttCompressImage(file).then(function(dataUrl){
+      svttPendingAttach[kind] = dataUrl;
+      previewEl.innerHTML = '<img src="'+dataUrl+'" style="max-height:80px;border-radius:6px;border:1px solid #dbe3ee">';
+    }).catch(function(e){
+      previewEl.innerHTML = '<span style="font-size:11.5px;color:#a02020">'+e.message+'</span>';
+    });
+  };
+  function svttTrangThaiHtml(t){
+    if(t==='hoan_thanh') return '<span class="svtt-badge xong">✅ Hoàn thành</span>';
+    if(t==='nghi') return '<span class="svtt-badge nghi">⛔ Nghỉ giữa chừng</span>';
+    return '<span class="svtt-badge dang">⏳ Đang thực hành</span>';
+  }
+
+  function svttEnsureListeners(){
+    if(svttListenersOn) return;
+    svttListenersOn = true;
+    svttConfigRef.on('value', function(snap){
+      var v = snap.val();
+      if(v && v.matKhau) svttConfig.matKhau = v.matKhau;
+    });
+    svttDotRef.on('value', function(snap){
+      svttDots = snap.val() || {};
+      svttRenderDotList();
+    });
+    svttTvRef.on('value', function(snap){
+      svttMembers = snap.val() || {};
+      svttRenderDotList();
+      svttRenderHdList();
+    });
+    svttHdRef.on('value', function(snap){
+      svttHds = snap.val() || {};
+      svttRenderHdList();
+      svttRefreshHdDatalist();
+    });
+  }
+
+  window.openSvttScreen = function(){
+    document.getElementById('homeScreen').style.display='none';
+    document.getElementById('svttScreen').style.display='flex';
+    svttEnsureListeners();
+    // [CHẨN ĐOÁN TẠM] xem vì sao không tự đăng nhập được — có thể xóa sau khi xác định xong nguyên nhân.
+    console.log('[CHẨN ĐOÁN openSvttScreen] typeof isAdmin=', typeof isAdmin,
+      '| isAdmin()=', (typeof isAdmin==='function' ? isAdmin() : 'N/A'),
+      '| window.adminSession=', window.adminSession,
+      '| window.cu=', window.cu,
+      '| ddnlLocalAdminUnlock=', (typeof ddnlLocalAdminUnlock!=='undefined' ? ddnlLocalAdminUnlock : 'N/A'));
+    // Nếu anh/chị đã đăng nhập Quản lý chung của toàn hệ thống (nút "QL Quản lý" ở các thẻ khác),
+    // tự động vào luôn khu Quản lý của thẻ này — khỏi phải đăng nhập lần 2. Chỉ ĐỌC trạng thái đăng
+    // nhập chung (hàm isAdmin() có sẵn), không đụng tới dữ liệu của thẻ khác.
+    if(!svttCu && typeof isAdmin === 'function' && isAdmin()){
+      svttEnterManagerMode('Quản lý', true);
+    }
+  };
+  window.closeSvttScreen = function(){
+    document.getElementById('svttScreen').style.display='none';
+    document.getElementById('homeScreen').style.display='';
+  };
+
+  // ── Đăng nhập / đăng xuất Quản lý-Người hướng dẫn (mật khẩu riêng module) ──
+  window.svttOpenLogin = function(){
+    document.getElementById('svttLoginBox').scrollIntoView({behavior:'smooth',block:'center'});
+  };
+  function svttEnterManagerMode(name, isAuto){
+    svttCu = { name: name };
+    document.getElementById('svttLoginBox').style.display='none';
+    document.getElementById('svttLoginBtn').style.display='none';
+    document.getElementById('svttLogoutBtn').style.display='';
+    document.getElementById('svttStatsBtn').style.display='';
+    document.getElementById('svttExportExcelBtn').style.display='';
+    document.getElementById('svttExportWordBtn').style.display='';
+    document.getElementById('svttExportPL1Btn').style.display='';
+    document.getElementById('svttExportPL2Btn').style.display='';
+    document.getElementById('svttManagerBox').style.display='';
+    document.getElementById('svttWhoBanner').innerHTML='<i class="ti ti-user-circle"></i> Đăng nhập: <b>'+svttEsc(svttCu.name)+'</b>'+
+      (isAuto ? ' <span style="color:#666">(tự động, vì anh/chị đã đăng nhập Quản lý chung của hệ thống)</span>' : '')+
+      ' &nbsp;·&nbsp; <a href="javascript:void(0)" onclick="svttChangePwd()" style="color:#0d47a1">Đổi mật khẩu module</a>';
+    svttRenderDotList();
+  }
+  window.svttDoLogin = function(){
+    var name=(document.getElementById('svttLoginName').value||'').trim();
+    var pwd=document.getElementById('svttLoginPwd').value||'';
+    var msg=document.getElementById('svttLoginMsg');
+    if(!name){ msg.style.display='block'; msg.style.background='#fce4e4'; msg.style.color='#a02020'; msg.textContent='Vui lòng nhập họ tên.'; return; }
+    if(pwd!==svttConfig.matKhau){ msg.style.display='block'; msg.style.background='#fce4e4'; msg.style.color='#a02020'; msg.textContent='Sai mật khẩu module. Thử lại.'; return; }
+    msg.style.display='none';
+    svttEnterManagerMode(name, false);
+  };
+  window.svttLogout = function(){
+    svttCu = null;
+    document.getElementById('svttManagerBox').style.display='none';
+    document.getElementById('svttLoginBox').style.display='';
+    document.getElementById('svttLoginBtn').style.display='';
+    document.getElementById('svttLogoutBtn').style.display='none';
+    document.getElementById('svttStatsBtn').style.display='none';
+    document.getElementById('svttExportExcelBtn').style.display='none';
+    document.getElementById('svttExportWordBtn').style.display='none';
+    document.getElementById('svttExportPL1Btn').style.display='none';
+    document.getElementById('svttExportPL2Btn').style.display='none';
+    document.getElementById('svttLoginName').value='';
+    document.getElementById('svttLoginPwd').value='';
+  };
+  window.svttChangePwd = function(){
+    var cur=prompt('Nhập mật khẩu hiện tại để xác nhận:');
+    if(cur!==svttConfig.matKhau){ alert('Sai mật khẩu hiện tại.'); return; }
+    var mk1=prompt('Nhập mật khẩu MỚI cho module này:');
+    if(!mk1){ return; }
+    svttConfigRef.set({matKhau:mk1}).then(function(){ alert('✅ Đã đổi mật khẩu module.'); }).catch(function(e){ alert('Lỗi: '+e.message); });
+  };
+
+  // ── Tra cứu công khai (không cần đăng nhập) ──
+  window.svttDoLookup = function(){
+    var code=(document.getElementById('svttLookupCode').value||'').trim().toUpperCase();
+    var box=document.getElementById('svttLookupResult');
+    if(!code){ box.innerHTML='<div style="color:#a02020;font-size:12.5px">Vui lòng nhập mã tra cứu.</div>'; return; }
+    var found=null, foundId=null;
+    Object.keys(svttMembers||{}).forEach(function(id){
+      if((svttMembers[id].maTraCuu||'').toUpperCase()===code) { found=svttMembers[id]; foundId=id; }
+    });
+    if(!found){ box.innerHTML='<div style="color:#a02020;font-size:12.5px">Không tìm thấy hồ sơ với mã này. Kiểm tra lại mã hoặc liên hệ khoa.</div>'; return; }
+    var dot = svttDots[found.dotId] || {};
+    var tuNgay = found.tuNgay || dot.tuNgay, denNgay = found.denNgay || dot.denNgay;
+    var nguoiHD = found.nguoiHuongDan || dot.nguoiHuongDanChinh || '—';
+    box.innerHTML =
+      '<div style="background:#f7f9fc;border:1.5px solid #dbe3ee;border-radius:10px;padding:12px 14px">'+
+      '<div style="font-weight:700;font-size:14px;color:#1e3a5f">'+svttEsc(found.hoTen)+' <span style="font-weight:400;font-size:12px;color:#666">('+svttLoaiLabel(found.loai)+')</span></div>'+
+      '<div style="font-size:12.5px;color:#444;margin-top:6px">Đợt: <b>'+svttEsc(dot.tenDot||'—')+'</b></div>'+
+      '<div style="font-size:12.5px;color:#444">Thời gian thực hành: <b>'+svttFmtD(tuNgay)+' — '+svttFmtD(denNgay)+'</b></div>'+
+      '<div style="font-size:12.5px;color:#444">Người hướng dẫn: <b>'+svttEsc(nguoiHD)+'</b></div>'+
+      '<div style="font-size:12.5px;color:#444">Số giờ đã hoàn thành: <b>'+(found.soGioHoanThanh!=null?found.soGioHoanThanh:'—')+'</b></div>'+
+      '<div style="font-size:12.5px;color:#444">Trạng thái: '+svttTrangThaiHtml(found.trangThai)+'</div>'+
+      (found.xepLoai?('<div style="font-size:12.5px;color:#444">Xếp loại: <b>'+svttEsc(found.xepLoai)+'</b></div>'):'')+
+      (found.nhanXet?('<div style="font-size:12.5px;color:#444;margin-top:6px;background:#fff;border:1px solid #eee;border-radius:8px;padding:8px 10px"><b>Nhận xét:</b> '+svttEsc(found.nhanXet)+'</div>'):'')+
+      '</div>';
+  };
+
+  // ── Đợt thực tập: Lưu / Sửa / Xóa ──
+  window.svttSaveDot = function(){
+    var ten=(document.getElementById('svttDotTen').value||'').trim();
+    var coSo=(document.getElementById('svttDotCoSo').value||'').trim();
+    var loai=document.getElementById('svttDotLoai').value;
+    var tuNgay=document.getElementById('svttDotTuNgay').value;
+    var denNgay=document.getElementById('svttDotDenNgay').value;
+    var nguoiHD=(document.getElementById('svttDotNguoiHD').value||'').trim();
+    var ghiChu=(document.getElementById('svttDotGhiChu').value||'').trim();
+    var soQD=(document.getElementById('svttDotSoQD').value||'').trim();
+    var ngayKyQD=document.getElementById('svttDotNgayKyQD').value;
+    var soKH=(document.getElementById('svttDotSoKH').value||'').trim();
+    var ngayLapKH=document.getElementById('svttDotNgayLapKH').value;
+    var alertEl=document.getElementById('svttDotFormAlert');
+    function showErr(msg){ alertEl.style.display='block'; alertEl.style.background='#fce4e4'; alertEl.style.color='#a02020'; alertEl.textContent=msg; }
+    if(!ten){ showErr('Vui lòng nhập tên đợt.'); return; }
+    if(!coSo){ showErr('Vui lòng nhập cơ sở đào tạo.'); return; }
+    if(!tuNgay||!denNgay){ showErr('Vui lòng chọn đủ từ ngày - đến ngày.'); return; }
+    var rec={ tenDot:ten, coSoDaoTao:coSo, loai:loai, tuNgay:tuNgay, denNgay:denNgay, nguoiHuongDanChinh:nguoiHD||null, ghiChu:ghiChu||null,
+      soQD:soQD||null, ngayKyQD:ngayKyQD||null, qdAttachDataUrl:(svttPendingAttach.dot!==undefined?svttPendingAttach.dot:(svttEditingDotId?(svttDots[svttEditingDotId]||{}).qdAttachDataUrl||null:null)),
+      soKH:soKH||null, ngayLapKH:ngayLapKH||null, khAttachDataUrl:(svttPendingAttach.dotKH!==undefined?svttPendingAttach.dotKH:(svttEditingDotId?(svttDots[svttEditingDotId]||{}).khAttachDataUrl||null:null)),
+      updatedBy:(svttCu?svttCu.name:'—'), updatedAt:new Date().toISOString() };
+    alertEl.style.display='none';
+    var p;
+    if(svttEditingDotId){
+      p = svttDotRef.child(svttEditingDotId).update(rec);
+    } else {
+      rec.createdBy = svttCu?svttCu.name:'—';
+      rec.createdAt = new Date().toISOString();
+      p = svttDotRef.push(rec);
+    }
+    p.then(function(){
+      alertEl.style.display='block'; alertEl.style.background='#e8f5e9'; alertEl.style.color='#1b5e20'; alertEl.textContent='✅ Đã lưu đợt thực tập.';
+      window.svttCancelEditDot();
+    }).catch(function(e){ showErr('Lỗi: '+e.message); });
+  };
+  window.svttCancelEditDot = function(){
+    svttEditingDotId = null;
+    ['svttDotTen','svttDotCoSo','svttDotNguoiHD','svttDotGhiChu','svttDotSoQD','svttDotSoKH'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('svttDotTuNgay').value='';
+    document.getElementById('svttDotDenNgay').value='';
+    document.getElementById('svttDotNgayKyQD').value='';
+    document.getElementById('svttDotQDFile').value='';
+    document.getElementById('svttDotQDPreview').innerHTML='';
+    document.getElementById('svttDotNgayLapKH').value='';
+    document.getElementById('svttDotKHFile').value='';
+    document.getElementById('svttDotKHPreview').innerHTML='';
+    document.getElementById('svttDotLoai').value='sinh_vien_thuc_tap';
+    delete svttPendingAttach.dot;
+    delete svttPendingAttach.dotKH;
+    document.getElementById('svttDotSaveBtn').innerHTML='<i class="ti ti-device-floppy"></i> Lưu đợt thực tập';
+    document.getElementById('svttDotCancelEditBtn').style.display='none';
+  };
+  window.svttEditDot = function(id){
+    var d=svttDots[id]; if(!d) return;
+    svttEditingDotId = id;
+    document.getElementById('svttDotTen').value=d.tenDot||'';
+    document.getElementById('svttDotCoSo').value=d.coSoDaoTao||'';
+    document.getElementById('svttDotLoai').value=d.loai||'sinh_vien_thuc_tap';
+    document.getElementById('svttDotTuNgay').value=d.tuNgay||'';
+    document.getElementById('svttDotDenNgay').value=d.denNgay||'';
+    document.getElementById('svttDotNguoiHD').value=d.nguoiHuongDanChinh||'';
+    svttUpdateHdInfo('svttDotNguoiHD');
+    document.getElementById('svttDotGhiChu').value=d.ghiChu||'';
+    document.getElementById('svttDotSoQD').value=d.soQD||'';
+    document.getElementById('svttDotNgayKyQD').value=d.ngayKyQD||'';
+    document.getElementById('svttDotQDPreview').innerHTML = d.qdAttachDataUrl ? ('<img src="'+d.qdAttachDataUrl+'" style="max-height:80px;border-radius:6px;border:1px solid #dbe3ee">') : '<span style="font-size:11.5px;color:#888">Chưa có ảnh</span>';
+    document.getElementById('svttDotSoKH').value=d.soKH||'';
+    document.getElementById('svttDotNgayLapKH').value=d.ngayLapKH||'';
+    document.getElementById('svttDotKHPreview').innerHTML = d.khAttachDataUrl ? ('<img src="'+d.khAttachDataUrl+'" style="max-height:80px;border-radius:6px;border:1px solid #dbe3ee">') : '<span style="font-size:11.5px;color:#888">Chưa có ảnh</span>';
+    delete svttPendingAttach.dot;
+    delete svttPendingAttach.dotKH;
+    document.getElementById('svttDotSaveBtn').innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật đợt (đang sửa)';
+    document.getElementById('svttDotCancelEditBtn').style.display='inline-flex';
+    var wrap=document.getElementById('svttDotFormWrap');
+    if(wrap.style.display==='none'){ cmeToggleSection('svttDotFormWrap','svttDotFormChevron'); }
+    wrap.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  window.svttDeleteDot = function(id){
+    var d=svttDots[id]; if(!d) return;
+    var memCount = Object.keys(svttMembers||{}).filter(function(k){return svttMembers[k].dotId===id;}).length;
+    if(!confirm('Xóa đợt "'+d.tenDot+'"'+(memCount?(' cùng toàn bộ '+memCount+' sinh viên/học viên trong đợt'):'')+'?\n\nKhông thể khôi phục sau khi xóa.')) return;
+    var tasks=[svttDotRef.child(id).remove()];
+    Object.keys(svttMembers||{}).forEach(function(k){ if(svttMembers[k].dotId===id) tasks.push(svttTvRef.child(k).remove()); });
+    Promise.all(tasks).catch(function(e){ alert('Lỗi khi xóa: '+e.message); });
+  };
+  window.svttToggleExpandDot = function(id){
+    svttExpandedDot = (svttExpandedDot===id) ? null : id;
+    svttRenderDotList();
+  };
+
+  // ── Danh sách người hướng dẫn (nhân viên khoa) — quản lý riêng trong module này ──
+  var svttEditingHdId = null;
+  function svttCountHuongDan(hoTen){
+    var norm=(hoTen||'').trim().toLowerCase();
+    if(!norm) return 0;
+    var count=0;
+    Object.keys(svttMembers||{}).forEach(function(k){
+      var m=svttMembers[k];
+      if(m.trangThai==='hoan_thanh' || m.trangThai==='nghi') return; // chỉ đếm đang thực hành
+      var dot=svttDots[m.dotId]||{};
+      var hd=(m.nguoiHuongDan||dot.nguoiHuongDanChinh||'').trim().toLowerCase();
+      if(hd===norm) count++;
+    });
+    return count;
+  }
+  window.svttSaveHd = function(){
+    var hoTen=(document.getElementById('svttHdHoTen').value||'').trim();
+    var alertEl=document.getElementById('svttHdFormAlert');
+    function showErr(msg){ alertEl.style.display='block'; alertEl.style.background='#fce4e4'; alertEl.style.color='#a02020'; alertEl.textContent=msg; }
+    if(!hoTen){ showErr('Vui lòng nhập họ tên.'); return; }
+    var rec={
+      hoTen:hoTen,
+      soCCHN:(document.getElementById('svttHdSoCCHN').value||'').trim()||null,
+      ngayCapCCHN:document.getElementById('svttHdNgayCap').value||null,
+      ghiChu:(document.getElementById('svttHdGhiChu').value||'').trim()||null,
+      updatedBy:(svttCu?svttCu.name:'—'), updatedAt:new Date().toISOString()
+    };
+    var p;
+    if(svttEditingHdId){
+      p = svttHdRef.child(svttEditingHdId).update(rec);
+    } else {
+      rec.createdBy = svttCu?svttCu.name:'—';
+      rec.createdAt = new Date().toISOString();
+      p = svttHdRef.push(rec);
+    }
+    alertEl.style.display='none';
+    p.then(function(){ window.svttCancelEditHd(); }).catch(function(e){ showErr('Lỗi: '+e.message); });
+  };
+  window.svttCancelEditHd = function(){
+    svttEditingHdId = null;
+    ['svttHdHoTen','svttHdSoCCHN','svttHdGhiChu'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('svttHdNgayCap').value='';
+    document.getElementById('svttHdSaveBtn').innerHTML='<i class="ti ti-device-floppy"></i> Lưu người hướng dẫn';
+    document.getElementById('svttHdCancelEditBtn').style.display='none';
+  };
+  window.svttEditHd = function(id){
+    var h=svttHds[id]; if(!h) return;
+    svttEditingHdId = id;
+    document.getElementById('svttHdHoTen').value=h.hoTen||'';
+    document.getElementById('svttHdSoCCHN').value=h.soCCHN||'';
+    document.getElementById('svttHdNgayCap').value=h.ngayCapCCHN||'';
+    document.getElementById('svttHdGhiChu').value=h.ghiChu||'';
+    document.getElementById('svttHdSaveBtn').innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật (đang sửa)';
+    document.getElementById('svttHdCancelEditBtn').style.display='inline-flex';
+    var wrap=document.getElementById('svttHdFormWrap');
+    if(wrap.style.display==='none'){ cmeToggleSection('svttHdFormWrap','svttHdFormChevron'); }
+    wrap.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  window.svttDeleteHd = function(id){
+    var h=svttHds[id]; if(!h) return;
+    if(!confirm('Xóa "'+h.hoTen+'" khỏi danh sách người hướng dẫn?\n\n(Không xóa các học viên đang gán tên người này ở trường "Người hướng dẫn" — chỉ xóa khỏi danh sách theo dõi CCHN.)')) return;
+    svttHdRef.child(id).remove().catch(function(e){ alert('Lỗi khi xóa: '+e.message); });
+  };
+  function svttRenderHdList(){
+    var box=document.getElementById('svttHdList'); if(!box) return;
+    var searchEl=document.getElementById('svttHdSearch');
+    var filterText=(searchEl?searchEl.value:'').trim().toLowerCase();
+    var ids=Object.keys(svttHds||{})
+      .filter(function(id){ return !filterText || (svttHds[id].hoTen||'').toLowerCase().indexOf(filterText)>=0; })
+      .sort(function(a,b){ return (svttHds[a].hoTen||'').localeCompare(svttHds[b].hoTen||'','vi'); });
+    var totalCount=Object.keys(svttHds||{}).length;
+    if(!ids.length){
+      box.innerHTML='<div style="text-align:center;color:#aaa;padding:12px;font-style:italic;font-size:12.5px">'+
+        (totalCount ? 'Không tìm thấy tên phù hợp.' : 'Chưa có người hướng dẫn nào trong danh sách.')+'</div>';
+      return;
+    }
+    box.innerHTML = (filterText ? ('<div style="font-size:11.5px;color:#666;margin-bottom:6px">Tìm thấy '+ids.length+'/'+totalCount+' người</div>') : '') +
+      '<table class="svtt-dt"><thead><tr><th>STT</th><th>Họ tên</th><th>Số CCHN</th><th>Ngày cấp</th><th>Ghi chú</th><th>Đang hướng dẫn</th><th>Thao tác</th></tr></thead><tbody>'+
+      ids.map(function(id, idx){
+        var h=svttHds[id];
+        var soHV=svttCountHuongDan(h.hoTen);
+        return '<tr>'+
+          '<td style="text-align:center;color:#888">'+(idx+1)+'</td>'+
+          '<td><b>'+svttEsc(h.hoTen)+'</b></td>'+
+          '<td>'+svttEsc(h.soCCHN||'—')+'</td>'+
+          '<td>'+svttFmtD(h.ngayCapCCHN)+'</td>'+
+          '<td>'+svttEsc(h.ghiChu||'—')+'</td>'+
+          '<td style="text-align:center"><span class="svtt-badge '+(soHV>0?'dang':'xong')+'">'+soHV+' học viên</span></td>'+
+          '<td><div style="display:flex;gap:4px;flex-wrap:wrap">'+
+            '<button class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #999;color:#666" onclick="svttEditHd(\''+id+'\')"><i class="ti ti-pencil"></i></button>'+
+            '<button class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #c62828;color:#c62828" onclick="svttDeleteHd(\''+id+'\')"><i class="ti ti-trash"></i></button>'+
+          '</div></td>'+
+          '</tr>';
+      }).join('') + '</tbody></table>';
+  }
+  // Danh sách 101 nhân viên khoa Gây mê Hồi sức (trích từ hệ thống quản lý CCHN của viện) —
+  // dùng để nhập nhanh vào Danh sách người hướng dẫn, đỡ phải gõ tay từng người.
+  var SVTT_GMHS_STAFF = [{"hoTen": "Lê Văn Long", "soCCHN": "006384/BĐ-CCHN", "ngayCapCCHN": "2019-04-05", "ghiChu": "Điều dưỡng"}, {"hoTen": "Võ Huy Cường", "soCCHN": "000043/BĐ-CCHN", "ngayCapCCHN": "2012-01-17", "ghiChu": "Trưởng khoa - Bác sĩ"}, {"hoTen": "Đinh Thị Thu Hoài", "soCCHN": "0001596/GL-CCHN", "ngayCapCCHN": "2014-04-24", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thị Bích Thủy", "soCCHN": "006979/BĐ-CCHN", "ngayCapCCHN": "2020-06-05", "ghiChu": "Bác sĩ"}, {"hoTen": "Nguyễn Hữu Phước", "soCCHN": "007764/BĐ-CCHN", "ngayCapCCHN": "2022-12-01", "ghiChu": "Điều dưỡng"}, {"hoTen": "Phan Thị Mỹ Duyên", "soCCHN": "007763/BĐ-CCHN", "ngayCapCCHN": "2022-12-01", "ghiChu": "Điều dưỡng GMHS"}, {"hoTen": "Hồ Thị Mỹ", "soCCHN": "006454/BĐ-CCHN", "ngayCapCCHN": "2019-05-24", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Đình Bản", "soCCHN": "005697/BĐ-CCHN", "ngayCapCCHN": "2017-10-19", "ghiChu": "Điều dưỡng"}, {"hoTen": "Phạm Thị Hoàng Cúc", "soCCHN": "006392/BĐ-CCHN", "ngayCapCCHN": "2019-04-05", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Văn Thủy", "soCCHN": "002446/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Bác sĩ"}, {"hoTen": "Lê Văn Kha", "soCCHN": "002444/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Văn Sang", "soCCHN": "005805/BĐ-CCHN", "ngayCapCCHN": "2018-02-08", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Cảnh Muộn", "soCCHN": "005389/BĐ-CCHN", "ngayCapCCHN": "2017-01-23", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đỗ Hồ Mỹ Hạnh", "soCCHN": "005323/BĐ-CCHN", "ngayCapCCHN": "2016-12-27", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trương Đình Trí", "soCCHN": "005846/BĐ-CCHN", "ngayCapCCHN": "2018-03-05", "ghiChu": "Điều dưỡng"}, {"hoTen": "Võ Ngọc Phước", "soCCHN": "002439/BĐ-CCHN", "ngayCapCCHN": "2018-02-08", "ghiChu": "Điều dưỡng trưởng - Điều dưỡng"}, {"hoTen": "Nguyễn Đình Thắng", "soCCHN": "002047/BĐ-CCHN", "ngayCapCCHN": "2022-02-25", "ghiChu": "Điều dưỡng"}, {"hoTen": "Ngô Thị Lẹ", "soCCHN": "002073/BĐ-CCHN", "ngayCapCCHN": "2013-11-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Võ Thu", "soCCHN": "006045/BĐ-CCHN", "ngayCapCCHN": "2018-06-04", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thị Thúy Hằng", "soCCHN": "005686/BĐ-CCHN", "ngayCapCCHN": "2017-10-19", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Tiến Dũng", "soCCHN": "002040/BĐ-CCHN", "ngayCapCCHN": "2013-11-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Xuân Hoài", "soCCHN": "002041/BĐ-CCHN", "ngayCapCCHN": "2013-11-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Phan Quốc Sang", "soCCHN": "002042/BĐ-CCHN", "ngayCapCCHN": "2013-11-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Đăng Trung", "soCCHN": "002199/BĐ-CCHN", "ngayCapCCHN": "2013-12-03", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Xuân Hùng", "soCCHN": "002120/BĐ-CCHN", "ngayCapCCHN": "2013-11-29", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Vũ Cẩm Tú", "soCCHN": "0003580/BĐ-CCHN", "ngayCapCCHN": "2014-06-16", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Tiến Thành", "soCCHN": "002180/BĐ-CCHN", "ngayCapCCHN": "2022-09-05", "ghiChu": "Điều dưỡng"}, {"hoTen": "Võ Đình Tây", "soCCHN": "002122/BĐ-CCHN", "ngayCapCCHN": "2022-01-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Ngô Thị Nhựt", "soCCHN": "0003756/BĐ-CCHN", "ngayCapCCHN": "2014-07-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "La Thị Thanh Trà", "soCCHN": "006077/BĐ-CCHN", "ngayCapCCHN": "2018-06-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Cao Việt Thắng", "soCCHN": "002623/BĐ-CCHN", "ngayCapCCHN": "2013-12-17", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Thị Mỹ Dung", "soCCHN": "002448/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đặng Thị Mỹ Lai", "soCCHN": "004894/BĐ-CCHN", "ngayCapCCHN": "2022-01-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Thị Ái Phương", "soCCHN": "0003760/BĐ-CCHN", "ngayCapCCHN": "2014-07-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Thị Mạnh Quyền", "soCCHN": "0004710/BĐ-CCHN", "ngayCapCCHN": "2015-08-17", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Hoàng Sơn Nữ", "soCCHN": "001391/BĐ-CCHN", "ngayCapCCHN": "2013-08-15", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Thị Dung", "soCCHN": "002482/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Phó trưởng khoa - Bác sĩ"}, {"hoTen": "Thân Thị Liễu", "soCCHN": "002423/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Văn Thương", "soCCHN": "005956/BĐ-CCHN", "ngayCapCCHN": "2018-04-09", "ghiChu": "Bác sĩ"}, {"hoTen": "Đặng Văn Cảnh", "soCCHN": "002452/BĐ-CCHN", "ngayCapCCHN": "2022-01-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Thân Hoàng Khang", "soCCHN": "001833/BĐ-CCHN", "ngayCapCCHN": "2013-11-15", "ghiChu": "Điều dưỡng"}, {"hoTen": "Võ Ngọc Bình", "soCCHN": "002437/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trương Văn Pháp", "soCCHN": "0003753/BĐ-CCHN", "ngayCapCCHN": "2022-01-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Thị Ngâng", "soCCHN": "0003579/BĐ-CCHN", "ngayCapCCHN": "2014-06-16", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Phan Anh Quân", "soCCHN": "002118/BĐ-CCHN", "ngayCapCCHN": "2022-01-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Duy Mỹ", "soCCHN": "002121/BĐ-CCHN", "ngayCapCCHN": "2013-11-29", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Văn Chinh", "soCCHN": "002112/BĐ-CCHN", "ngayCapCCHN": "2013-11-29", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Văn Chung", "soCCHN": "002436/BĐ-CCHN", "ngayCapCCHN": "2022-01-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thanh Hoàng", "soCCHN": "001887/BĐ-CCHN", "ngayCapCCHN": "2013-11-15", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Văn Tuy", "soCCHN": "002152/BĐ-CCHN", "ngayCapCCHN": "2013-12-02", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Quốc Khang", "soCCHN": "002179/BĐ-CCHN", "ngayCapCCHN": "2013-12-03", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đặng Hồ Hồng Phi", "soCCHN": "001834/BĐ-CCHN", "ngayCapCCHN": "2013-11-15", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đỗ Kim Oanh", "soCCHN": "002445/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Hoàng Minh Hải", "soCCHN": "0004558/BĐ-CCHN", "ngayCapCCHN": "2015-05-18", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trương Ngọc Báu", "soCCHN": "002110/BĐ-CCHN", "ngayCapCCHN": "2013-11-29", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trương Thị Bích Liễu", "soCCHN": "002109/BĐ-CCHN", "ngayCapCCHN": "2013-11-29", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Bá Quyền", "soCCHN": "0004672/BĐ-CCHN", "ngayCapCCHN": "2022-01-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Thị Huệ", "soCCHN": "0004598/BĐ-CCHN", "ngayCapCCHN": "2015-06-01", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Văn Đại", "soCCHN": "005070/BĐ-CCHN", "ngayCapCCHN": "2016-08-10", "ghiChu": "Điều dưỡng"}, {"hoTen": "Võ Thị Xuân Việt", "soCCHN": "0004597/BĐ-CCHN", "ngayCapCCHN": "2015-06-01", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đỗ Lê Thanh Ngọc", "soCCHN": "005122/BĐ-CCHN", "ngayCapCCHN": "2016-09-19", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thị Hồng Nhi", "soCCHN": "002442/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đinh Kim Vũ", "soCCHN": "002108/BĐ-CCHN", "ngayCapCCHN": "2013-11-29", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đỗ Thành Khương", "soCCHN": "002115/BĐ-CCHN", "ngayCapCCHN": "2013-11-29", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đặng Thu Hiền", "soCCHN": "0003609/BĐ-CCHN", "ngayCapCCHN": "2014-07-15", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Thị Thanh Huyền", "soCCHN": "005035/BĐ-CCHN", "ngayCapCCHN": "2016-08-03", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Đình Duy", "soCCHN": "002061/BĐ-CCHN", "ngayCapCCHN": "2013-11-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Xuân Hiền", "soCCHN": "001759/BĐ-CCHN", "ngayCapCCHN": "2013-11-01", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Thị Thúy Vân", "soCCHN": "003532/BĐ-CCHN", "ngayCapCCHN": "2018-02-08", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thành", "soCCHN": "000038/BĐ-CCHN", "ngayCapCCHN": "2012-01-18", "ghiChu": "Phó trưởng khoa - Bác sĩ"}, {"hoTen": "Nguyễn Hà Tiến Dũng", "soCCHN": "002475/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Bác sĩ"}, {"hoTen": "Nguyễn Trung Thành", "soCCHN": "0003538/BĐ-CCHN", "ngayCapCCHN": "2014-06-16", "ghiChu": "Bác sĩ"}, {"hoTen": "Nguyễn Thị Xuân Thảo", "soCCHN": "005458/BĐ-CCHN", "ngayCapCCHN": "2017-04-21", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trương Thị Tín", "soCCHN": "005412/BĐ-CCHN", "ngayCapCCHN": "2017-02-24", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thị Minh Châu", "soCCHN": "0004663/BĐ-CCHN", "ngayCapCCHN": "2015-07-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Thị Cẩm Nhung", "soCCHN": "002143/BĐ-CCHN", "ngayCapCCHN": "2013-12-02", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thị Hảo", "soCCHN": "002462/BĐ-CCHN", "ngayCapCCHN": "2020-05-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Hồ Thái Nhiều", "soCCHN": "003641/BĐ-CCHN", "ngayCapCCHN": "2020-05-26", "ghiChu": "Điều dưỡng"}, {"hoTen": "Phạm Thị Chiến", "soCCHN": "002466/BĐ-CCHN", "ngayCapCCHN": "2013-12-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Phan Thị Thanh Nga", "soCCHN": "0003572/BĐ-CCHN", "ngayCapCCHN": "2014-06-16", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Thị Kim Thịnh", "soCCHN": "004468/BĐ-CCHN", "ngayCapCCHN": "2018-02-08", "ghiChu": "Điều dưỡng"}, {"hoTen": "Võ Thị Tường Vi", "soCCHN": "005939/BĐ-CCHN", "ngayCapCCHN": "2018-03-09", "ghiChu": "Điều dưỡng"}, {"hoTen": "Hồ Thị Chúng", "soCCHN": "002075/BĐ-CCHN", "ngayCapCCHN": "2013-11-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Thị Kim Sao", "soCCHN": "0004662/BĐ-CCHN", "ngayCapCCHN": "2015-07-13", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Đình Kim Loan", "soCCHN": "002145/BĐ-CCHN", "ngayCapCCHN": "2018-02-08", "ghiChu": "Điều dưỡng"}, {"hoTen": "Hứa Hữu Tuấn", "soCCHN": "005027/BĐ-CCHN", "ngayCapCCHN": "2016-07-04", "ghiChu": "Bác sĩ"}, {"hoTen": "Võ Đông Kinh", "soCCHN": "006858/BĐ-CCHN", "ngayCapCCHN": "2020-03-23", "ghiChu": "Bác sĩ"}, {"hoTen": "Đỗ Thị Ngọc Diễm", "soCCHN": "005099/BĐ-CCHN", "ngayCapCCHN": "2016-09-06", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Thị Thanh Nhi", "soCCHN": "0003593/BĐ-CCHN", "ngayCapCCHN": "2014-06-27", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đỗ Ngọc Vũ", "soCCHN": "000280/BĐ-GPHN", "ngayCapCCHN": "2024-08-05", "ghiChu": "Bác sĩ"}, {"hoTen": "Nguyễn Chí Bảo", "soCCHN": "0008/BĐ-GPHN", "ngayCapCCHN": "2024-04-17", "ghiChu": "Bác sĩ"}, {"hoTen": "Nguyễn Kim Sơn", "soCCHN": "000892/BĐ-CCHN", "ngayCapCCHN": "2013-05-15", "ghiChu": "Điều dưỡng"}, {"hoTen": "Đào Thị Phương Thúy", "soCCHN": "007144/BĐ-CCHN", "ngayCapCCHN": "2020-08-03", "ghiChu": "Điều dưỡng"}, {"hoTen": "Lê Quốc Triều", "soCCHN": "000836/GL-GPHN", "ngayCapCCHN": "2025-11-05", "ghiChu": "Điều dưỡng"}, {"hoTen": "Huỳnh Thị Kim Hồng", "soCCHN": "001122/GL-GPHN", "ngayCapCCHN": "2026-03-30", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trần Thị Bích Tuyền", "soCCHN": "000169/BĐ-GPHN", "ngayCapCCHN": "2024-06-11", "ghiChu": "Điều dưỡng"}, {"hoTen": "Phan Thảo Vy", "soCCHN": "000587/BĐ-GPHN", "ngayCapCCHN": "2025-04-15", "ghiChu": "Điều dưỡng"}, {"hoTen": "Huỳnh Thị Sự", "soCCHN": "004817/HCM-CCHN", "ngayCapCCHN": "2012-12-05", "ghiChu": "Điều dưỡng"}, {"hoTen": "Nguyễn Tài Thu", "soCCHN": "005106/BĐ-CCHN", "ngayCapCCHN": "2016-09-06", "ghiChu": "Bác sĩ"}, {"hoTen": "Nguyễn Thị Diệu My", "soCCHN": "002071/BĐ-CCHN", "ngayCapCCHN": "2013-11-28", "ghiChu": "Điều dưỡng"}, {"hoTen": "Trương Thị Thu Hằng", "soCCHN": "0003531/BĐ-CCHN", "ngayCapCCHN": "2014-06-16", "ghiChu": "Điều dưỡng"}];
+  window.svttImportGmhsStaff = function(){
+    if(!confirm("Nhập nhanh " + SVTT_GMHS_STAFF.length + " nhân viên khoa GMHS vào Danh sách người hướng dẫn?\n\nNhững người đã có tên trùng trong danh sách sẽ được bỏ qua, không tạo trùng lặp.")) return;
+    // Đọc trực tiếp dữ liệu MỚI NHẤT từ Firebase (không dùng svttHds trong bộ nhớ, vì có thể chưa
+    // kịp đồng bộ nếu bấm nút này 2 lần liên tiếp — đây chính là nguyên nhân từng gây trùng lặp).
+    svttHdRef.once('value').then(function(snap){
+      var current = snap.val() || {};
+      var existingNames = {};
+      Object.keys(current).forEach(function(k){ existingNames[(current[k].hoTen||"").trim().toLowerCase()] = true; });
+      var updates = {};
+      var added = 0;
+      SVTT_GMHS_STAFF.forEach(function(p){
+        var norm = (p.hoTen||"").trim().toLowerCase();
+        if(!norm || existingNames[norm]) return;
+        existingNames[norm] = true;
+        var newKey = svttHdRef.push().key;
+        updates[newKey] = {
+          hoTen: p.hoTen, soCCHN: p.soCCHN||null, ngayCapCCHN: p.ngayCapCCHN||null, ghiChu: p.ghiChu||null,
+          createdBy: (svttCu?svttCu.name:"—") + " (nhập nhanh)", createdAt: new Date().toISOString()
+        };
+        added++;
+      });
+      if(!added){ alert("Không có người mới để thêm — tất cả đã có sẵn trong danh sách rồi."); return; }
+      svttHdRef.update(updates).then(function(){ alert("✅ Đã nhập thêm " + added + " người vào Danh sách người hướng dẫn."); })
+        .catch(function(e){ alert("Lỗi khi nhập: " + e.message); });
+    }).catch(function(e){ alert("Lỗi khi kiểm tra dữ liệu hiện có: " + e.message); });
+  };
+  // Dọn các bản ghi bị trùng tên (VD: do trước đây bấm "Nhập nhanh" 2 lần) — giữ lại bản đầu tiên
+  // (theo thứ tự tạo), xóa các bản trùng còn lại.
+  window.svttDedupHd = function(){
+    svttHdRef.once('value').then(function(snap){
+      var current = snap.val() || {};
+      var seen = {};
+      var toDelete = [];
+      Object.keys(current).sort().forEach(function(k){
+        var norm = (current[k].hoTen||"").trim().toLowerCase();
+        if(!norm) return;
+        if(seen[norm]){ toDelete.push(k); } else { seen[norm] = true; }
+      });
+      if(!toDelete.length){ alert("Không tìm thấy bản ghi trùng tên nào."); return; }
+      if(!confirm("Tìm thấy " + toDelete.length + " bản ghi trùng tên. Xóa bớt, chỉ giữ lại 1 bản cho mỗi người?")) return;
+      var updates = {};
+      toDelete.forEach(function(k){ updates[k] = null; });
+      svttHdRef.update(updates).then(function(){ alert("✅ Đã xóa " + toDelete.length + " bản ghi trùng lặp."); })
+        .catch(function(e){ alert("Lỗi khi xóa: " + e.message); });
+    }).catch(function(e){ alert("Lỗi khi kiểm tra dữ liệu: " + e.message); });
+  };
+
+  function svttRefreshHdDatalist(){
+    // Không còn dùng <datalist> — dropdown tự làm (svttShowHdDrop/svttFilterHdDrop) tự đọc thẳng
+    // từ svttHds mỗi lần mở, không cần bước làm mới riêng. Giữ hàm rỗng để không phải sửa chỗ gọi.
+  }
+  function svttHdNameList(){
+    return Object.keys(svttHds||{}).map(function(k){ return svttHds[k].hoTen; }).filter(Boolean).sort(function(a,b){return a.localeCompare(b,'vi');});
+  }
+  function svttRenderHdDrop(inputId, filterText){
+    var drop=document.getElementById(inputId+'_drop'); if(!drop) return;
+    var names=svttHdNameList();
+    var norm=(filterText||'').trim().toLowerCase();
+    if(norm) names = names.filter(function(n){ return n.toLowerCase().indexOf(norm)>=0; });
+    if(!names.length){
+      drop.innerHTML = '<div style="padding:10px 12px;font-size:12.5px;color:#999;font-style:italic">'+
+        (svttHdNameList().length ? 'Không tìm thấy tên phù hợp.' : 'Danh sách người hướng dẫn đang trống — vào mục "Danh sách người hướng dẫn" phía trên để thêm trước.')+
+        '</div>';
+    } else {
+      drop.innerHTML = names.map(function(n){
+        var soHV=svttCountHuongDan(n);
+        return '<div style="padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center" onmousedown="svttSelectHd(\''+inputId+'\',\''+svttEsc(n).replace(/'/g,"\\'")+'\')" onmouseover="this.style.background=\'#eef2f7\'" onmouseout="this.style.background=\'\'">'+
+          '<span>'+svttEsc(n)+'</span>'+
+          '<span class="svtt-badge '+(soHV>0?'dang':'xong')+'" style="margin-left:8px">'+soHV+' HV</span>'+
+        '</div>';
+      }).join('');
+    }
+    drop.style.display='block';
+  }
+  function svttUpdateHdInfo(inputId){
+    var infoEl=document.getElementById(inputId+'_info'); if(!infoEl) return;
+    var name=(document.getElementById(inputId).value||'').trim();
+    if(!name){ infoEl.innerHTML=''; return; }
+    var h=null;
+    Object.keys(svttHds||{}).forEach(function(k){ if((svttHds[k].hoTen||'').trim().toLowerCase()===name.toLowerCase()) h=svttHds[k]; });
+    if(!h){ infoEl.innerHTML='<span style="color:#a0742a">Chưa có trong Danh sách người hướng dẫn — vẫn dùng được, chỉ là chưa theo dõi CCHN/số lượng.</span>'; return; }
+    var soHV=svttCountHuongDan(name);
+    infoEl.innerHTML='Đang hướng dẫn: <b class="svtt-badge '+(soHV>0?'dang':'xong')+'">'+soHV+' học viên</b>'+(h.soCCHN?(' &nbsp;·&nbsp; CCHN: '+svttEsc(h.soCCHN)):'');
+  }
+  window.svttShowHdDrop = function(inputId){
+    svttRenderHdDrop(inputId, document.getElementById(inputId).value);
+    svttUpdateHdInfo(inputId);
+  };
+  window.svttFilterHdDrop = function(inputId){
+    svttRenderHdDrop(inputId, document.getElementById(inputId).value);
+    svttUpdateHdInfo(inputId);
+  };
+  window.svttHideHdDrop = function(){
+    ['svttDotNguoiHD_drop','svttMNguoiHD_drop'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display='none'; });
+  };
+  window.svttSelectHd = function(inputId, name){
+    document.getElementById(inputId).value = name;
+    window.svttHideHdDrop();
+    svttUpdateHdInfo(inputId);
+  };
+
+  // ── Render danh sách đợt + thành viên trong từng đợt ──
+  function svttRenderDotList(){
+    var box=document.getElementById('svttDotList'); if(!box) return;
+    var ids=Object.keys(svttDots||{}).sort(function(a,b){ return (svttDots[b].tuNgay||'').localeCompare(svttDots[a].tuNgay||''); });
+    document.getElementById('svttDotCount').textContent = ids.length;
+    if(!ids.length){ box.innerHTML='<div style="text-align:center;color:#aaa;padding:16px;font-style:italic">Chưa có đợt thực tập nào.</div>'; return; }
+    box.innerHTML = ids.map(function(id){
+      var d=svttDots[id];
+      var members=Object.keys(svttMembers||{}).filter(function(k){return svttMembers[k].dotId===id;});
+      var expanded = svttExpandedDot===id;
+      var membersHtml='';
+      if(expanded){
+        membersHtml = '<div style="margin-top:10px">'+
+          '<button class="kpi-btn" style="background:#1e3a5f;color:#fff;font-size:12px;padding:5px 12px" onclick="svttOpenAddMember(\''+id+'\')"><i class="ti ti-plus"></i> Thêm SV/HV vào đợt này</button>'+
+          (members.length ? (
+            '<table class="svtt-dt"><thead><tr><th>Họ tên</th><th>Loại</th><th>Lớp/Khóa</th><th>Khu vực</th><th>Người HD</th><th>Số giờ</th><th>Trạng thái</th><th>Xếp loại</th><th>Mã tra cứu</th><th>Thao tác</th></tr></thead><tbody>'+
+            members.map(function(mid){
+              var m=svttMembers[mid];
+              var cc=svttChamCongSummary(m);
+              return '<tr>'+
+                '<td><b>'+svttEsc(m.hoTen)+'</b>'+(m.attachDataUrl?' <i class="ti ti-paperclip" style="color:#888" title="Có đính kèm ảnh giấy tờ"></i>':'')+'</td>'+
+                '<td>'+svttLoaiLabel(m.loai)+'</td>'+
+                '<td>'+svttEsc(m.lopKhoa||'—')+'</td>'+
+                '<td>'+svttEsc(m.khuVuc||'—')+'</td>'+
+                '<td>'+svttEsc(m.nguoiHuongDan||d.nguoiHuongDanChinh||'—')+'</td>'+
+                '<td style="text-align:center">'+(m.soGioHoanThanh!=null?m.soGioHoanThanh:'—')+'</td>'+
+                '<td>'+svttTrangThaiHtml(m.trangThai)+'</td>'+
+                '<td>'+svttEsc(m.xepLoai||'—')+'</td>'+
+                '<td><span class="svtt-code">'+svttEsc(m.maTraCuu||'')+'</span></td>'+
+                '<td><div style="display:flex;gap:4px;flex-wrap:wrap">'+
+                  '<button class="kpi-btn" style="padding:2px 8px;font-size:11px;background:#1e3a5f;color:#fff" onclick="svttOpenReview(\''+mid+'\')"><i class="ti ti-message-2"></i> Cuối kỳ</button>'+
+                  '<button class="kpi-btn" style="padding:2px 8px;font-size:11px;background:#5b21b6;color:#fff" onclick="svttQuickGiuaKy(\''+mid+'\')"><i class="ti ti-note"></i> Giữa kỳ</button>'+
+                  '<button class="kpi-btn" style="padding:2px 8px;font-size:11px;background:#0d6e6e;color:#fff" onclick="svttOpenChamCong(\''+mid+'\')"><i class="ti ti-calendar-check"></i> Chấm công ('+cc.co+'/'+cc.tong+')</button>'+
+                  '<button class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #999;color:#666" onclick="svttOpenEditMember(\''+mid+'\')"><i class="ti ti-pencil"></i></button>'+
+                  '<button class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #c62828;color:#c62828" onclick="svttDeleteMember(\''+mid+'\')"><i class="ti ti-trash"></i></button>'+
+                '</div></td>'+
+                '</tr>';
+            }).join('') + '</tbody></table>'
+          ) : '<div style="text-align:center;color:#aaa;padding:10px;font-style:italic;font-size:12.5px">Chưa có sinh viên/học viên nào trong đợt này.</div>')+
+        '</div>';
+      }
+      return '<div class="svtt-dot-card">'+
+        '<div class="svtt-dot-hd" onclick="svttToggleExpandDot(\''+id+'\')">'+
+          '<div><div class="svtt-dot-title">'+svttEsc(d.tenDot)+'</div>'+
+          '<div class="svtt-dot-sub">'+svttEsc(d.coSoDaoTao)+' · '+svttFmtD(d.tuNgay)+' — '+svttFmtD(d.denNgay)+' · '+members.length+' người · '+svttLoaiLabel(d.loai==='hon_hop'?'':d.loai)+(d.loai==='hon_hop'?' (hỗn hợp)':'')+'</div></div>'+
+          '<div style="display:flex;gap:6px;align-items:center">'+
+            '<button class="kpi-btn" style="padding:4px 10px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="event.stopPropagation();svttEditDot(\''+id+'\')"><i class="ti ti-pencil"></i> Sửa</button>'+
+            '<button class="kpi-btn" style="padding:4px 10px;font-size:11.5px;border:1.5px solid #c62828;color:#c62828" onclick="event.stopPropagation();svttDeleteDot(\''+id+'\')"><i class="ti ti-trash"></i></button>'+
+            '<span style="font-size:16px;color:#1e3a5f">'+(expanded?'▴':'▾')+'</span>'+
+          '</div>'+
+        '</div>'+
+        membersHtml+
+      '</div>';
+    }).join('');
+  }
+
+  // ── Thành viên (SV/HV): Thêm / Sửa / Xóa ──
+  window.svttOpenAddMember = function(dotId){
+    svttEditingMemberId = null;
+    document.getElementById('svttMemberModalTitle').textContent='Thêm sinh viên/học viên';
+    ['svttMHoTen','svttMMaSo','svttMLopKhoa','svttMNguoiHD','svttMSdt','svttMEmail'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('svttMNgaySinh').value='';
+    document.getElementById('svttMGioiTinh').value='Nam';
+    document.getElementById('svttMLoai').value='sinh_vien_thuc_tap';
+    document.getElementById('svttMTuNgay').value='';
+    document.getElementById('svttMDenNgay').value='';
+    document.getElementById('svttMKhuVuc').value='';
+    document.getElementById('svttMAttachFile').value='';
+    document.getElementById('svttMAttachPreview').innerHTML='';
+    delete svttPendingAttach.member;
+    document.getElementById('svttMemberOverlay').dataset.dotId = dotId;
+    document.getElementById('svttMemberModalAlert').style.display='none';
+    document.getElementById('svttMemberOverlay').style.display='flex';
+  };
+  window.svttOpenEditMember = function(mid){
+    var m=svttMembers[mid]; if(!m) return;
+    svttEditingMemberId = mid;
+    document.getElementById('svttMemberModalTitle').textContent='Sửa thông tin sinh viên/học viên';
+    document.getElementById('svttMHoTen').value=m.hoTen||'';
+    document.getElementById('svttMNgaySinh').value=m.ngaySinh||'';
+    document.getElementById('svttMGioiTinh').value=m.gioiTinh||'Nam';
+    document.getElementById('svttMMaSo').value=m.maSo||'';
+    document.getElementById('svttMLopKhoa').value=m.lopKhoa||'';
+    document.getElementById('svttMLoai').value=m.loai||'sinh_vien_thuc_tap';
+    document.getElementById('svttMTuNgay').value=m.tuNgay||'';
+    document.getElementById('svttMDenNgay').value=m.denNgay||'';
+    document.getElementById('svttMNguoiHD').value=m.nguoiHuongDan||'';
+    svttUpdateHdInfo('svttMNguoiHD');
+    document.getElementById('svttMSdt').value=m.sdt||'';
+    document.getElementById('svttMEmail').value=m.email||'';
+    document.getElementById('svttMKhuVuc').value=m.khuVuc||'';
+    document.getElementById('svttMAttachFile').value='';
+    document.getElementById('svttMAttachPreview').innerHTML = m.attachDataUrl ? ('<img src="'+m.attachDataUrl+'" style="max-height:80px;border-radius:6px;border:1px solid #dbe3ee">') : '';
+    delete svttPendingAttach.member;
+    document.getElementById('svttMemberOverlay').dataset.dotId = m.dotId;
+    document.getElementById('svttMemberModalAlert').style.display='none';
+    document.getElementById('svttMemberOverlay').style.display='flex';
+  };
+  window.svttCloseMemberModal = function(){ document.getElementById('svttMemberOverlay').style.display='none'; };
+  window.svttSaveMember = function(){
+    var dotId=document.getElementById('svttMemberOverlay').dataset.dotId;
+    var hoTen=(document.getElementById('svttMHoTen').value||'').trim();
+    var alertEl=document.getElementById('svttMemberModalAlert');
+    function showErr(msg){ alertEl.style.display='block'; alertEl.style.background='#fce4e4'; alertEl.style.color='#a02020'; alertEl.textContent=msg; }
+    if(!hoTen){ showErr('Vui lòng nhập họ tên.'); return; }
+    var rec={
+      dotId:dotId, hoTen:hoTen,
+      ngaySinh:document.getElementById('svttMNgaySinh').value||null,
+      gioiTinh:document.getElementById('svttMGioiTinh').value,
+      maSo:(document.getElementById('svttMMaSo').value||'').trim()||null,
+      lopKhoa:(document.getElementById('svttMLopKhoa').value||'').trim()||null,
+      loai:document.getElementById('svttMLoai').value,
+      tuNgay:document.getElementById('svttMTuNgay').value||null,
+      denNgay:document.getElementById('svttMDenNgay').value||null,
+      nguoiHuongDan:(document.getElementById('svttMNguoiHD').value||'').trim()||null,
+      sdt:(document.getElementById('svttMSdt').value||'').trim()||null,
+      email:(document.getElementById('svttMEmail').value||'').trim()||null,
+      khuVuc:document.getElementById('svttMKhuVuc').value||null,
+      attachDataUrl:(svttPendingAttach.member!==undefined?svttPendingAttach.member:(svttEditingMemberId?(svttMembers[svttEditingMemberId]||{}).attachDataUrl||null:null)),
+      updatedBy:(svttCu?svttCu.name:'—'), updatedAt:new Date().toISOString()
+    };
+    var p;
+    if(svttEditingMemberId){
+      p = svttTvRef.child(svttEditingMemberId).update(rec);
+    } else {
+      rec.maTraCuu = svttRandCode();
+      rec.soGioHoanThanh = 0;
+      rec.trangThai = 'dang_thuc_hanh';
+      rec.xepLoai = null;
+      rec.nhanXet = null;
+      rec.createdBy = svttCu?svttCu.name:'—';
+      rec.createdAt = new Date().toISOString();
+      p = svttTvRef.push(rec);
+    }
+    p.then(function(){ delete svttPendingAttach.member; window.svttCloseMemberModal(); }).catch(function(e){ showErr('Lỗi: '+e.message); });
+  };
+  window.svttDeleteMember = function(mid){
+    var m=svttMembers[mid]; if(!m) return;
+    if(!confirm('Xóa hồ sơ "'+m.hoTen+'"? Không thể khôi phục sau khi xóa.')) return;
+    svttTvRef.child(mid).remove().catch(function(e){ alert('Lỗi khi xóa: '+e.message); });
+  };
+
+  // ── Nhận xét / Đánh giá ──
+  window.svttOpenReview = function(mid){
+    var m=svttMembers[mid]; if(!m) return;
+    svttReviewingMemberId = mid;
+    document.getElementById('svttReviewName').textContent = m.hoTen||'';
+    document.getElementById('svttRSoGio').value = m.soGioHoanThanh!=null?m.soGioHoanThanh:0;
+    document.getElementById('svttRTrangThai').value = m.trangThai||'dang_thuc_hanh';
+    document.getElementById('svttRXepLoai').value = m.xepLoai||'';
+    document.getElementById('svttRNhanXet').value = m.nhanXet||'';
+    document.getElementById('svttReviewModalAlert').style.display='none';
+    document.getElementById('svttReviewOverlay').style.display='flex';
+  };
+  window.svttCloseReviewModal = function(){ document.getElementById('svttReviewOverlay').style.display='none'; };
+  window.svttSaveReview = function(){
+    var mid=svttReviewingMemberId; if(!mid) return;
+    var rec={
+      soGioHoanThanh: Number(document.getElementById('svttRSoGio').value)||0,
+      trangThai: document.getElementById('svttRTrangThai').value,
+      xepLoai: document.getElementById('svttRXepLoai').value||null,
+      nhanXet: (document.getElementById('svttRNhanXet').value||'').trim()||null,
+      nguoiNhanXet: svttCu?svttCu.name:'—',
+      nhanXetAt: new Date().toISOString()
+    };
+    svttTvRef.child(mid).update(rec).then(function(){ window.svttCloseReviewModal(); })
+      .catch(function(e){ var a=document.getElementById('svttReviewModalAlert'); a.style.display='block'; a.style.background='#fce4e4'; a.style.color='#a02020'; a.textContent='Lỗi: '+e.message; });
+  };
+
+  // ── Nhận xét giữa kỳ (ghi chú nhanh, tách riêng khỏi đánh giá cuối kỳ) ──
+  window.svttQuickGiuaKy = function(mid){
+    var m=svttMembers[mid]; if(!m) return;
+    var cur = m.nhanXetGiuaKy || '';
+    var val = prompt('Nhận xét GIỮA KỲ cho '+m.hoTen+':', cur);
+    if(val===null) return; // bấm Hủy
+    svttTvRef.child(mid).update({ nhanXetGiuaKy: val.trim()||null, nhanXetGiuaKyBoi: svttCu?svttCu.name:'—', nhanXetGiuaKyAt: new Date().toISOString() })
+      .catch(function(e){ alert('Lỗi khi lưu: '+e.message); });
+  };
+
+  // ── Chấm công theo ngày (Có mặt / Vắng / Nghỉ phép) ──
+  var svttCcMemberId = null;
+  function svttDateRangeArr(tuNgay, denNgay){
+    var out=[]; if(!tuNgay||!denNgay) return out;
+    var d=new Date(tuNgay+'T00:00:00'), end=new Date(denNgay+'T00:00:00');
+    var guard=0;
+    while(d<=end && guard<400){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); guard++; }
+    return out;
+  }
+  function svttChamCongSummary(m){
+    var dot=svttDots[m.dotId]||{};
+    var days=svttDateRangeArr(m.tuNgay||dot.tuNgay, m.denNgay||dot.denNgay);
+    var cc=m.chamCong||{};
+    var co=0;
+    days.forEach(function(dd){ if(cc[dd]==='co') co++; });
+    return { tong: days.length, co: co };
+  }
+  window.svttOpenChamCong = function(mid){
+    var m=svttMembers[mid]; if(!m) return;
+    svttCcMemberId = mid;
+    document.getElementById('svttCcName').textContent = m.hoTen||'';
+    svttRenderChamCongBody();
+    document.getElementById('svttChamCongOverlay').style.display='flex';
+  };
+  window.svttCloseChamCong = function(){ document.getElementById('svttChamCongOverlay').style.display='none'; svttCcMemberId=null; };
+  function svttRenderChamCongBody(){
+    var m=svttMembers[svttCcMemberId]; if(!m) return;
+    var dot=svttDots[m.dotId]||{};
+    var days=svttDateRangeArr(m.tuNgay||dot.tuNgay, m.denNgay||dot.denNgay);
+    var cc=m.chamCong||{};
+    var box=document.getElementById('svttCcBody');
+    if(!days.length){ box.innerHTML='<div style="color:#a02020;font-size:12.5px">Chưa xác định được khoảng ngày thực hành (thiếu từ ngày/đến ngày ở đợt hoặc cá nhân).</div>'; return; }
+    box.innerHTML = days.map(function(dd){
+      var st=cc[dd]||'';
+      var cls = st==='co'?'co':(st==='vang'?'vang':(st==='phep'?'phep':''));
+      var lbl = st==='co'?'Có mặt':(st==='vang'?'Vắng':(st==='phep'?'Nghỉ phép':'—'));
+      var p=dd.split('-');
+      return '<div class="svtt-cc-day '+cls+'" onclick="svttCycleChamCong(\''+dd+'\')" title="'+dd+'"><div class="d">'+p[2]+'/'+p[1]+'</div><div>'+lbl+'</div></div>';
+    }).join('');
+  }
+  window.svttCycleChamCong = function(dateStr){
+    var m=svttMembers[svttCcMemberId]; if(!m) return;
+    var cc=Object.assign({}, m.chamCong||{});
+    var cur=cc[dateStr]||'';
+    var next = cur==='' ? 'co' : (cur==='co' ? 'vang' : (cur==='vang' ? 'phep' : ''));
+    if(next==='') delete cc[dateStr]; else cc[dateStr]=next;
+    svttTvRef.child(svttCcMemberId).update({chamCong:cc}).catch(function(e){ alert('Lỗi khi lưu chấm công: '+e.message); });
+  };
+
+  // ── Xuất Phụ lục I / II (rút gọn cho quy mô cấp khoa) ──
+  function svttWordShell(title, bodyHtml, landscape){
+    return '<html><head><meta charset="UTF-8"><title>'+title+'</title>'+
+      '<style>@page{size:'+(landscape?'A4 landscape':'A4')+'}body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:5px}th{background:#1e3a5f;color:#fff}</style></head><body>'+
+      '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+      '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+      bodyHtml+'</body></html>';
+  }
+  function svttDownloadDoc(filename, html){
+    var blob=new Blob([html],{type:'application/msword'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  window.svttExportPhuLucI = function(){
+    var list=svttAllMembersFlat();
+    if(!list.length){ alert('Chưa có dữ liệu để xuất!'); return; }
+    var rows=list.map(function(m,i){
+      return '<tr><td style="text-align:center">'+(i+1)+'</td><td>'+svttEsc(m.hoTen)+'</td><td>'+svttLoaiLabel(m.loai)+'</td><td>'+svttEsc(m._tenDot)+'</td><td>'+svttEsc(m.khuVuc||'—')+'</td><td style="text-align:center">'+svttFmtD(m._tuNgay)+' - '+svttFmtD(m._denNgay)+'</td></tr>';
+    }).join('');
+    var body='<h2 style="text-align:center">PHỤ LỤC I<br>DANH SÁCH KHU VỰC THỰC HÀNH TẠI KHOA GÂY MÊ HỒI SỨC</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Ngày in: '+svttFmtD(new Date().toISOString().slice(0,10))+'</div>'+
+      '<table><thead><tr><th>STT</th><th>Họ tên</th><th>Loại</th><th>Đợt</th><th>Khu vực thực hành</th><th>Thời gian</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    svttDownloadDoc('PhuLucI_KhuVucThucHanh_'+(new Date().toISOString().slice(0,10))+'.doc', svttWordShell('Phụ lục I', body, true));
+  };
+  window.svttExportPhuLucII = function(){
+    var list=svttAllMembersFlat();
+    if(!list.length){ alert('Chưa có dữ liệu để xuất!'); return; }
+    var rows=list.map(function(m,i){
+      return '<tr><td style="text-align:center">'+(i+1)+'</td><td>'+svttEsc(m.hoTen)+'</td><td>'+svttLoaiLabel(m.loai)+'</td><td>'+svttEsc(m._tenDot)+'</td><td>'+svttEsc(m._nguoiHD||'—')+'</td><td style="text-align:center">'+svttFmtD(m._tuNgay)+' - '+svttFmtD(m._denNgay)+'</td></tr>';
+    }).join('');
+    var body='<h2 style="text-align:center">PHỤ LỤC II<br>DANH SÁCH PHÂN CÔNG NGƯỜI HƯỚNG DẪN THỰC HÀNH</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Ngày in: '+svttFmtD(new Date().toISOString().slice(0,10))+'</div>'+
+      '<table><thead><tr><th>STT</th><th>Họ tên</th><th>Loại</th><th>Đợt</th><th>Người hướng dẫn</th><th>Thời gian</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    svttDownloadDoc('PhuLucII_PhanCongNguoiHuongDan_'+(new Date().toISOString().slice(0,10))+'.doc', svttWordShell('Phụ lục II', body, true));
+  };
+
+  // ── Thống kê tổng quan (lọc theo khoảng ngày) ──
+  function svttRangesOverlap(aFrom, aTo, bFrom, bTo){
+    if(!aFrom || !aTo || !bFrom || !bTo) return true; // thiếu dữ liệu => không loại trừ
+    return aFrom <= bTo && bFrom <= aTo;
+  }
+  window.svttToggleStats = function(){
+    var box=document.getElementById('svttStatsBox');
+    var show = box.style.display==='none';
+    box.style.display = show ? '' : 'none';
+    if(show){ svttRenderStats(); box.scrollIntoView({behavior:'smooth',block:'start'}); }
+  };
+  window.svttClearStatsFilter = function(){
+    document.getElementById('svttStatsTu').value='';
+    document.getElementById('svttStatsDen').value='';
+    svttRenderStats();
+  };
+  function svttStatsFilteredMembers(){
+    var tu=document.getElementById('svttStatsTu').value;
+    var den=document.getElementById('svttStatsDen').value;
+    var list=svttAllMembersFlat();
+    if(!tu || !den) return { list: list, tu: tu, den: den };
+    return { list: list.filter(function(m){ return svttRangesOverlap(tu, den, m._tuNgay, m._denNgay); }), tu: tu, den: den };
+  }
+  window.svttRenderStats = function(){
+    var f=svttStatsFilteredMembers();
+    var list=f.list;
+    var dotIds={}; list.forEach(function(m){ dotIds[m.dotId]=1; });
+    var svCount=list.filter(function(m){return m.loai==='sinh_vien_thuc_tap';}).length;
+    var hvCount=list.filter(function(m){return m.loai==='hoc_vien_cchn';}).length;
+    var dangCount=list.filter(function(m){return m.trangThai!=='hoan_thanh' && m.trangThai!=='nghi';}).length;
+    var xongCount=list.filter(function(m){return m.trangThai==='hoan_thanh';}).length;
+    var nghiCount=list.filter(function(m){return m.trangThai==='nghi';}).length;
+    var rangeLabel = (f.tu&&f.den) ? (svttFmtD(f.tu)+' — '+svttFmtD(f.den)) : 'Tất cả (chưa lọc theo ngày)';
+    document.getElementById('svttStatsSummary').innerHTML =
+      '<div class="svtt-stat-card"><div class="n">'+list.length+'</div><div class="l">Tổng SV/HV<br>'+svttEsc(rangeLabel)+'</div></div>'+
+      '<div class="svtt-stat-card"><div class="n">'+Object.keys(dotIds).length+'</div><div class="l">Số đợt liên quan</div></div>'+
+      '<div class="svtt-stat-card"><div class="n">'+svCount+'</div><div class="l">Sinh viên thực tập</div></div>'+
+      '<div class="svtt-stat-card"><div class="n">'+hvCount+'</div><div class="l">Học viên CCHN</div></div>'+
+      '<div class="svtt-stat-card"><div class="n">'+dangCount+'</div><div class="l">Đang thực hành</div></div>'+
+      '<div class="svtt-stat-card"><div class="n">'+xongCount+'</div><div class="l">Đã hoàn thành</div></div>'+
+      '<div class="svtt-stat-card"><div class="n">'+nghiCount+'</div><div class="l">Nghỉ giữa chừng</div></div>';
+
+    var byHd={};
+    list.forEach(function(m){
+      var hd=m._nguoiHD || '— Chưa phân công —';
+      if(!byHd[hd]) byHd[hd]=[];
+      byHd[hd].push(m);
+    });
+    var hdNames=Object.keys(byHd).sort(function(a,b){ return byHd[b].length - byHd[a].length; });
+    var hdInfoByName={};
+    Object.keys(svttHds||{}).forEach(function(k){ hdInfoByName[(svttHds[k].hoTen||'').trim().toLowerCase()] = svttHds[k]; });
+    var box=document.getElementById('svttStatsHdTable');
+    if(!hdNames.length){ box.innerHTML='<div style="text-align:center;color:#aaa;padding:12px;font-style:italic;font-size:12.5px">Không có dữ liệu trong khoảng đã lọc.</div>'; return; }
+    box.innerHTML = '<table class="svtt-dt"><thead><tr><th>Người hướng dẫn</th><th>Số CCHN</th><th>Số SV/HV</th><th>Danh sách</th></tr></thead><tbody>'+
+      hdNames.map(function(hd){
+        var arr=byHd[hd];
+        var info=hdInfoByName[hd.trim().toLowerCase()];
+        return '<tr>'+
+          '<td><b>'+svttEsc(hd)+'</b></td>'+
+          '<td>'+svttEsc(info?info.soCCHN||'—':'—')+'</td>'+
+          '<td style="text-align:center"><span class="svtt-badge dang">'+arr.length+'</span></td>'+
+          '<td style="font-size:11.5px">'+arr.map(function(m){return svttEsc(m.hoTen);}).join(', ')+'</td>'+
+          '</tr>';
+      }).join('') + '</tbody></table>';
+  };
+  window.svttExportStats = function(){
+    var f=svttStatsFilteredMembers();
+    var list=f.list;
+    if(!list.length){ alert('Không có dữ liệu để xuất trong khoảng đã lọc!'); return; }
+    var byHd={};
+    list.forEach(function(m){ var hd=m._nguoiHD||'— Chưa phân công —'; if(!byHd[hd]) byHd[hd]=[]; byHd[hd].push(m); });
+    var hdNames=Object.keys(byHd).sort(function(a,b){ return byHd[b].length - byHd[a].length; });
+    var hdInfoByName={};
+    Object.keys(svttHds||{}).forEach(function(k){ hdInfoByName[(svttHds[k].hoTen||'').trim().toLowerCase()] = svttHds[k]; });
+    var rangeLabel = (f.tu&&f.den) ? (svttFmtD(f.tu)+' - '+svttFmtD(f.den)) : 'Tất cả';
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#1e3a5f;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #0f2338;padding:5px}'+
+      '.td-c{border:1px solid #dbe3ee;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #dbe3ee;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="4" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="4" class="title">THỐNG KÊ NGƯỜI HƯỚNG DẪN — Khoảng: '+rangeLabel+'</td></tr><tr></tr>'+
+      '<tr><td class="th">Người hướng dẫn</td><td class="th">Số CCHN</td><td class="th">Số SV/HV</td><td class="th">Danh sách</td></tr>';
+    hdNames.forEach(function(hd){
+      var arr=byHd[hd];
+      var info=hdInfoByName[hd.trim().toLowerCase()];
+      html+='<tr><td class="td">'+svttEsc(hd)+'</td><td class="td-c">'+svttEsc(info?info.soCCHN||'':'')+'</td><td class="td-c">'+arr.length+'</td><td class="td">'+arr.map(function(m){return svttEsc(m.hoTen);}).join(', ')+'</td></tr>';
+    });
+    html+='</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='ThongKe_NguoiHuongDan_'+(new Date().toISOString().slice(0,10))+'.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  // ── Xuất Excel / Word (toàn bộ danh sách) ──
+  function svttAllMembersFlat(){
+    return Object.keys(svttMembers||{}).map(function(k){
+      var m=Object.assign({_id:k}, svttMembers[k]);
+      var d=svttDots[m.dotId]||{};
+      m._tenDot = d.tenDot||'';
+      m._tuNgay = m.tuNgay||d.tuNgay;
+      m._denNgay = m.denNgay||d.denNgay;
+      m._nguoiHD = m.nguoiHuongDan||d.nguoiHuongDanChinh||'';
+      return m;
+    }).sort(function(a,b){ return (b._tuNgay||'').localeCompare(a._tuNgay||''); });
+  }
+  var svttStLbl={dang_thuc_hanh:'Đang thực hành',hoan_thanh:'Đã hoàn thành',nghi:'Nghỉ giữa chừng'};
+  window.svttExportExcel = function(){
+    var list=svttAllMembersFlat();
+    if(!list.length){ alert('Chưa có dữ liệu để xuất!'); return; }
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="UTF-8"><style>body{font-family:Times New Roman;font-size:11pt}'+
+      '.th{background:#1e3a5f;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #0f2338;padding:5px}'+
+      '.td-c{border:1px solid #dbe3ee;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #dbe3ee;padding:4px 6px;font-size:10pt}'+
+      '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
+      '<table><tr><td colspan="10" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
+      '<tr><td colspan="10" class="title">DANH SÁCH SV/HV THỰC HÀNH — NGHỊ ĐỊNH 96</td></tr><tr></tr>'+
+      '<tr><td class="th">STT</td><td class="th">Họ tên</td><td class="th">Loại</td><td class="th">Đợt</td><td class="th">Lớp/Khóa</td><td class="th">Thời gian</td><td class="th">Người HD</td><td class="th">Số giờ</td><td class="th">Xếp loại</td><td class="th">Trạng thái</td></tr>';
+    list.forEach(function(m,i){
+      html+='<tr><td class="td-c">'+(i+1)+'</td><td class="td">'+svttEsc(m.hoTen)+'</td><td class="td">'+svttLoaiLabel(m.loai)+'</td>'+
+        '<td class="td">'+svttEsc(m._tenDot)+'</td><td class="td-c">'+svttEsc(m.lopKhoa||'')+'</td>'+
+        '<td class="td-c">'+svttFmtD(m._tuNgay)+' - '+svttFmtD(m._denNgay)+'</td><td class="td">'+svttEsc(m._nguoiHD)+'</td>'+
+        '<td class="td-c">'+(m.soGioHoanThanh!=null?m.soGioHoanThanh:'')+'</td><td class="td-c">'+svttEsc(m.xepLoai||'')+'</td>'+
+        '<td class="td-c">'+(svttStLbl[m.trangThai]||'')+'</td></tr>';
+    });
+    html+='</table></body></html>';
+    var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='DanhSach_SVHV_ThucHanh_ND96_'+(new Date().toISOString().slice(0,10))+'.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+  window.svttExportWord = function(){
+    var list=svttAllMembersFlat();
+    if(!list.length){ alert('Chưa có dữ liệu để xuất!'); return; }
+    var rows=list.map(function(m,i){
+      return '<tr><td style="text-align:center;border:1px solid #999;padding:4px">'+(i+1)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+svttEsc(m.hoTen)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+svttLoaiLabel(m.loai)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+svttEsc(m._tenDot)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+svttFmtD(m._tuNgay)+' - '+svttFmtD(m._denNgay)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px">'+svttEsc(m._nguoiHD)+'</td>'+
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+(svttStLbl[m.trangThai]||'')+'</td></tr>';
+    }).join('');
+    var html='<html><head><meta charset="UTF-8"><title>Danh sách SV/HV thực hành</title>'+
+      '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#1e3a5f;color:#fff;border:1px solid #0f2338;padding:5px}</style></head><body>'+
+      '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
+      '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
+      '<h2 style="text-align:center">DANH SÁCH SV/HV THỰC HÀNH — NGHỊ ĐỊNH 96</h2>'+
+      '<div style="text-align:right;margin-bottom:8px">Ngày in: '+svttFmtD(new Date().toISOString().slice(0,10))+'</div>'+
+      '<table><thead><tr><th>STT</th><th>Họ tên</th><th>Loại</th><th>Đợt</th><th>Thời gian</th><th>Người HD</th><th>Trạng thái</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></body></html>';
+    var blob=new Blob([html],{type:'application/msword'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='DanhSach_SVHV_ThucHanh_ND96_'+(new Date().toISOString().slice(0,10))+'.doc';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
 })();
 </script>
 
