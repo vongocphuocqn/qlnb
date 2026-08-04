@@ -23743,8 +23743,8 @@ function renderVanBan(){
     </div>
     <div class="ddnl-grid2">
       <div class="ddnl-field">
-        <label>Nhãn "Người lập bảng" <span class="ddnl-hint" style="font-weight:400;">(tùy chỉnh tự do — mặc định NGƯỜI LẬP BẢNG)</span></label>
-        <input type="text" id="ddnlVB_nguoiLapLabel" placeholder="NGƯỜI LẬP BẢNG" value="${esc(draftVB.nguoiLapLabel||"")}">
+        <label>Tiêu đề cột ký bên trái <span class="ddnl-hint" style="font-weight:400;">(chữ TIÊU ĐỀ hiển thị phía trên chữ ký — KHÔNG phải tên người, mặc định "NGƯỜI LẬP BẢNG", để trống là dùng mặc định)</span></label>
+        <input type="text" id="ddnlVB_nguoiLapLabel" placeholder="Để trống = NGƯỜI LẬP BẢNG (đừng gõ tên người vào đây)" value="${esc(draftVB.nguoiLapLabel||"")}">
       </div>
       <div class="ddnl-field">
         <label>Chức danh người ký <span class="ddnl-hint" style="font-weight:400;">(tùy chỉnh tự do — VD: Trưởng khoa Ngoại, để trống = lấy theo Danh mục Người ký)</span></label>
@@ -24209,6 +24209,7 @@ function bindVanBanEvents(){
     if(!v) return;
     editingVBId = v.id;
     draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
+    collapsedCards.delete('vb-form'); // xem giải thích ở nút Sửa trong danh sách văn bản đi
     render();
     const card = document.getElementById('ddnlCard_vb-form');
     if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
@@ -24362,6 +24363,8 @@ function bindVanBanEvents(){
     if(!(isAdmin() || v.nguoiSoan===currentUserName)){ alert("Bạn chỉ có thể sửa văn bản do chính mình soạn. Liên hệ Admin nếu cần sửa văn bản của người khác."); return; }
     editingVBId = v.id;
     draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
+    collapsedCards.delete('vb-form'); // luôn mở thẻ "Sửa văn bản" ra, tránh trường hợp thẻ đang bị Ẩn
+    // khiến bấm Sửa cuộn tới đúng chỗ nhưng form bên trong lại không hiện ra, nhìn như chưa chạy vào.
     render();
     const cardEditVb = document.getElementById('ddnlCard_vb-form');
     if(cardEditVb) cardEditVb.scrollIntoView({behavior:'smooth', block:'start'});
@@ -25095,6 +25098,7 @@ function buildVanBanPreviewHtml(data){
   return `<!doctype html><html><head><meta charset="utf-8"><title>Xem trước — ${esc(soVanBan||hinhThucVB||'Văn bản')}</title>
 <style>
   body{font-family:'Times New Roman',Times,serif;font-size:14pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 22mm 30mm;}
+  table.ddnl-pv-head{width:100%;}
   table.ddnl-pv-head td{vertical-align:top;padding:0;}
   .ddnl-pv-center{text-align:center;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
   .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
