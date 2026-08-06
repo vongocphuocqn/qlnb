@@ -10060,7 +10060,7 @@ function kpiToggleWideBox(boxId, btnId){
 }
 
 /* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
-var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,khan:0,treHan:0,cuoiThang:0,hoanThanh:0,btd1224:0,btd2424:0,btdThang:0,btdAll:0};
+var notifCounts={dctd:0,bg:0,pm:0,dt:0,np:0,nb:0,cnkt:0,gdn:0,khan:0,treHan:0,cuoiThang:0,hoanThanh:0,btd1224:0,btd2424:0,btdThang:0,btdAll:0};
 var notifBtdMaxDays={btd1224:0,btd2424:0,btdThang:0}; // số ngày nợ dồn (chưa bàn giao liên tiếp) cao nhất của mỗi loại lịch
 var notifBtdNames={btd1224:[],btd2424:[],btdThang:[]}; // tên các phòng/bộ phận đang trễ hạn của mỗi loại lịch (kèm số ngày nợ nếu >1)
 var notifBgKhanItems=[]; // [{roomId, id, lines:[...]}]
@@ -10102,6 +10102,7 @@ var notifMeta={
   np:{label:'Nghỉ Phép — chờ duyệt', icon:'ti-beach'},
   nb:{label:'Nghỉ Bù — chờ duyệt', icon:'ti-calendar-off'},
   cnkt:{label:'CNKT — chờ duyệt', icon:'ti-award'},
+  gdn:{label:'📄 Giấy đề nghị — lập trong ngày', icon:'ti-files'},
   btd1224:{label:'⏰ Trực 12/24 — chưa bàn giao đúng giờ', icon:'ti-replace'},
   btd2424:{label:'⏰ Trực 24/24 — chưa bàn giao theo ngày', icon:'ti-clock-hour-7'},
   btdThang:{label:'📆 Bàn giao trực — chưa xác nhận theo tháng', icon:'ti-calendar-time'},
@@ -10238,6 +10239,17 @@ function notifInit(){
       notifCounts.cnkt=n; notifRenderHome();
     });
   }catch(e){ console.warn('notifInit cnkt:',e); }
+  // Số phiếu "Giấy đề nghị" (Sổ văn bản đi) LẬP TRONG NGÀY HÔM NAY — chỉ để thống kê, không tính vào badge "cần xử lý"
+  try{
+    db.ref('dieuDongNhanLuc/vanBanDi').on('value',function(snap){
+      var d=snap.val()||{};
+      var homNayGdn=new Date().toISOString().slice(0,10);
+      var n=0;
+      Object.values(d).forEach(function(v){ if(v && v.ngayLap===homNayGdn) n++; });
+      notifCounts.gdn=n;
+      notifRenderHome();
+    });
+  }catch(e){ console.warn('notifInit gdn:',e); }
   // "Theo dõi Giao nhận trực" — đếm số bộ phận đang TRỄ HẠN (chưa lập biên bản đúng ca/tháng),
   // chạy từ lúc mở app, không cần ai mở màn "Theo dõi Giao nhận trực" trước mới có số liệu.
   try{ btdEnsureListeners(); }catch(e){ console.warn('notifInit btd:',e); }
@@ -10246,7 +10258,7 @@ function notifRenderHome(){
   var card=document.getElementById('notifHomeCard');
   if(!card) return;
   if(!adminSession.active){ card.style.display='none'; return; }
-  var total=0; Object.keys(notifCounts).forEach(function(k){ if(k==='hoanThanh'||k==='btd1224'||k==='btd2424'||k==='btdThang') return; total+=notifCounts[k]||0; });
+  var total=0; Object.keys(notifCounts).forEach(function(k){ if(k==='hoanThanh'||k==='gdn'||k==='btd1224'||k==='btd2424'||k==='btdThang') return; total+=notifCounts[k]||0; });
   var badge=document.getElementById('notifBadgeCount'); if(badge) badge.textContent=total;
   var summary=document.getElementById('notifHomeSummary');
   var detail=document.getElementById('notifHomeDetail');
@@ -10254,17 +10266,20 @@ function notifRenderHome(){
   var hoanThanhRow = notifCounts.hoanThanh>0
     ? '<div onclick="notifGoTo(\'hoanThanh\')" style="background:rgba(76,175,80,.25);border:1.5px solid #a5d6a7;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;margin-top:8px;cursor:pointer" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'"><span style="font-size:13px"><i class="ti ti-circle-check"></i> ✅ Bàn giao hoàn thành hôm nay</span><b style="font-size:14px">'+notifCounts.hoanThanh+'</b></div>'
     : '';
+  var gdnRow = notifCounts.gdn>0
+    ? '<div onclick="notifGoTo(\'gdn\')" style="background:rgba(255,255,255,.16);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;margin-top:8px;cursor:pointer" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'"><span style="font-size:13px"><i class="ti ti-files"></i> 📄 Giấy đề nghị — lập trong ngày</span><b style="font-size:14px">'+notifCounts.gdn+'</b></div>'
+    : '';
   if(total===0){
     card.style.background='linear-gradient(135deg,#2e7d32,#1b5e20)';
     if(summary) summary.textContent='✅ Không có phiếu nào cần xử lý — mọi thứ đã ổn.';
-    if(detail) detail.innerHTML=hoanThanhRow;
+    if(detail) detail.innerHTML=hoanThanhRow+gdnRow;
     return;
   }
   card.style.background='linear-gradient(135deg,#c62828,#8e0000)';
   if(summary) summary.textContent='Có '+total+' phiếu đang chờ xử lý — bấm vào từng mục để xử lý ngay.';
   var rows='';
   Object.keys(notifMeta).forEach(function(k){
-    if(k==='hoanThanh') return;
+    if(k==='hoanThanh'||k==='gdn') return;
     if(k==='btd1224'||k==='btd2424'||k==='btdThang') return; // gộp chung vào 1 dòng "btdAll" duy nhất bên dưới cho gọn, không hiện riêng từng loại nữa ở đây
     var n=notifCounts[k]||0; if(n<=0) return;
     var m=notifMeta[k];
@@ -10287,6 +10302,7 @@ function notifRenderHome(){
       namesLine+
     '</div>';
   });
+  rows += gdnRow;
   rows += hoanThanhRow;
   if(detail) detail.innerHTML=rows;
 }
@@ -10341,6 +10357,8 @@ function notifGoTo(key){
   } else if(key==='cnkt'){
     enterCmeScreen('admin','Quản lý');
     scrollToOpen('cmePendingWrap','cmePendingChevron');
+  } else if(key==='gdn'){
+    if(typeof openDdnlScreen==='function') openDdnlScreen('vanban');
   } else if(key==='btd1224'||key==='btd2424'||key==='btdThang'||key==='btdAll'){
     openBtdScreen();
   }
