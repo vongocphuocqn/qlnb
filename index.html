@@ -917,6 +917,10 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
           <div id="nbRows" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
 
+        <!-- Cảnh báo giới hạn nghỉ bù trong tháng (tối đa 2 ngày/tháng) -->
+        <div id="nbMonthLimitWarning" style="display:none;margin-top:12px;padding:9px 14px;border-radius:8px;
+          background:#fff3e0;border:1.5px solid #ffb74d;color:#e65100;font-size:12.5px;font-weight:600;line-height:1.5"></div>
+
         <div style="display:flex;justify-content:flex-end;margin-top:14px">
           <button class="nb-btn" onclick="nbSubmitForm()">
             <i class="ti ti-send"></i> Gửi phiếu đăng ký
@@ -13913,6 +13917,7 @@ function nbPickPerson(name){
   document.getElementById('nbPersonSearch').value=name;
   document.getElementById('nbPersonVal').value=name;
   const box=document.getElementById('nbPersonDrop');if(box)box.style.display='none';
+  if(typeof nbCheckMonthlyLimit==='function') nbCheckMonthlyLimit();
 }
 function nbNavPersonDrop(e){
   const box=document.getElementById('nbPersonDrop');
@@ -13980,6 +13985,7 @@ function nbPopulatePersonSelect(){
   // Reset replacer
   document.getElementById('nbReplSearch').value='';
   document.getElementById('nbReplVal').value='';
+  if(typeof nbCheckMonthlyLimit==='function') nbCheckMonthlyLimit();
 }
 
 function nbUpdateTime(){
@@ -14075,6 +14081,7 @@ function nbAddRow(dateVal, shiftVal){
     ' style="width:26px;height:26px;border-radius:6px;border:1.5px solid #f5c1c1;background:#fff;color:#c62828;cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0"'+
     ' title="Xóa dòng">\xd7</button>';
   document.getElementById('nbRows').appendChild(row);
+  if(typeof nbCheckMonthlyLimit==='function') nbCheckMonthlyLimit();
 }
 
 function nbRemoveRow(id){
@@ -14085,6 +14092,7 @@ function nbRemoveRow(id){
     nbShowAl('Đã xóa hết ngày — hãy thêm dòng/khoảng ngày mới trước khi lưu phiếu.','warn');
     nbShowEmptyRowsMsg();
   }
+  if(typeof nbCheckMonthlyLimit==='function') nbCheckMonthlyLimit();
 }
 function nbShowEmptyRowsMsg(){
   const rows = document.getElementById('nbRows');
@@ -14108,6 +14116,64 @@ function nbGetRows(){
   }));
 }
 
+/* ── GIỚI HẠN NGHỈ BÙ: tối đa 2 ngày/tháng — từ ngày thứ 3 trở đi phải cảnh báo ── */
+var NB_MONTHLY_LIMIT = 2; // số ngày nghỉ bù tối đa/tháng trước khi cảnh báo
+function nbGetFormPersonName(){
+  var isA=nbCurrentUser&&nbCurrentUser.role==='admin';
+  return isA
+    ? (document.getElementById('nbPersonVal').value||document.getElementById('nbPersonSearch').value||'').trim()
+    : (nbCurrentUser?nbCurrentUser.name:'');
+}
+// Đếm số ngày nghỉ bù đã có (không tính phiếu bị từ chối) của 1 người trong 1 tháng (yyyy-mm),
+// có thể loại trừ 1 phiếu đang sửa (excludeId) và cộng thêm các ngày đang nhập dở trên form (extraEntries).
+function nbCountDaysInMonth(person, monthStr, excludeId, extraEntries){
+  if(!person || !monthStr) return 0;
+  var count = 0;
+  (nbRecords||[]).forEach(function(r){
+    if(!r || !r.person || r.person!==person) return;
+    if(excludeId && String(r.id)===String(excludeId)) return;
+    if(r.status==='denied') return; // phiếu bị từ chối không tính vào hạn mức
+    var entries = (r.entries && r.entries.length) ? r.entries : (r.date?[{date:r.date}]:[]);
+    entries.forEach(function(e){ if(e.date && e.date.slice(0,7)===monthStr) count++; });
+  });
+  (extraEntries||[]).forEach(function(e){ if(e.date && e.date.slice(0,7)===monthStr) count++; });
+  return count;
+}
+// Trả về mảng cảnh báo (text) cho các tháng có số ngày (đã có + đang nhập) >= NB_MONTHLY_LIMIT+1 (từ ngày thứ 3)
+function nbBuildMonthLimitMessages(person, excludeId){
+  var msgs=[];
+  if(!person) return msgs;
+  var entries = nbGetRows().filter(function(e){return e.date;});
+  if(!entries.length) return msgs;
+  var months = [...new Set(entries.map(function(e){return e.date.slice(0,7);}))];
+  months.forEach(function(m){
+    var existed = nbCountDaysInMonth(person, m, excludeId, null); // số ngày đã có (chưa tính ngày đang nhập)
+    var thisMonthNew = entries.filter(function(e){return e.date.slice(0,7)===m;}).length;
+    var total = existed + thisMonthNew;
+    if(total > NB_MONTHLY_LIMIT){
+      var monthLbl = m.split('-')[1]+'/'+m.split('-')[0];
+      msgs.push('⚠ '+person+' đã/sẽ có <b>'+total+'</b> ngày nghỉ bù trong tháng '+monthLbl+
+        ' — vượt quá quy định tối đa <b>'+NB_MONTHLY_LIMIT+' ngày/tháng</b> (từ ngày thứ '+(NB_MONTHLY_LIMIT+1)+' trở đi).');
+    }
+  });
+  return msgs;
+}
+window.nbCheckMonthlyLimit = function(){
+  var warnEl=document.getElementById('nbMonthLimitWarning');
+  if(!warnEl) return;
+  var nbRowsEl=document.getElementById('nbRows');
+  var editId=(nbRowsEl&&nbRowsEl.dataset&&nbRowsEl.dataset.editId)||'';
+  var person=nbGetFormPersonName();
+  var msgs=nbBuildMonthLimitMessages(person, editId);
+  if(msgs.length){
+    warnEl.style.display='block';
+    warnEl.innerHTML=msgs.join('<br>')+
+      '<br><span style="font-weight:700">Nếu vẫn quyết tâm đăng ký nghỉ, vui lòng liên hệ trực tiếp Quản lý khoa/Điều dưỡng trưởng để được xem xét, phê duyệt trước khi gửi phiếu.</span>';
+  } else {
+    warnEl.style.display='none';
+  }
+};
+
 function nbAddDateRange(){
   var from=document.getElementById('nbRangeFrom').value;
   var to=document.getElementById('nbRangeTo').value;
@@ -14123,12 +14189,15 @@ function nbAddDateRange(){
     count++;
   }
   nbShowAl('Đã thêm '+count+' dòng ('+from+' → '+to+')');
+  if(typeof nbCheckMonthlyLimit==='function') nbCheckMonthlyLimit();
 }
 function nbResetRows(){
   var el=document.getElementById('nbRows');
   if(!el){setTimeout(nbResetRows,200);return;}
   el.innerHTML='';
   nbRowCount=0;
+  var limitWarnReset=document.getElementById('nbMonthLimitWarning');
+  if(limitWarnReset) limitWarnReset.style.display='none';
   nbAddRow(null,null);
 }
 
@@ -14494,6 +14563,13 @@ function nbSubmitForm(){
     if(!entries.length){nbShowAl('Vui lòng thêm ít nhất 1 ngày nghỉ bù!','warn');flagFieldInvalid('nbRangeFrom','Vui lòng thêm ít nhất 1 ngày nghỉ bù (bấm nút Thêm ngày)');return;}
     var inv2=entries.findIndex(function(e){return !e.date||!e.shift;});
     if(inv2>=0){nbShowAl('Vui lòng điền đầy đủ ngày và ca!','warn');return;}
+    var limitMsgsEdit=nbBuildMonthLimitMessages(person, nbEditId);
+    if(limitMsgsEdit.length){
+      var okEdit=confirm('⚠ CẢNH BÁO VƯỢT QUÁ QUY ĐỊNH NGHỈ BÙ (tối đa '+NB_MONTHLY_LIMIT+' ngày/tháng):\n\n'+
+        limitMsgsEdit.map(function(m){return m.replace(/<[^>]+>/g,'');}).join('\n')+
+        '\n\nBạn có chắc chắn vẫn muốn lưu phiếu này không?\n(Nếu quyết tâm nghỉ, vui lòng liên hệ Quản lý khoa/Điều dưỡng trưởng để được xem xét, phê duyệt.)');
+      if(!okEdit) return;
+    }
     var btn3=document.querySelector('#nbPane1 .nb-btn[onclick="nbSubmitForm()"]');
     nbSetSync('sync');
     // Admin sửa phiếu đã duyệt/từ chối: giữ nguyên trạng thái, không cần duyệt lại.
@@ -14517,6 +14593,14 @@ function nbSubmitForm(){
   if(!entries.length){nbShowAl('Vui lòng thêm ít nhất 1 ngày nghỉ bù!','warn');flagFieldInvalid('nbRangeFrom','Vui lòng thêm ít nhất 1 ngày nghỉ bù (bấm nút Thêm ngày)');return;}
   const invalid=entries.findIndex(e=>!e.date||!e.shift);
   if(invalid>=0){nbShowAl('Vui lòng điền đầy đủ ngày và ca cho tất cả các dòng!','warn');return;}
+
+  var limitMsgsNew=nbBuildMonthLimitMessages(person, null);
+  if(limitMsgsNew.length){
+    var okNew=confirm('⚠ CẢNH BÁO VƯỢT QUÁ QUY ĐỊNH NGHỈ BÙ (tối đa '+NB_MONTHLY_LIMIT+' ngày/tháng):\n\n'+
+      limitMsgsNew.map(function(m){return m.replace(/<[^>]+>/g,'');}).join('\n')+
+      '\n\nBạn có chắc chắn vẫn muốn gửi phiếu đăng ký này không?\n(Nếu quyết tâm nghỉ, vui lòng liên hệ Quản lý khoa/Điều dưỡng trưởng để được xem xét, phê duyệt trước khi gửi phiếu.)');
+    if(!okNew) return;
+  }
 
   openChuKyPad('Ký xác nhận đăng ký nghỉ bù', function(chuKyDataUrl){
     nbSetSync('sync');
@@ -16820,6 +16904,8 @@ function nbCancelEditMode(){
   if(el) delete el.dataset.editId;
   var banner=document.getElementById('nbEditBanner');
   if(banner) banner.style.display='none';
+  var limitWarn=document.getElementById('nbMonthLimitWarning');
+  if(limitWarn) limitWarn.style.display='none';
   var btn=document.querySelector('#nbPane1 .nb-btn[onclick="nbSubmitForm()"]');
   if(btn){btn.innerHTML='<i class="ti ti-send"></i> Gửi phiếu đăng ký';btn.style.background='#1565C0';}
   document.getElementById('nbFormReason').value='';
