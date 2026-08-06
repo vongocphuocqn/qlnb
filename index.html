@@ -23857,8 +23857,8 @@ function renderVanBan(){
         <input type="text" id="ddnlVB_so" placeholder="Tự động sinh số" value="${esc(editingVBId ? draftVB.soVanBan : (draftVB.soVanBan || vbNextSoVanBan(draftVB.ngayLap)))}" ${isAdmin()?'':'readonly'} title="${isAdmin()?'Admin có thể sửa tay nếu cần (VD: nhập bù văn bản cũ).':'Số tự động — chỉ Admin mới sửa tay được.'}">
       </div>
       <div class="ddnl-field" style="position:relative;">
-        <label>Người soạn * <span class="ddnl-hint" style="font-weight:400;">(bấm để xem cả danh sách, gõ để lọc nhanh)</span></label>
-        <input type="text" id="ddnlVB_nguoiSoan" autocomplete="off" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(draftVB.nguoiSoan)}">
+        <label>Người soạn * <span class="ddnl-hint" style="font-weight:400;">${isAdmin()?'(bấm để xem cả danh sách, gõ để lọc nhanh)':'(tự động lấy theo tài khoản đăng nhập — không thể thay đổi, để tránh làm mất phiếu khỏi danh sách của bạn)'}</span></label>
+        <input type="text" id="ddnlVB_nguoiSoan" autocomplete="off" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(draftVB.nguoiSoan)}" ${isAdmin()?'':'readonly'} title="${isAdmin()?'Admin có thể đổi Người soạn để chuyển/gán phiếu cho người khác.':'Trường này quyết định ai nhìn thấy phiếu — chỉ Admin (Quản lý) mới được đổi. Đừng gõ tên người khác vào đây.'}">
       </div>
     </div>
     <div class="ddnl-grid3">
@@ -23882,8 +23882,8 @@ function renderVanBan(){
     </div>
     <div class="ddnl-grid2">
       <div class="ddnl-field">
-        <label>Tiêu đề cột ký bên trái <span class="ddnl-hint" style="font-weight:400;">(chữ TIÊU ĐỀ hiển thị phía trên chữ ký — KHÔNG phải tên người, mặc định "NGƯỜI LẬP BẢNG", để trống là dùng mặc định)</span></label>
-        <input type="text" id="ddnlVB_nguoiLapLabel" placeholder="Để trống = NGƯỜI LẬP BẢNG (đừng gõ tên người vào đây)" value="${esc(draftVB.nguoiLapLabel||"")}">
+        <label>Tên người lập bảng <span class="ddnl-hint" style="font-weight:400;">(hàng trên chữ ký luôn cố định là "NGƯỜI LẬP BẢNG"; để trống ở đây thì hàng dưới tự lấy theo tên Người soạn, nếu người khác lập bảng thì gõ/chọn tên người đó)</span></label>
+        <input type="text" id="ddnlVB_nguoiLapLabel" placeholder="Để trống = lấy theo tên Người soạn" value="${esc(draftVB.nguoiLapLabel||"")}">
       </div>
       <div class="ddnl-field">
         <label>Chức danh người ký <span class="ddnl-hint" style="font-weight:400;">(tùy chỉnh tự do — VD: Trưởng khoa Ngoại, để trống = lấy theo Danh mục Người ký)</span></label>
@@ -23967,6 +23967,7 @@ function renderVanBan(){
       ${(draftVB.dinhKemFiles&&draftVB.dinhKemFiles.length) ? draftVB.dinhKemFiles.map((f,fi)=>`<div class="ddnl-hint" style="margin-top:6px;">📎 Đã đính kèm: <strong>${esc(f.ten)}</strong> (${formatFileSize(f.kichThuoc)}) <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-vbfile-draft="${fi}" style="margin-left:8px;">⬇ Tải xuống xem</button> <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-remove-vbfile-draft="${fi}" style="margin-left:4px;">Xóa file</button></div>`).join("") : ``}
     </div>
     <div style="display:flex;gap:10px;">
+      <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnPreviewDraft" type="button" title="Xem/in thử ngay với dữ liệu đang gõ trên form — kể cả khi CHƯA bấm Lưu/Ghi nhận">👁 Xem trước nhanh (chưa lưu)</button>
       <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnSaveVB">${editingVBId?'Lưu thay đổi':'Ghi nhận văn bản'}</button>
       ${editingVBId?`<button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnCancelEditVB">Hủy sửa</button>`:""}
     </div>
@@ -24244,7 +24245,12 @@ function bindVanBanEvents(){
   setupComboField('ddnlVB_hinhThuc', ()=>(config.hinhThucVB&&config.hinhThucVB.length?config.hinhThucVB:SEED_HINH_THUC_VB), (val)=>{ draftVB.hinhThucVB = val; });
   set('ddnlVB_veViec', el=>el.oninput=()=>draftVB.veViec=el.value);
   set('ddnlVB_so', el=>el.oninput=()=>draftVB.soVanBan=el.value);
-  setupComboField('ddnlVB_nguoiSoan', ()=>config.employees.map(e=>e.ten), (val)=>{ draftVB.nguoiSoan = val; });
+  if(isAdmin()){
+    setupComboField('ddnlVB_nguoiSoan', ()=>config.employees.map(e=>e.ten), (val)=>{ draftVB.nguoiSoan = val; });
+  } else {
+    // Nhân viên: luôn khóa "Người soạn" đúng bằng tài khoản đang đăng nhập, không cho combo/dropdown đổi giá trị
+    draftVB.nguoiSoan = currentUserName || draftVB.nguoiSoan || "";
+  }
   set('ddnlVB_nguoiKy', el=>el.onchange=()=>draftVB.nguoiKy=el.value);
   set('ddnlVB_maU', el=>el.onchange=()=>draftVB.mauDangChon=el.value);
   set('ddnlVB_ngayLap', el=>el.onchange=()=>draftVB.ngayLap=el.value);
@@ -24254,7 +24260,7 @@ function bindVanBanEvents(){
   set('ddnlVB_link', el=>el.oninput=()=>draftVB.dinhKemLink=el.value);
   set('ddnlVB_ghiChu', el=>el.oninput=()=>draftVB.ghiChu=el.value);
   set('ddnlVB_ghiChuTienDo', el=>el.oninput=()=>draftVB.ghiChuTienDo=el.value);
-  setupComboField('ddnlVB_nguoiLapLabel', ()=>(config.nguoiLapBang&&config.nguoiLapBang.length?config.nguoiLapBang:['NGƯỜI LẬP BẢNG']), (val)=>{ draftVB.nguoiLapLabel = val; });
+  setupComboField('ddnlVB_nguoiLapLabel', ()=>(config.nguoiLapBang&&config.nguoiLapBang.length?config.nguoiLapBang:config.employees.map(e=>e.ten)), (val)=>{ draftVB.nguoiLapLabel = val; });
   set('ddnlVB_chucDanhKy', el=>el.oninput=()=>draftVB.chucDanhKy=el.value);
   const showHangMucBtn = document.getElementById('ddnlBtnShowHangMuc');
   if(showHangMucBtn) showHangMucBtn.onclick = ()=>{ vbHangMucExpanded = true; render(); };
@@ -24448,6 +24454,7 @@ function bindVanBanEvents(){
       else { draftVB.noiNhan = draftVB.noiNhan.filter(x=>x!==chk.value); }
     };
   });
+  set('ddnlBtnPreviewDraft', el=>el.onclick=()=>moXemTruocDraft());
   set('ddnlBtnSaveVB', el=>el.onclick=async ()=>{
     if(!draftVB.nguoiSoan){ alert("Vui lòng chọn Người soạn."); return; }
     if(!draftVB.hinhThucVB){ alert("Vui lòng chọn Thể loại văn bản (Giấy đề nghị/Tờ trình/Công văn…)."); return; }
@@ -24886,11 +24893,11 @@ function taoFileExcelTrongDeSoan(){
   for(let i=1;i<=8;i++){ rows.push([i, "", ""]); }
   rows.push([]);
   rows.push([]);
-  rows.push([(draftVB.nguoiLapLabel||"NGƯỜI LẬP BẢNG").toUpperCase(), "", "", (draftVB.chucDanhKy||signer.chucDanh||"Trưởng khoa").toUpperCase()]);
+  rows.push(["NGƯỜI LẬP BẢNG", "", "", (draftVB.chucDanhKy||signer.chucDanh||"Trưởng khoa").toUpperCase()]);
   rows.push([]);
   rows.push([]);
   rows.push([]);
-  rows.push([(draftVB.nguoiSoan||"").toUpperCase(), "", "", (draftVB.nguoiKy||"").toUpperCase()]);
+  rows.push([(draftVB.nguoiLapLabel||draftVB.nguoiSoan||"").toUpperCase(), "", "", (draftVB.nguoiKy||"").toUpperCase()]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{wch:22},{wch:32},{wch:22},{wch:28}];
@@ -25236,10 +25243,11 @@ function buildVanBanPreviewHtml(data){
   const noiNhanFooter = (noiNhan && noiNhan.length) ? '– Như trên;' : (isBlank ? '– ……………………………………;' : '');
   return `<!doctype html><html><head><meta charset="utf-8"><title>Xem trước — ${esc(soVanBan||hinhThucVB||'Văn bản')}</title>
 <style>
-  body{font-family:'Times New Roman',Times,serif;font-size:14pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 22mm 30mm;}
-  table.ddnl-pv-head{width:100%;}
+  @page{size:A4;margin:15mm;}
+  body{font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 15mm 30mm;}
+  table.ddnl-pv-head{width:100%;table-layout:fixed;}
   table.ddnl-pv-head td{vertical-align:top;padding:0;}
-  .ddnl-pv-center{text-align:center;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
+  .ddnl-pv-center{text-align:center;white-space:nowrap;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
   .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
   .ddnl-pv-veviec{text-align:center;font-style:italic;margin:0 0 16pt;}
   .ddnl-pv-so{display:inline-block;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
@@ -25248,7 +25256,7 @@ function buildVanBanPreviewHtml(data){
   .ddnl-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
   .ddnl-pv-toolbar span{color:#666;font-size:12px;margin-left:10px;}
   table, td, p { page-break-inside:auto; }
-  @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0 22mm;} }
+  @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
 </style></head>
 <body>
   <div class="ddnl-pv-toolbar ddnl-pv-no-print">
@@ -25256,14 +25264,14 @@ function buildVanBanPreviewHtml(data){
     <span>Bản xem trước nhanh trên trình duyệt — dùng "Xuất Word" nếu cần file .doc để gửi/lưu chính thức.</span>
   </div>
   <table class="ddnl-pv-head"><tr>
-    <td style="width:44%;">
-      <div class="ddnl-pv-center" style="font-size:12pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
-      <div class="ddnl-pv-center ddnl-pv-bold">KHOA GÂY MÊ HỒI SỨC</div>
+    <td style="width:42%;">
+      <div class="ddnl-pv-center" style="font-size:11.5pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
+      <div class="ddnl-pv-center ddnl-pv-bold" style="font-size:12.5pt;">KHOA GÂY MÊ HỒI SỨC</div>
       <div class="ddnl-pv-center ddnl-pv-italic"><span class="ddnl-pv-so">Số: ${esc(soVanBan||(isBlank?'……………':''))}</span></div>
     </td>
-    <td style="width:56%;">
-      <div class="ddnl-pv-center ddnl-pv-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-      <div class="ddnl-pv-center ddnl-pv-bold ddnl-pv-underline">Độc lập – Tự do – Hạnh phúc</div>
+    <td style="width:58%;">
+      <div class="ddnl-pv-center ddnl-pv-bold" style="font-size:12.5pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div class="ddnl-pv-center ddnl-pv-bold ddnl-pv-underline" style="font-size:13pt;">Độc lập – Tự do – Hạnh phúc</div>
       <div class="ddnl-pv-right ddnl-pv-italic">Gia Lai, ngày ${esc(ngayLapParts[2])} tháng ${esc(ngayLapParts[1])} năm ${esc(ngayLapParts[0])}</div>
     </td>
   </tr></table>
@@ -25274,9 +25282,9 @@ function buildVanBanPreviewHtml(data){
   <div style="margin-top:10px;">${noiDungPhan}</div>
   <table class="ddnl-pv-head" style="margin-top:26pt;"><tr>
     <td style="width:50%;text-align:center;">
-      <div class="ddnl-pv-bold">${esc((nguoiLapLabel||'NGƯỜI LẬP BẢNG').toUpperCase())}</div>
+      <div class="ddnl-pv-bold">NGƯỜI LẬP BẢNG</div>
       <div style="height:60pt;"></div>
-      <div class="ddnl-pv-bold">${esc((nguoiSoan||'').toUpperCase())}</div>
+      <div class="ddnl-pv-bold">${esc((nguoiLapLabel||nguoiSoan||'').toUpperCase())}</div>
     </td>
     <td style="width:50%;text-align:center;">
       <div class="ddnl-pv-bold">${esc((chucDanhKy||chucDanh||'Trưởng khoa').toUpperCase())}</div>
@@ -25311,6 +25319,33 @@ function moXemTruocVanBan(v){
     console.error('Lỗi moXemTruocVanBan:', err);
   }
 }
+// Xem trước NGAY bản đang soạn trên form (CHƯA lưu) — lấy trực tiếp từ draftVB, để không bị nhầm
+// sang xem 1 phiếu khác đã lưu trước đó (VD: vừa gõ "Tên người lập bảng" nhưng chưa bấm Lưu/Ghi nhận
+// thì phải dùng nút này mới thấy đúng thay đổi mới nhất; nút "Xem trước" ở danh sách chỉ đọc dữ liệu
+// đã lưu trên Firebase).
+function moXemTruocDraft(){
+  try{
+    if(!draftVB.nguoiSoan){ alert("Vui lòng chọn Người soạn trước khi xem trước."); return; }
+    const soVanBanTam = draftVB.soVanBan || (editingVBId ? draftVB.soVanBan : vbNextSoVanBan(draftVB.ngayLap));
+    const ngayLapParts = (draftVB.ngayLap||todayISO()).split("-");
+    const signerInfo = (config.signers||[]).find(x=>x.ten===draftVB.nguoiKy) || { chucDanh:"Trưởng khoa" };
+    const html = buildVanBanPreviewHtml({
+      soVanBan: soVanBanTam, ngayLapParts, hinhThucVB: draftVB.hinhThucVB, veViec: draftVB.veViec,
+      noiNhan: draftVB.noiNhan, nguoiSoan: draftVB.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: draftVB.nguoiKy,
+      nguoiLapLabel: draftVB.nguoiLapLabel, chucDanhKy: draftVB.chucDanhKy,
+      noiDungHtml: (draftVB.noiDungSoan&&draftVB.noiDungSoan.trim())?draftVB.noiDungSoan:'', tomTat: draftVB.tomTat||'',
+      isBlank: !(draftVB.noiDungSoan&&draftVB.noiDungSoan.trim())&&!draftVB.tomTat
+    });
+    const blob = new Blob([html], {type:'text/html'});
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if(!win){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi bấm lại.'); return; }
+    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+  }catch(err){
+    alert('Có lỗi khi tạo bản xem trước: '+err.message);
+    console.error('Lỗi moXemTruocDraft:', err);
+  }
+}
 function buildVanBanRtfBody(data){
   const { soVanBan, ngayLapParts, hinhThucVB, veViec, noiNhan, nguoiSoan, chucDanh, nguoiKy, bodyRtf, isBlank, nguoiLapLabel, chucDanhKy } = data;
   let out = '';
@@ -25335,7 +25370,7 @@ function buildVanBanRtfBody(data){
   }
   out += '\\pard\\par\n';
   out += rtfTwoColTable(
-    [{text:(nguoiLapLabel||'NGƯỜI LẬP BẢNG').toUpperCase(), bold:true}, {text:''}, {text:''}, {text:(nguoiSoan||'').toUpperCase(), bold:true}],
+    [{text:'NGƯỜI LẬP BẢNG', bold:true}, {text:''}, {text:''}, {text:(nguoiLapLabel||nguoiSoan||'').toUpperCase(), bold:true}],
     [{text:(chucDanhKy||chucDanh||'Trưởng khoa').toUpperCase(), bold:true}, {text:''}, {text:''}, {text:(nguoiKy||'').toUpperCase(), bold:true}],
     { alignRight:'center' }
   );
@@ -25475,9 +25510,9 @@ function openNoiDungSoanModal(){
           <div id="ddnlNoiDungEditable" contenteditable="true" style="min-height:260px;border:1px dashed var(--ddnl-line);border-radius:6px;padding:10px 12px;margin-top:10px;outline:none;overflow-x:auto;">${draftVB.noiDungSoan || '<p>Kính đề nghị… (đánh nội dung tại đây)</p>'}</div>
           <div class="ddnl-signs">
             <div class="ddnl-sign-col">
-              <div class="ddnl-sign-title">${esc((draftVB.nguoiLapLabel||"NGƯỜI LẬP BẢNG").toUpperCase())}</div>
+              <div class="ddnl-sign-title">NGƯỜI LẬP BẢNG</div>
               <div class="ddnl-sign-space"></div>
-              <div style="font-weight:700;">${esc((draftVB.nguoiSoan||"").toUpperCase())}</div>
+              <div style="font-weight:700;">${esc((draftVB.nguoiLapLabel||draftVB.nguoiSoan||"").toUpperCase())}</div>
             </div>
             <div class="ddnl-sign-col">
               <div class="ddnl-sign-title">${esc((draftVB.chucDanhKy||signer.chucDanh||"Trưởng khoa").toUpperCase())}</div>
