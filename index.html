@@ -22775,6 +22775,7 @@ const ddMauVanBanRef = ddRoot.child('mauVanBan'); // Thư viện nội dung mẫ
 const ddChuKyMauRef = ddRoot.child('chuKyMauNV'); // Thư viện chữ ký MẪU của từng nhân viên (đối chiếu khi duyệt phép/bù) — Họ tên -> ảnh chữ ký
 const ddVbAuditRef = ddRoot.child('vanBanAuditLog'); // Nhật ký Admin sửa/xóa văn bản của người khác — "lưu vết"
 const ddFileDataRef = ddRoot.child('fileVanBanData'); // lưu nội dung file (base64) riêng, tách khỏi danhMuc để không làm nặng/chậm các lần lưu cấu hình khác
+const ddSoTongHopRef = ddRoot.child('soTongHop'); // "Sổ tổng hợp": gộp nhiều phiếu (dạng RTF) vào 1 file duy nhất, phiếu MỚI luôn chèn lên đầu, phiếu cũ giữ nguyên bên dưới (ngăn cách bằng dấu ngắt trang) — ai soạn xong cũng chọn gộp được, không riêng Admin
 let fbConnected = false;
 // ---- Combo box gõ tìm DÙNG CHUNG cho toàn module Điều động nhân lực / Giấy đề nghị ----
 // NGUYÊN TẮC CHUẨN: mọi ô chọn có danh sách dài (nhân viên, loại văn bản...) đều dùng cặp hàm này
@@ -22905,6 +22906,9 @@ const SEED_NOI_NHAN = [
 const VB_TRANG_THAI = ["Đang soạn","Đã gửi — chờ phản hồi","Đã phản hồi một phần","Đã hoàn thành","Từ chối / Không phê duyệt","Lưu trữ"];
 // Các trạng thái được coi là ĐÃ XONG — không cần theo dõi tiến độ/cảnh báo trễ hạn nữa
 const VB_TRANG_THAI_DA_XONG = ["Đã hoàn thành","Từ chối / Không phê duyệt","Lưu trữ"];
+// Các trạng thái khi chuyển sang cần hỏi thêm ngày/giờ + chi tiết đã xử lý — để theo dõi downtime và biết
+// đã giải quyết cụ thể tới đâu (không chỉ riêng lúc đã XONG hẳn, mà "Đã phản hồi một phần" cũng cần khai).
+const VB_TRANG_THAI_CAN_CHI_TIET = [...VB_TRANG_THAI_DA_XONG, "Đã phản hồi một phần"];
 // Trạng thái riêng cho TỪNG HẠNG MỤC cụ thể trong 1 đề nghị (VD: đề nghị có 3 món, mỗi món 1 trạng thái riêng)
 const HANG_MUC_TRANG_THAI = ["Chưa xử lý","Đã cấp đủ","Đã cấp một phần","Từ chối"];
 const HANG_MUC_TRANG_THAI_DA_XONG = ["Đã cấp đủ","Từ chối"];
@@ -22990,19 +22994,24 @@ let cfgFilter = { reasons:"", docTypes:"", noiNhan:"", nguoiLapBang:"", hinhThuc
 // ---- Sổ theo dõi văn bản đi ----
 let vbRecords = [];
 let vbMauList = []; // Thư viện nội dung mẫu đã lưu (chia theo nhóm: hành chính/dược/vật tư...)
+let soTongHopList = []; // "Sổ tổng hợp": danh sách các sổ RTF gộp nhiều phiếu, mới nhất ở trên cùng
 let chuKyMauNV = {}; // Chữ ký MẪU của từng nhân viên (Họ tên -> data URL ảnh) — dùng để đối chiếu khi duyệt phép/bù
 let vbLoaded = false;
 let draftVB = null;
 let editingVBId = null;
 let vbFilter = { loai:"", trangThai:"", nguoiSoan:"", tu:"", den:"", keyword:"" };
-let vbScopeAll = false; // false = chỉ xem văn bản do CHÍNH MÌNH soạn; true = xem toàn khoa (Admin nên bật)
+let vbListPage = 1; // trang hiện tại của bảng "Danh sách văn bản đi"
+let vbTrackPage = 1; // trang hiện tại của "Bảng theo dõi tiến độ xử lý"
+let vbDonePage = 1; // trang hiện tại của "Danh sách đã hoàn thành"
+const VB_LIST_PAGE_SIZE = 10; // số dòng mỗi trang
+let vbScopeAll = true; // Admin mặc định XEM TOÀN KHOA (đúng như khuyến nghị) — false = chỉ xem văn bản do CHÍNH MÌNH soạn, chỉ áp dụng cho Admin (nhân viên thường luôn bị khóa chỉ xem của mình, không phụ thuộc biến này)
 function newDraftVB(){
   return {
     soVanBan:"", loaiVanBan: (config.docTypes&&config.docTypes[0])||"", nguoiSoan: currentUserName||"",
     nguoiKy: (config.signers&&config.signers[0]&&config.signers[0].ten)||"",
     hinhThucVB: (config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec: "",
     noiNhan: [], ngayLap: todayISO(), ngayGui: "", trangThai: "Đang soạn", ngayHoanThanh: "",
-    tomTat: "", dinhKemLink: "", ghiChu: "", ghiChuTienDo: "", nguoiLapLabel: "", chucDanhKy: "", hangMucDeNghi: [], dinhKemFiles: [], mauDangChon: "", noiDungSoan: ""
+    tomTat: "", dinhKemLink: "", ghiChu: "", ghiChuTienDo: "", nguoiLapLabel: "", chucDanhKy: "", hangMucDeNghi: [], dinhKemFiles: [], mauDangChon: "", noiDungSoan: "", soTongHopId: ""
   };
 }
 // Số văn bản TỰ ĐỘNG, chạy chung 1 mạch cho TOÀN KHOA (không tính riêng theo từng người hay từng loại văn bản) —
@@ -23216,6 +23225,17 @@ function loadAll(){
     vbMauList = [];
     render();
   });
+
+  // "Sổ tổng hợp" — mỗi sổ là 1 file RTF gộp nhiều phiếu, phiếu mới chèn lên đầu
+  ddSoTongHopRef.on('value', snap=>{
+    soTongHopList = objToArray(snap.val()).sort((a,b)=>(b.capNhatLanCuoi||0)-(a.capNhatLanCuoi||0));
+    render();
+  }, err=>{
+    console.error("Lỗi tải danh sách Sổ tổng hợp:", err);
+    soTongHopList = [];
+    render();
+  });
+
 
   // Chữ ký MẪU của từng nhân viên (Họ tên -> ảnh) — để chính nhân viên tự đối chiếu khi ký (không phải
   // để Admin duyệt đối chiếu). Tự "vá" bổ sung những tên có trong SEED_CHUKY_MAU_NV mà Firebase CHƯA có
@@ -23821,6 +23841,10 @@ function vbSoNgayXuLy(v){
 function renderVanBan(){
   if(!draftVB) draftVB = newDraftVB();
   const list = vbFiltered();
+  const vbTotalPages = Math.max(1, Math.ceil(list.length / VB_LIST_PAGE_SIZE));
+  if(vbListPage > vbTotalPages) vbListPage = vbTotalPages;
+  if(vbListPage < 1) vbListPage = 1;
+  const vbPageList = list.slice((vbListPage-1)*VB_LIST_PAGE_SIZE, vbListPage*VB_LIST_PAGE_SIZE);
   // Thống kê nhanh theo bộ lọc hiện tại
   const byLoai = {}, byNguoi = {}, byTrangThai = {};
   let tongNgayXuLyDaXong = 0, soDaXong = 0, soTreHan = 0;
@@ -23964,7 +23988,19 @@ function renderVanBan(){
         <input type="file" id="ddnlVB_fileInput" style="flex:1;min-width:200px;">
         <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnUploadVBFile" ${uploadingFile?"disabled":""}>${uploadingFile?"Đang tải lên…":"⬆ Tải lên"}</button>
       </div>
-      ${(draftVB.dinhKemFiles&&draftVB.dinhKemFiles.length) ? draftVB.dinhKemFiles.map((f,fi)=>`<div class="ddnl-hint" style="margin-top:6px;">📎 Đã đính kèm: <strong>${esc(f.ten)}</strong> (${formatFileSize(f.kichThuoc)}) <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-vbfile-draft="${fi}" style="margin-left:8px;">⬇ Tải xuống xem</button> <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-remove-vbfile-draft="${fi}" style="margin-left:4px;">Xóa file</button></div>`).join("") : ``}
+      ${(draftVB.dinhKemFiles&&draftVB.dinhKemFiles.length) ? draftVB.dinhKemFiles.map((f,fi)=>`<div class="ddnl-hint" style="margin-top:6px;">📎 Đã đính kèm: <strong>${esc(f.ten)}</strong> (${formatFileSize(f.kichThuoc)}) <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-vbfile-draft="${fi}" style="margin-left:8px;">⬇ Tải xuống xem</button> <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-remove-vbfile-draft="${fi}" style="margin-left:4px;">Xóa file</button>${isAdmin()?` <button type="button" class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-add-to-thuvien-mau="${fi}" style="margin-left:4px;" title="Thêm file này vào &quot;Thư viện file mẫu văn bản&quot; dùng chung cho cả khoa — lần sau ai cũng chọn được ở ô &quot;Chọn mẫu văn bản có sẵn&quot;">➕ Thêm vào Thư viện mẫu</button>`:``}</div>`).join("") : ``}
+    </div>
+    <div class="ddnl-field">
+      <label>📚 Gộp vào Sổ tổng hợp <span class="ddnl-hint" style="font-weight:400;">(tùy chọn — khi bấm Ghi nhận/Lưu, nội dung phiếu này sẽ tự chèn lên TRÊN CÙNG của sổ đã chọn, các phiếu cũ giữ nguyên bên dưới, mỗi phiếu 1 trang riêng để in tách được; chỉ gộp được khi đã soạn nội dung trong app hoặc có Tóm tắt — không gộp được file Word/Excel/PDF đính kèm rời)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="ddnlVB_soTongHop" style="flex:1;min-width:220px;">
+          <option value="">— Không gộp vào sổ nào —</option>
+          ${soTongHopList.map(s=>`<option value="${esc(s.id)}" ${draftVB.soTongHopId===s.id?"selected":""}>${esc(s.ten||"(chưa đặt tên)")} — ${s.soLuotGop||0} phiếu</option>`).join("")}
+        </select>
+        <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnTaoSoMoi">➕ Tạo sổ mới</button>
+        ${draftVB.soTongHopId ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-doi-ten-so="${esc(draftVB.soTongHopId)}">✏️ Đổi tên sổ</button>` : ``}
+        ${draftVB.soTongHopId ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-tai-so="${esc(draftVB.soTongHopId)}">⬇ Tải sổ hiện tại (.rtf)</button>` : ``}
+      </div>
     </div>
     <div style="display:flex;gap:10px;">
       <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnPreviewDraft" type="button" title="Xem/in thử ngay với dữ liệu đang gõ trên form — kể cả khi CHƯA bấm Lưu/Ghi nhận">👁 Xem trước nhanh (chưa lưu)</button>
@@ -23988,7 +24024,7 @@ function renderVanBan(){
           ${VB_TRANG_THAI.map(tt=>`<option value="${tt}" ${vbFilter.trangThai===tt?"selected":""}>${tt}</option>`).join("")}
         </select>
       </div>
-      <div class="ddnl-field"><label>Người soạn</label><input type="text" id="ddnlVBFl_nguoi" placeholder="Tìm tên…" value="${esc(vbFilter.nguoiSoan)}"></div>
+      ${isAdmin()?`<div class="ddnl-field"><label>Người soạn</label><input type="text" id="ddnlVBFl_nguoi" placeholder="Tìm tên…" value="${esc(vbFilter.nguoiSoan)}"></div>`:``}
       <div class="ddnl-field"><label>Từ ngày lập</label><input type="date" id="ddnlVBFl_tu" value="${vbFilter.tu}"></div>
       <div class="ddnl-field"><label>Đến ngày lập</label><input type="date" id="ddnlVBFl_den" value="${vbFilter.den}"></div>
     </div>
@@ -23999,7 +24035,7 @@ function renderVanBan(){
         <th>Số VB</th><th>Nơi gửi</th><th>Về việc</th><th>Người soạn</th><th>Người ký</th><th>Nơi nhận</th><th>Ngày lập</th><th>Ngày gửi</th><th>Số ngày xử lý</th><th>Trạng thái</th><th>Ghi chú</th><th>Thao tác</th>
       </tr></thead>
       <tbody>
-        ${list.map(v=>{
+        ${vbPageList.map(v=>{
           const xl = vbSoNgayXuLy(v);
           const xlHtml = xl ? (
             xl.isDone
@@ -24040,6 +24076,18 @@ function renderVanBan(){
         }).join("")}
       </tbody>
     </table></div>
+    <div class="ddnl-toolbar" style="justify-content:center;align-items:center;margin-top:10px;">
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBPageFirst" ${vbListPage<=1?"disabled":""}>« Đầu</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBPagePrev" ${vbListPage<=1?"disabled":""}>‹ Trang trước</button>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;">
+        Trang
+        <input type="number" id="ddnlVBPageInput" min="1" max="${vbTotalPages}" value="${vbListPage}" style="width:54px;text-align:center;padding:4px;">
+        / ${vbTotalPages} <span class="ddnl-hint">(${list.length} văn bản)</span>
+      </span>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBPageNext" ${vbListPage>=vbTotalPages?"disabled":""}>Trang sau ›</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBPageLast" ${vbListPage>=vbTotalPages?"disabled":""}>Cuối »</button>
+      <input type="range" id="ddnlVBPageSlider" min="1" max="${vbTotalPages}" value="${vbListPage}" style="width:160px;margin-left:10px;" title="Kéo để nhảy nhanh tới trang bất kỳ">
+    </div>
     `}
   ${cardClose()}
 
@@ -24055,6 +24103,10 @@ function renderVanBan(){
       const soNgayCho = Math.max(0, Math.round((new Date(todayISO()) - new Date(mocThoiGian)) / 86400000));
       return { v, soNgayCho };
     }).sort((a,b)=>b.soNgayCho-a.soNgayCho);
+    const vbTrackTotalPages = Math.max(1, Math.ceil(pending.length / VB_LIST_PAGE_SIZE));
+    if(vbTrackPage > vbTrackTotalPages) vbTrackPage = vbTrackTotalPages;
+    if(vbTrackPage < 1) vbTrackPage = 1;
+    const pendingPage = pending.slice((vbTrackPage-1)*VB_LIST_PAGE_SIZE, vbTrackPage*VB_LIST_PAGE_SIZE);
     const NGUONG_CANH_BAO = 15;
     // Màu nhãn trạng thái dạng "viên thuốc" — giống phong cách bảng "Báo cáo khẩn cấp" ở Giao ban sáng
     const mauTrangThai = {
@@ -24064,18 +24116,18 @@ function renderVanBan(){
     };
     return `
   ${cardOpen('vb-tracking', '🕐 Bảng theo dõi tiến độ xử lý', 'Chỉ hiện những văn bản CHƯA hoàn thành — sắp xếp việc chờ lâu nhất lên đầu, viền đỏ nếu chờ quá '+NGUONG_CANH_BAO+' ngày, để dễ biết cái nào cần thúc giục.')}
-    <div class="ddnl-rows-wrap" style="max-height:460px;overflow-y:auto;">
+    <div class="ddnl-rows-wrap">
     <table>
       <thead><tr><th style="width:36px;">#</th><th>Số VB</th><th>Nơi gửi</th><th>Về việc</th><th>Nơi nhận</th><th>Ngày gửi</th><th>Số ngày chờ</th><th>Trạng thái</th><th>Ghi chú tiến độ</th><th>Thao tác</th></tr></thead>
       <tbody>
-        ${pending.length ? pending.map(({v,soNgayCho},idx)=>{
+        ${pending.length ? pendingPage.map(({v,soNgayCho},idx)=>{
           const canhBao = soNgayCho > NGUONG_CANH_BAO;
           const tt = vbNormTrangThai(v.trangThai||"Đang soạn");
           const mau = mauTrangThai[tt] || "#616161";
           const coFile = vbGetFiles(v).length > 0;
           const suaDuoc = isAdmin() || v.nguoiSoan===currentUserName;
           return `<tr style="${canhBao?'background:#fdecea;border-left:4px solid #d32f2f;':'border-left:4px solid transparent;'}">
-            <td style="color:var(--ddnl-ink-soft);">${idx+1}</td>
+            <td style="color:var(--ddnl-ink-soft);">${(vbTrackPage-1)*VB_LIST_PAGE_SIZE+idx+1}</td>
             <td>${esc(v.soVanBan||"")}</td>
             <td>${esc(v.loaiVanBan||"")}</td>
             <td>${esc(v.veViec||"")}</td>
@@ -24087,7 +24139,7 @@ function renderVanBan(){
                 ${VB_TRANG_THAI.map(x=>`<option value="${x}" ${x===tt?"selected":""} style="color:#000;background:#fff;">${x}</option>`).join("")}
               </select>` : `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;color:#fff;background:${mau};white-space:nowrap;">${esc(tt)}</span>`}
             </td>
-            <td>${esc(v.ghiChuTienDo||"")}</td>
+            <td>${esc(v.ghiChuTienDo||"")}${v.ngayPhanHoiMotPhan?`<div style="font-size:10.5px;color:#f57f17;margin-top:2px;">🕐 Phản hồi lúc: ${v.gioPhanHoiMotPhan||''} ${esc(v.ngayPhanHoiMotPhan.split('-').reverse().join('/'))}</div>`:``}${v.ngayHoanThanh?`<div style="font-size:10.5px;color:#2e7d32;margin-top:2px;">✅ Xong lúc: ${v.gioHoanThanh||''} ${esc(v.ngayHoanThanh.split('-').reverse().join('/'))}</div>`:``}</td>
             <td style="white-space:nowrap;">
               <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-xemtruoc="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
               <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-exportword="${v.id}" title="Xuất bản Word đúng thể thức từ nội dung mới nhất đã ghi nhận">📄 Xuất Word</button>
@@ -24099,6 +24151,85 @@ function renderVanBan(){
       </tbody>
     </table>
     </div>
+    ${pending.length ? `
+    <div class="ddnl-toolbar" style="justify-content:center;align-items:center;margin-top:10px;">
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBTrackPageFirst" ${vbTrackPage<=1?"disabled":""}>« Đầu</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBTrackPagePrev" ${vbTrackPage<=1?"disabled":""}>‹ Trang trước</button>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;">
+        Trang
+        <input type="number" id="ddnlVBTrackPageInput" min="1" max="${vbTrackTotalPages}" value="${vbTrackPage}" style="width:54px;text-align:center;padding:4px;">
+        / ${vbTrackTotalPages} <span class="ddnl-hint">(${pending.length} việc tồn đọng)</span>
+      </span>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBTrackPageNext" ${vbTrackPage>=vbTrackTotalPages?"disabled":""}>Trang sau ›</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBTrackPageLast" ${vbTrackPage>=vbTrackTotalPages?"disabled":""}>Cuối »</button>
+      <input type="range" id="ddnlVBTrackPageSlider" min="1" max="${vbTrackTotalPages}" value="${vbTrackPage}" style="width:160px;margin-left:10px;" title="Kéo để nhảy nhanh tới trang bất kỳ">
+    </div>
+    ` : ``}
+  ${cardClose()}
+  `;
+  })()}
+
+  ${(function(){
+    const done = vbRecords.filter(v=>{
+      if(!isAdmin()){ if(v.nguoiSoan!==currentUserName) return false; }
+      else if(!vbScopeAll && currentUserName && v.nguoiSoan!==currentUserName){ return false; }
+      return VB_TRANG_THAI_DA_XONG.includes(vbNormTrangThai(v.trangThai||"Đang soạn"));
+    }).map(v=>{
+      const xl = vbSoNgayXuLy(v);
+      return { v, days: xl?xl.days:0, moc: v.ngayHoanThanh||v.updatedAt&&new Date(v.updatedAt).toISOString().slice(0,10)||"" };
+    }).sort((a,b)=> (b.moc||"").localeCompare(a.moc||"") || (b.v.updatedAt||0)-(a.v.updatedAt||0));
+    const mauTrangThaiDone = {
+      "Đã hoàn thành": "#2e7d32",
+      "Từ chối / Không phê duyệt": "#b00020",
+      "Lưu trữ": "#616161"
+    };
+    const donHoanThanh = done.filter(d=>vbNormTrangThai(d.v.trangThai)==="Đã hoàn thành");
+    const tbTG = donHoanThanh.length ? Math.round(donHoanThanh.reduce((s,d)=>s+d.days,0)/donHoanThanh.length) : 0;
+    const donTotalPages = Math.max(1, Math.ceil(done.length / VB_LIST_PAGE_SIZE));
+    if(vbDonePage > donTotalPages) vbDonePage = donTotalPages;
+    if(vbDonePage < 1) vbDonePage = 1;
+    const donePage = done.slice((vbDonePage-1)*VB_LIST_PAGE_SIZE, vbDonePage*VB_LIST_PAGE_SIZE);
+    return `
+  ${cardOpen('vb-done', '✅ Danh sách đã hoàn thành', `Văn bản đã xử lý xong (Đã hoàn thành / Từ chối / Lưu trữ) — mới xong gần đây lên đầu, để tiện thống kê downtime. Tổng: ${done.length} văn bản${donHoanThanh.length?`, thời gian xử lý trung bình (chỉ tính "Đã hoàn thành"): <b>${tbTG} ngày</b>`:''}.`)}
+    ${done.length===0?`<div class="ddnl-empty"><div class="ddnl-big">🗂️</div>Chưa có văn bản nào đã xử lý xong.</div>`:`
+    <div class="ddnl-rows-wrap"><table>
+      <thead><tr><th style="width:36px;">#</th><th>Số VB</th><th>Nơi gửi</th><th>Về việc</th><th>Ngày gửi</th><th>Ngày/giờ xong</th><th>Thời gian xử lý</th><th>Trạng thái</th><th>Ghi chú tiến độ</th><th>Thao tác</th></tr></thead>
+      <tbody>
+        ${donePage.map(({v,days},idx)=>{
+          const tt = vbNormTrangThai(v.trangThai||"Đang soạn");
+          const mau = mauTrangThaiDone[tt] || "#616161";
+          return `<tr>
+            <td style="color:var(--ddnl-ink-soft);">${(vbDonePage-1)*VB_LIST_PAGE_SIZE+idx+1}</td>
+            <td>${esc(v.soVanBan||"")}</td>
+            <td>${esc(v.loaiVanBan||"")}</td>
+            <td>${esc(v.veViec||"")}</td>
+            <td>${v.ngayGui?esc(v.ngayGui.split("-").reverse().join("/")):`<span class="ddnl-hint">Chưa gửi</span>`}</td>
+            <td>${v.ngayHoanThanh?esc(v.ngayHoanThanh.split("-").reverse().join("/")):`<span class="ddnl-hint">—</span>`}${v.gioHoanThanh?` <span class="ddnl-hint">${esc(v.gioHoanThanh)}</span>`:``}</td>
+            <td style="font-weight:700;">${days} ngày</td>
+            <td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;color:#fff;background:${mau};white-space:nowrap;">${esc(tt)}</span></td>
+            <td>${esc(v.ghiChuTienDo||"")}</td>
+            <td style="white-space:nowrap;">
+              <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-xemtruoc="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
+              <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-exportword="${v.id}" title="Xuất bản Word đúng thể thức từ nội dung mới nhất đã ghi nhận">📄 Xuất Word</button>
+              ${(isAdmin()||v.nguoiSoan===currentUserName) ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-track-edit="${v.id}" style="margin-left:4px;">Sửa</button>` : ``}
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table></div>
+    <div class="ddnl-toolbar" style="justify-content:center;align-items:center;margin-top:10px;">
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBDonePageFirst" ${vbDonePage<=1?"disabled":""}>« Đầu</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBDonePagePrev" ${vbDonePage<=1?"disabled":""}>‹ Trang trước</button>
+      <span style="display:flex;align-items:center;gap:6px;font-size:13px;">
+        Trang
+        <input type="number" id="ddnlVBDonePageInput" min="1" max="${donTotalPages}" value="${vbDonePage}" style="width:54px;text-align:center;padding:4px;">
+        / ${donTotalPages} <span class="ddnl-hint">(${done.length} văn bản)</span>
+      </span>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBDonePageNext" ${vbDonePage>=donTotalPages?"disabled":""}>Trang sau ›</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBDonePageLast" ${vbDonePage>=donTotalPages?"disabled":""}>Cuối »</button>
+      <input type="range" id="ddnlVBDonePageSlider" min="1" max="${donTotalPages}" value="${vbDonePage}" style="width:160px;margin-left:10px;" title="Kéo để nhảy nhanh tới trang bất kỳ">
+    </div>
+    `}
   ${cardClose()}
   `;
   })()}
@@ -24321,7 +24452,7 @@ function bindVanBanEvents(){
     sel.onchange = async ()=>{
       const vbId = sel.dataset.vbId;
       const v = vbRecords.find(x=>x.id===vbId);
-      if(VB_TRANG_THAI_DA_XONG.includes(sel.value)){
+      if(VB_TRANG_THAI_CAN_CHI_TIET.includes(sel.value)){
         promptNgayHoanThanhVaLuu(vbId, sel.value, ()=>{
           if(v && v.linkedCardId && typeof cardsRef!=='undefined'){
             cardsRef.child(String(v.linkedCardId)).update({ status: vbToKanbanStatus(sel.value) }).catch(()=>{});
@@ -24393,6 +24524,19 @@ function bindVanBanEvents(){
     await downloadDocTemplateFile(f);
     b.disabled = false; b.textContent = old;
   });
+  document.querySelectorAll('[data-add-to-thuvien-mau]').forEach(b=>b.onclick=async ()=>{
+    const f = draftVB.dinhKemFiles[Number(b.dataset.addToThuvienMau)];
+    if(!f) return;
+    if((config.fileVanBan||[]).some(x=>x.id===f.id)){ alert(`File "${f.ten}" đã có sẵn trong Thư viện mẫu rồi.`); return; }
+    const tenMoi = prompt('Đặt tên hiển thị cho mẫu này trong "Chọn mẫu văn bản có sẵn" (VD: GIẤY ĐỀ NGHỊ SỬA CHỮA.docx):', f.ten) || '';
+    if(!tenMoi.trim()) return;
+    b.disabled = true; const old = b.textContent; b.textContent = "Đang lưu…";
+    config.fileVanBan.push({ ...f, ten: tenMoi.trim() });
+    await saveConfig();
+    b.disabled = false; b.textContent = old;
+    alert(`Đã thêm "${tenMoi.trim()}" vào Thư viện file mẫu văn bản chung — từ nay ai lập giấy đề nghị mới cũng chọn được ở ô "Chọn mẫu văn bản có sẵn".`);
+    render();
+  });
   set('ddnlBtnSoanNoiDung', el=>el.onclick=()=>openNoiDungSoanModal());
   set('ddnlBtnXoaNoiDungSoan', el=>el.onclick=()=>{ if(confirm("Xóa nội dung đã soạn trong app?")){ draftVB.noiDungSoan=""; render(); } });
   set('ddnlBtnTaoFileWordMoi', el=>el.onclick=()=>{
@@ -24454,6 +24598,35 @@ function bindVanBanEvents(){
       else { draftVB.noiNhan = draftVB.noiNhan.filter(x=>x!==chk.value); }
     };
   });
+  set('ddnlVB_soTongHop', el=>el.onchange=()=>{ draftVB.soTongHopId = el.value; render(); });
+  set('ddnlBtnTaoSoMoi', el=>el.onclick=async ()=>{
+    const ten = prompt('Đặt tên cho Sổ tổng hợp mới (VD: "GIẤY ĐỀ NGHỊ VTYT — Sổ tổng hợp"):', '');
+    if(!ten || !ten.trim()) return;
+    const id = ddSoTongHopRef.push().key;
+    const ok = await ddSoTongHopRef.child(id).set({
+      ten: ten.trim(), bodyAccumulated: '', capNhatLanCuoi: Date.now(), soLuotGop: 0, taoBoi: currentUserName||''
+    }).then(()=>true).catch(()=>false);
+    if(!ok){ alert('Không tạo được Sổ tổng hợp — kiểm tra kết nối mạng rồi thử lại.'); return; }
+    draftVB.soTongHopId = id;
+    render();
+  });
+  document.querySelectorAll('[data-tai-so]').forEach(b=>b.onclick=()=>{
+    const so = soTongHopList.find(s=>s.id===b.dataset.taiSo);
+    if(!so) return;
+    downloadRtf(`${(so.ten||'SoTongHop').replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, so.bodyAccumulated||'');
+  });
+  document.querySelectorAll('[data-doi-ten-so]').forEach(b=>b.onclick=async ()=>{
+    const id = b.dataset.doiTenSo;
+    const so = soTongHopList.find(s=>s.id===id);
+    if(!so) return;
+    const tenMoi = prompt('Đổi tên Sổ tổng hợp:', so.ten||'');
+    if(tenMoi===null || !tenMoi.trim() || tenMoi.trim()===so.ten) return;
+    b.disabled = true;
+    const ok = await ddSoTongHopRef.child(id).update({ ten: tenMoi.trim() }).then(()=>true).catch(()=>false);
+    b.disabled = false;
+    if(!ok){ alert('Không đổi được tên — kiểm tra kết nối mạng rồi thử lại.'); return; }
+    render();
+  });
   set('ddnlBtnPreviewDraft', el=>el.onclick=()=>moXemTruocDraft());
   set('ddnlBtnSaveVB', el=>el.onclick=async ()=>{
     if(!draftVB.nguoiSoan){ alert("Vui lòng chọn Người soạn."); return; }
@@ -24487,6 +24660,9 @@ function bindVanBanEvents(){
     // Ghi nhận văn bản MỚI (không phải sửa) -> tự động tạo luôn thẻ Kanban theo dõi, khỏi cần bấm thêm nút
     if(!editingVBId && newKey){
       await createKanbanCardForVanBan({ id:newKey, ...rec });
+    }
+    if(draftVB.soTongHopId){
+      await gopVaoSoTongHop(draftVB.soTongHopId, { ...rec, id: newKey||editingVBId });
     }
     draftVB = newDraftVB();
     editingVBId = null;
@@ -24531,7 +24707,7 @@ function bindVanBanEvents(){
     sel.onchange = async ()=>{
       const vbId = sel.dataset.vbStatus;
       const v = vbRecords.find(x=>x.id===vbId);
-      if(VB_TRANG_THAI_DA_XONG.includes(sel.value)){
+      if(VB_TRANG_THAI_CAN_CHI_TIET.includes(sel.value)){
         promptNgayHoanThanhVaLuu(vbId, sel.value, ()=>{
           if(v && v.linkedCardId && typeof cardsRef!=='undefined'){
             cardsRef.child(String(v.linkedCardId)).update({ status: vbToKanbanStatus(sel.value) }).catch(()=>{});
@@ -24593,12 +24769,31 @@ document.querySelectorAll('[data-create-card]').forEach(b=>b.onclick=async ()=>{
     b.disabled = false; b.textContent = oldTxt;
   });
   const vbChkScope = document.getElementById('ddnlVBChkScopeAll');
-  if(vbChkScope) vbChkScope.onchange = ()=>{ vbScopeAll = vbChkScope.checked; render(); };
-  setupComboField('ddnlVBFl_loai', ()=>(config.docTypes&&config.docTypes.length?config.docTypes:SEED_DOC_TYPES), (val)=>{ vbFilter.loai = val; render(); });
-  const flTT=document.getElementById('ddnlVBFl_trangThai'); if(flTT) flTT.onchange=()=>{ vbFilter.trangThai=flTT.value; render(); };
-  const flNguoi=document.getElementById('ddnlVBFl_nguoi'); if(flNguoi) flNguoi.oninput=()=>{ vbFilter.nguoiSoan=flNguoi.value; render(); };
-  const flTu=document.getElementById('ddnlVBFl_tu'); if(flTu) flTu.onchange=()=>{ vbFilter.tu=flTu.value; render(); };
-  const flDen=document.getElementById('ddnlVBFl_den'); if(flDen) flDen.onchange=()=>{ vbFilter.den=flDen.value; render(); };
+  if(vbChkScope) vbChkScope.onchange = ()=>{ vbScopeAll = vbChkScope.checked; vbListPage = 1; render(); };
+  setupComboField('ddnlVBFl_loai', ()=>(config.docTypes&&config.docTypes.length?config.docTypes:SEED_DOC_TYPES), (val)=>{ vbFilter.loai = val; vbListPage = 1; render(); });
+  const flTT=document.getElementById('ddnlVBFl_trangThai'); if(flTT) flTT.onchange=()=>{ vbFilter.trangThai=flTT.value; vbListPage = 1; render(); };
+  const flNguoi=document.getElementById('ddnlVBFl_nguoi'); if(flNguoi) flNguoi.oninput=()=>{ vbFilter.nguoiSoan=flNguoi.value; vbListPage = 1; render(); };
+  const flTu=document.getElementById('ddnlVBFl_tu'); if(flTu) flTu.onchange=()=>{ vbFilter.tu=flTu.value; vbListPage = 1; render(); };
+  const flDen=document.getElementById('ddnlVBFl_den'); if(flDen) flDen.onchange=()=>{ vbFilter.den=flDen.value; vbListPage = 1; render(); };
+  const flKeyword=document.getElementById('ddnlVBFl_keyword'); if(flKeyword) flKeyword.oninput=()=>{ vbFilter.keyword=flKeyword.value; vbListPage = 1; render(); };
+  set('ddnlVBPageFirst', el=>el.onclick=()=>{ vbListPage=1; render(); });
+  set('ddnlVBPagePrev', el=>el.onclick=()=>{ vbListPage=Math.max(1,vbListPage-1); render(); });
+  set('ddnlVBPageNext', el=>el.onclick=()=>{ vbListPage=vbListPage+1; render(); });
+  set('ddnlVBPageLast', el=>el.onclick=()=>{ vbListPage=999999; render(); });
+  set('ddnlVBPageInput', el=>el.onchange=()=>{ const n=parseInt(el.value,10); if(n>=1) vbListPage=n; render(); });
+  set('ddnlVBPageSlider', el=>el.oninput=()=>{ vbListPage=parseInt(el.value,10)||1; render(); });
+  set('ddnlVBTrackPageFirst', el=>el.onclick=()=>{ vbTrackPage=1; render(); });
+  set('ddnlVBTrackPagePrev', el=>el.onclick=()=>{ vbTrackPage=Math.max(1,vbTrackPage-1); render(); });
+  set('ddnlVBTrackPageNext', el=>el.onclick=()=>{ vbTrackPage=vbTrackPage+1; render(); });
+  set('ddnlVBTrackPageLast', el=>el.onclick=()=>{ vbTrackPage=999999; render(); });
+  set('ddnlVBTrackPageInput', el=>el.onchange=()=>{ const n=parseInt(el.value,10); if(n>=1) vbTrackPage=n; render(); });
+  set('ddnlVBTrackPageSlider', el=>el.oninput=()=>{ vbTrackPage=parseInt(el.value,10)||1; render(); });
+  set('ddnlVBDonePageFirst', el=>el.onclick=()=>{ vbDonePage=1; render(); });
+  set('ddnlVBDonePagePrev', el=>el.onclick=()=>{ vbDonePage=Math.max(1,vbDonePage-1); render(); });
+  set('ddnlVBDonePageNext', el=>el.onclick=()=>{ vbDonePage=vbDonePage+1; render(); });
+  set('ddnlVBDonePageLast', el=>el.onclick=()=>{ vbDonePage=999999; render(); });
+  set('ddnlVBDonePageInput', el=>el.onchange=()=>{ const n=parseInt(el.value,10); if(n>=1) vbDonePage=n; render(); });
+  set('ddnlVBDonePageSlider', el=>el.oninput=()=>{ vbDonePage=parseInt(el.value,10)||1; render(); });
 }
 
 function renderModal(){
@@ -24827,20 +25022,37 @@ function closeModal(){
 function promptNgayHoanThanhVaLuu(vbId, trangThaiMoi, onSaved){
   const existing = document.getElementById('ddnlNgayHTOverlay');
   if(existing) existing.remove();
+  const v = vbRecords.find(x=>x.id===vbId) || {};
+  const isPartial = trangThaiMoi === "Đã phản hồi một phần";
+  const tieuDe = isPartial ? "📅 Thời điểm phản hồi & chi tiết đã giải quyết" : "📅 Ngày giờ giải quyết xong";
+  const now = new Date();
+  const gioHienTai = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const overlay = document.createElement('div');
   overlay.className = 'ddnl-overlay';
   overlay.id = 'ddnlNgayHTOverlay';
   overlay.innerHTML = `
-    <div class="ddnl-modal" style="max-width:380px;">
+    <div class="ddnl-modal" style="max-width:420px;">
       <div class="ddnl-modal-head ddnl-no-print">
-        <h3>📅 Ngày giải quyết xong</h3>
+        <h3>${tieuDe}</h3>
         <button class="ddnl-modal-close" id="ddnlBtnCloseNgayHT">✕</button>
       </div>
       <div class="ddnl-modal-body">
-        <div class="ddnl-hint" style="margin-bottom:10px;">Đổi trạng thái sang "${esc(trangThaiMoi)}" — chọn đúng ngày văn bản này thực sự được giải quyết xong, để tính chính xác số ngày xử lý (không tính tới tận hôm nay nếu thực ra đã xong từ trước).</div>
-        <div class="ddnl-field">
-          <label>Ngày giải quyết xong</label>
-          <input type="date" id="ddnlNgayHTInput" value="${todayISO()}">
+        <div class="ddnl-hint" style="margin-bottom:10px;">${isPartial
+          ? 'Đổi trạng thái sang "Đã phản hồi một phần" — ghi rõ thời điểm và ĐÃ giải quyết cụ thể phần nào, còn thiếu gì, để mọi người theo dõi tiến độ (chưa tính là xong hẳn nên KHÔNG dừng đồng hồ tính số ngày xử lý).'
+          : `Đổi trạng thái sang "${esc(trangThaiMoi)}" — chọn đúng ngày giờ văn bản này thực sự được giải quyết xong, để tính chính xác thời gian xử lý/downtime (không tính tới tận bây giờ nếu thực ra đã xong từ trước).`}</div>
+        <div style="display:flex;gap:8px;">
+          <div class="ddnl-field" style="flex:1;">
+            <label>${isPartial?'Ngày phản hồi':'Ngày giải quyết xong'}</label>
+            <input type="date" id="ddnlNgayHTInput" value="${todayISO()}">
+          </div>
+          <div class="ddnl-field" style="width:120px;">
+            <label>Giờ</label>
+            <input type="time" id="ddnlGioHTInput" value="${gioHienTai}">
+          </div>
+        </div>
+        <div class="ddnl-field" style="margin-top:8px;">
+          <label>${isPartial?'Chi tiết ĐÃ giải quyết phần nào, còn thiếu gì *':'Ghi chú kết quả (tùy chọn)'} <span class="ddnl-hint" style="font-weight:400;">(VD: Đã cấp 02 monitor, còn thiếu 10 bơm tiêm điện, phòng VTYT hẹn tuần sau)</span></label>
+          <textarea id="ddnlChiTietHTInput" rows="3" style="width:100%;resize:vertical;" placeholder="Ghi cụ thể đã giải quyết tới đâu, còn thiếu gì, hẹn khi nào…">${esc(v.ghiChuTienDo||"")}</textarea>
         </div>
         <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnXacNhanNgayHT" style="width:100%;margin-top:8px;">Xác nhận</button>
       </div>
@@ -24851,7 +25063,18 @@ function promptNgayHoanThanhVaLuu(vbId, trangThaiMoi, onSaved){
   document.getElementById('ddnlBtnCloseNgayHT').onclick = ()=>{ overlay.remove(); render(); };
   document.getElementById('ddnlBtnXacNhanNgayHT').onclick = async ()=>{
     const ngay = document.getElementById('ddnlNgayHTInput').value || todayISO();
-    await ddVanBanRef.child(vbId).update({ trangThai: trangThaiMoi, ngayHoanThanh: ngay, updatedAt: Date.now() }).catch(()=>alert("Không cập nhật được, kiểm tra kết nối mạng."));
+    const gio = document.getElementById('ddnlGioHTInput').value || '00:00';
+    const chiTiet = document.getElementById('ddnlChiTietHTInput').value.trim();
+    if(isPartial && !chiTiet){ alert('Vui lòng ghi rõ đã giải quyết phần nào (bắt buộc với trạng thái "Đã phản hồi một phần") để mọi người theo dõi được tiến độ.'); return; }
+    const patch = { trangThai: trangThaiMoi, ghiChuTienDo: chiTiet, updatedAt: Date.now() };
+    if(isPartial){
+      patch.ngayPhanHoiMotPhan = ngay;
+      patch.gioPhanHoiMotPhan = gio;
+    } else {
+      patch.ngayHoanThanh = ngay;
+      patch.gioHoanThanh = gio;
+    }
+    await ddVanBanRef.child(vbId).update(patch).catch(()=>alert("Không cập nhật được, kiểm tra kết nối mạng."));
     overlay.remove();
     if(onSaved) onSaved();
     render();
@@ -25227,6 +25450,43 @@ function htmlToRtf(html){
   Array.from(div.childNodes).forEach(n=>walk(n, false, {pending:true}));
   return out || '\\par\n';
 }
+// Gộp 1 phiếu (đã lưu) vào 1 "Sổ tổng hợp" — nội dung phiếu MỚI chèn lên TRÊN CÙNG,
+// nội dung cũ của sổ giữ nguyên bên dưới, ngăn cách bằng dấu ngắt trang (mỗi phiếu vẫn in ra 1 trang riêng).
+// Chỉ gộp được nếu phiếu có nội dung soạn trong app hoặc có Tóm tắt — không gộp được file đính kèm rời
+// (Word/Excel/PDF tải lên ngoài) vì trình duyệt không đọc được nội dung bên trong các file đó.
+async function gopVaoSoTongHop(soId, v){
+  try{
+    const so = soTongHopList.find(s=>s.id===soId);
+    if(!so){ alert('Không tìm thấy Sổ tổng hợp đã chọn (có thể đã bị xóa) — phiếu vẫn được lưu bình thường, chỉ là chưa gộp được vào sổ.'); return false; }
+    const ngayLapParts = (v.ngayLap||todayISO()).split('-');
+    const signerInfo = (config.signers||[]).find(x=>x.ten===v.nguoiKy) || { chucDanh:'Trưởng khoa' };
+    const dataChung = {
+      soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
+      noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
+      nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy, tomTat: v.tomTat||''
+    };
+    let newBody;
+    if(v.noiDungSoan && v.noiDungSoan.trim()){
+      newBody = buildVanBanRtfBody({ ...dataChung, bodyRtf: htmlToRtf(v.noiDungSoan), isBlank: false });
+    } else if(v.tomTat && v.tomTat.trim()){
+      newBody = buildVanBanRtfBody({ ...dataChung, isBlank: false });
+    } else {
+      alert('Phiếu này chưa có nội dung soạn trong app (hoặc Tóm tắt) nên KHÔNG gộp được vào Sổ tổng hợp — phiếu vẫn được lưu bình thường. Muốn gộp, hãy soạn nội dung ở mục "Soạn nội dung" hoặc điền Tóm tắt rồi sửa lại phiếu.');
+      return false;
+    }
+    const oldBody = so.bodyAccumulated || '';
+    const merged = newBody + (oldBody ? '\\pard\\page\\par\n' + oldBody : '');
+    const ok = await ddSoTongHopRef.child(soId).update({
+      bodyAccumulated: merged, capNhatLanCuoi: Date.now(), soLuotGop: (so.soLuotGop||0)+1, capNhatBoi: currentUserName||''
+    }).then(()=>true).catch(()=>false);
+    if(!ok){ alert('Phiếu đã lưu, nhưng gộp vào Sổ tổng hợp bị lỗi (kiểm tra mạng) — anh có thể vào sửa phiếu rồi chọn lại sổ để gộp lại.'); return false; }
+    return true;
+  }catch(err){
+    console.error('Lỗi gopVaoSoTongHop:', err);
+    alert('Phiếu đã lưu, nhưng có lỗi khi gộp vào Sổ tổng hợp: '+err.message);
+    return false;
+  }
+}
 function rtfHeader(){
   return '{\\rtf1\\ansi\\ansicpg1258\\deff0\\deflang1066{\\fonttbl{\\f0\\froman Times New Roman;}}\\f0\\fs26\n';
 }
@@ -25548,7 +25808,7 @@ function openNoiDungSoanModal(){
     if(!soCot || soCot<1 || !soHang || soHang<1){ alert('Vui lòng nhập số cột/hàng hợp lệ.'); return; }
     const ed = document.getElementById('ddnlNoiDungEditable');
     ed.focus();
-    let html = '<table data-vua-chen="1" style="width:100%;border-collapse:collapse;margin:10px 0;" border="1"><tbody><tr>';
+    let html = '<table data-vua-chen="1" style="width:100%;border-collapse:collapse;margin:10px 0;"><tbody><tr>';
     for(let c=0;c<soCot;c++) html += `<th style="padding:6px 8px;border:1px solid #999;font-weight:700;text-align:center;">Cột ${c+1}</th>`;
     html += '</tr>';
     for(let r=0;r<soHang;r++){
@@ -25803,6 +26063,9 @@ function openNoiDungSoanModal(){
     ed.querySelectorAll('table[data-resizable]').forEach(t=>t.removeAttribute('data-resizable'));
     ed.querySelectorAll('.ddnl-row-resize-handle').forEach(h=>h.remove());
     ed.querySelectorAll('table[data-row-resizable]').forEach(t=>t.removeAttribute('data-row-resizable'));
+    // Dọn thuộc tính HTML border="1" cũ (nếu phiếu này được tạo trước bản sửa lỗi) — thuộc tính này
+    // xung đột với CSS border-collapse, gây ra 1 vệt viền lạ/lệch ở góc bảng khi xem trước hoặc in.
+    ed.querySelectorAll('table[border]').forEach(t=>t.removeAttribute('border'));
     return ed.innerHTML.trim();
   }
   document.getElementById('ddnlBtnLuuLamMau').onclick = async ()=>{
@@ -26346,6 +26609,27 @@ function renderConfig(){
           <td>
             <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-filevb="${i}">⬇ Tải</button>
             ${isAdmin()?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-filevb="${i}">Xóa</button>`:``}
+          </td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    </div>
+  ${cardClose()}
+  ${cardOpen('cfg-sotonghop', '📚 Sổ tổng hợp', 'Mỗi sổ là 1 file .rtf gộp nhiều phiếu — ai soạn phiếu cũng chọn "Gộp vào Sổ tổng hợp" được (không riêng Admin), phiếu mới luôn chèn lên trên cùng, phiếu cũ giữ nguyên bên dưới, mỗi phiếu vẫn nằm riêng 1 trang để in tách ra được.')}
+    <div class="ddnl-rows-wrap" style="max-height:300px;overflow-y:auto;">
+    <table>
+      <thead><tr><th>Tên sổ</th><th>Số phiếu đã gộp</th><th>Cập nhật lần cuối</th><th>Người tạo</th><th style="width:140px;"></th></tr></thead>
+      <tbody>
+        ${soTongHopList.length===0?`<tr><td colspan="5" style="text-align:center;color:var(--ddnl-ink-soft);">Chưa có Sổ tổng hợp nào. Vào "Ghi nhận văn bản mới" → mục "Gộp vào Sổ tổng hợp" → "➕ Tạo sổ mới" để bắt đầu.</td></tr>`:
+        soTongHopList.map(s=>`<tr>
+          <td>${esc(s.ten||"(chưa đặt tên)")}</td>
+          <td style="text-align:center;font-weight:700;color:#1565C0">${s.soLuotGop||0}</td>
+          <td>${s.capNhatLanCuoi?new Date(s.capNhatLanCuoi).toLocaleString('vi-VN'):""}</td>
+          <td>${esc(s.taoBoi||"")}</td>
+          <td>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-tai-so-cfg="${esc(s.id)}">⬇ Tải .rtf</button>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-doi-ten-so-cfg="${esc(s.id)}">✏️ Sửa tên</button>
+            ${isAdmin()?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-sotonghop="${esc(s.id)}">Xóa</button>`:``}
           </td>
         </tr>`).join("")}
       </tbody>
@@ -27122,6 +27406,29 @@ function bindConfigEvents(){
     if(item) await deleteDocTemplateFile(item);
     config.fileVanBan.splice(idx,1);
     await saveConfig(); render();
+  });
+  document.querySelectorAll('[data-tai-so-cfg]').forEach(b=>b.onclick=()=>{
+    const so = soTongHopList.find(s=>s.id===b.dataset.taiSoCfg);
+    if(!so) return;
+    downloadRtf(`${(so.ten||'SoTongHop').replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, so.bodyAccumulated||'');
+  });
+  document.querySelectorAll('[data-doi-ten-so-cfg]').forEach(b=>b.onclick=async ()=>{
+    const id = b.dataset.doiTenSoCfg;
+    const so = soTongHopList.find(s=>s.id===id);
+    if(!so) return;
+    const tenMoi = prompt('Đổi tên Sổ tổng hợp:', so.ten||'');
+    if(tenMoi===null || !tenMoi.trim() || tenMoi.trim()===so.ten) return;
+    b.disabled = true;
+    const ok = await ddSoTongHopRef.child(id).update({ ten: tenMoi.trim() }).then(()=>true).catch(()=>false);
+    b.disabled = false;
+    if(!ok){ alert('Không đổi được tên — kiểm tra kết nối mạng rồi thử lại.'); return; }
+    render();
+  });
+  document.querySelectorAll('[data-del-sotonghop]').forEach(b=>b.onclick= async ()=>{
+    const id = b.dataset.delSotonghop;
+    const so = soTongHopList.find(s=>s.id===id);
+    if(!confirm(`Xóa Sổ tổng hợp "${so?so.ten:''}" (đã gộp ${so?so.soLuotGop||0:0} phiếu)? Thao tác này KHÔNG xóa các phiếu gốc, chỉ xóa file sổ đã gộp.`)) return;
+    await ddSoTongHopRef.child(id).remove().catch(()=>alert('Không xóa được, kiểm tra kết nối mạng.'));
   });
 }
 
