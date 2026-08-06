@@ -1023,6 +1023,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
             <th>Lập phiếu</th>
             <th>Ngày & Ca nghỉ bù</th>
             <th style="width:50px">Số ca</th>
+            <th style="width:90px">Ngày nghỉ/tháng</th>
             <th>Lý do</th>
             <th>Trạng thái</th>
             <th style="width:60px">Chữ ký</th>
@@ -1337,6 +1338,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
             <th style="background:#00695c">Từ ngày</th>
             <th style="background:#00695c">Đến ngày</th>
             <th style="background:#00695c">Số ngày</th>
+            <th style="background:#00695c;width:95px">Đã nghỉ đến nay</th>
             <th style="background:#00695c">Loại phép</th>
             <th style="background:#00695c">Lý do</th>
             <th style="background:#00695c">Đính kèm</th>
@@ -14870,12 +14872,25 @@ function nbRenderList(){
     actCell+='<button class="nb-btn nb-btn-sm" style="background:#2E7D32;margin-top:3px" onclick="nbXuatWord(\''+rid+'\')"><i class="ti ti-file-word"></i> Xuất Word</button>';
     actCell+='</td>';
     var approvedDateHtml=r.approvedAt?'<div style="font-size:10px;color:#888;margin-top:2px">'+fmtD(r.approvedAt.split('T')[0])+'</div>':'';
+    // Số ngày nghỉ bù đã có trong tháng của phiếu này (tính theo tháng của ngày nghỉ đầu tiên trong phiếu)
+    var monthCellHtml='—';
+    var firstEntryDate=(r.entries&&r.entries.length&&r.entries[0].date)?r.entries[0].date:(r.date||'');
+    if(firstEntryDate&&r.person){
+      var monthStrRow=firstEntryDate.slice(0,7);
+      var monthCount=nbCountDaysInMonth(r.person, monthStrRow, null, null);
+      var monthLblRow='T'+monthStrRow.split('-')[1];
+      var overLimitRow=monthCount>NB_MONTHLY_LIMIT;
+      monthCellHtml='<span style="font-weight:700;'+(overLimitRow?'color:#c62828':'color:#1b5e20')+'" title="Tổng số ngày nghỉ bù (không tính phiếu bị từ chối) của '+esc(r.person)+' trong tháng '+monthStrRow.split('-')[1]+'/'+monthStrRow.split('-')[0]+'">'
+        +monthCount+'/'+NB_MONTHLY_LIMIT+'</span> <span style="font-size:10px;color:#999">('+monthLblRow+')</span>'
+        +(overLimitRow?'<div style="font-size:10px;color:#c62828;font-weight:600">⚠ Vượt hạn mức</div>':'');
+    }
     return '<tr>'
       +'<td style="color:#aaa;text-align:center">'+(i+1)+'</td>'
       +'<td><b>'+esc(r.person||'')+'</b><div style="font-size:11px;color:#888">Lập: '+fmtDT(r.createdAt)+'</div></td>'
       +'<td style="font-size:12px">'+fmtDT(r.createdAt)+'</td>'
       +'<td style="font-size:12px;line-height:1.8">'+nbEntriesToStr(r)+'</td>'
       +'<td style="text-align:center;font-weight:700;color:#1565C0">'+nbEntriesCount(r)+'</td>'
+      +'<td style="text-align:center">'+monthCellHtml+'</td>'
       +'<td style="max-width:180px;word-break:break-word;font-size:12px">'+plainQTNote(r.reason)+'</td>'
       +'<td><span class="nb-badge '+(statusClass[r.status]||'')+'">'+( statusLabel[r.status]||r.status)+'</span>'+approvedDateHtml+'</td>'
       +'<td style="text-align:center;">'+chuKyThumbHtml(r)+'</td>'
@@ -16250,6 +16265,22 @@ function npGetFiltered(){
 
   return list.sort((a,b)=>b.id-a.id);
 }
+// Tính tổng số ngày phép năm đã duyệt (status='approved') mà nhân viên đã nghỉ tính đến thời điểm hiện tại
+// (dateFrom của phiếu <= hôm nay), trong năm hiện tại. Không tính các phiếu duyệt cho ngày nghỉ trong tương lai.
+function npCountApprovedDaysToDate(person, uptoISODate){
+  if(!person) return 0;
+  var todayStr = uptoISODate || today();
+  var yearStr = todayStr.slice(0,4);
+  var sum = 0;
+  (npRecords||[]).forEach(function(r){
+    if(!r || r.status!=='approved') return;
+    if((r.person||'').trim()!==person.trim()) return;
+    if(!r.dateFrom || r.dateFrom.slice(0,4)!==yearStr) return;
+    if(r.dateFrom > todayStr) return; // chưa đến ngày nghỉ thì chưa tính là "đã nghỉ"
+    sum += (r.days||0);
+  });
+  return sum;
+}
 function npRenderList(){
   if(!npCurrentUser)return;
   const isStaff=npCurrentUser.role==='staff';
@@ -16282,13 +16313,16 @@ function npRenderList(){
   const empty=document.getElementById('npEmpty');
   if(!list.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
-  tbody.innerHTML=list.map((r,i)=>`<tr>
+  tbody.innerHTML=list.map((r,i)=>{
+    var daysToDate = npCountApprovedDaysToDate(r.person, today());
+    return `<tr>
     <td style="color:#aaa;text-align:center">${i+1}</td>
     <td><b>${esc(r.person)}</b><div style="font-size:11px;color:#888">${fmtDT(r.createdAt)}</div></td>
     <td style="font-size:12px">${fmtDT(r.createdAt)}</td>
     <td><b>${fmtD(r.dateFrom)}</b></td>
     <td><b>${fmtD(r.dateTo)}</b></td>
     <td style="text-align:center;font-weight:700;color:#00695c">${r.days}</td>
+    <td style="text-align:center;font-weight:700;color:#0d47a1" title="Tổng số ngày phép năm đã được duyệt và đã nghỉ (tính đến hôm nay) trong năm ${today().slice(0,4)} của ${esc(r.person)}">${daysToDate}</td>
     <td style="font-size:12px">${npTypeLabel[r.type]||r.type}</td>
     <td style="max-width:140px;word-break:break-word;font-size:12px">${plainQTNote(r.reason)}</td>
     <td style="min-width:100px">${npAttachBadges(r)}</td>
@@ -16308,7 +16342,8 @@ function npRenderList(){
       <button class="nb-btn nb-btn-sm" style="background:#555;margin-top:3px" onclick="npXemPhieu('${r.id}')"><i class="ti ti-printer"></i> Xem phiếu</button>
       <button class="nb-btn nb-btn-sm" style="background:#2E7D32;margin-top:3px" onclick="npXuatWord('${r.id}')"><i class="ti ti-file-word"></i> Xuất Word</button>
     </td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 }
 function npClearFilter(){
   ['npFName','npFFrom','npFTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
