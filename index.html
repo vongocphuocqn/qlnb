@@ -22991,7 +22991,7 @@ let draftDenNgay = "";
 let draftNguoiKy = "";
 let statsTu = "";
 let statsDen = "";
-let listFilter = { trangThai:"", tu:"", den:"", nguoi:"" };
+let listFilter = { trangThai:"", tu:"", den:"", nguoi:"", nhanVienDD:"" };
 let modalRequestId = null;
 let saving = false;
 let ddnlLocalAdminUnlock = false; // đăng nhập admin riêng cho module này (mật khẩu DDNL_DEFAULT_ADMIN_PWD)
@@ -23710,10 +23710,13 @@ function renderNewForm(){
                 <td><input type="number" step="0.25" class="ddnl-row-field" data-field="soGio" value="${r.soGio}" style="width:56px;"></td>
                 <td>
                   <input type="text" class="ddnl-row-field" data-field="nhiemVu" value="${esc(r.nhiemVu)}" placeholder="Gõ hoặc chọn mẫu bên dưới">
-                  ${config.templates.length?`<select class="ddnl-row-tpl" data-tplfor="${i}" style="margin-top:4px;font-size:11px;">
-                    <option value="">— Chọn mẫu nội dung —</option>
-                    ${config.templates.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
-                  </select>`:``}
+                  <div style="display:flex;gap:4px;margin-top:4px;align-items:center;">
+                    ${config.templates.length?`<select class="ddnl-row-tpl" data-tplfor="${i}" style="flex:1;font-size:11px;">
+                      <option value="">— Chọn mẫu nội dung —</option>
+                      ${config.templates.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+                    </select>`:``}
+                    ${isAdmin()?`<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-save-tpl-row="${i}" title="Lưu nội dung đang gõ ở ô bên trên thành mẫu dùng lại sau này, khỏi cần vào Cấu hình" style="white-space:nowrap;font-size:11px;padding:3px 8px;">💾 Lưu mẫu</button>`:``}
+                  </div>
                 </td>
                 <td><input type="text" class="ddnl-row-field" data-field="ghiChu" value="${esc(r.ghiChu)}"></td>
                 <td><button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-remove-row="${i}" title="Xóa hàng">✕</button></td>
@@ -23764,6 +23767,7 @@ function visibleRequests(){
   if(listFilter.tu) list = list.filter(r=>r.tuNgay>=listFilter.tu);
   if(listFilter.den) list = list.filter(r=>r.denNgay<=listFilter.den);
   if(listFilter.nguoi) list = list.filter(r=>r.nguoiLap.toLowerCase().includes(listFilter.nguoi.toLowerCase()));
+  if(listFilter.nhanVienDD) list = list.filter(r=>r.rows.some(x=>x.hoTen===listFilter.nhanVienDD));
   return list;
 }
 
@@ -23787,7 +23791,17 @@ function renderList(){
       <div class="ddnl-field"><label>Từ ngày áp dụng</label><input type="date" id="ddnlFl_tu" value="${listFilter.tu}"></div>
       <div class="ddnl-field"><label>Đến ngày áp dụng</label><input type="date" id="ddnlFl_den" value="${listFilter.den}"></div>
       <div class="ddnl-field"><label>Người lập</label><input type="text" id="ddnlFl_nguoi" placeholder="Tìm tên…" value="${esc(listFilter.nguoi)}"></div>
+      <div class="ddnl-field">
+        <label>Nhân viên được điều động</label>
+        <span style="position:relative;display:inline-block;">
+          <input type="text" id="ddnlFl_nhanVienDD" autocomplete="off" placeholder="Bấm để chọn hoặc gõ tên để tìm…" value="${esc(listFilter.nhanVienDD||"")}">
+        </span>
+      </div>
+      <div class="ddnl-field" style="display:flex;align-items:end;">
+        <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnGopTheoNV" ${listFilter.nhanVienDD?"":"disabled"} title="Gộp tất cả lượt điều động của nhân viên đang chọn (theo đúng khoảng Từ ngày/Đến ngày áp dụng ở trên) thành 1 tờ đề nghị chung, tiện in nộp 1 tháng"><i class="ti ti-printer"></i> 🖨 In gộp theo nhân viên</button>
+      </div>
     </div>
+    ${listFilter.nhanVienDD?`<div class="ddnl-hint" style="margin-bottom:10px;">👤 Đang lọc riêng các phiếu có điều động <b>${esc(listFilter.nhanVienDD)}</b>. Bấm "🖨 In gộp theo nhân viên" để xuất 1 tờ tổng hợp toàn bộ lượt điều động của người này trong khoảng ngày đã chọn.</div>`:``}
 
     ${list.length===0 ? `<div class="ddnl-empty"><div class="ddnl-big">🗂️</div>Chưa có phiếu nào phù hợp bộ lọc.</div>` : `
     <div class="ddnl-rows-wrap"><table>
@@ -25074,6 +25088,103 @@ ${rowsHtml}
 </body></html>`;
 }
 
+// Gộp TẤT CẢ lượt điều động của 1 nhân viên (đã chọn ở ô lọc "Nhân viên được điều động") trong khoảng
+// Từ ngày/Đến ngày áp dụng đang lọc, lấy từ TOÀN BỘ phiếu (không phụ thuộc "Xem toàn khoa" hay
+// "Người lập", để không bỏ sót lượt điều động do người khác lập cho chính nhân viên này) — mục đích
+// in ra 1 tờ tổng hợp duy nhất, tiện nộp/lưu hồ sơ theo tháng thay vì phải in từng phiếu lẻ.
+function ddnlGopTheoNhanVienData(){
+  const ten = listFilter.nhanVienDD;
+  if(!ten) return null;
+  const luot = [];
+  requests.forEach(r=>{
+    if(r.trangThai==="Đã hủy") return;
+    (r.rows||[]).forEach(x=>{
+      if(x.hoTen!==ten) return;
+      const ngay = x.ngay || r.tuNgay || "";
+      if(listFilter.tu && ngay && ngay < listFilter.tu) return;
+      if(listFilter.den && ngay && ngay > listFilter.den) return;
+      luot.push({ ngay, boPhan:x.boPhanDieuDong||"", gioBatDau:x.gioBatDau||"", gioKetThuc:x.gioKetThuc||"", soGio:Number(x.soGio)||0, nhiemVu:x.nhiemVu||"", ghiChu:x.ghiChu||"", soPhieu:r.soPhieu||r.id, trangThai:r.trangThai||"" });
+    });
+  });
+  luot.sort((a,b)=> (a.ngay||"").localeCompare(b.ngay||""));
+  const tongGio = luot.reduce((s,x)=>s+x.soGio,0);
+  return { ten, luot, tongGio };
+}
+function ddnlInGopTheoNhanVien(){
+  const data = ddnlGopTheoNhanVienData();
+  if(!data){ alert('Vui lòng chọn 1 nhân viên ở ô "Nhân viên được điều động" trước khi in gộp.'); return; }
+  if(!data.luot.length){ alert(`Không tìm thấy lượt điều động nào của "${data.ten}" trong khoảng ngày đang lọc.`); return; }
+  const now = new Date();
+  const khoangNgay = (listFilter.tu||listFilter.den)
+    ? `Từ ngày ${listFilter.tu?fmtDate(listFilter.tu):"…"} đến ngày ${listFilter.den?fmtDate(listFilter.den):"…"}`
+    : "Toàn bộ thời gian có dữ liệu";
+  const rowsHtml = data.luot.map((x,i)=>`<tr>
+      <td style="text-align:center;">${i+1}</td>
+      <td style="text-align:center;white-space:nowrap;">${fmtDate(x.ngay)}</td>
+      <td>${esc(x.boPhan)}</td>
+      <td style="text-align:center;">${esc(x.gioBatDau)}</td>
+      <td style="text-align:center;">${esc(x.gioKetThuc)}</td>
+      <td style="text-align:center;font-weight:700;">${x.soGio}</td>
+      <td>${esc(x.nhiemVu)}</td>
+      <td style="text-align:center;white-space:nowrap;">${esc(x.soPhieu)}</td>
+    </tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Tổng hợp điều động — ${esc(data.ten)}</title>
+  <style>
+    @page{size:A4;margin:15mm;}
+    body{font-family:'Times New Roman',Times,serif;font-size:13pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 15mm 30mm;}
+    table.ddnl-pv-head{width:100%;table-layout:fixed;} table.ddnl-pv-head td{vertical-align:top;padding:0;}
+    .ddnl-pv-center{text-align:center;} .ddnl-pv-bold{font-weight:bold;}
+    .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
+    table.ddnl-gop{width:100%;border-collapse:collapse;margin-top:10px;}
+    table.ddnl-gop th, table.ddnl-gop td{border:1px solid #000;padding:5px 7px;font-size:11.5pt;}
+    table.ddnl-gop th{background:#dbe5f1;}
+    .ddnl-pv-toolbar{text-align:center;margin-bottom:14px;}
+    .ddnl-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
+    @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
+  </style></head><body>
+  <div class="ddnl-pv-toolbar ddnl-pv-no-print"><button onclick="window.print()">🖨 In ngay</button></div>
+  <table class="ddnl-pv-head"><tr>
+    <td style="width:42%;">
+      <div class="ddnl-pv-center" style="font-size:11.5pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
+      <div class="ddnl-pv-center ddnl-pv-bold" style="font-size:12.5pt;">KHOA GÂY MÊ HỒI SỨC</div>
+    </td>
+    <td style="width:58%;">
+      <div class="ddnl-pv-center ddnl-pv-bold" style="font-size:12.5pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div class="ddnl-pv-center ddnl-pv-bold" style="font-size:13pt;text-decoration:underline;">Độc lập – Tự do – Hạnh phúc</div>
+      <div style="text-align:right;font-style:italic;">Gia Lai, ngày ${String(now.getDate()).padStart(2,'0')} tháng ${String(now.getMonth()+1).padStart(2,'0')} năm ${now.getFullYear()}</div>
+    </td>
+  </tr></table>
+  <div class="ddnl-pv-title">TỔNG HỢP ĐIỀU ĐỘNG NHÂN LỰC</div>
+  <div class="ddnl-pv-center" style="font-style:italic;margin-bottom:10pt;">(Nhân viên: <b>${esc(data.ten)}</b> — ${esc(khoangNgay)})</div>
+  <div style="margin:4px 0;"><b>Kính gửi:</b></div>
+  <div style="margin:2px 0 2px 30px;">– Ban Giám đốc;</div>
+  <div style="margin:2px 0 10px 30px;">– Phòng Tổ chức cán bộ;</div>
+  <div style="margin:4px 0;text-align:justify;">Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính báo cáo và đề nghị Ban Giám đốc xem xét, phê duyệt tổng hợp các lượt điều động nhân lực đối với ông/bà <b>${esc(data.ten)}</b> tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý trong khoảng thời gian nêu trên, cụ thể như sau:</div>
+  <table class="ddnl-gop">
+    <thead><tr><th style="width:4%;">STT</th><th style="width:11%;">Ngày</th><th>Bộ phận thực hiện</th><th style="width:9%;">Giờ BĐ</th><th style="width:9%;">Giờ KT</th><th style="width:7%;">Số giờ</th><th style="width:24%;">Nhiệm vụ</th><th style="width:11%;">Số phiếu</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot><tr><td colspan="5" style="text-align:right;font-weight:700;">Tổng số giờ điều động:</td><td style="text-align:center;font-weight:700;">${data.tongGio}</td><td colspan="2"></td></tr></tfoot>
+  </table>
+  <div style="margin:10pt 0 2pt;text-align:justify;">Khoa Gây mê Hồi sức cam kết bố trí, phân công công việc phù hợp; quản lý nhân lực được điều động đúng quy định; đảm bảo hồ sơ, chứng từ và người thực hiện dịch vụ phù hợp nhằm hạn chế tối đa việc bảo hiểm y tế xuất toán do trùng giờ hoặc sai sót trong ghi nhận dịch vụ.</div>
+  <table class="ddnl-pv-head" style="margin-top:30pt;"><tr>
+    <td style="width:50%;text-align:center;">
+      <div class="ddnl-pv-bold">NGƯỜI ĐƯỢC ĐIỀU ĐỘNG</div>
+      <div style="height:60pt;"></div>
+      <div class="ddnl-pv-bold">${esc(data.ten.toUpperCase())}</div>
+    </td>
+    <td style="width:50%;text-align:center;">
+      <div class="ddnl-pv-bold">TRƯỞNG KHOA</div>
+      <div style="height:60pt;"></div>
+      <div class="ddnl-pv-bold">${esc((config.tenTruongKhoa||"").toUpperCase())}</div>
+    </td>
+  </tr></table>
+  </body></html>`;
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if(!win){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi bấm lại.'); return; }
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+}
 function exportRequestToWord(r){
   const html = buildWordHtmlForRequest(r);
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
@@ -25768,9 +25879,28 @@ function rtfHeader(){
 // Xây phần nội dung RTF dùng chung cho cả "tạo file trống để soạn" và "xuất lại văn bản đã lưu"
 // Xem trước nhanh trên trình duyệt (không cần mở Word) — dùng chung dữ liệu với buildVanBanRtfBody,
 // nhưng dựng thẳng ra HTML để xem/in ngay, nhanh hơn nhiều so với quy trình Xuất Word rồi mở file lên.
+// Nội dung soạn có thể vẫn còn mang font/màu/cỡ chữ cũ từ trước (đặc biệt các văn bản đã lưu trước khi
+// tính năng "dán tự động về font mặc định" được thêm vào) -> khi XEM TRƯỚC, luôn ép về đúng font của
+// văn bản (thừa hưởng từ CSS body), chỉ bỏ font-family/color/font-size/background, GIỮ NGUYÊN các
+// thuộc tính bố cục khác (width, text-align...) để bảng biểu không bị xô lệch so với lúc soạn.
+function ddnlChuanHoaFontXemTruoc(html){
+  if(!html) return html;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const boLoaiBo = ['font-family','color','background','background-color','font-size','font','font-weight','line-height'];
+  tmp.querySelectorAll('[style]').forEach(el=>{
+    const conLai = (el.getAttribute('style')||'').split(';').map(s=>s.trim()).filter(Boolean).filter(khaiBao=>{
+      const thuocTinh = khaiBao.split(':')[0].trim().toLowerCase();
+      return !boLoaiBo.includes(thuocTinh);
+    });
+    if(conLai.length) el.setAttribute('style', conLai.join('; ')); else el.removeAttribute('style');
+  });
+  tmp.querySelectorAll('font').forEach(f=>{ f.removeAttribute('face'); f.removeAttribute('color'); f.removeAttribute('size'); });
+  return tmp.innerHTML;
+}
 function buildVanBanPreviewHtml(data){
   const { soVanBan, ngayLapParts, hinhThucVB, veViec, noiNhan, nguoiSoan, chucDanh, nguoiKy, noiDungHtml, isBlank, nguoiLapLabel, chucDanhKy, tomTat } = data;
-  const noiDungPhan = noiDungHtml ? noiDungHtml
+  const noiDungPhan = noiDungHtml ? ddnlChuanHoaFontXemTruoc(noiDungHtml)
     : (isBlank ? '<p style="margin:4px 0;">……………………………………………………………………………………………………………</p>'.repeat(4)
     : (tomTat ? `<p style="text-align:justify;margin:4px 0;">${esc(tomTat)}</p>` : ''));
   const kinhGuiPhan = (noiNhan && noiNhan.length) ? noiNhan.map(n=>`<p style="margin:2px 0 2px 24px;">– ${esc(n)};</p>`).join('')
@@ -26232,7 +26362,36 @@ function openNoiDungSoanModal(){
     datConTroVaoO(newRow.cells[0], true);
     layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
   });
-  document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
+// Dán từ Word/Excel/web vào thường mang theo font, màu, cỡ chữ riêng của nguồn -> chữ bị lệch
+// khỏi font mặc định của văn bản. Hàm này "lột" hết style rác (font-family, color, font-size,
+// background, class kiểu MsoNormal...) nhưng vẫn giữ cấu trúc (bảng, in đậm/nghiêng/gạch chân,
+// đoạn văn, danh sách) để nội dung dán vào luôn đồng bộ font với phần đã soạn.
+function ddnlSanitizePasteHtml(html){
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const boChoPhep = new Set(['B','STRONG','I','EM','U','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','P','BR','UL','OL','LI','SPAN','DIV','A']);
+  (function laMSach(node){
+    Array.from(node.childNodes).forEach(child=>{
+      if(child.nodeType===1){ // element
+        if(!boChoPhep.has(child.tagName)){
+          // Thẻ lạ (font, o:p, mso-...) -> giữ nội dung bên trong, bỏ vỏ thẻ
+          while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
+          child.parentNode.removeChild(child);
+          return;
+        }
+        child.removeAttribute('style');
+        child.removeAttribute('class');
+        child.removeAttribute('lang');
+        child.removeAttribute('face');
+        child.removeAttribute('color');
+        if(child.tagName!=='A') child.removeAttribute('href');
+        laMSach(child);
+      }
+    });
+  })(tmp);
+  return tmp.innerHTML;
+}
+document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     const ed = document.getElementById('ddnlNoiDungEditable');
     const oHienTai = timOConTroHienTai(); // đang đặt con trỏ TRONG 1 ô của bảng CÓ SẴN không?
     const cd = e.clipboardData || window.clipboardData;
@@ -26294,6 +26453,19 @@ function openNoiDungSoanModal(){
       }
       setTimeout(()=>{ dedomWordFixedWidths(ed); enableTableColResize(ed); enableTableRowResize(ed); }, 0);
       return;
+    }
+    // Dán "thường" (không phải dán bảng đè vào 1 ô có sẵn) -> luôn ép về font mặc định của văn bản,
+    // bỏ hết font/màu/cỡ chữ mang theo từ Word/Excel/trang web nguồn, cho khỏi phải sửa tay từng chỗ.
+    if(htmlDan){
+      e.preventDefault();
+      const sach = ddnlSanitizePasteHtml(htmlDan);
+      document.execCommand('insertHTML', false, sach);
+    } else if(cd){
+      const vanBanThuong = cd.getData('text/plain');
+      if(vanBanThuong){
+        e.preventDefault();
+        document.execCommand('insertText', false, vanBanThuong);
+      }
     }
     setTimeout(()=>{
       if(!ed) return;
@@ -26459,6 +26631,10 @@ function renderStats(){
         <label>Tổng số giờ toàn khoa trong khoảng này</label>
         <div style="font-size:20px;font-weight:800;color:var(--ddnl-navy);padding-top:4px;">${totalGio}</div>
       </div>
+      <div class="ddnl-field" style="display:flex;align-items:end;gap:8px;">
+        <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnStatsPrint" ${arr.length===0?'disabled':''} title="Xem trước & in ngay bảng thống kê theo khoảng ngày đang chọn"><i class="ti ti-printer"></i> In / Xem trước</button>
+        <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnStatsExportWord" ${arr.length===0?'disabled':''} title="Xuất file Word đúng thể thức, có quốc hiệu, ký tên"><i class="ti ti-file-word"></i> Xuất Word</button>
+      </div>
     </div>
     ${arr.length===0 ? `<div class="ddnl-empty"><div class="ddnl-big">📊</div>Chưa có dữ liệu điều động trong khoảng thời gian này.</div>` : `
     <div class="ddnl-rows-wrap"><table>
@@ -26472,6 +26648,115 @@ function renderStats(){
     </table></div>
     `}
   ${cardClose()}`;
+}
+// Trả về đúng danh sách [{hoTen, donVi, luot, gio}] theo khoảng ngày statsTu..statsDen đang chọn,
+// dùng chung cho cả bảng hiển thị lẫn 2 nút In/Xuất Word bên dưới -> đảm bảo số liệu luôn khớp nhau.
+function ddnlStatsGetArr(){
+  const map = {};
+  requests.filter(r=>r.trangThai!=="Đã hủy").forEach(r=>{
+    r.rows.forEach(row=>{
+      if(!row.ngay) return;
+      if(row.ngay>=statsTu && row.ngay<=statsDen){
+        const key = row.hoTen || "(chưa chọn tên)";
+        if(!map[key]) map[key] = { hoTen:key, gio:0, luot:0, donVi:(findEmployee(key)||{}).donVi||"" };
+        map[key].gio += Number(row.soGio)||0;
+        map[key].luot += 1;
+      }
+    });
+  });
+  return Object.values(map).sort((a,b)=>b.gio-a.gio);
+}
+function ddnlStatsBuildHtml(){
+  const arr = ddnlStatsGetArr();
+  const totalGio = arr.reduce((s,a)=>s+a.gio,0);
+  const totalLuot = arr.reduce((s,a)=>s+a.luot,0);
+  const now = new Date();
+  const nowStr = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  const rowsHtml = arr.map((a,i)=>`<tr>
+      <td style="text-align:center;">${i+1}</td>
+      <td>${esc(a.hoTen)}</td>
+      <td>${esc(a.donVi)}</td>
+      <td style="text-align:center;">${a.luot}</td>
+      <td style="text-align:center;font-weight:700;">${a.gio}</td>
+    </tr>`).join("");
+  return { arr, totalGio, totalLuot, nowStr, rowsHtml };
+}
+function ddnlStatsPrint(){
+  const { arr, totalGio, totalLuot, nowStr, rowsHtml } = ddnlStatsBuildHtml();
+  if(!arr.length){ alert('Không có dữ liệu điều động trong khoảng ngày đang chọn.'); return; }
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Thống kê giờ điều động nhân lực</title>
+  <style>
+    @page{size:A4;margin:15mm;}
+    body{font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 15mm 30mm;}
+    .ddnl-pv-center{text-align:center;} .ddnl-pv-bold{font-weight:bold;}
+    .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
+    table.ddnl-pv-head{width:100%;table-layout:fixed;} table.ddnl-pv-head td{vertical-align:top;padding:0;}
+    table.ddnl-stats{width:100%;border-collapse:collapse;margin-top:12px;}
+    table.ddnl-stats th, table.ddnl-stats td{border:1px solid #000;padding:5px 8px;}
+    table.ddnl-stats th{background:#dbe5f1;}
+    .ddnl-pv-toolbar{text-align:center;margin-bottom:14px;}
+    .ddnl-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
+    @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
+  </style></head><body>
+  <div class="ddnl-pv-toolbar ddnl-pv-no-print">
+    <button onclick="window.print()">🖨 In ngay</button>
+  </div>
+  <table class="ddnl-pv-head"><tr>
+    <td style="width:42%;">
+      <div class="ddnl-pv-center" style="font-size:11.5pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
+      <div class="ddnl-pv-center ddnl-pv-bold" style="font-size:12.5pt;">KHOA GÂY MÊ HỒI SỨC</div>
+    </td>
+    <td style="width:58%;text-align:right;font-style:italic;">Gia Lai, ngày ${nowStr}</td>
+  </tr></table>
+  <div class="ddnl-pv-title">BẢNG THỐNG KÊ GIỜ ĐIỀU ĐỘNG NHÂN LỰC</div>
+  <div style="text-align:center;margin-bottom:10px;">Từ ngày <b>${fmtDate(statsTu)}</b> đến ngày <b>${fmtDate(statsDen)}</b></div>
+  <table class="ddnl-stats">
+    <thead><tr><th style="width:6%;">STT</th><th>Họ và tên</th><th style="width:18%;">Đơn vị</th><th style="width:15%;">Số lượt điều động</th><th style="width:15%;">Tổng số giờ</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot><tr><td colspan="3" style="text-align:right;font-weight:700;border:1px solid #000;">Tổng cộng:</td><td style="text-align:center;font-weight:700;border:1px solid #000;">${totalLuot}</td><td style="text-align:center;font-weight:700;border:1px solid #000;">${totalGio}</td></tr></tfoot>
+  </table>
+  </body></html>`;
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if(!win){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi bấm lại.'); return; }
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+}
+function ddnlStatsExportWord(){
+  const { arr, totalGio, totalLuot, nowStr, rowsHtml } = ddnlStatsBuildHtml();
+  if(!arr.length){ alert('Không có dữ liệu điều động trong khoảng ngày đang chọn.'); return; }
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8"><title>Thống kê giờ điều động nhân lực</title>
+  <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
+  <style>
+    @page Section1{size:595.0pt 842.0pt;margin:56.0pt 42.0pt 56.0pt 42.0pt;}
+    div.Section1{page:Section1;}
+    body{font-family:'Times New Roman',Times,serif;font-size:13pt;}
+    .org{text-align:center;margin:1pt 0;} .orgb{text-align:center;margin:1pt 0;font-weight:bold;}
+    h2{text-align:center;margin:10pt 0 2pt;}
+    table{width:100%;border-collapse:collapse;margin-top:10pt;}
+    th{border:1px solid #000;padding:5px 8px;background:#dbe5f1;font-size:12pt;}
+    td{border:1px solid #000;padding:5px 8px;}
+  </style></head><body><div class="Section1">
+  <table style="width:100%;border:none;"><tr>
+    <td style="width:45%;border:none;">
+      <p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>
+      <p class="orgb">KHOA GÂY MÊ HỒI SỨC</p>
+    </td>
+    <td style="width:55%;border:none;text-align:right;font-style:italic;">Gia Lai, ngày ${nowStr}</td>
+  </tr></table>
+  <h2>BẢNG THỐNG KÊ GIỜ ĐIỀU ĐỘNG NHÂN LỰC</h2>
+  <p style="text-align:center;">Từ ngày <b>${fmtDate(statsTu)}</b> đến ngày <b>${fmtDate(statsDen)}</b></p>
+  <table>
+    <tr><th style="width:6%;">STT</th><th>Họ và tên</th><th style="width:18%;">Đơn vị</th><th style="width:15%;">Số lượt điều động</th><th style="width:15%;">Tổng số giờ</th></tr>
+    ${rowsHtml}
+    <tr><td colspan="3" style="text-align:right;font-weight:bold;">Tổng cộng:</td><td style="text-align:center;font-weight:bold;">${totalLuot}</td><td style="text-align:center;font-weight:bold;">${totalGio}</td></tr>
+  </table>
+  </div></body></html>`;
+  const blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`ThongKeGioDieuDong_${statsTu}_${statsDen}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 /* ============================================================
@@ -27030,6 +27315,19 @@ function bindNewFormEvents(){
       render();
     });
   });
+  document.querySelectorAll('[data-save-tpl-row]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!isAdmin()){ alert('Chỉ Admin mới được thêm vào thư viện mẫu dùng chung. Vui lòng đăng nhập Admin ở góc trên bên phải.'); return; }
+      const idx = Number(b.dataset.saveTplRow);
+      const v = (draftRows[idx] && draftRows[idx].nhiemVu || "").trim();
+      if(!v){ alert('Vui lòng gõ nội dung nhiệm vụ ở ô bên trên trước khi lưu thành mẫu.'); return; }
+      if(config.templates.includes(v)){ alert('Mẫu này đã có sẵn trong thư viện rồi.'); return; }
+      config.templates.push(v);
+      await saveConfig();
+      alert('Đã lưu vào thư viện mẫu — lần sau chọn nhanh ở ô "Chọn mẫu nội dung".');
+      render();
+    };
+  });
   document.querySelectorAll('.ddnl-row-field').forEach(input=>{
     input.addEventListener('change', (e)=>{
       const tr = e.target.closest('tr');
@@ -27205,6 +27503,41 @@ function bindListEvents(){
   const flTu = document.getElementById('ddnlFl_tu'); if(flTu) flTu.onchange = ()=>{ listFilter.tu = flTu.value; render(); };
   const flDen = document.getElementById('ddnlFl_den'); if(flDen) flDen.onchange = ()=>{ listFilter.den = flDen.value; render(); };
   const flNguoi = document.getElementById('ddnlFl_nguoi'); if(flNguoi) flNguoi.oninput = ()=>{ listFilter.nguoi = flNguoi.value; render(); };
+  (function(){
+    const input = document.getElementById('ddnlFl_nhanVienDD');
+    if(!input) return;
+    // KHÔNG dùng ddnlSetupCombo dùng chung ở đây: hàm đó gọi render() (vẽ lại TOÀN BỘ màn hình) ngay
+    // mỗi lần gõ 1 ký tự, khiến bảng gợi ý vừa hiện ra bị "dọn" gần như ngay lập tức bởi bộ đếm giờ
+    // ẩn bảng còn sót lại từ lần gõ trước (2 ô input trước/sau có cùng id nên đụng nhau) -> KHÔNG bao
+    // giờ kịp bấm chọn tên, đồng thời bộ lọc lại áp dụng NGAY theo chữ đang gõ dở (so khớp tuyệt đối)
+    // nên luôn ra "Chưa có phiếu nào phù hợp". Ở đây: gõ chỉ để LỌC GỢI Ý hiện ra, hoàn toàn KHÔNG vẽ
+    // lại màn hình cho tới khi bấm CHỌN đúng 1 tên trong bảng gợi ý — lúc đó mới thực sự áp dụng lọc.
+    const panelId = 'ddnlFl_nhanVienDD_panel';
+    const layPanelHienCo = ()=>document.getElementById(panelId);
+    const dongPanel = ()=>{ const p=layPanelHienCo(); if(p) p.remove(); };
+    const apDungLoc = (ten)=>{ listFilter.nhanVienDD = ten; render(); };
+    const veLaiPanel = (hienHetDanhSach)=>{
+      dongPanel();
+      const q = hienHetDanhSach ? "" : input.value.trim().toLowerCase();
+      const goiY = config.employees.map(e=>e.ten).filter(t=>!q || t.toLowerCase().includes(q));
+      const panel = document.createElement('div');
+      panel.id = panelId;
+      panel.className = 'ddnl-combo-panel';
+      panel.innerHTML = `<div class="ddnl-combo-opt" data-val="" style="font-style:italic;color:#888;">— Tất cả (bỏ lọc) —</div>`
+        + (goiY.length ? goiY.map(t=>`<div class="ddnl-combo-opt" data-val="${esc(t)}">${esc(t)}</div>`).join("")
+                       : `<div class="ddnl-combo-empty">Không có nhân viên nào khớp — gõ lại tên khác.</div>`);
+      input.parentElement.appendChild(panel);
+      panel.querySelectorAll('[data-val]').forEach(d=>{
+        d.onmousedown = (e)=>{ e.preventDefault(); input.value = d.dataset.val; apDungLoc(d.dataset.val); };
+      });
+    };
+    input.autocomplete = 'off';
+    input.addEventListener('focus', ()=>veLaiPanel(true));
+    input.addEventListener('click', ()=>veLaiPanel(true));
+    input.addEventListener('input', ()=>veLaiPanel(false));
+    input.addEventListener('blur', ()=>{ setTimeout(dongPanel, 150); });
+  })();
+  const btnGopNV = document.getElementById('ddnlBtnGopTheoNV'); if(btnGopNV) btnGopNV.onclick = ()=>ddnlInGopTheoNhanVien();
 
   document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ modalRequestId = b.dataset.view; render(); });
   document.querySelectorAll('[data-approve]').forEach(b=>b.onclick= async ()=>{
@@ -27244,6 +27577,8 @@ function bindListEvents(){
 function bindStatsEvents(){
   const t = document.getElementById('ddnlSt_tu'); if(t) t.onchange = ()=>{ statsTu = t.value; if(statsDen && statsDen < statsTu) statsDen = statsTu; render(); };
   const d = document.getElementById('ddnlSt_den'); if(d) d.onchange = ()=>{ statsDen = d.value; render(); };
+  const stPrintBtn = document.getElementById('ddnlBtnStatsPrint'); if(stPrintBtn) stPrintBtn.onclick = ()=>ddnlStatsPrint();
+  const stWordBtn = document.getElementById('ddnlBtnStatsExportWord'); if(stWordBtn) stWordBtn.onclick = ()=>ddnlStatsExportWord();
 }
 
 function bindConfigEvents(){
