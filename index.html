@@ -1013,6 +1013,11 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         </div>
         <div class="ff"><label>Từ ngày</label><input type="date" id="nbFFrom" onchange="nbRenderList()"></div>
         <div class="ff"><label>Đến ngày</label><input type="date" id="nbFTo" onchange="nbRenderList()"></div>
+        <div class="ff" style="justify-content:flex-end"><label>&nbsp;</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#e65100;white-space:nowrap;cursor:pointer">
+            <input type="checkbox" id="nbFWeekend" onchange="nbRenderList()" style="width:15px;height:15px"> Chỉ T7/CN
+          </label>
+        </div>
         <button class="nb-btn nb-btn-sec nb-btn-sm" onclick="nbClearFilter()"><i class="ti ti-refresh"></i> Xóa lọc</button>
       </div>
       <div class="nb-tbl-wrap">
@@ -10530,6 +10535,23 @@ function today(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function fmtD(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y}`;}
+// Nhận biết ngày rơi vào Thứ 7 / Chủ nhật (dùng chung cho form đăng ký + danh sách phiếu nghỉ bù)
+function nbWeekendInfo(dateStr){
+  if(!dateStr) return null;
+  const parts=dateStr.split('-');
+  if(parts.length!==3) return null;
+  const dt=new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+  const dow=dt.getDay(); // 0=CN, 6=T7
+  if(dow===0) return {code:'CN', label:'Chủ nhật'};
+  if(dow===6) return {code:'T7', label:'Thứ 7'};
+  return null;
+}
+// Badge nhỏ để chèn cạnh ngày trong danh sách phiếu (giống kiểu badge "Vượt hạn mức" đang có)
+function nbWeekendBadgeHtml(dateStr){
+  const w=nbWeekendInfo(dateStr);
+  if(!w) return '';
+  return ' <span style="display:inline-block;font-size:10px;font-weight:700;color:#e65100;background:#fff3e0;border:1px solid #ffb74d;border-radius:5px;padding:0 5px;margin-left:4px;vertical-align:middle" title="'+w.label+'">'+w.code+'</span>';
+}
 function ini(n){const p=n.trim().split(' ');return p.length>=2?(p[p.length-2][0]+p[p.length-1][0]).toUpperCase():n[0].toUpperCase();}
 function noAcc(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,c=>c==='đ'?'d':'D');}
 function priTag(p){
@@ -14093,7 +14115,7 @@ function nbAddRow(dateVal, shiftVal){
   row.id = id;
   row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 28px;gap:8px;align-items:center;background:#f7f9ff;border:1.5px solid #c5cfe8;border-radius:10px;padding:8px 10px';
   row.innerHTML =
-    '<input type="date" class="nb-row-date" value="'+d+'"'+
+    '<input type="date" class="nb-row-date" value="'+d+'" onchange="if(typeof nbCheckMonthlyLimit===\'function\') nbCheckMonthlyLimit();"'+
     ' style="border:1.5px solid #c5cfe8;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;color:#1a237e;background:#fff;width:100%;box-sizing:border-box">'+
     '<select class="nb-row-shift" style="border:1.5px solid #c5cfe8;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;color:#1a237e;background:#fff;width:100%">'+
     shiftOpts+'</select>'+
@@ -14178,13 +14200,28 @@ function nbBuildMonthLimitMessages(person, excludeId){
   });
   return msgs;
 }
+// Trả về mảng cảnh báo (text) cho các ngày đang nhập trên form mà rơi vào Thứ 7 / Chủ nhật
+function nbBuildWeekendMessages(){
+  var msgs=[];
+  var entries = nbGetRows().filter(function(e){return e.date;});
+  if(!entries.length) return msgs;
+  var weekendDates = entries
+    .map(function(e){ var w=nbWeekendInfo(e.date); return w?{date:e.date, w:w}:null; })
+    .filter(Boolean)
+    .sort(function(a,b){return a.date<b.date?-1:1;});
+  if(weekendDates.length){
+    var list = weekendDates.map(function(x){return fmtD(x.date)+' ('+x.w.label+')';}).join(', ');
+    msgs.push('🗓 Có <b>'+weekendDates.length+'</b> ngày rơi vào Thứ 7/Chủ nhật trong phiếu này: '+list+' — vui lòng cân nhắc lịch trực cuối tuần trước khi duyệt.');
+  }
+  return msgs;
+}
 window.nbCheckMonthlyLimit = function(){
   var warnEl=document.getElementById('nbMonthLimitWarning');
   if(!warnEl) return;
   var nbRowsEl=document.getElementById('nbRows');
   var editId=(nbRowsEl&&nbRowsEl.dataset&&nbRowsEl.dataset.editId)||'';
   var person=nbGetFormPersonName();
-  var msgs=nbBuildMonthLimitMessages(person, editId);
+  var msgs=nbBuildMonthLimitMessages(person, editId).concat(nbBuildWeekendMessages());
   if(msgs.length){
     warnEl.style.display='block';
     warnEl.innerHTML=msgs.join('<br>')+
@@ -14656,9 +14693,9 @@ function nbSubmitForm(){
 
 function nbEntriesToStr(r){
   if(r.entries&&r.entries.length){
-    return r.entries.map(e=>`${fmtD(e.date)} ${shiftLabel[e.shift]||e.shift}`).join('<br>');
+    return r.entries.map(e=>`${fmtD(e.date)} ${shiftLabel[e.shift]||e.shift}${nbWeekendBadgeHtml(e.date)}`).join('<br>');
   }
-  return `${fmtD(r.date)} ${shiftLabel[r.shift]||r.shift}`;
+  return `${fmtD(r.date)} ${shiftLabel[r.shift]||r.shift}${nbWeekendBadgeHtml(r.date)}`;
 }
 function nbEntriesCount(r){
   return r.entries?r.entries.length:1;
@@ -14830,6 +14867,8 @@ function nbGetFiltered(){
   if(st)list=list.filter(r=>r.status===st);
   if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
   if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
+  var wkOnly=(document.getElementById('nbFWeekend')||{}).checked;
+  if(wkOnly)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>nbWeekendInfo(d));});
   return list.sort((a,b)=>b.id-a.id);
 }
 
@@ -14948,6 +14987,7 @@ function npFNamePick(n){document.getElementById('npFName').value=n;document.getE
 function nbClearFilter(){
   ['nbFName','nbFFrom','nbFTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['nbFStatus','nbFShift'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  var wk=document.getElementById('nbFWeekend');if(wk)wk.checked=false;
   var b=document.getElementById('nbFNameDrop');if(b)b.style.display='none';
   nbRenderList();
 }
@@ -22999,6 +23039,7 @@ let chuKyMauNV = {}; // Chữ ký MẪU của từng nhân viên (Họ tên -> d
 let vbLoaded = false;
 let draftVB = null;
 let editingVBId = null;
+let vbLastSaveNotice = null; // { soVanBan, tenSo, ok } — hiện ngay tại ô "Gộp vào Sổ tổng hợp" sau khi lưu, để không phải cuộn xuống bảng bên dưới kiểm tra
 let vbFilter = { loai:"", trangThai:"", nguoiSoan:"", tu:"", den:"", keyword:"" };
 let vbListPage = 1; // trang hiện tại của bảng "Danh sách văn bản đi"
 let vbTrackPage = 1; // trang hiện tại của "Bảng theo dõi tiến độ xử lý"
@@ -23838,6 +23879,17 @@ function vbSoNgayXuLy(v){
   const days = Math.max(0, Math.round((end-start)/(1000*60*60*24)));
   return { days, isDone };
 }
+function vbGetTrackingList(){
+  return vbRecords.filter(v=>{
+    if(!isAdmin()){ if(v.nguoiSoan!==currentUserName) return false; }
+    else if(!vbScopeAll && currentUserName && v.nguoiSoan!==currentUserName){ return false; }
+    return !VB_TRANG_THAI_DA_XONG.includes(vbNormTrangThai(v.trangThai||"Đang soạn"));
+  }).map(v=>{
+    const mocThoiGian = v.ngayGui || v.ngayLap || todayISO();
+    const soNgayCho = Math.max(0, Math.round((new Date(todayISO()) - new Date(mocThoiGian)) / 86400000));
+    return { v, soNgayCho };
+  }).sort((a,b)=>b.soNgayCho-a.soNgayCho);
+}
 function renderVanBan(){
   if(!draftVB) draftVB = newDraftVB();
   const list = vbFiltered();
@@ -24001,6 +24053,13 @@ function renderVanBan(){
         ${draftVB.soTongHopId ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-doi-ten-so="${esc(draftVB.soTongHopId)}">✏️ Đổi tên sổ</button>` : ``}
         ${draftVB.soTongHopId ? `<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-tai-so="${esc(draftVB.soTongHopId)}">⬇ Tải sổ hiện tại (.rtf)</button>` : ``}
       </div>
+      ${vbLastSaveNotice ? (
+        vbLastSaveNotice.tenSo
+          ? `<div style="margin-top:8px;padding:8px 12px;border-radius:7px;background:#e8f5e9;border:1.5px solid #66bb6a;color:#1b5e20;font-size:12.5px;font-weight:700;">✅ Đã lưu văn bản <b>${esc(vbLastSaveNotice.soVanBan||"")}</b> — 📚 Đã gộp vào sổ: <b>${esc(vbLastSaveNotice.tenSo)}</b></div>`
+          : (vbLastSaveNotice.ok
+              ? `<div style="margin-top:8px;padding:8px 12px;border-radius:7px;background:#e8f5e9;border:1.5px solid #66bb6a;color:#1b5e20;font-size:12.5px;font-weight:700;">✅ Đã lưu văn bản <b>${esc(vbLastSaveNotice.soVanBan||"")}</b> vào Sổ văn bản đi (không gộp vào sổ tổng hợp nào).</div>`
+              : `<div style="margin-top:8px;padding:8px 12px;border-radius:7px;background:#fff3e0;border:1.5px solid #ffb74d;color:#e65100;font-size:12.5px;font-weight:700;">✅ Đã lưu văn bản <b>${esc(vbLastSaveNotice.soVanBan||"")}</b>, nhưng gộp vào sổ tổng hợp CHƯA thành công — xem chi tiết ở khối "Danh sách văn bản đi" bên dưới.</div>`)
+      ) : ``}
     </div>
     <div style="display:flex;gap:10px;">
       <button class="ddnl-btn ddnl-btn-ghost" id="ddnlBtnPreviewDraft" type="button" title="Xem/in thử ngay với dữ liệu đang gõ trên form — kể cả khi CHƯA bấm Lưu/Ghi nhận">👁 Xem trước nhanh (chưa lưu)</button>
@@ -24010,6 +24069,10 @@ function renderVanBan(){
   ${cardClose()}
 
   ${cardOpen('vb-list', 'Danh sách văn bản đi', isAdmin() ? (vbScopeAll ? `🔓 Admin — đang xem TOÀN KHOA — ${list.length} / ${vbRecords.length} văn bản.` : `🔓 Admin — đang thu hẹp xem theo "${esc(currentUserName||"chưa chọn tên")}" — ${list.length} / ${vbRecords.length} văn bản.`) : `🔒 Bạn chỉ xem được văn bản do CHÍNH MÌNH soạn (${esc(currentUserName||"")}) — ${list.length} văn bản.`)}
+    <div class="ddnl-toolbar" style="justify-content:flex-end;margin-bottom:8px;">
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportExcel" title="Xuất danh sách đang lọc/xem ra file Excel"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportWord" title="Xuất danh sách đang lọc/xem ra file Word"><i class="ti ti-file-word"></i> Xuất Word</button>
+    </div>
     <div class="ddnl-toolbar">
       ${isAdmin()?`<label class="ddnl-chk" style="margin:0;"><input type="checkbox" id="ddnlVBChkScopeAll" ${vbScopeAll?"checked":""}> <span>Xem toàn khoa (khuyến nghị cho quản lý)</span></label>`:``}
       <div class="ddnl-field" style="min-width:220px;"><label>🔍 Tìm nhanh</label><input type="text" id="ddnlVBFl_keyword" placeholder="Số VB, tóm tắt, ghi chú…" value="${esc(vbFilter.keyword||"")}"></div>
@@ -24058,6 +24121,7 @@ function renderVanBan(){
             <select class="ddnl-vb-status-inline" data-vb-status="${v.id}">
               ${VB_TRANG_THAI.map(tt=>`<option value="${tt}" ${tt===vbNormTrangThai(v.trangThai)?"selected":""}>${tt}</option>`).join("")}
             </select>
+            ${v.soTongHopId ? (function(){ var _so=soTongHopList.find(s=>s.id===v.soTongHopId); return `<div style="font-size:10.5px;color:#2e7d32;margin-top:3px;font-weight:600;" title="Văn bản này đã được gộp vào Sổ tổng hợp">📚 Đã gộp: ${esc(_so?(_so.ten||"(chưa đặt tên)"):"(sổ đã bị xóa)")}</div>`; })() : ""}
           </td>
           <td>${esc(v.ghiChu||"")}${v.dinhKemLink?`<br><a href="${esc(v.dinhKemLink)}" target="_blank" rel="noopener" style="font-size:11px;">Xem file đính kèm</a>`:""}${vbGetFiles(v).map((f,fi)=>`<br><button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-dl-vbfile="${v.id}" data-dl-vbfile-idx="${fi}" style="margin-top:2px;font-size:11px;padding:2px 8px;">📎 ${esc(f.ten)}</button>`).join("")}</td>
           <td>
@@ -24066,7 +24130,7 @@ function renderVanBan(){
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-use-as-mau="${v.id}" title="Tạo văn bản MỚI dựa theo văn bản này (giữ Loại văn bản, Kính gửi, Người ký, Tóm tắt — chỉ cần sửa lại phần khác)">📋 Dùng làm mẫu</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-xemtruoc-vb="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-export-vbword="${v.id}" title="Xuất văn bản này ra file Word đúng thể thức (quốc hiệu, kính gửi, chữ ký)">📄 Xuất Word</button>
-              ${isAdmin()?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vb="${v.id}">Xóa</button>`:""}
+              ${(isAdmin() || v.nguoiSoan===currentUserName)?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vb="${v.id}" title="Xóa văn bản này (dùng khi lập thừa hoặc lập sai)">Xóa</button>`:""}
               ${v.linkedCardId
                 ? `<div class="ddnl-hint" style="margin-top:4px;">🗂️ Đã có thẻ Kanban</div>`
                 : `<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-create-card="${v.id}" title="Tạo 1 thẻ trên bảng Kanban để theo dõi tiến độ văn bản này">🗂️ Tạo thẻ Kanban</button>`}
@@ -24094,15 +24158,7 @@ function renderVanBan(){
   ${(function(){
     // Phạm vi giống danh sách chính (User chỉ thấy của mình; Admin xem theo vbScopeAll) nhưng KHÔNG áp
     // dụng các bộ lọc tìm kiếm khác — mục đích là 1 bảng riêng luôn hiện đủ mọi việc còn tồn đọng.
-    const pending = vbRecords.filter(v=>{
-      if(!isAdmin()){ if(v.nguoiSoan!==currentUserName) return false; }
-      else if(!vbScopeAll && currentUserName && v.nguoiSoan!==currentUserName){ return false; }
-      return !VB_TRANG_THAI_DA_XONG.includes(vbNormTrangThai(v.trangThai||"Đang soạn"));
-    }).map(v=>{
-      const mocThoiGian = v.ngayGui || v.ngayLap || todayISO();
-      const soNgayCho = Math.max(0, Math.round((new Date(todayISO()) - new Date(mocThoiGian)) / 86400000));
-      return { v, soNgayCho };
-    }).sort((a,b)=>b.soNgayCho-a.soNgayCho);
+    const pending = vbGetTrackingList();
     const vbTrackTotalPages = Math.max(1, Math.ceil(pending.length / VB_LIST_PAGE_SIZE));
     if(vbTrackPage > vbTrackTotalPages) vbTrackPage = vbTrackTotalPages;
     if(vbTrackPage < 1) vbTrackPage = 1;
@@ -24116,6 +24172,10 @@ function renderVanBan(){
     };
     return `
   ${cardOpen('vb-tracking', '🕐 Bảng theo dõi tiến độ xử lý', 'Chỉ hiện những văn bản CHƯA hoàn thành — sắp xếp việc chờ lâu nhất lên đầu, viền đỏ nếu chờ quá '+NGUONG_CANH_BAO+' ngày, để dễ biết cái nào cần thúc giục.')}
+    <div class="ddnl-toolbar" style="justify-content:flex-end;margin-bottom:8px;">
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBTrackExportExcel" title="Xuất bảng theo dõi tiến độ ra file Excel"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBTrackExportWord" title="Xuất bảng theo dõi tiến độ ra file Word"><i class="ti ti-file-word"></i> Xuất Word</button>
+    </div>
     <div class="ddnl-rows-wrap">
     <table>
       <thead><tr><th style="width:36px;">#</th><th>Số VB</th><th>Nơi gửi</th><th>Về việc</th><th>Nơi nhận</th><th>Ngày gửi</th><th>Số ngày chờ</th><th>Trạng thái</th><th>Ghi chú tiến độ</th><th>Thao tác</th></tr></thead>
@@ -24628,6 +24688,10 @@ function bindVanBanEvents(){
     render();
   });
   set('ddnlBtnPreviewDraft', el=>el.onclick=()=>moXemTruocDraft());
+  set('ddnlBtnVBExportExcel', el=>el.onclick=()=>vbExportExcel());
+  set('ddnlBtnVBExportWord', el=>el.onclick=()=>vbExportWord());
+  set('ddnlBtnVBTrackExportExcel', el=>el.onclick=()=>vbExportTrackingExcel());
+  set('ddnlBtnVBTrackExportWord', el=>el.onclick=()=>vbExportTrackingWord());
   set('ddnlBtnSaveVB', el=>el.onclick=async ()=>{
     if(!draftVB.nguoiSoan){ alert("Vui lòng chọn Người soạn."); return; }
     if(!draftVB.hinhThucVB){ alert("Vui lòng chọn Thể loại văn bản (Giấy đề nghị/Tờ trình/Công văn…)."); return; }
@@ -24661,14 +24725,22 @@ function bindVanBanEvents(){
     if(!editingVBId && newKey){
       await createKanbanCardForVanBan({ id:newKey, ...rec });
     }
+    var soDaGop = null, gopOk = false;
     if(draftVB.soTongHopId){
-      await gopVaoSoTongHop(draftVB.soTongHopId, { ...rec, id: newKey||editingVBId });
+      soDaGop = soTongHopList.find(s=>s.id===draftVB.soTongHopId);
+      gopOk = await gopVaoSoTongHop(draftVB.soTongHopId, { ...rec, id: newKey||editingVBId });
     }
+    var soVBDaLuu = rec.soVanBan||"";
+    vbLastSaveNotice = {
+      soVanBan: soVBDaLuu,
+      tenSo: (soDaGop && gopOk) ? (soDaGop.ten||"(chưa đặt tên)") : "",
+      ok: !(soDaGop && !gopOk)
+    };
     draftVB = newDraftVB();
     editingVBId = null;
     render();
   });
-  set('ddnlBtnCancelEditVB', el=>el.onclick=()=>{ draftVB = newDraftVB(); editingVBId = null; render(); });
+  set('ddnlBtnCancelEditVB', el=>el.onclick=()=>{ draftVB = newDraftVB(); editingVBId = null; vbLastSaveNotice = null; render(); });
   document.querySelectorAll('[data-dl-vbfile]').forEach(b=>b.onclick=async ()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.dlVbfile);
     if(!v) return;
@@ -24683,6 +24755,7 @@ function bindVanBanEvents(){
     const v = vbRecords.find(x=>x.id===b.dataset.editVb);
     if(!v) return;
     if(!(isAdmin() || v.nguoiSoan===currentUserName)){ alert("Bạn chỉ có thể sửa văn bản do chính mình soạn. Liên hệ Admin nếu cần sửa văn bản của người khác."); return; }
+    vbLastSaveNotice = null;
     editingVBId = v.id;
     draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
     collapsedCards.delete('vb-form'); // luôn mở thẻ "Sửa văn bản" ra, tránh trường hợp thẻ đang bị Ẩn
@@ -24692,11 +24765,16 @@ function bindVanBanEvents(){
     if(cardEditVb) cardEditVb.scrollIntoView({behavior:'smooth', block:'start'});
   });
   document.querySelectorAll('[data-del-vb]').forEach(b=>b.onclick=async ()=>{
-    if(!isAdmin()) return;
-    if(!confirm("Xóa văn bản này khỏi sổ theo dõi?")) return;
+    const vPre = vbRecords.find(x=>x.id===b.dataset.delVb);
+    const laChuVanBan = vPre && vPre.nguoiSoan===currentUserName;
+    if(!isAdmin() && !laChuVanBan) return;
+    const confirmMsg = laChuVanBan && !isAdmin()
+      ? "Xóa văn bản này khỏi sổ theo dõi? (Dùng khi lập thừa hoặc lập sai — không thể khôi phục lại.)"
+      : "Xóa văn bản này khỏi sổ theo dõi?";
+    if(!confirm(confirmMsg)) return;
     const v = vbRecords.find(x=>x.id===b.dataset.delVb);
     const ok = await ddVanBanRef.child(b.dataset.delVb).remove().then(()=>true).catch(()=>{ alert("Không xóa được, kiểm tra kết nối mạng."); return false; });
-    if(ok && v && v.nguoiSoan !== currentUserName){
+    if(ok && v){
       ddVbAuditRef.push({
         thoiGian: Date.now(), nguoiThucHien: currentUserName || "Admin", hanhDong: "Xóa",
         moTa: `${v.soVanBan||b.dataset.delVb} (của ${v.nguoiSoan||"?"})`
@@ -25130,6 +25208,203 @@ function taoFileExcelTrongDeSoan(){
   XLSX.writeFile(wb, filename);
 }
 // ============================================================
+// XUẤT CẢ KHỐI "Danh sách văn bản đi" ra Excel/Word — dùng đúng danh sách
+// đang lọc/xem trên màn hình (vbFiltered()), không phải toàn bộ dữ liệu thô.
+// ============================================================
+function vbExportExcel(){
+  const list = vbFiltered();
+  if(!list.length){ alert('Không có văn bản nào khớp với bộ lọc đang chọn — điều chỉnh bộ lọc rồi thử xuất lại.'); return; }
+  if(typeof XLSX === 'undefined'){ alert("Không tải được thư viện xử lý Excel (XLSX). Kiểm tra kết nối mạng rồi thử lại."); return; }
+  const now=new Date();
+  const nowStr=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  let html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8">
+  <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>
+  <x:ExcelWorksheet><x:Name>Danh sach van ban</x:Name>
+  <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+  </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+  <style>
+    body{font-family:Times New Roman;font-size:11pt}
+    .title{font-size:14pt;font-weight:bold;text-align:center}
+    .org{font-size:10pt;text-align:center;color:#444}
+    .org2{font-size:10pt;text-align:center;color:#222;font-weight:700}
+    .th{background:#0d3b66;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #062544;padding:5px}
+    .td{border:1px solid #c5cfe8;padding:4px 6px;font-size:10pt;vertical-align:top;mso-number-format:'\\@'}
+    .td-c{border:1px solid #c5cfe8;padding:4px 6px;text-align:center;font-size:10pt;vertical-align:middle}
+    .ev{background:#f0f6ff}
+  </style></head><body>
+  <table>
+    <tr><td colspan="10" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>
+    <tr><td colspan="10" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>
+    <tr><td colspan="10" class="title">DANH SÁCH VĂN BẢN ĐI</td></tr>
+    <tr><td colspan="10" class="org">Xuất ngày: ${nowStr} &nbsp;|&nbsp; Tổng số: ${list.length} văn bản</td></tr>
+    <tr></tr>
+    <tr>
+      <td class="th">STT</td><td class="th">Số VB</td><td class="th">Nơi gửi</td><td class="th">Về việc</td>
+      <td class="th">Người soạn</td><td class="th">Người ký</td><td class="th">Nơi nhận</td>
+      <td class="th">Ngày lập</td><td class="th">Ngày gửi</td><td class="th">Trạng thái</td>
+    </tr>`;
+  list.forEach((v,i)=>{
+    const ev=i%2===1?' ev':'';
+    html+=`<tr>
+      <td class="td-c${ev}">${i+1}</td>
+      <td class="td${ev}" style="font-weight:bold">${esc(v.soVanBan||"")}</td>
+      <td class="td${ev}">${esc(v.loaiVanBan||"")}</td>
+      <td class="td${ev}">${esc(v.veViec||"")}</td>
+      <td class="td${ev}">${esc(v.nguoiSoan||"")}</td>
+      <td class="td${ev}">${esc(v.nguoiKy||"")}</td>
+      <td class="td${ev}">${esc((v.noiNhan||[]).join(", "))}</td>
+      <td class="td-c${ev}">${v.ngayLap?fmtDate(v.ngayLap):"—"}</td>
+      <td class="td-c${ev}">${v.ngayGui?fmtDate(v.ngayGui):"—"}</td>
+      <td class="td-c${ev}">${esc(vbNormTrangThai(v.trangThai||"Đang soạn"))}</td>
+    </tr>`;
+  });
+  html+=`</table></body></html>`;
+  const blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`DanhSachVanBan_GMHS_${todayISO()}.xls`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function vbExportWord(){
+  const list = vbFiltered();
+  if(!list.length){ alert('Không có văn bản nào khớp với bộ lọc đang chọn — điều chỉnh bộ lọc rồi thử xuất lại.'); return; }
+  const now=new Date();
+  const nowStr=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  let rowsHtml = list.map((v,i)=>`<tr>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${i+1}</td>
+      <td style="border:1px solid #000;padding:4px 6px;font-weight:bold;">${esc(v.soVanBan||"")}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(v.loaiVanBan||"")}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(v.veViec||"")}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(v.nguoiSoan||"")}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc((v.noiNhan||[]).join(", "))}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${v.ngayLap?fmtDate(v.ngayLap):"—"}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${esc(vbNormTrangThai(v.trangThai||"Đang soạn"))}</td>
+    </tr>`).join("");
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8"><title>Danh sách văn bản đi</title>
+  <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
+  <style>
+    @page Section1{size:842.0pt 595.0pt;mso-page-orientation:landscape;margin:28.0pt 22.0pt 28.0pt 22.0pt;}
+    div.Section1{page:Section1;}
+    body{font-family:'Times New Roman',Times,serif;font-size:12pt;}
+    h2{text-align:center;margin:2pt 0;} p.org{text-align:center;margin:1pt 0;font-weight:bold;}
+    table{width:100%;border-collapse:collapse;margin-top:10pt;table-layout:fixed;}
+    th{border:1px solid #000;padding:5px 6px;background:#dbe5f1;font-size:11pt;}
+    td{word-wrap:break-word;}
+  </style></head><body><div class="Section1">
+  <p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>
+  <p class="org">KHOA GÂY MÊ HỒI SỨC</p>
+  <h2>DANH SÁCH VĂN BẢN ĐI</h2>
+  <p style="text-align:center;">Xuất ngày: ${nowStr} — Tổng số: ${list.length} văn bản</p>
+  <table>
+    <thead><tr style="mso-yfti-irow:0;mso-yfti-firstrow:yes"><th style="width:5%;">STT</th><th style="width:11%;">Số VB</th><th style="width:11%;">Nơi gửi</th><th style="width:20%;">Về việc</th><th style="width:12%;">Người soạn</th><th style="width:20%;">Nơi nhận</th><th style="width:9%;">Ngày lập</th><th style="width:12%;">Trạng thái</th></tr></thead>
+    <tbody>
+    ${rowsHtml}
+    </tbody>
+  </table>
+  </div></body></html>`;
+  const blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`DanhSachVanBan_GMHS_${todayISO()}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function vbExportTrackingExcel(){
+  const pending = vbGetTrackingList();
+  if(!pending.length){ alert('Hiện không có văn bản nào đang tồn đọng để xuất.'); return; }
+  if(typeof XLSX === 'undefined'){ alert("Không tải được thư viện xử lý Excel (XLSX). Kiểm tra kết nối mạng rồi thử lại."); return; }
+  const now=new Date();
+  const nowStr=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  let html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8">
+  <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>
+  <x:ExcelWorksheet><x:Name>Theo doi tien do</x:Name>
+  <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+  </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+  <style>
+    body{font-family:Times New Roman;font-size:11pt}
+    .title{font-size:14pt;font-weight:bold;text-align:center}
+    .org{font-size:10pt;text-align:center;color:#444}
+    .org2{font-size:10pt;text-align:center;color:#222;font-weight:700}
+    .th{background:#b71c1c;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #7f0000;padding:5px}
+    .td{border:1px solid #f5c1c1;padding:4px 6px;font-size:10pt;vertical-align:top}
+    .td-c{border:1px solid #f5c1c1;padding:4px 6px;text-align:center;font-size:10pt;vertical-align:middle}
+    .ev{background:#fff5f5} .warn{color:#b00020;font-weight:bold}
+  </style></head><body>
+  <table>
+    <tr><td colspan="7" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>
+    <tr><td colspan="7" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>
+    <tr><td colspan="7" class="title">BẢNG THEO DÕI TIẾN ĐỘ XỬ LÝ VĂN BẢN</td></tr>
+    <tr><td colspan="7" class="org">Xuất ngày: ${nowStr} &nbsp;|&nbsp; Tổng số việc tồn đọng: ${pending.length}</td></tr>
+    <tr></tr>
+    <tr>
+      <td class="th">STT</td><td class="th">Số VB</td><td class="th">Nơi gửi</td><td class="th">Về việc</td>
+      <td class="th">Nơi nhận</td><td class="th">Ngày gửi</td><td class="th">Số ngày chờ</td>
+    </tr>`;
+  pending.forEach((p,i)=>{
+    const v=p.v, ev=i%2===1?' ev':'';
+    const warnCls = p.soNgayCho>15?' warn':'';
+    html+=`<tr>
+      <td class="td-c${ev}">${i+1}</td>
+      <td class="td${ev}" style="font-weight:bold">${esc(v.soVanBan||"")}</td>
+      <td class="td${ev}">${esc(v.loaiVanBan||"")}</td>
+      <td class="td${ev}">${esc(v.veViec||"")}</td>
+      <td class="td${ev}">${esc((v.noiNhan||[]).join(", "))}</td>
+      <td class="td-c${ev}">${v.ngayGui?fmtDate(v.ngayGui):"Chưa gửi"}</td>
+      <td class="td-c${ev}${warnCls}">${p.soNgayCho} ngày</td>
+    </tr>`;
+  });
+  html+=`</table></body></html>`;
+  const blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`TheoDoiTienDo_GMHS_${todayISO()}.xls`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function vbExportTrackingWord(){
+  const pending = vbGetTrackingList();
+  if(!pending.length){ alert('Hiện không có văn bản nào đang tồn đọng để xuất.'); return; }
+  const now=new Date();
+  const nowStr=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  let rowsHtml = pending.map((p,i)=>{
+    const v=p.v;
+    return `<tr>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${i+1}</td>
+      <td style="border:1px solid #000;padding:4px 6px;font-weight:bold;">${esc(v.soVanBan||"")}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(v.loaiVanBan||"")}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc(v.veViec||"")}</td>
+      <td style="border:1px solid #000;padding:4px 6px;">${esc((v.noiNhan||[]).join(", "))}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;">${v.ngayGui?fmtDate(v.ngayGui):"Chưa gửi"}</td>
+      <td style="border:1px solid #000;padding:4px 6px;text-align:center;${p.soNgayCho>15?'color:#b00020;font-weight:bold;':''}">${p.soNgayCho} ngày</td>
+    </tr>`;
+  }).join("");
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8"><title>Bảng theo dõi tiến độ xử lý</title>
+  <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
+  <style>
+    @page Section1{size:842.0pt 595.0pt;mso-page-orientation:landscape;margin:28.0pt 22.0pt 28.0pt 22.0pt;}
+    div.Section1{page:Section1;}
+    body{font-family:'Times New Roman',Times,serif;font-size:12pt;}
+    h2{text-align:center;margin:2pt 0;} p.org{text-align:center;margin:1pt 0;font-weight:bold;}
+    table{width:100%;border-collapse:collapse;margin-top:10pt;table-layout:fixed;}
+    th{border:1px solid #000;padding:5px 6px;background:#f5d6d6;font-size:11pt;}
+    td{word-wrap:break-word;}
+  </style></head><body><div class="Section1">
+  <p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>
+  <p class="org">KHOA GÂY MÊ HỒI SỨC</p>
+  <h2>BẢNG THEO DÕI TIẾN ĐỘ XỬ LÝ VĂN BẢN</h2>
+  <p style="text-align:center;">Xuất ngày: ${nowStr} — Tổng số việc tồn đọng: ${pending.length}</p>
+  <table>
+    <thead><tr style="mso-yfti-irow:0;mso-yfti-firstrow:yes"><th style="width:6%;">STT</th><th style="width:13%;">Số VB</th><th style="width:13%;">Nơi gửi</th><th style="width:24%;">Về việc</th><th style="width:24%;">Nơi nhận</th><th style="width:10%;">Ngày gửi</th><th style="width:10%;">Số ngày chờ</th></tr></thead>
+    <tbody>
+    ${rowsHtml}
+    </tbody>
+  </table>
+  </div></body></html>`;
+  const blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`TheoDoiTienDo_GMHS_${todayISO()}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+// ============================================================
 // XUẤT FILE .RTF THẬT (không phải HTML đội lốt .doc như trước) —
 // Word LUÔN mở được, không bị chặn bởi cảnh báo bảo mật "file tải từ Internet"
 // như kiểu file .doc giả trước đây từng gặp.
@@ -25516,6 +25791,8 @@ function buildVanBanPreviewHtml(data){
   .ddnl-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
   .ddnl-pv-toolbar span{color:#666;font-size:12px;margin-left:10px;}
   table, td, p { page-break-inside:auto; }
+  .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
+  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
   @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
 </style></head>
 <body>
@@ -25539,7 +25816,7 @@ function buildVanBanPreviewHtml(data){
   ${veViec?`<div class="ddnl-pv-veviec">(Về việc: ${esc(veViec)})</div>`:''}
   <p class="ddnl-pv-bold" style="margin:4px 0;">Kính gửi:</p>
   ${kinhGuiPhan}
-  <div style="margin-top:10px;">${noiDungPhan}</div>
+  <div class="ddnl-pv-content" style="margin-top:10px;">${noiDungPhan}</div>
   <table class="ddnl-pv-head" style="margin-top:26pt;"><tr>
     <td style="width:50%;text-align:center;">
       <div class="ddnl-pv-bold">NGƯỜI LẬP BẢNG</div>
