@@ -42608,6 +42608,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       <span id="nvkAdminActions" style="display:none;gap:8px;flex-wrap:wrap">
         <button class="tbtn" onclick="nvkOpenEdit(-1)" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-user-plus"></i> Thêm nhân viên</button>
         <button class="tbtn" onclick="document.getElementById('nvkImportFile').click()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-file-spreadsheet"></i> Nhập từ Excel</button>
+        <button class="tbtn" onclick="nvkPullCCHNFromCme()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-certificate"></i> Lấy Số CCHN từ CNKT</button>
         <input type="file" id="nvkImportFile" accept=".xlsx,.xls" style="display:none" onchange="nvkImportExcel(this.files[0])">
         <a href="javascript:void(0)" onclick="nvkShowImportHelp()" style="color:#fff;font-size:11.5px;text-decoration:underline;align-self:center">định dạng file?</a>
         <button class="tbtn" onclick="nvkOpenGroupManage()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-tags"></i> Quản lý nhóm</button>
@@ -42635,7 +42636,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       </div>
       <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
         <table class="nvk-table">
-          <thead><tr><th>#</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Thao tác</th></tr></thead>
+          <thead><tr><th>#</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Thao tác</th></tr></thead>
           <tbody id="nvkTbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr></tbody>
         </table>
       </div>
@@ -42654,6 +42655,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Nhóm</label><select id="nvkENhom" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"><option value="">— Chưa xếp nhóm —</option></select></div>
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Chức vụ (để trống nếu không có)</label><input type="text" id="nvkEChucVu" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
     <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Văn bằng</label><input type="text" id="nvkEVanBang" placeholder="VD: CNĐD, BS CKI…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Số chứng chỉ hành nghề (CCHN)</label><input type="text" id="nvkESoCCHN" placeholder="Để trống nếu không có" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
       <button onclick="nvkCloseEdit()" style="background:#fff;color:#555;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">Hủy</button>
       <button onclick="nvkSaveEdit()" style="background:#283593;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu</button>
@@ -42836,11 +42838,11 @@ function nvkRender(){
   var list = nvkGetFilteredList();
   if(cnt) cnt.textContent = list.length + ' / ' + nvkList.length + ' người';
   if(!nvkList.length){
-    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
     return;
   }
   if(!list.length){
-    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
     return;
   }
   tb.innerHTML = list.map(function(e,i){
@@ -42853,6 +42855,7 @@ function nvkRender(){
       + '<td>'+(e.nhom?'<span class="nvk-badge" style="background:#e3f2fd;color:#1565c0">'+nvkEsc(e.nhom)+'</span>':'')+'</td>'
       + '<td>'+(e.chucVu?'<span class="nvk-badge">'+nvkEsc(e.chucVu)+'</span>':'')+'</td>'
       + '<td>'+nvkEsc(e.vanBang||'')+'</td>'
+      + '<td>'+nvkEsc(e.soCCHN||'')+'</td>'
       + '<td style="white-space:nowrap">'
         + (nvkIsAdmin() ? (
           '<button onclick="nvkOpenEdit('+idx+')" style="background:#fff;color:#283593;border:1.5px solid #283593;border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> Sửa</button> '
@@ -42875,6 +42878,7 @@ function nvkOpenEdit(idx){
   document.getElementById('nvkEDonVi').value = e.donVi||'';
   document.getElementById('nvkEChucVu').value = e.chucVu||'';
   document.getElementById('nvkEVanBang').value = e.vanBang||'';
+  document.getElementById('nvkESoCCHN').value = e.soCCHN||'';
   document.getElementById('nvkEditModal').classList.add('on');
   setTimeout(function(){ document.getElementById('nvkEHoTen').focus(); }, 60);
 }
@@ -42891,7 +42895,8 @@ function nvkSaveEdit(){
     donVi: document.getElementById('nvkEDonVi').value.trim(),
     nhom: document.getElementById('nvkENhom').value || '',
     chucVu: document.getElementById('nvkEChucVu').value.trim(),
-    vanBang: document.getElementById('nvkEVanBang').value.trim()
+    vanBang: document.getElementById('nvkEVanBang').value.trim(),
+    soCCHN: document.getElementById('nvkESoCCHN').value.trim()
   };
   var newList = nvkList.slice();
   if(nvkEditingIdx>=0){ newList[nvkEditingIdx] = entry; } else { newList.push(entry); }
@@ -42915,13 +42920,50 @@ function nvkSaveArray(newList){
     alert('Lỗi lưu: '+err.message);
   });
 }
+// Lấy Số CCHN từ đúng nguồn "Hồ sơ chuyên môn" của thẻ CNKT theo TT32 (đường dẫn Firebase riêng
+// "cnktProfiles", khóa theo tên đã "làm sạch" ký tự đặc biệt) — đọc TRỰC TIẾP, độc lập, không
+// phụ thuộc module CNKT có đang mở hay không.
+function nvkCmeSafeKey(name){ return String(name||'').replace(/[.#$/\[\]\s]/g,'_'); }
+function nvkPullCCHNFromCme(){
+  if(!nvkIsAdmin()){ alert('⚠️ Chỉ Quản lý mới lấy/ghi Số CCHN hàng loạt được.'); return; }
+  var d = nvkGetDb();
+  if(!d){ alert('Không kết nối được Firebase.'); return; }
+  d.ref('cnktProfiles').once('value').then(function(snap){
+    var profiles = snap.val() || {};
+    if(!Object.keys(profiles).length){
+      alert('Chưa có ai nhập "Số CCHN" trong Hồ sơ chuyên môn của thẻ "CNKT theo TT32" cả — không có gì để lấy.\n\nMuốn có dữ liệu ở đây, cần vào thẻ CNKT theo TT32 → từng người tự khai "Số CCHN/GPHN" trong hồ sơ chuyên môn trước.');
+      return;
+    }
+    var newList = nvkList.map(function(x){ return Object.assign({}, x); });
+    var soCapNhat = 0, danhSachThayDoi = [], khongCoCCHN = [];
+    newList.forEach(function(e){
+      var key = nvkCmeSafeKey(e.ten);
+      var prof = profiles[key];
+      if(!prof || !prof.soCCHN){ return; }
+      if(prof.soCCHN !== e.soCCHN){
+        danhSachThayDoi.push(e.ten+': Số CCHN "'+(e.soCCHN||'trống')+'" → "'+prof.soCCHN+'"');
+        e.soCCHN = prof.soCCHN;
+        soCapNhat++;
+      }
+    });
+    if(!soCapNhat){
+      alert('Đã kiểm tra — không có Số CCHN nào mới để cập nhật (dữ liệu đang khớp sẵn, hoặc tên trong hồ sơ CNKT không khớp với tên trong danh sách nhân viên).');
+      return;
+    }
+    var thongBao = '✅ Tìm thấy '+soCapNhat+' người có Số CCHN trong hồ sơ CNKT, sẽ cập nhật:\n\n' + danhSachThayDoi.slice(0,25).join('\n') + (danhSachThayDoi.length>25?'\n… và '+(danhSachThayDoi.length-25)+' người khác':'');
+    if(!confirm(thongBao + '\n\nGhi lên hệ thống dùng chung ngay bây giờ?')) return;
+    nvkSaveArray(newList);
+  }).catch(function(err){
+    alert('Không đọc được dữ liệu CNKT: '+err.message);
+  });
+}
 function nvkShowImportHelp(){
   alert('File Excel cần có các cột này (dòng đầu là tiêu đề, đúng tên cột, không phân biệt hoa/thường):\n\n'
-    + 'tennv | ngaysinh | tenphai | Văn bằng | Chức vụ\n\n'
+    + 'tennv | ngaysinh | tenphai | Văn bằng | Chức vụ | Số CCHN\n\n'
     + '- tennv: Họ và tên (phải khớp ĐÚNG với tên đang có trong danh sách hiện tại để cập nhật; nếu không khớp tên nào, dòng đó sẽ được BỎ QUA, không tự thêm mới).\n'
     + '- ngaysinh: định dạng dd/mm/yyyy (VD: 17/11/1992).\n'
     + '- Văn bằng: VD "Cử nhân điều dưỡng", "Bác sĩ chuyên khoa II"...\n'
-    + '- Chức vụ: cột này KHÔNG BẮT BUỘC — có thì cập nhật, để trống thì giữ nguyên chức vụ cũ.\n\n'
+    + '- Chức vụ, Số CCHN: KHÔNG BẮT BUỘC — có thì cập nhật, để trống thì giữ nguyên dữ liệu cũ.\n\n'
     + '⚠️ Quan trọng: nếu trong khoa có 2 người TRÙNG TÊN, hệ thống sẽ DỪNG LẠI không nhập gì cả (để tránh gán nhầm thông tin người này cho người kia) — anh cần thêm hậu tố phân biệt trong file (VD "Nguyễn Văn A (Phòng Mổ)") trước khi nhập.\n\n'
     + 'Trước khi ghi thật, hệ thống sẽ hiện đầy đủ danh sách "sẽ đổi cái gì" để anh xem qua và xác nhận.');
 }
@@ -42949,6 +42991,7 @@ function nvkImportExcel(file){
       var idxNgaySinh = header.indexOf('ngaysinh');
       var idxVanBang = header.findIndex(function(h){ return h.indexOf('văn bằng')>-1 || h.indexOf('van bang')>-1; });
       var idxChucVu = header.findIndex(function(h){ return h.indexOf('chức vụ')>-1 || h.indexOf('chuc vu')>-1; });
+      var idxSoCCHN = header.findIndex(function(h){ return h.indexOf('cchn')>-1 || h.indexOf('chứng chỉ hành nghề')>-1 || h.indexOf('chung chi hanh nghe')>-1; });
       if(idxTen===-1){ alert('Không tìm thấy cột "tennv" trong file. Bấm "định dạng file?" để xem đúng mẫu cột cần có.'); return; }
       // Kiểm tra trùng tên NGAY TRONG FILE trước — nếu 2 dòng cùng tên, KHÔNG tự đoán ai là ai
       // (dễ gán nhầm thông tin người này cho người kia) — báo cho Admin biết để tách riêng, sửa tay.
@@ -42985,6 +43028,10 @@ function nvkImportExcel(file){
           var cv = String(r[idxChucVu]||'').trim();
           if(cv && cv!==newList[idxMatch].chucVu){ chiTiet.push('Chức vụ: "'+(newList[idxMatch].chucVu||'trống')+'" → "'+cv+'"'); newList[idxMatch].chucVu = cv; thayDoi = true; }
         }
+        if(idxSoCCHN>-1){
+          var cchn = String(r[idxSoCCHN]||'').trim();
+          if(cchn && cchn!==newList[idxMatch].soCCHN){ chiTiet.push('Số CCHN: "'+(newList[idxMatch].soCCHN||'trống')+'" → "'+cchn+'"'); newList[idxMatch].soCCHN = cchn; thayDoi = true; }
+        }
         if(thayDoi){ soCapNhat++; danhSachThayDoi.push(ten+': '+chiTiet.join('; ')); }
       }
       var thongBao = '✅ Sẽ cập nhật cho '+soCapNhat+' người:\n\n' + danhSachThayDoi.slice(0,20).join('\n') + (danhSachThayDoi.length>20?'\n… và '+(danhSachThayDoi.length-20)+' người khác':'');
@@ -43015,11 +43062,11 @@ function nvkExportExcel(){
     + '.org2{font-size:10pt;text-align:center;color:#222;font-weight:700} .th{background:#283593;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #1a237e;padding:5px}'
     + '.td{border:1px solid #c5cfe8;padding:4px 6px;font-size:10pt;vertical-align:top} .td-c{border:1px solid #c5cfe8;padding:4px 6px;text-align:center;font-size:10pt} .ev{background:#f0f2fa}</style>'
     + '</head><body><table>'
-    + '<tr><td colspan="7" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
-    + '<tr><td colspan="7" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
-    + '<tr><td colspan="7" class="title">DANH SÁCH NHÂN VIÊN</td></tr>'
-    + '<tr><td colspan="7" class="org">Xuất ngày: '+nowStr+' &nbsp;|&nbsp; Tổng số: '+list.length+' người</td></tr><tr></tr>'
-    + '<tr><td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Ngày sinh</td><td class="th">Đơn vị</td><td class="th">Nhóm</td><td class="th">Chức vụ</td><td class="th">Văn bằng</td></tr>';
+    + '<tr><td colspan="8" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
+    + '<tr><td colspan="8" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
+    + '<tr><td colspan="8" class="title">DANH SÁCH NHÂN VIÊN</td></tr>'
+    + '<tr><td colspan="8" class="org">Xuất ngày: '+nowStr+' &nbsp;|&nbsp; Tổng số: '+list.length+' người</td></tr><tr></tr>'
+    + '<tr><td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Ngày sinh</td><td class="th">Đơn vị</td><td class="th">Nhóm</td><td class="th">Chức vụ</td><td class="th">Văn bằng</td><td class="th">Số CCHN</td></tr>';
   list.forEach(function(e,i){
     var ev = i%2===1 ? ' ev' : '';
     html += '<tr>'
@@ -43030,6 +43077,7 @@ function nvkExportExcel(){
       + '<td class="td'+ev+'">'+nvkEsc(e.nhom||'')+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.chucVu||'')+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.vanBang||'')+'</td>'
+      + '<td class="td'+ev+'">'+nvkEsc(e.soCCHN||'')+'</td>'
       + '</tr>';
   });
   html += '</table></body></html>';
@@ -43053,6 +43101,7 @@ function nvkExportWord(){
       + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.nhom||'')+'</td>'
       + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.chucVu||'')+'</td>'
       + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.vanBang||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.soCCHN||'')+'</td>'
       + '</tr>';
   }).join('');
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
@@ -43065,7 +43114,7 @@ function nvkExportWord(){
     + '<p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p><p class="org">KHOA GÂY MÊ HỒI SỨC</p>'
     + '<h2>DANH SÁCH NHÂN VIÊN</h2>'
     + '<p style="text-align:center">Xuất ngày: '+nowStr+' — Tổng số: '+list.length+' người</p>'
-    + '<table><tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th></tr>'+rowsHtml+'</table>'
+    + '<table><tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th></tr>'+rowsHtml+'</table>'
     + '</div></body></html>';
   var blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
   var a = document.createElement('a');
