@@ -24323,6 +24323,7 @@ function renderVanBan(){
 
   ${cardOpen('vb-list', 'Danh sách văn bản đi', isAdmin() ? (vbScopeAll ? `🔓 Admin — đang xem TOÀN KHOA — ${list.length} / ${vbRecords.length} văn bản.` : `🔓 Admin — đang thu hẹp xem theo "${esc(currentUserName||"chưa chọn tên")}" — ${list.length} / ${vbRecords.length} văn bản.`) : `🔒 Bạn chỉ xem được văn bản do CHÍNH MÌNH soạn (${esc(currentUserName||"")}) — ${list.length} văn bản.`)}
     <div class="ddnl-toolbar" style="justify-content:flex-end;margin-bottom:8px;">
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBFlipView" title="Xem lần lượt từng văn bản đang lọc như lật từng trang sổ giấy — chọn khoảng &quot;Từ ngày lập / Đến ngày lập&quot; bên dưới trước khi bấm để chọn đúng phạm vi sổ"><i class="ti ti-books"></i> Xem lật trang</button>
       <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportExcel" title="Xuất danh sách đang lọc/xem ra file Excel"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
       <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportWord" title="Xuất danh sách đang lọc/xem ra file Word"><i class="ti ti-file-word"></i> Xuất Word</button>
     </div>
@@ -24941,6 +24942,7 @@ function bindVanBanEvents(){
     render();
   });
   set('ddnlBtnPreviewDraft', el=>el.onclick=()=>moXemTruocDraft());
+  set('ddnlBtnVBFlipView', el=>el.onclick=()=>openVanBanFlipView());
   set('ddnlBtnVBExportExcel', el=>el.onclick=()=>vbExportExcel());
   set('ddnlBtnVBExportWord', el=>el.onclick=()=>vbExportWord());
   set('ddnlBtnVBTrackExportExcel', el=>el.onclick=()=>vbExportTrackingExcel());
@@ -26137,7 +26139,11 @@ function ddnlChuanHoaFontXemTruoc(html){
   tmp.querySelectorAll('font').forEach(f=>{ f.removeAttribute('face'); f.removeAttribute('color'); f.removeAttribute('size'); });
   return tmp.innerHTML;
 }
-function buildVanBanPreviewHtml(data){
+// Tách riêng phần "thân văn bản" (khối quốc hiệu + tiêu đề + nội dung + chữ ký + nơi nhận) ra khỏi
+// hàm buildVanBanPreviewHtml, để dùng lại được cho cả "Xem trước 1 văn bản" (mở tab riêng, có
+// doctype/style đầy đủ) LẪN "Xem lật trang nhiều văn bản" (nhiều thân văn bản ghép trong 1 tab,
+// mỗi thân là 1 trang lật) — KHÔNG đổi bất kỳ nội dung/định dạng nào so với bản gốc trước đây.
+function buildVanBanBodyInnerHtml(data){
   const { soVanBan, ngayLapParts, hinhThucVB, veViec, noiNhan, nguoiSoan, chucDanh, nguoiKy, noiDungHtml, isBlank, nguoiLapLabel, chucDanhKy, tomTat } = data;
   const noiDungPhan = noiDungHtml ? ddnlChuanHoaFontXemTruoc(noiDungHtml)
     : (isBlank ? '<p style="margin:4px 0;">……………………………………………………………………………………………………………</p>'.repeat(4)
@@ -26145,30 +26151,7 @@ function buildVanBanPreviewHtml(data){
   const kinhGuiPhan = (noiNhan && noiNhan.length) ? noiNhan.map(n=>`<p style="margin:2px 0 2px 24px;">– ${esc(n)};</p>`).join('')
     : (isBlank ? '<p style="margin:2px 0 2px 24px;">– ……………………………………;</p>' : '');
   const noiNhanFooter = (noiNhan && noiNhan.length) ? '– Như trên;' : (isBlank ? '– ……………………………………;' : '');
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Xem trước — ${esc(soVanBan||hinhThucVB||'Văn bản')}</title>
-<style>
-  @page{size:A4;margin:15mm;}
-  body{font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 15mm 30mm;}
-  table.ddnl-pv-head{width:100%;table-layout:fixed;}
-  table.ddnl-pv-head td{vertical-align:top;padding:0;}
-  .ddnl-pv-center{text-align:center;white-space:nowrap;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
-  .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
-  .ddnl-pv-veviec{text-align:center;font-style:italic;margin:0 0 16pt;}
-  .ddnl-pv-so{display:inline-block;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
-  .ddnl-pv-noinhan{font-size:11pt;font-style:italic;margin:2px 0;}
-  .ddnl-pv-toolbar{text-align:center;margin-bottom:14px;}
-  .ddnl-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
-  .ddnl-pv-toolbar span{color:#666;font-size:12px;margin-left:10px;}
-  table, td, p { page-break-inside:auto; }
-  .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
-  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
-  @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
-</style></head>
-<body>
-  <div class="ddnl-pv-toolbar ddnl-pv-no-print">
-    <button onclick="window.print()">🖨 In ngay</button>
-    <span>Bản xem trước nhanh trên trình duyệt — dùng "Xuất Word" nếu cần file .doc để gửi/lưu chính thức.</span>
-  </div>
+  return `
   <table class="ddnl-pv-head"><tr>
     <td style="width:42%;">
       <div class="ddnl-pv-center" style="font-size:11.5pt;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
@@ -26202,8 +26185,246 @@ function buildVanBanPreviewHtml(data){
     <div class="ddnl-pv-noinhan">Nơi nhận:</div>
     ${noiNhanFooter?`<div class="ddnl-pv-noinhan">${esc(noiNhanFooter)}</div>`:''}
     <div class="ddnl-pv-noinhan">– Lưu: VT, Khoa GMHS.</div>
+  </div>`;
+}
+function buildVanBanPreviewHtml(data){
+  const soVanBan = data.soVanBan, hinhThucVB = data.hinhThucVB;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Xem trước — ${esc(soVanBan||hinhThucVB||'Văn bản')}</title>
+<style>
+  @page{size:A4;margin:15mm;}
+  body{font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 15mm 30mm;}
+  table.ddnl-pv-head{width:100%;table-layout:fixed;}
+  table.ddnl-pv-head td{vertical-align:top;padding:0;}
+  .ddnl-pv-center{text-align:center;white-space:nowrap;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
+  .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
+  .ddnl-pv-veviec{text-align:center;font-style:italic;margin:0 0 16pt;}
+  .ddnl-pv-so{display:inline-block;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
+  .ddnl-pv-noinhan{font-size:11pt;font-style:italic;margin:2px 0;}
+  .ddnl-pv-toolbar{text-align:center;margin-bottom:14px;}
+  .ddnl-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
+  .ddnl-pv-toolbar span{color:#666;font-size:12px;margin-left:10px;}
+  table, td, p { page-break-inside:auto; }
+  .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
+  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
+  @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
+</style></head>
+<body>
+  <div class="ddnl-pv-toolbar ddnl-pv-no-print">
+    <button onclick="window.print()">🖨 In ngay</button>
+    <span>Bản xem trước nhanh trên trình duyệt — dùng "Xuất Word" nếu cần file .doc để gửi/lưu chính thức.</span>
   </div>
+  ${buildVanBanBodyInnerHtml(data)}
 </body></html>`;
+}
+// ── XEM SỔ VĂN BẢN ĐI THEO DẠNG "LẬT TRANG" ──
+// Lấy đúng danh sách văn bản đang được lọc trên màn hình (Nơi gửi / Trạng thái / Người soạn /
+// Từ ngày lập / Đến ngày lập / Tìm nhanh — dùng chung hàm vbFiltered() nên tôn trọng luôn quyền
+// xem theo Admin/"Xem toàn khoa" hiện có), mở 1 tab mới hiển thị lần lượt từng văn bản như lật
+// từng trang sổ giấy. KHÔNG đổi/đụng tới bất kỳ hàm lọc, lưu, xuất Word/Excel nào đang có.
+function openVanBanFlipView(){
+  const list = vbFiltered();
+  if(!list.length){
+    alert('Không có văn bản nào phù hợp bộ lọc hiện tại để xem theo dạng lật trang.\nVui lòng chỉnh lại "Từ ngày lập" / "Đến ngày lập" (hoặc Nơi gửi, Trạng thái…) ở khối lọc phía trên rồi bấm lại.');
+    return;
+  }
+  // Sắp xếp cũ → mới theo Ngày lập, giống thứ tự trang trong 1 quyển sổ giấy thật (trang 1 là văn bản lập sớm nhất)
+  const sorted = list.slice().sort((a,b)=> (a.ngayLap||"").localeCompare(b.ngayLap||"") || (a.createdAt||0)-(b.createdAt||0));
+  const pagesHtml = sorted.map((v,idx)=>{
+    const ngayLapParts = (v.ngayLap||todayISO()).split("-");
+    const signerInfo = (config.signers||[]).find(x=>x.ten===v.nguoiKy) || { chucDanh:"Trưởng khoa" };
+    const inner = buildVanBanBodyInnerHtml({
+      soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
+      noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
+      nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy,
+      noiDungHtml: (v.noiDungSoan&&v.noiDungSoan.trim())?v.noiDungSoan:'', tomTat: v.tomTat||'',
+      isBlank: !(v.noiDungSoan&&v.noiDungSoan.trim())&&!v.tomTat
+    });
+    return `<div class="vbflip-page" data-idx="${idx}" style="${idx===0?'':'display:none;'}">
+      <div class="vbflip-pagesheet">${inner}</div>
+      <div class="vbflip-pageno vbflip-no-print">Trang ${idx+1}/${sorted.length} · Số VB: ${esc(v.soVanBan||'—')} · Ngày lập: ${fmtDate(v.ngayLap)}</div>
+    </div>`;
+  }).join('');
+  const dotsHtml = sorted.map((v,idx)=>`<span class="vbflip-dot${idx===0?' on':''}" data-goto="${idx}" title="Trang ${idx+1} — ${esc(v.soVanBan||'')}"></span>`).join('');
+  const rangeLabel = (vbFilter.tu?fmtDate(vbFilter.tu):'…') + ' → ' + (vbFilter.den?fmtDate(vbFilter.den):'…');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Sổ văn bản đi — Xem lật trang</title>
+<style>
+  *{box-sizing:border-box;}
+  @page{size:A4;margin:15mm;}
+  html,body{height:100%;}
+  body{font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;margin:0;padding:0;
+    background:radial-gradient(1200px 700px at 50% -10%,#3B6D11 0%,#1a4a12 42%,#0f2f0c 100%);
+    display:flex;flex-direction:column;overflow:hidden;}
+  .vbflip-topbar{flex:0 0 auto;position:relative;z-index:20;background:linear-gradient(135deg,#2d6a1f,#3B6D11 55%,#1a7a4a);color:#fff;
+    padding:10px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:'Segoe UI',Arial,sans-serif;box-shadow:0 3px 14px rgba(0,0,0,.28);}
+  .vbflip-topbar b{font-size:14.5px;letter-spacing:.2px;} .vbflip-range{font-size:11.5px;opacity:.82;}
+  .vbflip-topbar button{padding:7px 14px;font-size:13px;cursor:pointer;border-radius:8px;border:1.5px solid rgba(255,255,255,.45);
+    background:rgba(255,255,255,.14);color:#fff;font-family:inherit;font-weight:600;transition:background .15s,transform .1s;}
+  .vbflip-topbar button:hover:not(:disabled){background:rgba(255,255,255,.3);}
+  .vbflip-topbar button:active:not(:disabled){transform:scale(.96);}
+  .vbflip-topbar button:disabled{opacity:.3;cursor:not-allowed;}
+  .vbflip-counter{font-weight:800;min-width:64px;text-align:center;background:rgba(255,255,255,.16);border-radius:20px;padding:5px 12px;font-family:'Segoe UI',Arial,sans-serif;font-size:12.5px;}
+  .vbflip-zoom{display:flex;align-items:center;gap:2px;background:rgba(255,255,255,.14);border-radius:20px;padding:3px;}
+  .vbflip-zoom button{width:30px;height:30px;padding:0 !important;border-radius:50% !important;font-size:16px !important;line-height:1;display:flex;align-items:center;justify-content:center;}
+  .vbflip-zoom select{border:none;background:transparent;color:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:12.5px;font-weight:700;
+    padding:4px 2px;cursor:pointer;outline:none;}
+  .vbflip-zoom select option{color:#111;}
+  .vbflip-viewport{flex:1 1 auto;position:relative;display:flex;align-items:flex-start;justify-content:center;padding:26px 90px;overflow:auto;min-height:0;}
+  .vbflip-viewport.vbflip-fits{align-items:center;}
+  .vbflip-side{position:fixed;top:50%;transform:translateY(-50%);width:56px;height:56px;border-radius:50%;
+    background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-size:22px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s,transform .15s;z-index:15;backdrop-filter:blur(2px);}
+  .vbflip-side:hover:not(:disabled){background:rgba(255,255,255,.32);transform:translateY(-50%) scale(1.08);}
+  .vbflip-side:disabled{opacity:.25;cursor:not-allowed;}
+  .vbflip-side.prev{left:22px;} .vbflip-side.next{right:22px;}
+  .vbflip-stage{position:relative;max-width:210mm;width:100%;margin:0 auto;transform-origin:top center;transition:transform .15s ease;}
+  .vbflip-page{animation:vbflipIn .32s ease;}
+  @keyframes vbflipIn{from{opacity:0;transform:translateX(18px) scale(.985);}to{opacity:1;transform:translateX(0) scale(1);}}
+  .vbflip-pagesheet{background:#fff;border-radius:5px;padding:16px 15mm 24mm;position:relative;
+    box-shadow:
+      0 1px 0 #fff,
+      6px 6px 0 -2px #f3f3f3, 6px 6px 4px -1px rgba(0,0,0,.08),
+      12px 12px 0 -4px #ececec, 12px 12px 8px -3px rgba(0,0,0,.10),
+      0 18px 40px rgba(0,0,0,.35);}
+  .vbflip-pageno{text-align:center;font-family:'Segoe UI',Arial,sans-serif;font-size:11.5px;color:rgba(255,255,255,.75);margin-top:14px;}
+  .vbflip-dots{flex:0 0 auto;display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:10px 16px 14px;background:rgba(0,0,0,.14);}
+  .vbflip-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.35);cursor:pointer;transition:background .15s,transform .15s;}
+  .vbflip-dot:hover{background:rgba(255,255,255,.65);transform:scale(1.25);}
+  .vbflip-dot.on{background:#fff;transform:scale(1.35);box-shadow:0 0 0 3px rgba(255,255,255,.25);}
+  table.ddnl-pv-head{width:100%;table-layout:fixed;}
+  table.ddnl-pv-head td{vertical-align:top;padding:0;}
+  .ddnl-pv-center{text-align:center;white-space:nowrap;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
+  .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
+  .ddnl-pv-veviec{text-align:center;font-style:italic;margin:0 0 16pt;}
+  .ddnl-pv-so{display:inline-block;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
+  .ddnl-pv-noinhan{font-size:11pt;font-style:italic;margin:2px 0;}
+  .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
+  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
+  @media (max-width:760px){
+    .vbflip-viewport{padding:18px 14px;}
+    .vbflip-side{width:42px;height:42px;font-size:18px;}
+    .vbflip-side.prev{left:4px;} .vbflip-side.next{right:4px;}
+    .vbflip-pagesheet{padding:14px 8mm 20mm;box-shadow:0 10px 26px rgba(0,0,0,.32);}
+  }
+  @media print{
+    .vbflip-no-print, .vbflip-topbar, .vbflip-side, .vbflip-dots{display:none !important;}
+    html,body{height:auto;overflow:visible;background:#fff;}
+    .vbflip-viewport{display:block;padding:0;overflow:visible;}
+    .vbflip-page{display:block !important;animation:none;page-break-after:always;}
+    .vbflip-pagesheet{box-shadow:none;border-radius:0;padding:0;}
+  }
+</style></head>
+<body>
+  <div class="vbflip-topbar vbflip-no-print">
+    <b>📖 Sổ văn bản đi — Xem lật trang</b>
+    <span class="vbflip-range">Từ ngày lập: ${esc(rangeLabel)} · ${sorted.length} văn bản</span>
+    <span style="flex:1"></span>
+    <span class="vbflip-counter" id="vbflipCounter">1 / ${sorted.length}</span>
+    <div class="vbflip-zoom">
+      <button onclick="vbflipZoom(-10)" title="Thu nhỏ">－</button>
+      <select id="vbflipZoomSel" onchange="vbflipSetZoom(parseInt(this.value,10))">
+        <option value="50">50%</option>
+        <option value="65">65%</option>
+        <option value="75">75%</option>
+        <option value="90">90%</option>
+        <option value="100" selected>100%</option>
+        <option value="115">115%</option>
+        <option value="125">125%</option>
+        <option value="150">150%</option>
+        <option value="175">175%</option>
+        <option value="200">200%</option>
+      </select>
+      <button onclick="vbflipZoom(10)" title="Phóng to">＋</button>
+    </div>
+    <button onclick="window.print()">🖨 In tất cả</button>
+  </div>
+  <div class="vbflip-viewport">
+    <button class="vbflip-side prev" id="vbflipPrev" onclick="vbflipGo(-1)" disabled>‹</button>
+    <div class="vbflip-stage">${pagesHtml}</div>
+    <button class="vbflip-side next" id="vbflipNext" onclick="vbflipGo(1)" ${sorted.length<=1?'disabled':''}>›</button>
+  </div>
+  <div class="vbflip-dots vbflip-no-print" id="vbflipDots">${dotsHtml}</div>
+  <script>
+    var vbflipTotal = ${sorted.length};
+    var vbflipIdx = 0;
+    var vbflipZoomPct = 100;
+    var vbflipZoomSteps = [50,65,75,90,100,115,125,150,175,200];
+    function vbflipUpdateFit(){
+      var viewport = document.querySelector('.vbflip-viewport');
+      var stage = document.querySelector('.vbflip-stage');
+      if(!viewport || !stage) return;
+      var scaledH = stage.getBoundingClientRect().height;
+      var fits = scaledH <= (viewport.clientHeight - 52); // chừa khoảng đệm trên/dưới
+      viewport.classList.toggle('vbflip-fits', fits);
+      viewport.scrollTop = 0;
+    }
+    function vbflipApplyZoom(){
+      var stage = document.querySelector('.vbflip-stage');
+      if(stage) stage.style.transform = 'scale(' + (vbflipZoomPct/100) + ')';
+      var sel = document.getElementById('vbflipZoomSel');
+      if(sel){
+        var hasExact = Array.prototype.some.call(sel.options, function(o){ return parseInt(o.value,10)===vbflipZoomPct; });
+        if(!hasExact){
+          var opt = document.createElement('option');
+          opt.value = vbflipZoomPct; opt.textContent = vbflipZoomPct+'%';
+          sel.appendChild(opt);
+        }
+        sel.value = vbflipZoomPct;
+      }
+      setTimeout(vbflipUpdateFit, 0);
+    }
+    function vbflipSetZoom(pct){
+      vbflipZoomPct = Math.min(200, Math.max(40, pct));
+      vbflipApplyZoom();
+    }
+    function vbflipZoom(delta){
+      vbflipSetZoom(vbflipZoomPct + delta);
+    }
+    document.querySelector('.vbflip-viewport').addEventListener('wheel', function(e){
+      if(!e.ctrlKey) return;
+      e.preventDefault();
+      vbflipZoom(e.deltaY < 0 ? 10 : -10);
+    }, { passive:false });
+    function vbflipShow(next){
+      var pages = document.querySelectorAll('.vbflip-page');
+      if(!pages.length) return;
+      pages[vbflipIdx].style.display = 'none';
+      vbflipIdx = next;
+      var p = pages[vbflipIdx];
+      p.style.display = '';
+      p.style.animation = 'none'; void p.offsetWidth; p.style.animation = '';
+      document.getElementById('vbflipCounter').textContent = (vbflipIdx+1)+' / '+vbflipTotal;
+      document.getElementById('vbflipPrev').disabled = (vbflipIdx===0);
+      document.getElementById('vbflipNext').disabled = (vbflipIdx===vbflipTotal-1);
+      var dots = document.querySelectorAll('.vbflip-dot');
+      dots.forEach(function(d,i){ d.classList.toggle('on', i===vbflipIdx); });
+      var dOn = dots[vbflipIdx];
+      if(dOn && dOn.scrollIntoView) dOn.scrollIntoView({block:'nearest', inline:'center'});
+      setTimeout(vbflipUpdateFit, 0);
+    }
+    function vbflipGo(delta){
+      var next = Math.min(Math.max(vbflipIdx+delta,0), vbflipTotal-1);
+      if(next===vbflipIdx) return;
+      vbflipShow(next);
+    }
+    document.addEventListener('keydown', function(e){
+      if(e.key==='ArrowLeft') vbflipGo(-1);
+      if(e.key==='ArrowRight') vbflipGo(1);
+    });
+    document.getElementById('vbflipDots').addEventListener('click', function(e){
+      var dot = e.target.closest('[data-goto]');
+      if(!dot) return;
+      vbflipShow(parseInt(dot.dataset.goto,10));
+    });
+    window.addEventListener('resize', vbflipUpdateFit);
+    window.addEventListener('load', vbflipUpdateFit);
+    setTimeout(vbflipUpdateFit, 0);
+  ${'</'}script>
+</body></html>`;
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if(!win){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi bấm lại.'); return; }
+  setTimeout(()=>URL.revokeObjectURL(url), 15000);
 }
 function moXemTruocVanBan(v){
   try{
