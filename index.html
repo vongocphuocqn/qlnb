@@ -203,6 +203,12 @@ font-size:10px;color:var(--tx3)}
 .chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;flex-shrink:0}
 .ch-td{background:#FFF3E0;color:#E65100}.ch-dg{background:#E3F2FD;color:#1565C0}.ch-dn{background:#E8F5E9;color:#2E7D32}
 .ttext{color:#445;line-height:1.5;font-size:12px;white-space:pre-wrap;word-break:break-word}
+/* Khối "Đã hoàn thành" hiển thị NGAY trên thẻ ở bảng Kanban (không cần bấm Sửa) — tách hẳn thành
+   1 khối riêng, nổi bật, để không bị lẫn với danh sách "Cần làm" phía trên như trước đây. */
+.tdb{margin:6px 0 4px;background:#EAF7ED;border:1px solid #BFE6C6;border-left:4px solid #2E7D32;border-radius:8px;padding:7px 10px;}
+.tdb-head{font-size:11px;font-weight:800;color:#1B5E20;display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.tdb-item{font-size:12px;color:#1B5E20;line-height:1.55;display:flex;align-items:flex-start;gap:6px;white-space:pre-wrap;word-break:break-word;}
+.tdb-item i{margin-top:2px;flex-shrink:0;font-size:12px;}
 .cimgs{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
 .cimg{width:54px;height:54px;border-radius:6px;object-fit:cover;border:1.5px solid var(--bd);cursor:zoom-in}
 .cnote{background:#fffbea;border:1.5px solid #ffe082;border-radius:7px;
@@ -2254,11 +2260,14 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
 
 <!-- ══ MODAL: PHÂN CÔNG NGƯỜI XỬ LÝ (Dụng cụ sau mổ) ══ -->
 <div class="modal-bg" id="dctdAssignModal" style="z-index:700" onclick="if(event.target===this)dctdCloseAssign()">
-  <div class="modal">
-    <h3><i class="ti ti-user-plus"></i> Phân công người xử lý</h3>
+  <div class="modal" id="dctdAssignModalBox" style="transition:max-width .18s,width .18s">
+    <div style="display:flex;align-items:center;gap:8px">
+      <h3 style="flex:1;margin:0"><i class="ti ti-user-plus"></i> Phân công người xử lý</h3>
+      <button type="button" class="sdb-btn sdb-ghost" id="dctdAssignZoomBtn" style="padding:5px 10px;font-size:12px;flex-shrink:0" onclick="dctdToggleAssignZoom()"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+    </div>
     <div class="fg">
       <label>Nội dung</label>
-      <textarea id="dctdAssignText" disabled style="background:#f4f8f0;font-weight:600;color:#333;min-height:60px"></textarea>
+      <textarea id="dctdAssignText" disabled style="background:#f4f8f0;font-weight:600;color:#333;min-height:60px;transition:min-height .18s"></textarea>
     </div>
     <div class="fg">
       <label>Người phụ trách xử lý *</label>
@@ -2266,7 +2275,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     </div>
     <div class="fg">
       <label>Ghi chú giao việc (không bắt buộc)</label>
-      <textarea id="dctdAssignNote" placeholder="VD: Liên hệ kho vật tư kiểm tra trước, báo lại trong ngày..." style="min-height:60px"></textarea>
+      <textarea id="dctdAssignNote" placeholder="VD: Liên hệ kho vật tư kiểm tra trước, báo lại trong ngày..." style="min-height:60px;transition:min-height .18s"></textarea>
     </div>
     <div id="dctdAssignErr" style="display:none;color:#c62828;font-size:12px;margin-bottom:8px"><i class="ti ti-alert-circle"></i> Vui lòng chọn người phụ trách xử lý.</div>
     <div style="display:flex;gap:8px">
@@ -2303,6 +2312,27 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     <div style="display:flex;gap:8px">
       <button class="btnp" style="flex:1" onclick="briefSubmitDctdResolve()"><i class="ti ti-check"></i> Xác nhận đã xử lý</button>
       <button class="btne" style="flex:1" onclick="briefCloseDctdResolve()"><i class="ti ti-x"></i> Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: GHI LÝ DO (Dụng cụ sau mổ) — y hệt chức năng "+ Ghi lý do" bên Kanban ══ -->
+<div class="modal-bg" id="dctdNoteModal" style="z-index:700" onclick="if(event.target===this)dctdCloseNote()">
+  <div class="modal">
+    <h3><i class="ti ti-message-circle"></i> Ghi lý do / ghi chú thêm</h3>
+    <div class="fg">
+      <label>Phiếu</label>
+      <div id="dctdNoteCardInfo" style="font-size:12.5px;color:#555;padding:6px 0"></div>
+    </div>
+    <div class="fg">
+      <label>Lý do / ghi chú (tối đa 300 ký tự)</label>
+      <textarea id="dctdNoteText" maxlength="300" oninput="document.getElementById('dctdNoteChars').textContent=this.value.length+'/300'" style="min-height:80px" placeholder="VD: Đang chờ kho vật tư phản hồi, dự kiến có kết quả trong tuần..."></textarea>
+      <div id="dctdNoteChars" style="text-align:right;font-size:11px;color:#999;margin-top:2px">0/300</div>
+    </div>
+    <div id="dctdNoteErr" style="display:none;color:#c62828;font-size:12px;margin-bottom:8px"><i class="ti ti-alert-circle"></i> Vui lòng nhập lý do.</div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="dctdSaveNote()"><i class="ti ti-device-floppy"></i> Lưu</button>
+      <button class="btne" style="flex:1" onclick="dctdCloseNote()"><i class="ti ti-x"></i> Hủy</button>
     </div>
   </div>
 </div>
@@ -10375,7 +10405,18 @@ function notifGoTo(key){
   }
   if(key==='khan'||key==='treHan'||key==='hoanThanh'){
     enterApp();
-    setTimeout(function(){ openBriefModal(); },350);
+    setTimeout(function(){
+      openBriefModal();
+      // Rieng "hoanThanh": tu cuon xuong dung muc "Ban giao hoan thanh hom nay" sau khi
+      // briefLoadExtra() (goi ben trong openBriefModal) da nap xong danh sach, khong bat
+      // nguoi dung phai tu keo xuong tim qua nhieu muc khac o tren.
+      if(key==='hoanThanh'){
+        setTimeout(function(){
+          var el=document.getElementById('briefHoanThanhSection');
+          if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+        },250);
+      }
+    },350);
     return;
   }
   if(key==='cuoiThang'){
@@ -10599,7 +10640,7 @@ function nbWeekendBadgeHtml(dateStr){
   if(!w) return '';
   return ' <span style="display:inline-block;font-size:10px;font-weight:700;color:#e65100;background:#fff3e0;border:1px solid #ffb74d;border-radius:5px;padding:0 5px;margin-left:4px;vertical-align:middle" title="'+w.label+'">'+w.code+'</span>';
 }
-function ini(n){const p=n.trim().split(' ');return p.length>=2?(p[p.length-2][0]+p[p.length-1][0]).toUpperCase():n[0].toUpperCase();}
+function ini(n){n=String(n||'').trim();if(!n)return'?';const p=n.split(' ').filter(Boolean);return p.length>=2?(p[p.length-2][0]+p[p.length-1][0]).toUpperCase():n[0].toUpperCase();}
 function noAcc(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,c=>c==='đ'?'d':'D');}
 function priTag(p){
   if(p==='h')return'<span class="tp tp-h">🔴 Khẩn cấp</span>';
@@ -12262,7 +12303,7 @@ function renderCard(c){
     ${c.content?`<div class="ctext">${escNl(c.content)}</div>`:''}
     ${c.todo?`<div class="trow"><span class="chip ch-td">📋 Cần làm</span><span class="ttext">${escNl(c.todo)}</span></div>`:''}
     ${c.doing?`<div class="trow"><span class="chip ch-dg">⚙ Đang làm</span><span class="ttext">${escNl(c.doing)}</span></div>`:''}
-    ${c.done?`<div class="trow"><span class="chip ch-dn">✅ Hoàn thành</span><span class="ttext">${escNl(c.done)}</span></div>`:''}
+    ${c.done?`<div class="tdb"><div class="tdb-head"><i class="ti ti-circle-check"></i> Đã hoàn thành (${c.done.split('\n').map(s=>s.trim()).filter(Boolean).length})</div>${c.done.split('\n').map(s=>s.trim()).filter(Boolean).map(line=>`<div class="tdb-item"><i class="ti ti-check"></i><span>${escNl(line)}</span></div>`).join('')}</div>`:''}
     ${imgs}${noteHtml}${assignNoteHtml}${footer}${histPanel}
   </div>`;
 }
@@ -22209,6 +22250,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <span style="font-size:12px;color:#666;font-weight:600">Xuất Word gồm:</span>
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupGiao" checked style="width:auto" onchange="bgRenderViewBody()">Nhóm Giao - Nhận</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="bgExpGroupKhong" checked style="width:auto" onchange="bgRenderViewBody()">Nhóm Không bàn giao</label>
+      <button class="kpi-btn" style="padding:4px 10px;font-size:12px;border:1.5px solid #b45309;color:#b45309" onclick="bgExportWord(true)" title="Xem nhanh biên bản ngay trên trình duyệt, không cần mở Word"><i class="ti ti-eye"></i> Xem trước</button>
       <button class="kpi-btn" style="padding:4px 10px;font-size:12px;background:#b45309;color:#fff" onclick="bgExportWord()"><i class="ti ti-file-text"></i> Xuất Word</button>
       <button class="kpi-btn" id="bgEditBtn" style="display:none;padding:4px 10px;font-size:12px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="bgStartEdit()"><i class="ti ti-pencil"></i> Sửa biên bản</button>
       <button class="kpi-btn" id="bgDeleteBtn" style="display:none;padding:4px 10px;font-size:12px;background:#c62828;color:#fff" onclick="bgDeleteRecord()"><i class="ti ti-trash"></i> Xóa biên bản này</button>
@@ -22645,6 +22687,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <span style="font-size:12px;color:#666;font-weight:600">Xuất Word gồm:</span>
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupGayme" checked style="width:auto" onchange="pmRenderViewBody()">Gây mê</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="pmExpGroupDungcu" checked style="width:auto" onchange="pmRenderViewBody()">Dụng cụ</label>
+      <button class="kpi-btn" style="padding:4px 10px;font-size:12px;border:1.5px solid #0d6e6e;color:#0d6e6e" onclick="pmExportWord(true)" title="Xem nhanh biên bản ngay trên trình duyệt, không cần mở Word"><i class="ti ti-eye"></i> Xem trước</button>
       <button class="kpi-btn" style="padding:4px 10px;font-size:12px;background:#0d6e6e;color:#fff" onclick="pmExportWord()"><i class="ti ti-file-text"></i> Xuất Word</button>
       <button class="kpi-btn" id="pmEditBtn" style="display:none;padding:4px 10px;font-size:12px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="pmStartEdit()"><i class="ti ti-pencil"></i> Sửa biên bản</button>
       <button class="kpi-btn" id="pmDeleteBtn" style="display:none;padding:4px 10px;font-size:12px;background:#c62828;color:#fff" onclick="pmDeleteRecord()"><i class="ti ti-trash"></i> Xóa biên bản này</button>
@@ -26830,22 +26873,9 @@ function ddnlSanitizePasteHtml(html){
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   const boChoPhep = new Set(['B','STRONG','I','EM','U','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','P','BR','UL','OL','LI','SPAN','DIV','A']);
-  // Word nhét NGUYÊN đoạn định nghĩa font (@font-face, .MsoNormal...) vào bên trong 1 thẻ <style>
-  // (có khi kèm cả <!-- ... --> y hệt CSS thật, không phải comment HTML thật) — nội dung bên trong các
-  // thẻ này là CSS/JS THÔ, không phải chữ cần giữ lại, nên phải xoá SẠCH CẢ THẺ LẪN NỘI DUNG BÊN TRONG.
-  // Khác với các thẻ "lạ" khác (font, o:p...) chỉ cần bóc vỏ thẻ vì bên trong vẫn là chữ thật cần giữ.
-  const boXoaSachCaNoiDung = new Set(['STYLE','SCRIPT','TITLE','HEAD','META','LINK','XML','NOSCRIPT']);
   (function laMSach(node){
     Array.from(node.childNodes).forEach(child=>{
-      if(child.nodeType===8){ // comment node (VD <!--[if gte mso 9]>...<![endif]-->) -> bỏ hẳn
-        child.parentNode.removeChild(child);
-        return;
-      }
       if(child.nodeType===1){ // element
-        if(boXoaSachCaNoiDung.has(child.tagName)){
-          child.parentNode.removeChild(child);
-          return;
-        }
         if(!boChoPhep.has(child.tagName)){
           // Thẻ lạ (font, o:p, mso-...) -> giữ nội dung bên trong, bỏ vỏ thẻ
           while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
@@ -28950,6 +28980,14 @@ function closeDdnlScreen(){
   var dctdCu=null; // {name, role: 'admin'|'staff'}
 
   function dctdEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  // Helper cục bộ riêng cho module Dụng cụ sau mổ — TRÁNH dùng lại objToArray() của module khác
+  // vì hàm đó nằm trong 1 IIFE khác, không lộ ra ngoài (đây chính là nguyên nhân gây lỗi
+  // "objToArray is not defined" khi mở thẻ Dụng cụ sau mổ — đã sửa dứt điểm ở đây).
+  function dctdObjToArray(val){
+    if(!val) return [];
+    if(Array.isArray(val)) return val.filter(function(x){return x!=null;});
+    return Object.keys(val).map(function(k){ var o=Object.assign({},val[k]); o.id=k; return o; });
+  }
   function dctdFmtD(d){if(!d)return'';var p=d.split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d;}
   function dctdToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function dctdCalcDays(r){
@@ -29420,6 +29458,7 @@ function closeDdnlScreen(){
     if(dctdEditingId){
       var upd={date:date,setName:setName,persons:persons,discoverer:discoverer,dept:dept,lostPersons:lostPersons,items:items,hasReport:hasReport,reportRef:reportRef||null,note:note||null};
       dctdRef.child(dctdEditingId).update(upd).then(function(){
+        dctdPushHistory(dctdEditingId, 'Sửa thông tin phiếu');
         alert('✅ Đã cập nhật!');
         dctdEditingId=null;
         dctdResetForm();
@@ -29493,6 +29532,7 @@ window.briefSubmitDctdResolve = function(){
   }
   var xuLy={nguoiXuLy:who, thoiGian:(date||'')+' '+(hour||''), ghiChu:note, xuLyLuc:new Date().toISOString()};
   db.ref('dctdRecords').child(_dctdResolveRecId).update({status:'done', doneAt:(date||new Date().toISOString().slice(0,10)), xuLy:xuLy}).then(function(){
+    dctdPushHistory(_dctdResolveRecId, 'Xác nhận đã xử lý bởi '+who+' — '+note);
     briefCloseDctdResolve();
     if(typeof briefRefresh==='function' && document.getElementById('briefModal') && document.getElementById('briefModal').classList.contains('on')) briefRefresh();
   }).catch(function(e){ alert('Lỗi khi lưu: '+(e&&e.message?e.message:e)); });
@@ -29516,12 +29556,36 @@ window.dctdOpenAssign = function(recId){
     }
   }catch(e){}
   document.getElementById('dctdAssignModal').classList.add('on');
+  // Mỗi lần mở lại đều bắt đầu ở cỡ bình thường, tránh giữ trạng thái phóng to từ lần trước
+  var box=document.getElementById('dctdAssignModalBox');
+  if(box && box.dataset.zoomed==='1') dctdToggleAssignZoom();
   setTimeout(function(){ var el=document.getElementById('dctdAssignWho'); if(el) el.focus(); },100);
 };
 window.dctdCloseAssign = function(){
   document.getElementById('dctdAssignModal').classList.remove('on');
   _dctdAssignRecId=null;
 }
+// ── Phóng to khung "Phân công người xử lý" — mở rộng modal + 2 ô nội dung/ghi chú gần hết màn
+// hình, dễ đọc/gõ hơn với nội dung dài (danh sách dụng cụ nhiều dòng) ──
+window.dctdToggleAssignZoom = function(){
+  var box=document.getElementById('dctdAssignModalBox');
+  var ta1=document.getElementById('dctdAssignText');
+  var ta2=document.getElementById('dctdAssignNote');
+  var btn=document.getElementById('dctdAssignZoomBtn');
+  if(!box||!ta1||!ta2||!btn) return;
+  var zoomed = box.dataset.zoomed==='1';
+  if(zoomed){
+    box.style.maxWidth=''; box.style.width='';
+    ta1.style.minHeight='60px'; ta2.style.minHeight='60px';
+    btn.innerHTML='<i class="ti ti-arrows-maximize"></i> Phóng to';
+    box.dataset.zoomed='0';
+  } else {
+    box.style.maxWidth='94vw'; box.style.width='94vw';
+    ta1.style.minHeight='22vh'; ta2.style.minHeight='30vh';
+    btn.innerHTML='<i class="ti ti-arrows-minimize"></i> Thu nhỏ';
+    box.dataset.zoomed='1';
+  }
+};
 window.dctdSubmitAssign = function(){
   if(!_dctdAssignRecId){ dctdCloseAssign(); return; }
   var who=document.getElementById('dctdAssignWho').value.trim();
@@ -29529,14 +29593,63 @@ window.dctdSubmitAssign = function(){
   if(!who){ document.getElementById('dctdAssignErr').style.display='block'; flagFieldInvalid('dctdAssignWho','Vui lòng chọn người phụ trách'); return; }
   var phanCong={nguoiPhuTrach:who, ghiChu:note||null, luc:new Date().toISOString(), boiAi:(dctdCu&&dctdCu.name)||'Quản lý'};
   dctdRef.child(_dctdAssignRecId).update({status:'doing', phanCong:phanCong}).then(function(){
+    dctdPushHistory(_dctdAssignRecId, 'Phân công cho '+who+(note?(' — '+note):''));
     dctdCloseAssign();
   }).catch(function(err){ alert('Lỗi: '+err.message); });
 }
+  // ── Lịch sử thao tác (Lịch sử) — y hệt tinh thần "Lịch sử" bên Kanban: mỗi lần đổi trạng thái/
+  // phân công/xử lý/sửa/ghi lý do đều tự động thêm 1 dòng, KHÔNG cần thao tác gì thêm.
+  // Dùng push() thay vì đọc-rồi-ghi-đè để tránh mất dữ liệu khi nhiều người thao tác gần như cùng lúc.
+  function dctdPushHistory(id, action){
+    try{
+      dctdRef.child(id).child('history').push({ at:new Date().toISOString(), action:action, actor:(dctdCu&&dctdCu.name)||'' });
+    }catch(e){ console.warn('dctdPushHistory:', e); }
+  }
+  window.dctdToggleHistory = function(id){
+    var el=document.getElementById('dctdHist_'+id);
+    if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+  };
+  // ── "+ Ghi lý do" — mở modal riêng, KHÔNG cần vào "Sửa" mới ghi được, giống hệt Kanban ──
+  var _dctdNoteRecId=null;
+  window.dctdOpenNote = function(recId){
+    dctdFindRecordAnywhere(recId, function(r){
+      if(!r){ alert('Không tìm thấy phiếu.'); return; }
+      _dctdNoteRecId=recId;
+      var itemNames=(r.items||[]).map(function(it){return (it.name||'')+(it.qty>1?(' x'+it.qty):'');}).join(', ');
+      document.getElementById('dctdNoteCardInfo').innerHTML='<b>'+dctdEsc(r.setName||'')+'</b> · thiếu: '+dctdEsc(itemNames||'—');
+      var ta=document.getElementById('dctdNoteText');
+      ta.value=r.note||'';
+      document.getElementById('dctdNoteChars').textContent=ta.value.length+'/300';
+      document.getElementById('dctdNoteErr').style.display='none';
+      document.getElementById('dctdNoteModal').classList.add('on');
+      setTimeout(function(){ ta.focus(); },100);
+    });
+  };
+  window.dctdCloseNote = function(){
+    document.getElementById('dctdNoteModal').classList.remove('on');
+    _dctdNoteRecId=null;
+  };
+  window.dctdSaveNote = function(){
+    if(!_dctdNoteRecId){ dctdCloseNote(); return; }
+    var txt=document.getElementById('dctdNoteText').value.trim();
+    if(!txt){ document.getElementById('dctdNoteErr').style.display='flex'; flagFieldInvalid('dctdNoteText','Vui lòng nhập lý do'); return; }
+    dctdRef.child(_dctdNoteRecId).update({note:txt, noteAt:new Date().toISOString()}).then(function(){
+      dctdPushHistory(_dctdNoteRecId, 'Ghi/sửa lý do: '+txt);
+      dctdCloseNote();
+    }).catch(function(err){ alert('Lỗi: '+err.message); });
+  };
+  window.dctdDeleteNote = function(id){
+    if(!confirm('Xóa ghi chú này?')) return;
+    dctdRef.child(id).update({note:null, noteAt:null}).then(function(){
+      dctdPushHistory(id, 'Xóa lý do/ghi chú');
+    }).catch(function(err){ alert('Lỗi: '+err.message); });
+  };
 window.dctdMoveStatus=function(id,st){
     if(!dctdCu||dctdCu.role!=='admin'){alert('Chỉ Quản lý mới chuyển được trạng thái!');return;}
     var updates={status:st};
     updates.doneAt = st==='done' ? dctdToday() : null;
-    dctdRef.child(id).update(updates).catch(function(err){alert('Lỗi: '+err.message);});
+    var stLabel={todo:'Chưa xử lý',doing:'Đang xử lý',done:'Đã bồi hoàn/khắc phục'}[st]||st;
+    dctdRef.child(id).update(updates).then(function(){ dctdPushHistory(id,'Chuyển trạng thái → '+stLabel); }).catch(function(err){alert('Lỗi: '+err.message);});
   };
   window.dctdDeleteRecord=function(id){
     var r=dctdRecords.find(function(x){return x._id===id;});
@@ -29591,14 +29704,20 @@ window.dctdMoveStatus=function(id,st){
     var canEditThis=dctdCanEdit(r);
     var editDeleteBtns=canEditThis?('<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="dctdEditRecord(\''+r._id+'\')"><i class="ti ti-pencil"></i> Sửa</button>'+
         '<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #c62828;color:#c62828" onclick="dctdDeleteRecord(\''+r._id+'\')"><i class="ti ti-trash"></i></button>'):'';
+    var noteBtn=isA?('<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #b45309;color:#b45309" onclick="dctdOpenNote(\''+r._id+'\')"><i class="ti ti-message-circle"></i> '+(r.note?'Sửa lý do':'+ Ghi lý do')+'</button>'):'';
+    var histArr=dctdObjToArray(r.history).sort(function(a,b){return (a.at||'').localeCompare(b.at||'');});
+    var histBtn=histArr.length?('<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="dctdToggleHistory(\''+r._id+'\')"><i class="ti ti-history"></i> Lịch sử ('+histArr.length+')</button>'):'';
+    var histPanel=histArr.length?('<div id="dctdHist_'+r._id+'" style="display:none;margin-top:6px;padding:8px 10px;background:#f7f7f7;border-radius:8px;font-size:11px;color:#555">'+
+        histArr.map(function(h){return '<div style="padding:2px 0"><b>'+fmtDT(h.at)+'</b> — '+dctdEsc(h.action||'')+' <span style="color:#999">(bởi '+dctdEsc(h.actor||'')+')</span></div>';}).join('')+
+      '</div>'):'';
     if(isA){
       var mv='';
       if(r.status==='todo') mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;background:#0d47a1;color:#fff" onclick="dctdOpenAssign(\''+r._id+'\')"><i class="ti ti-user-plus"></i> Phân công xử lý</button>';
-      else if(r.status==='doing') mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;background:#00695c;color:#fff" onclick="dctdOpenResolve(\''+r._id+'\')"><i class="ti ti-check"></i> Xác nhận đã xử lý</button><button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="dctdMoveStatus(\''+r._id+'\',\'todo\')">← Chưa xử lý</button>';
+      else if(r.status==='doing') mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;background:#00695c;color:#fff" onclick="dctdOpenResolve(\''+r._id+'\')"><i class="ti ti-check"></i> Xác nhận đã xử lý</button><button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #0d47a1;color:#0d47a1" onclick="dctdOpenAssign(\''+r._id+'\')"><i class="ti ti-user-edit"></i> Sửa phân công</button><button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="dctdMoveStatus(\''+r._id+'\',\'todo\')">← Chưa xử lý</button>';
       else mv='<button class="kpi-btn" style="padding:4px 9px;font-size:11.5px;border:1.5px solid #999;color:#666" onclick="dctdMoveStatus(\''+r._id+'\',\'doing\')">← Đang xử lý</button>';
-      actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+mv+editDeleteBtns+'</div>';
+      actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+mv+editDeleteBtns+noteBtn+histBtn+'</div>';
     } else if(canEditThis){
-      actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+editDeleteBtns+'</div>';
+      actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+editDeleteBtns+histBtn+'</div>';
     }
     var personsHtml=persons.map(function(n){
       return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:#eef4fb;color:#185FA5;border:1px solid #c7ddf3;margin:2px 3px 0 0"><i class="ti ti-user" style="font-size:9px"></i> '+dctdEsc(n)+'</span>';
@@ -29653,6 +29772,7 @@ window.dctdMoveStatus=function(id,st){
       '<div style="margin-top:8px">'+reportBadge+'</div>'+
       '<div style="font-size:10.5px;color:#999;margin-top:6px">Người ghi nhận: '+dctdEsc(r.createdBy||'')+'</div>'+
       actions+
+      histPanel+
     '</div>';
   }
   window.dctdRenderAll=function(){
@@ -33935,7 +34055,7 @@ window.dctdMoveStatus=function(id,st){
     });
   };
 
-  window.bgExportWord=function(){
+  window.bgExportWord=function(previewOnly){
     var r=bgRecords[bgViewingId];
     if(!r){alert('Không có biên bản đang xem.');return;}
     var incGiao=(document.getElementById('bgExpGroupGiao')||{checked:true}).checked;
@@ -33958,6 +34078,10 @@ window.dctdMoveStatus=function(id,st){
     function buildAndDownload(qrDataUrl){
       var sigGiao=(r.xacNhanGiao||{}).chuKy;
       var sigNhan=(r.xacNhanNhan||{}).chuKy;
+      // Chữ ký mẫu đã đăng ký của từng người (nếu có) — chèn kèm để đối chiếu, tránh trường hợp
+      // nhờ người khác ký thay đối phó (chữ ký thực tế và chữ ký mẫu khác biệt rõ sẽ lộ ngay khi in ra xem).
+      var mauGiao = typeof timChuKyMauTheoTen==='function' ? timChuKyMauTheoTen(r.nguoiGiao) : null;
+      var mauNhan = typeof timChuKyMauTheoTen==='function' ? timChuKyMauTheoTen(r.nguoiNhan) : null;
       var groupsHtml='';
       var mucSo=0;
       var romanNum=['I','II','III'];
@@ -34010,16 +34134,32 @@ window.dctdMoveStatus=function(id,st){
         '<table class="sigtbl" border="0" cellpadding="0" cellspacing="0" style="border:none;margin-top:16px"><tr>'+
           '<td style="border:none;width:50%;text-align:center;vertical-align:top;padding:0">'+
             '<b>BÊN BÀN GIAO (CA ĐI)</b><br><i style="font-size:10pt">Ký, ghi rõ họ tên</i><br>'+
-            (sigGiao?('<img src="'+sigGiao+'" style="height:70px;max-width:220px">'):'<br><br><br><br>')+
+            (sigGiao?('<img src="'+sigGiao+'" width="150" height="48" style="width:150px;height:48px;object-fit:contain">'):'<br><br><br><br>')+
             '<br><b>'+bgEsc(r.nguoiGiao)+'</b>'+
+            (mauGiao?('<br><span style="font-size:8.5pt;color:#888">— Chữ ký mẫu đã đăng ký —</span><br><img src="'+mauGiao+'" width="70" height="24" style="width:70px;height:24px;object-fit:contain;border:1px solid #ccc;padding:1px">'):'')+
           '</td>'+
           '<td style="border:none;width:50%;text-align:center;vertical-align:top;padding:0">'+
             '<b>BÊN NHẬN (CA ĐẾN)</b><br><i style="font-size:10pt">Ký, ghi rõ họ tên</i><br>'+
-            (sigNhan?('<img src="'+sigNhan+'" style="height:70px;max-width:220px">'):'<br><br><br><br>')+
+            (sigNhan?('<img src="'+sigNhan+'" width="150" height="48" style="width:150px;height:48px;object-fit:contain">'):'<br><br><br><br>')+
             '<br><b>'+bgEsc(r.nguoiNhan)+'</b>'+
+            (mauNhan?('<br><span style="font-size:8.5pt;color:#888">— Chữ ký mẫu đã đăng ký —</span><br><img src="'+mauNhan+'" width="70" height="24" style="width:70px;height:24px;object-fit:contain;border:1px solid #ccc;padding:1px">'):'')+
           '</td>'+
         '</tr></table>'+
         '</body></html>';
+      // "Xem trước" (previewOnly=true) — mở ngay trong tab mới để xem/in nhanh, KHÔNG tải file .doc,
+      // đỡ phải chờ mở Word mỗi lần chỉ muốn xem lại. "Xuất Word" (mặc định) vẫn tải file .doc như cũ.
+      if(previewOnly){
+        var previewHtml=html.replace('<body>','<body><div class="no-print" style="text-align:center;padding:10px;background:#f5f5f5;border-bottom:1px solid #ddd">'+
+          '<button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#fff">🖨 In ngay</button> '+
+          '<span style="color:#666;font-size:12px;margin-left:10px">Bản xem nhanh trên trình duyệt — dùng "Xuất Word" nếu cần file .doc để gửi/lưu chính thức.</span>'+
+        '</div>').replace('</head>','<style>@media print{.no-print{display:none!important}}</style></head>');
+        var pvBlob=new Blob([previewHtml],{type:'text/html'});
+        var pvUrl=URL.createObjectURL(pvBlob);
+        var pvWin=window.open(pvUrl,'_blank');
+        if(!pvWin){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi bấm lại.'); return; }
+        setTimeout(function(){ URL.revokeObjectURL(pvUrl); },15000);
+        return;
+      }
       var blob=new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'});
       var a=document.createElement('a');a.href=URL.createObjectURL(blob);
       a.download='BienBan_BanGiao_HoiSuc_'+r.ngay+'.doc';
@@ -36091,7 +36231,7 @@ window.dctdMoveStatus=function(id,st){
     }).catch(function(err){ alert('Lỗi khi xóa: '+err.message); });
   };
 
-  window.pmExportWord=function(){
+  window.pmExportWord=function(previewOnly){
     var r=pmRecords[pmViewingId];
     if(!r){alert('Không có biên bản đang xem.');return;}
     var incGayme=(document.getElementById('pmExpGroupGayme')||{checked:true}).checked;
@@ -36111,6 +36251,10 @@ window.dctdMoveStatus=function(id,st){
     function buildAndDownload(qrDataUrl){
       var sigGiao=(r.xacNhanGiao||{}).chuKy;
       var sigNhan=(r.xacNhanNhan||{}).chuKy;
+      // Chữ ký mẫu đã đăng ký của từng người (nếu có) — chèn kèm để đối chiếu, tránh trường hợp
+      // nhờ người khác ký thay đối phó (chữ ký thực tế và chữ ký mẫu khác biệt rõ sẽ lộ ngay khi in ra xem).
+      var mauGiao = typeof timChuKyMauTheoTen==='function' ? timChuKyMauTheoTen(r.nguoiGiao) : null;
+      var mauNhan = typeof timChuKyMauTheoTen==='function' ? timChuKyMauTheoTen(r.nguoiNhan) : null;
       var groupsHtml='';
       var mucSo=0; var romanNum=['I','II'];
       if(incGayme){ groupsHtml+='<p><b>'+romanNum[mucSo]+'. Nhóm Gây mê</b></p>'+tableHtml(r.itemsGayme); mucSo++; }
@@ -36153,16 +36297,30 @@ window.dctdMoveStatus=function(id,st){
         '<table class="sigtbl" border="0" cellpadding="0" cellspacing="0" style="border:none;margin-top:16px"><tr>'+
           '<td style="border:none;width:50%;text-align:center;vertical-align:top">'+
             '<b>BÊN BÀN GIAO (CA ĐI)</b><br><i style="font-size:10pt">Ký, ghi rõ họ tên</i><br>'+
-            (sigGiao?('<img src="'+sigGiao+'" style="height:70px;max-width:220px">'):'<br><br><br><br>')+
+            (sigGiao?('<img src="'+sigGiao+'" width="150" height="48" style="width:150px;height:48px;object-fit:contain">'):'<br><br><br><br>')+
             '<br><b>'+pmEsc(r.nguoiGiao)+'</b>'+
+            (mauGiao?('<br><span style="font-size:8.5pt;color:#888">— Chữ ký mẫu đã đăng ký —</span><br><img src="'+mauGiao+'" width="70" height="24" style="width:70px;height:24px;object-fit:contain;border:1px solid #ccc;padding:1px">'):'')+
           '</td>'+
           '<td style="border:none;width:50%;text-align:center;vertical-align:top">'+
             '<b>BÊN NHẬN (CA ĐẾN)</b><br><i style="font-size:10pt">Ký, ghi rõ họ tên</i><br>'+
-            (sigNhan?('<img src="'+sigNhan+'" style="height:70px;max-width:220px">'):'<br><br><br><br>')+
+            (sigNhan?('<img src="'+sigNhan+'" width="150" height="48" style="width:150px;height:48px;object-fit:contain">'):'<br><br><br><br>')+
             '<br><b>'+pmEsc(r.nguoiNhan)+'</b>'+
+            (mauNhan?('<br><span style="font-size:8.5pt;color:#888">— Chữ ký mẫu đã đăng ký —</span><br><img src="'+mauNhan+'" width="70" height="24" style="width:70px;height:24px;object-fit:contain;border:1px solid #ccc;padding:1px">'):'')+
           '</td>'+
         '</tr></table>'+
         '</body></html>';
+      if(previewOnly){
+        var previewHtml=html.replace('<body>','<body><div class="no-print" style="text-align:center;padding:10px;background:#f5f5f5;border-bottom:1px solid #ddd">'+
+          '<button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#fff">🖨 In ngay</button> '+
+          '<span style="color:#666;font-size:12px;margin-left:10px">Bản xem nhanh trên trình duyệt — dùng "Xuất Word" nếu cần file .doc để gửi/lưu chính thức.</span>'+
+        '</div>').replace('</head>','<style>@media print{.no-print{display:none!important}}</style></head>');
+        var pvBlob=new Blob([previewHtml],{type:'text/html'});
+        var pvUrl=URL.createObjectURL(pvBlob);
+        var pvWin=window.open(pvUrl,'_blank');
+        if(!pvWin){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi bấm lại.'); return; }
+        setTimeout(function(){ URL.revokeObjectURL(pvUrl); },15000);
+        return;
+      }
       var blob=new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'});
       var a=document.createElement('a');a.href=URL.createObjectURL(blob);
       a.download='BienBan_BanGiao_PhongMo'+r.phong+'_'+r.ngay+'.doc';
@@ -41809,6 +41967,24 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
   </div>
 </div>
 
+<!-- MODAL: TÓM TẮT NHANH (để gửi nhóm nắm tình hình) -->
+<div class="modal-bg" id="sdbSummaryModal" style="z-index:750" onclick="if(event.target===this)sdbCloseSummary()">
+  <div class="modal" id="sdbSummaryModalBox" style="max-width:560px;transition:max-width .18s,width .18s">
+    <div style="display:flex;align-items:center;gap:8px">
+      <h3 style="flex:1;margin:0"><i class="ti ti-report"></i> Tóm tắt nhanh — gửi nhóm nắm tình hình</h3>
+      <button type="button" class="sdb-btn sdb-ghost" id="sdbSummaryZoomBtn" style="padding:5px 10px;font-size:12px;flex-shrink:0" onclick="sdbToggleSummaryZoom()"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+    </div>
+    <div style="font-size:12px;color:#666;margin:8px 0">Tự động rút từ bệnh nhân có ghi diễn biến + mục "Các vấn đề khác". Anh/chị có thể sửa lại trực tiếp trong khung dưới trước khi sao chép.</div>
+    <div class="fg">
+      <textarea id="sdbSummaryText" style="min-height:320px;font-family:inherit;font-size:13px;line-height:1.5;white-space:pre-wrap;transition:min-height .18s"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="sdbCopySummary()"><i class="ti ti-copy"></i> Sao chép</button>
+      <button class="btne" style="flex:1" onclick="sdbCloseSummary()"><i class="ti ti-x"></i> Đóng</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: THÊM MỚI / SỬA SỔ ĐI BUỒNG -->
 <div class="sdb-modal-bg" id="sdbFormModal" onclick="if(event.target===this)sdbCloseForm()">
   <div class="sdb-modal" id="sdbFormModalBox">
@@ -42214,6 +42390,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         + '<td>'+tt+'</td>'
         + '<td style="white-space:nowrap">'
           + '<button class="sdb-btn sdb-ghost" style="padding:4px 9px;font-size:11.5px" onclick="sdbOpenView(\''+e.id+'\')"><i class="ti ti-eye"></i> Xem</button> '
+          + '<button class="sdb-btn sdb-ghost" style="padding:4px 9px;font-size:11.5px" onclick="sdbOpenSummary(\''+e.id+'\')"><i class="ti ti-report"></i> Tóm tắt nhanh</button> '
           + '<button class="sdb-btn sdb-ghost" style="padding:4px 9px;font-size:11.5px" onclick="sdbOpenForm(\''+e.id+'\')"><i class="ti ti-edit"></i> Sửa</button> '
           + '<button class="sdb-btn sdb-danger" style="padding:4px 9px;font-size:11.5px" onclick="sdbDelete(\''+e.id+'\')"><i class="ti ti-trash"></i> Xóa</button>'
         + '</td>'
@@ -42581,6 +42758,85 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       }catch(err){ resolve(dataUrl); }
     });
   }
+  // ── TÓM TẮT NHANH — rút nội dung trọng tâm từ 1 buổi đi buồng để gửi nhóm nắm tình hình ──
+  // Chỉ lấy bệnh nhân CÓ ghi "Diễn biến" (đúng nghĩa "ca cần lưu ý" theo yêu cầu Trưởng khoa/ĐDT —
+  // không lấy toàn bộ danh sách bệnh nhân, vì bảng III vốn chỉ nên chứa các ca có diễn biến mới).
+  window.sdbBuildSummaryText = function(e){
+    var lines = [];
+    lines.push('📋 TÓM TẮT ĐI BUỒNG — '+ (e.phong||'') +' — '+ sdbFmtD(e.ngay));
+    lines.push('👩‍⚕️ ĐDT: '+(e.dieuDuongTruong||'—')+'  |  ĐDV: '+(e.dieuDuongVien||'—'));
+    lines.push('📊 Tổng BN: '+(e.tongSoBN||0)+'  (CS I: '+(e.csCap1||0)+', CS II: '+(e.csCap2||0)+', CS III: '+(e.csCap3||0)+')');
+    lines.push('');
+    var canLuuY = (e.benhNhan||[]).filter(function(b){ return b.dienBien && String(b.dienBien).trim(); });
+    if(canLuuY.length){
+      lines.push('⚠️ BỆNH NHÂN CẦN LƯU Ý ('+canLuuY.length+'):');
+      canLuuY.forEach(function(b,i){
+        var tt = [b.tuoi?(b.tuoi+' tuổi'):'', b.gioiTinh||''].filter(Boolean).join(', ');
+        lines.push((i+1)+'. '+(b.hoTen||'—')+(tt?(' ('+tt+')'):'')+(b.chanDoan?(' — '+b.chanDoan):''));
+        lines.push('   • Diễn biến: '+b.dienBien.trim());
+        if(b.chiDinh && String(b.chiDinh).trim()) lines.push('   • Chỉ định: '+b.chiDinh.trim());
+        lines.push('');
+      });
+    } else {
+      lines.push('⚠️ Không có ca nào ghi diễn biến trong buổi này.');
+      lines.push('');
+    }
+    var vdBG = e.banGiaoCa && String(e.banGiaoCa).trim() && e.banGiaoCa.trim()!=='—';
+    var vdNN = e.nhacNho && String(e.nhacNho).trim() && e.nhacNho.trim()!=='—';
+    var vdYK = e.ykienKhac && String(e.ykienKhac).trim() && e.ykienKhac.trim()!=='—';
+    if(vdBG||vdNN||vdYK){
+      lines.push('📝 VẤN ĐỀ CẦN LƯU Ý KHÁC:');
+      if(vdBG) lines.push('- Bàn giao ca trực: '+e.banGiaoCa.trim());
+      if(vdNN) lines.push('- Nhắc nhở/phê bình/khen thưởng: '+e.nhacNho.trim());
+      if(vdYK) lines.push('- Ý kiến khác: '+e.ykienKhac.trim());
+      lines.push('');
+    }
+    lines.push('— Khoa Gây mê Hồi sức · Sổ đi buồng '+(e.phong||''));
+    return lines.join('\n');
+  };
+  window.sdbOpenSummary = function(id){
+    var e = sdbEntries.find(function(x){ return x.id===id; });
+    if(!e){ alert('Không tìm thấy buổi đi buồng này.'); return; }
+    document.getElementById('sdbSummaryText').value = sdbBuildSummaryText(e);
+    document.getElementById('sdbSummaryModal').classList.add('on');
+    // Mỗi lần mở lại đều bắt đầu ở cỡ bình thường, tránh giữ trạng thái phóng to từ lần trước
+    var box=document.getElementById('sdbSummaryModalBox');
+    if(box && box.dataset.zoomed==='1') sdbToggleSummaryZoom();
+  };
+  window.sdbCloseSummary = function(){
+    document.getElementById('sdbSummaryModal').classList.remove('on');
+  };
+  // ── Phóng to khung Tóm tắt nhanh — mở rộng modal + khung nhập gần hết màn hình, dễ đọc/sửa
+  // với các buổi đi buồng có nhiều bệnh nhân cần lưu ý (nội dung dài, đỡ phải cuộn nhiều) ──
+  window.sdbToggleSummaryZoom = function(){
+    var box=document.getElementById('sdbSummaryModalBox');
+    var ta=document.getElementById('sdbSummaryText');
+    var btn=document.getElementById('sdbSummaryZoomBtn');
+    if(!box||!ta||!btn) return;
+    var zoomed = box.dataset.zoomed==='1';
+    if(zoomed){
+      box.style.maxWidth='560px'; box.style.width='';
+      ta.style.minHeight='320px'; ta.style.fontSize='13px';
+      btn.innerHTML='<i class="ti ti-arrows-maximize"></i> Phóng to';
+      box.dataset.zoomed='0';
+    } else {
+      box.style.maxWidth='94vw'; box.style.width='94vw';
+      ta.style.minHeight='68vh'; ta.style.fontSize='15px';
+      btn.innerHTML='<i class="ti ti-arrows-minimize"></i> Thu nhỏ';
+      box.dataset.zoomed='1';
+    }
+  };
+  window.sdbCopySummary = function(){
+    var ta = document.getElementById('sdbSummaryText');
+    ta.select(); ta.setSelectionRange(0, 999999);
+    var ok=false;
+    try{ ok = document.execCommand('copy'); }catch(e){}
+    var done = function(){ showAl ? showAl('✅ Đã sao chép — dán vào Zalo/Messenger để gửi nhóm.') : alert('✅ Đã sao chép! Dán vào Zalo/Messenger để gửi nhóm.'); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(done).catch(function(){ if(ok) done(); else alert('Không sao chép tự động được — vui lòng bôi đen và Ctrl+C thủ công.'); });
+    } else if(ok){ done(); }
+    else { alert('Không sao chép tự động được — vui lòng bôi đen và Ctrl+C thủ công.'); }
+  };
   function sdbExportWord(e){
     var rawChuKyDDV = sdbTimChuKy(e.dieuDuongVien);
     var rawChuKyDDT = sdbTimChuKy(e.dieuDuongTruong);
@@ -42641,8 +42897,12 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       + '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->'
       + '<style>@page Section1{size:595.0pt 842.0pt;margin:50.0pt 40.0pt 50.0pt 40.0pt;} div.Section1{page:Section1;}'
       + 'body{font-family:"Times New Roman",Times,serif;font-size:13pt;} .org{text-align:center;margin:1pt 0;font-weight:bold;} h2{text-align:center;margin:8pt 0 4pt;}'
+      // p{margin:2pt 0;line-height:108%;mso-line-height-rule:exact} — CHẶN Word tự chèn khoảng cách lớn
+      // (mặc định Word áp margin "auto" cho các <p> thường, khiến bản in bị rời rạc/xa dòng). Bắt buộc phải
+      // khai báo tường minh cả "line-height" LẪN "mso-line-height-rule:exact" thì Word mới ép giãn dòng đơn thật sự.
+      + 'p{margin:2pt 0;line-height:108%;mso-line-height-rule:exact;} td,th{line-height:108%;mso-line-height-rule:exact;}'
       + 'table{width:100%;border-collapse:collapse;margin-top:8pt;margin-bottom:10pt;} th{border:1px solid #000;padding:4px;background:#dbe5f1;font-size:11.5pt;}'
-      + '.lbl{font-weight:bold;}</style></head><body><div class="Section1">'
+      + '.lbl{font-weight:bold;margin:9pt 0 3pt;}</style></head><body><div class="Section1">'
       + noiDung
       + '</div></body></html>';
     var blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
@@ -42665,8 +42925,9 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         + '<style>@page{size:A4;margin:15mm;}'
         + 'body{font-family:"Times New Roman",Times,serif;font-size:13pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 15mm 30mm;}'
         + '.org{text-align:center;margin:1pt 0;font-weight:bold;} h2{text-align:center;margin:8pt 0 4pt;}'
+        + 'p{margin:2pt 0;} td,th{line-height:1.15;}'
         + 'table{width:100%;border-collapse:collapse;margin-top:8pt;margin-bottom:10pt;} th{border:1px solid #000;padding:4px;background:#dbe5f1;font-size:11.5pt;}'
-        + '.lbl{font-weight:bold;}'
+        + '.lbl{font-weight:bold;margin:9pt 0 3pt;}'
         + '.sdb-pv-toolbar{text-align:center;margin-bottom:14px;}'
         + '.sdb-pv-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}'
         + '@media print{ .sdb-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }'
