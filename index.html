@@ -26830,9 +26830,22 @@ function ddnlSanitizePasteHtml(html){
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   const boChoPhep = new Set(['B','STRONG','I','EM','U','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','P','BR','UL','OL','LI','SPAN','DIV','A']);
+  // Word nhét NGUYÊN đoạn định nghĩa font (@font-face, .MsoNormal...) vào bên trong 1 thẻ <style>
+  // (có khi kèm cả <!-- ... --> y hệt CSS thật, không phải comment HTML thật) — nội dung bên trong các
+  // thẻ này là CSS/JS THÔ, không phải chữ cần giữ lại, nên phải xoá SẠCH CẢ THẺ LẪN NỘI DUNG BÊN TRONG.
+  // Khác với các thẻ "lạ" khác (font, o:p...) chỉ cần bóc vỏ thẻ vì bên trong vẫn là chữ thật cần giữ.
+  const boXoaSachCaNoiDung = new Set(['STYLE','SCRIPT','TITLE','HEAD','META','LINK','XML','NOSCRIPT']);
   (function laMSach(node){
     Array.from(node.childNodes).forEach(child=>{
+      if(child.nodeType===8){ // comment node (VD <!--[if gte mso 9]>...<![endif]-->) -> bỏ hẳn
+        child.parentNode.removeChild(child);
+        return;
+      }
       if(child.nodeType===1){ // element
+        if(boXoaSachCaNoiDung.has(child.tagName)){
+          child.parentNode.removeChild(child);
+          return;
+        }
         if(!boChoPhep.has(child.tagName)){
           // Thẻ lạ (font, o:p, mso-...) -> giữ nội dung bên trong, bỏ vỏ thẻ
           while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
