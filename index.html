@@ -22953,7 +22953,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 .ddnl-cf-search i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ddnl-ink-soft);font-size:14px;}
 .ddnl-cf-search input{width:100%;padding:7px 10px 7px 30px;border:1px solid var(--ddnl-line);border-radius:8px;font-family:inherit;font-size:13px;}
 .ddnl-cf-search input:focus{outline:none;border-color:#1565C0;}
-.ddnl-combo-panel{position:absolute;top:100%;left:0;right:0;z-index:50;background:#fff;border:1px solid var(--ddnl-line);border-radius:8px;margin-top:2px;max-height:240px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.12);}
+.ddnl-combo-panel{position:absolute;top:100%;left:0;right:0;z-index:50;background:#fff;border:1px solid var(--ddnl-line);border-radius:8px;margin-top:2px;max-height:240px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.12);color:#1a1a1a;}
 .ddnl-combo-opt{padding:8px 12px;font-size:13px;cursor:pointer;}
 .ddnl-combo-opt:hover{background:var(--ddnl-g50,#eef3f2);}
 .ddnl-combo-empty{padding:8px 12px;font-size:12px;color:var(--ddnl-ink-soft);}
@@ -23115,17 +23115,31 @@ function ddnlBuildComboPanel(input, options, onPick, showAll){
     : `<div class="ddnl-combo-empty">Không có mục nào khớp — vẫn có thể tự gõ.</div>`;
   input.parentElement.appendChild(panel);
   panel.querySelectorAll('[data-val]').forEach(d=>{
-    d.onmousedown = (e)=>{ e.preventDefault(); input.value = d.dataset.val; onPick(d.dataset.val); panel.remove(); };
+    d.onmousedown = (e)=>{ e.preventDefault(); input.value = d.dataset.val; delete ddnlComboLiveValues[input.id]; onPick(d.dataset.val); panel.remove(); };
   });
 }
 function ddnlSetupCombo(inputId, getOptions, onPick){
   const input = document.getElementById(inputId);
   if(!input) return;
   input.autocomplete = 'off';
-  input.addEventListener('focus', ()=> ddnlBuildComboPanel(input, getOptions(), onPick, true));
-  input.addEventListener('click', ()=> ddnlBuildComboPanel(input, getOptions(), onPick, true));
-  input.addEventListener('input', ()=>{ onPick(input.value); ddnlBuildComboPanel(input, getOptions(), onPick, false); });
-  input.addEventListener('blur', ()=>{ setTimeout(()=>{ const p=document.getElementById(inputId+'_panel'); if(p) p.remove(); }, 150); });
+  const openPanel = ()=> ddnlBuildComboPanel(input, getOptions(), onPick, !input.value.trim());
+  input.addEventListener('focus', openPanel);
+  input.addEventListener('click', openPanel);
+  input.addEventListener('input', ()=>{ ddnlComboLiveValues[inputId] = input.value; ddnlBuildComboPanel(input, getOptions(), onPick, false); });
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const p = document.getElementById(inputId+'_panel');
+      if(p) p.remove();
+      delete ddnlComboLiveValues[inputId];
+      onPick(input.value);
+      input.blur();
+    } else if(e.key === 'Escape'){
+      const p = document.getElementById(inputId+'_panel');
+      if(p) p.remove();
+    }
+  });
+  input.addEventListener('blur', ()=>{ setTimeout(()=>{ const p=document.getElementById(inputId+'_panel'); if(p) p.remove(); delete ddnlComboLiveValues[inputId]; onPick(input.value); }, 150); });
 }
 /* ============================================================
    SEED DATA
@@ -23257,6 +23271,10 @@ var config = { employees: [], units: [], signers: [], templates: [], reasons: []
 let uploadingFile = false;
 let requests = [];
 let currentUserName = "";
+// Lưu tạm giá trị đang gõ dở trong các ô combo (vd ô "Người dùng"), để khi trang phải
+// render lại giữa lúc đang gõ (do dữ liệu đồng bộ real-time từ người khác), không bị
+// "trả về" giá trị cũ làm xáo trộn/mất chữ đang gõ.
+let ddnlComboLiveValues = {};
 let loaded = false;
 let activeTab = "new";
 // "dieudong" = vào từ thẻ "Điều động nhân lực" (hiện các tab: Lập phiếu mới/Danh sách phiếu/Thống kê giờ/Cấu hình)
@@ -23289,6 +23307,20 @@ function isGlobalAdmin(){
 }
 function isAdmin(){
   return ddnlLocalAdminUnlock || isGlobalAdmin();
+}
+// So khớp "Người lập" trên phiếu với tên người dùng đang chọn ở ô "Người dùng".
+// Cho phép "Người lập" có thêm tiền tố chức danh/văn bằng phía trước (vd "ĐDCKI. Võ Ngọc Phước")
+// mà vẫn nhận đúng là cùng một người với "Võ Ngọc Phước".
+function ddnlLaChuPhieu(nguoiLap, ten){
+  if(!nguoiLap || !ten) return false;
+  const norm = s => s.toString().trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ');
+  const a = norm(nguoiLap), b = norm(ten);
+  if(a === b) return true;
+  if(a.endsWith(b)){
+    const before = a.slice(0, a.length - b.length);
+    if(before === '' || /[\s.,:]$/.test(before)) return true;
+  }
+  return false;
 }
 // ---- Cổng đăng nhập riêng cho phân hệ "Giấy đề nghị" (ddnlMode==='vanban') ----
 // Mỗi nhân viên có mật khẩu riêng (config.vbUserAuth) để vào xem/soạn văn bản của MÌNH.
@@ -23785,7 +23817,7 @@ function renderHeader(){
         : `<span class="ddnl-hint">🔒 Vui lòng đăng nhập ở bên dưới để vào Sổ văn bản đi</span>`)
     : `<span>Người dùng:</span>
         <span style="position:relative;display:inline-block;">
-          <input type="text" id="ddnlUserSelect" autocomplete="off" style="min-width:220px;" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(currentUserName||"")}">
+          <input type="text" id="ddnlUserSelect" autocomplete="off" style="min-width:220px;" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(ddnlComboLiveValues.ddnlUserSelect !== undefined ? ddnlComboLiveValues.ddnlUserSelect : (currentUserName||""))}">
         </span>
         ${leader?'<span class="ddnl-hdr-badge" title="Chỉ mang tính hiển thị, không tự cấp quyền Admin">Trưởng/Phó khoa</span>':''}`;
   return `
@@ -24106,7 +24138,13 @@ function renderList(){
             <td>${total}</td>
             <td>${fmtDate(r.tuNgay)} – ${fmtDate(r.denNgay)}</td>
             <td>
-              <span class="ddnl-status ${cls}">${esc(r.trangThai)}</span><br>
+              <span class="ddnl-status ${cls}">${esc(r.trangThai)}</span>
+              ${(isAdmin() || (ddnlLaChuPhieu(r.nguoiLap, currentUserName) && r.trangThai==="Chờ duyệt"))?`<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" style="margin-top:4px;padding:2px 8px;font-size:11px;" data-edit-req="${r.id}">✏️ Sửa</button>`:""}<br>
+              ${(r.lichSuSua && r.lichSuSua.length) ? (()=>{
+                const lanCuoi = r.lichSuSua[r.lichSuSua.length-1];
+                const toanBo = r.lichSuSua.map(h=>`${h.nguoiSua} · ${new Date(h.thoiGian).toLocaleString('vi-VN')}`).join('\n');
+                return `<div class="ddnl-hint" style="margin-top:4px;font-size:11px;" title="${esc(toanBo)}">✏️ Đã sửa (${r.lichSuSua.length} lần) — gần nhất: ${esc(lanCuoi.nguoiSua)} · ${new Date(lanCuoi.thoiGian).toLocaleString('vi-VN')}</div>`;
+              })() : ""}
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" style="margin-top:4px;padding:2px 8px;font-size:11px;" data-attach="${r.id}" title="Đính kèm quyết định điều động (link ảnh chụp/Drive/file)">
                 📎 ${r.dinhKemLink?"Đã đính kèm":"Đính kèm"}
               </button>
@@ -24115,7 +24153,7 @@ function renderList(){
             <td>
               <div class="ddnl-list-actions">
                 <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-view="${r.id}">Xem / In</button>
-                ${isAdmin()?`<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-req="${r.id}">Sửa</button>`:""}
+                ${(isAdmin() || (ddnlLaChuPhieu(r.nguoiLap, currentUserName) && r.trangThai==="Chờ duyệt"))?`<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-req="${r.id}">Sửa</button>`:""}
                 ${isAdmin() && r.trangThai==="Chờ duyệt"?`<button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-approve="${r.id}">Đã duyệt</button>`:""}
                 ${isAdmin() && r.trangThai!=="Đã hủy"?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-cancel="${r.id}">Hủy</button>`:""}
               </div>
@@ -27951,6 +27989,10 @@ function bindNewFormEvents(){
     let ok;
     if(editingRequestId){
       // Đang SỬA phiếu có sẵn — cập nhật, giữ nguyên số phiếu/ngày tạo
+      // Ghi vết người sửa + thời điểm sửa (không xóa lịch sử cũ, chỉ nối thêm)
+      const recDangSua = requests.find(x=>x.id===editingRequestId);
+      const nguoiThucHienSua = currentUserName || (isAdmin() ? "Admin" : nguoiLap);
+      const lichSuSuaMoi = [...((recDangSua && recDangSua.lichSuSua) || []), { nguoiSua: nguoiThucHienSua, thoiGian: Date.now() }];
       ok = await updateRequest(editingRequestId, {
         ngayLap, nguoiLap,
         nguoiKy: draftNguoiKy,
@@ -27959,7 +28001,8 @@ function bindNewFormEvents(){
         lyDoChiTiet: lyDoChiTietValid,
         rows: rowsValid,
         tuNgay, denNgay,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        lichSuSua: lichSuSuaMoi
       });
     } else {
       const year = ngayLap.split("-")[0];
@@ -28053,9 +28096,12 @@ function bindListEvents(){
     await updateRequest(b.dataset.cancel, { trangThai: "Đã hủy", updatedAt: Date.now() });
   });
   document.querySelectorAll('[data-edit-req]').forEach(b=>b.onclick= ()=>{
-    if(!isAdmin()) return;
     const r = requests.find(x=>x.id===b.dataset.editReq);
     if(!r) return;
+    if(!(isAdmin() || (ddnlLaChuPhieu(r.nguoiLap, currentUserName) && r.trangThai==="Chờ duyệt"))){
+      alert('Bạn chỉ có thể sửa phiếu do chính mình lập và đang ở trạng thái "Chờ duyệt".');
+      return;
+    }
     editingRequestId = r.id;
     draftRows = r.rows.map(row=>({...row}));
     draftLyDo = { ...r.lyDo };
