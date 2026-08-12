@@ -2134,7 +2134,11 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
       <textarea id="editAssignNote" style="min-height:40px" placeholder="VD: Anh/chị kiểm tra và xử lý trước ngày..."></textarea>
     </div>
     <div class="fg"><label>Nội dung báo cáo</label>
-      <textarea id="editContent" style="min-height:55px" placeholder="Nội dung..."></textarea>
+      <textarea id="editContent" style="min-height:55px" placeholder="Nội dung..." oninput="editRenderContentTickList()"></textarea>
+    </div>
+    <div class="fg" id="editContentTickWrap" style="display:none;margin-top:-3px">
+      <label style="color:#2e7d32">✓ Tích nhanh từng nội dung đã xong <span style="font-weight:400;color:#8098bb">(tích vào là tự chuyển dòng đó sang "Hoàn thành")</span></label>
+      <div id="editContentTickList" style="display:flex;flex-direction:column;gap:5px;padding:8px 10px;background:#f4faf5;border:1px solid #c8e6c9;border-radius:8px"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:9px">
       <div class="fg" style="margin:0"><label>Cần làm</label><textarea id="editTodo" style="min-height:48px" oninput="editRenderTickList()"></textarea></div>
@@ -11755,6 +11759,38 @@ function editRenderTickList(){
       <span style="white-space:pre-wrap">${escNl(line)}</span>
     </label>`).join('');
 }
+// Kiểm tra sau khi tích 1 dòng (ở "Cần làm" hoặc "Nội dung báo cáo"): nếu CẢ 3 ô Nội dung/Cần làm/Đang làm
+// đều đã trống hết -> TỰ ĐỘNG lưu và chuyển luôn thẻ này sang cột "Đã xong", giống hệt thẻ "Ghi chú nhanh".
+function editCheckAutoComplete(doneTa){
+  const ta = document.getElementById('editTodo');
+  const doingTa = document.getElementById('editDoing');
+  const contentTa = document.getElementById('editContent');
+  const hetViec = (!ta || ta.value.trim()==='') && (!doingTa || doingTa.value.trim()==='') && (!contentTa || contentTa.value.trim()==='');
+  if(!hetViec) return;
+  const c = cards.find(x=>x.id===editTargetId);
+  if(!c || c.status==='done' || !canEdit(c)) return;
+  const idVuaXong = editTargetId;
+  const hist=(c.history)?[...c.history]:[];
+  hist.push({action:'Tự động chuyển "Đã xong" — đã tích hết toàn bộ nội dung',actor:(cu&&cu.name)?cu.name:'Quản lý',at:new Date().toISOString()});
+  const updates = {
+    date: document.getElementById('editDate').value || c.date,
+    pri: document.getElementById('editPri').value,
+    dept: document.getElementById('editDept') ? document.getElementById('editDept').value : (c.dept||''),
+    content:'', todo:'', doing:'', done: doneTa.value.trim(),
+    imgs: (typeof editPendingImgs!=='undefined' && editPendingImgs.length) ? [...editPendingImgs] : (c.imgs||[]),
+    status:'done', doneAt: today(),
+    editedAt:new Date().toISOString(), editedBy:(cu&&cu.name)?cu.name:'Quản lý',
+    history:hist
+  };
+  setSyncStatus('sync');
+  cardsRef.child(String(idVuaXong)).update(updates)
+    .then(()=>{
+      showAl('✅ Đã hoàn thành hết nội dung — thẻ tự chuyển sang "Đã xong"!');
+      setSyncStatus('ok');
+      closeEditModal();
+    })
+    .catch(err=>{showAl('Lỗi: '+err.message,'err');setSyncStatus('err');});
+}
 function editTickDone(idx){
   const ta = document.getElementById('editTodo');
   const doneTa = document.getElementById('editDone');
@@ -11766,38 +11802,37 @@ function editTickDone(idx){
   ta.value = lines.join('\n');
   doneTa.value = (doneTa.value.trim() ? doneTa.value.trim()+'\n' : '') + line;
   editRenderTickList();
-  // Nếu vừa tích xong DÒNG CUỐI CÙNG trong "Cần làm" (và "Đang làm" cũng đang trống) -> TỰ ĐỘNG lưu
-  // và chuyển luôn thẻ này sang cột "Đã xong" — không hỏi lại, không cần chọn ngày gì thêm (mặc định
-  // lấy luôn ngày hôm nay làm ngày hoàn thành).
-  const doingTa = document.getElementById('editDoing');
-  const hetViec = ta.value.trim()==='' && (!doingTa || doingTa.value.trim()==='');
-  if(hetViec){
-    const c = cards.find(x=>x.id===editTargetId);
-    if(c && c.status!=='done' && canEdit(c)){
-      const idVuaXong = editTargetId;
-      const hist=(c.history)?[...c.history]:[];
-      hist.push({action:'Tự động chuyển "Đã xong" — đã tích hết toàn bộ nội dung "Cần làm"',actor:(cu&&cu.name)?cu.name:'Quản lý',at:new Date().toISOString()});
-      const updates = {
-        date: document.getElementById('editDate').value || c.date,
-        pri: document.getElementById('editPri').value,
-        dept: document.getElementById('editDept') ? document.getElementById('editDept').value : (c.dept||''),
-        content: document.getElementById('editContent').value.trim(),
-        todo:'', doing:'', done: doneTa.value.trim(),
-        imgs: (typeof editPendingImgs!=='undefined' && editPendingImgs.length) ? [...editPendingImgs] : (c.imgs||[]),
-        status:'done', doneAt: today(),
-        editedAt:new Date().toISOString(), editedBy:(cu&&cu.name)?cu.name:'Quản lý',
-        history:hist
-      };
-      setSyncStatus('sync');
-      cardsRef.child(String(idVuaXong)).update(updates)
-        .then(()=>{
-          showAl('✅ Đã hoàn thành hết nội dung — thẻ tự chuyển sang "Đã xong"!');
-          setSyncStatus('ok');
-          closeEditModal();
-        })
-        .catch(err=>{showAl('Lỗi: '+err.message,'err');setSyncStatus('err');});
-    }
-  }
+  editCheckAutoComplete(doneTa);
+}
+// Tích nhanh từng dòng trong "Nội dung báo cáo" -> tự chuyển dòng đó sang "Hoàn thành" ngay trên form
+// đang sửa, y hệt cơ chế "Cần làm" ở trên — dùng cho các báo cáo liệt kê nhiều nội dung/vật tư trực
+// tiếp trong ô "Nội dung báo cáo" thay vì tách riêng ra ô "Cần làm".
+function editRenderContentTickList(){
+  const wrap = document.getElementById('editContentTickWrap');
+  const list = document.getElementById('editContentTickList');
+  const ta = document.getElementById('editContent');
+  if(!wrap || !list || !ta) return;
+  const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(lines.length<2){ wrap.style.display='none'; list.innerHTML=''; return; }
+  wrap.style.display='block';
+  list.innerHTML = lines.map((line,i)=>`
+    <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;color:#333;cursor:pointer">
+      <input type="checkbox" onclick="editTickContentDone(${i})" style="margin-top:3px;width:16px;height:16px;flex-shrink:0">
+      <span style="white-space:pre-wrap">${escNl(line)}</span>
+    </label>`).join('');
+}
+function editTickContentDone(idx){
+  const ta = document.getElementById('editContent');
+  const doneTa = document.getElementById('editDone');
+  if(!ta || !doneTa) return;
+  const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(idx<0 || idx>=lines.length) return;
+  const line = lines[idx];
+  lines.splice(idx,1);
+  ta.value = lines.join('\n');
+  doneTa.value = (doneTa.value.trim() ? doneTa.value.trim()+'\n' : '') + line;
+  editRenderContentTickList();
+  editCheckAutoComplete(doneTa);
 }
 function openEditModal(id){
   const c=cards.find(x=>x.id===id);if(!c)return;
@@ -11817,6 +11852,7 @@ function openEditModal(id){
   document.getElementById('editDoing').value=c.doing||'';
   document.getElementById('editDone').value=c.done||'';
   editRenderTickList();
+  editRenderContentTickList();
   editPendingImgs=(c.imgs&&c.imgs.length)?[...c.imgs]:[];
   editRefreshPrev();
   const locked=!editable&&cu.role!=='admin';
@@ -12291,8 +12327,8 @@ function renderCard(c){
         // khi thẻ có nhiều nội dung con — giúp phân biệt nội dung nào xong, nội dung nào chưa mà
         // không cần mở thẻ ra xem chi tiết.
         const dm=s=>(s||'').split('\n').map(x=>x.trim()).filter(Boolean).length;
-        const soLam=dm(c.todo), soDangLam=dm(c.doing), soXong=dm(c.done);
-        const tong=soLam+soDangLam+soXong;
+        const soND=dm(c.content), soLam=dm(c.todo), soDangLam=dm(c.doing), soXong=dm(c.done);
+        const tong=soND+soLam+soDangLam+soXong;
         if(tong<2 || c.status==='done') return '';
         return `<span class="cedit-info" style="background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:1px 9px;font-weight:700"><i class="ti ti-list-check" style="font-size:10px"></i> ${soXong}/${tong} đã xong</span>`;
       })()}
