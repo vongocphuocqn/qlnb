@@ -2121,7 +2121,10 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
       </div>
     </div>
     <div class="fg"><label>Bộ phận báo cáo</label>
-      <select id="editDept"><option value="">-- Chọn bộ phận --</option></select>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="editDept" style="flex:1"><option value="">-- Chọn bộ phận --</option></select>
+        <button type="button" id="btnDeptCatalogEdit" onclick="deptOpenCatalogPanel()" title="Quản lý danh mục Bộ phận" style="display:none;flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1.5px solid var(--bd2);background:#fff;color:var(--g600);cursor:pointer;align-items:center;justify-content:center"><i class="ti ti-settings"></i></button>
+      </div>
     </div>
     <div class="fg"><label>Người phụ trách xử lý <span style="font-weight:400;color:#8098bb">(để trống nếu chưa phân công)</span></label>
       <div style="display:flex;gap:6px">
@@ -2627,7 +2630,8 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
       <div class="fbar">
         <i class="ti ti-filter" style="color:var(--g400);font-size:15px;flex-shrink:0"></i>
         <div class="ff"><label>Tên NV</label><input type="text" id="fName" placeholder="Tìm tên..." oninput="renderBoard()" style="width:150px"></div>
-        <div class="ff"><label>Người phụ trách</label><input type="text" id="fAssignee" list="kpiStaffDatalist" autocomplete="off" placeholder="Tìm người đã phân công..." oninput="renderBoard()" onchange="renderBoard()" style="width:170px"></div>
+        <div class="ff"><label>Người phụ trách</label><input type="text" id="fAssignee" list="fAssigneeDatalist" autocomplete="off" placeholder="Tìm người đã phân công..." oninput="renderBoard()" onchange="renderBoard()" style="width:170px"></div>
+        <datalist id="fAssigneeDatalist"></datalist>
         <div class="ff"><label>Bộ phận</label>
           <select id="fDept" onchange="renderBoard()" style="width:150px">
             <option value="">Tất cả</option>
@@ -10784,7 +10788,7 @@ function enterApp(){
   document.getElementById('tAv').textContent=ini(cu.name);
   document.getElementById('abanner').style.display=isA?'flex':'none';
   document.getElementById('filterSec').style.display=isA?'block':'none';
-  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','deptStatsCatalogBtn','btnToolbarCfg'].forEach(id=>{
+  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','btnDeptCatalogEdit','deptStatsCatalogBtn','btnToolbarCfg'].forEach(id=>{
     var el=document.getElementById(id);if(el)el.style.display=isA?'flex':'none';});
   if(isA){ loadToolbarCfgAndApply(); }
   document.getElementById('inPersonDisp').value=cu.name;
@@ -12366,6 +12370,11 @@ function renderBoard(){
   var addsec2=document.querySelector('.addsec');
   if(addsec2&&cu&&cu.role==='viewer')addsec2.style.display='none';
   if(!cu)return;
+  const dlAsg=document.getElementById('fAssigneeDatalist');
+  if(dlAsg){
+    const names=[...new Set(cards.filter(c=>c.assignee&&c.assignee.trim()).map(c=>c.assignee.trim()))].sort((a,b)=>a.localeCompare(b,'vi'));
+    dlAsg.innerHTML=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+  }
   const data=getFiltered();
   const td=dateFirstSort(data.filter(c=>c.status==='todo'));
   const dg=dateFirstSort(data.filter(c=>c.status==='doing'));
