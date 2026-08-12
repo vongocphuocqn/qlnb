@@ -2627,6 +2627,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
       <div class="fbar">
         <i class="ti ti-filter" style="color:var(--g400);font-size:15px;flex-shrink:0"></i>
         <div class="ff"><label>Tên NV</label><input type="text" id="fName" placeholder="Tìm tên..." oninput="renderBoard()" style="width:150px"></div>
+        <div class="ff"><label>Người phụ trách</label><input type="text" id="fAssignee" list="kpiStaffDatalist" autocomplete="off" placeholder="Tìm người đã phân công..." oninput="renderBoard()" onchange="renderBoard()" style="width:170px"></div>
         <div class="ff"><label>Bộ phận</label>
           <select id="fDept" onchange="renderBoard()" style="width:150px">
             <option value="">Tất cả</option>
@@ -12024,6 +12025,7 @@ function getFiltered(){
   if(cu.role==='staff'){return r.filter(c=>c.person===cu.name);}
   if(cu.role==='viewer'){return r;} // viewer sees all cards
   const nm=document.getElementById('fName').value||'';
+  const asg=document.getElementById('fAssignee')?document.getElementById('fAssignee').value||'':'';
   const dp=document.getElementById('fDept')?document.getElementById('fDept').value:'';
   const st=document.getElementById('fStatus').value||'';
   const pr=document.getElementById('fPri').value||'';
@@ -12031,6 +12033,7 @@ function getFiltered(){
   const to=document.getElementById('fTo').value||'';
   const qnOnly=document.getElementById('fQuickNote')?document.getElementById('fQuickNote').checked:false;
   if(nm)r=r.filter(c=>c.person.toLowerCase().includes(nm.toLowerCase())||vnNoAccent(c.person).includes(vnNoAccent(nm)));
+  if(asg)r=r.filter(c=>c.assignee&&(c.assignee.toLowerCase().includes(asg.toLowerCase())||vnNoAccent(c.assignee).includes(vnNoAccent(asg))));
   if(dp)r=r.filter(c=>c.dept===dp);
   if(st)r=r.filter(c=>c.status===st);
   if(pr)r=r.filter(c=>c.pri===pr);
@@ -12040,7 +12043,7 @@ function getFiltered(){
   return r;
 }
 function clearFilters(){
-  ['fName','fDept','fStatus','fPri','fFrom','fTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fName','fAssignee','fDept','fStatus','fPri','fFrom','fTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const qn=document.getElementById('fQuickNote'); if(qn) qn.checked=false;
   renderBoard();
 }
