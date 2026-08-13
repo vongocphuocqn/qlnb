@@ -9579,7 +9579,15 @@ function qlpUpdateField(id, field, value){
   if(!qlpIsAdmin()){ alert('Chỉ Quản lý mới được chỉnh sửa.'); qlpRender(); return; }
   const emp = QLP_EMPLOYEES.find(e=>e.id===id);
   if(!emp) return;
-  emp[field] = value===''? (field==='namtn'?null:0) : parseInt(value);
+  if(value===''){
+    emp[field] = (field==='namtn') ? null : 0;
+  } else if(field==='namtn'){
+    emp[field] = parseInt(value);
+  } else {
+    // Các trường tính theo ngày phép (đã nghỉ, khác, phép năm trước còn lại) cho phép số lẻ 0.5 (nghỉ nửa ngày).
+    const v = parseFloat(value);
+    emp[field] = isNaN(v) ? 0 : v;
+  }
   qlpSaveEmployees();
   qlpRender();
 }
@@ -9689,10 +9697,10 @@ function qlpRender(){
       <td><input class="qlp-editable" type="number" value="${e.namtn||''}" placeholder="—" ${ro} onchange="qlpUpdateField('${e.id}','namtn',this.value)"></td>
       <td>${base}</td>
       <td>${tham}${e.namtn===null||e.namtn===undefined?' <span class="qlp-missing-flag">*</span>':''}</td>
-      <td><input class="qlp-editable" type="number" value="${khac}" ${ro} onchange="qlpUpdateField('${e.id}','khac',this.value)"></td>
+      <td><input class="qlp-editable" type="number" step="0.5" value="${khac}" ${ro} onchange="qlpUpdateField('${e.id}','khac',this.value)"></td>
       <td><b>${total}</b></td>
-      <td><input class="qlp-editable" type="number" value="${carry}" ${ro} onchange="qlpUpdateField('${e.id}','carryover',this.value)"></td>
-      <td><input class="qlp-editable" type="number" value="${used}" ${ro} onchange="qlpUpdateField('${e.id}','daNghi',this.value)"></td>
+      <td><input class="qlp-editable" type="number" step="0.5" value="${carry}" ${ro} onchange="qlpUpdateField('${e.id}','carryover',this.value)"></td>
+      <td><input class="qlp-editable" type="number" step="0.5" value="${used}" ${ro} onchange="qlpUpdateField('${e.id}','daNghi',this.value)"></td>
       <td class="${remainYearClass}">${remainThisYear}</td>
       <td class="${remainClass}">${remain}</td>
       <td>${isAdminRow ? '<button class="qlp-btn2" style="color:#c62828;border-color:#c62828;padding:4px 8px;font-size:11px" onclick="qlpDeleteEmployee(\''+e.id+'\',\''+qlpEscapeHtml(e.name).replace(/'/g,"\\'")+'\')"><i class="ti ti-trash"></i> Xóa</button>' : '<span style="color:#ccc;font-size:11px">—</span>'}</td>
@@ -23429,7 +23437,7 @@ let vbLoaded = false;
 let draftVB = null;
 let editingVBId = null;
 let vbLastSaveNotice = null; // { soVanBan, tenSo, ok } — hiện ngay tại ô "Gộp vào Sổ tổng hợp" sau khi lưu, để không phải cuộn xuống bảng bên dưới kiểm tra
-let vbFilter = { loai:"", trangThai:"", nguoiSoan:"", tu:"", den:"", keyword:"" };
+let vbFilter = { loai:"", trangThai:"", nguoiSoan:"", tu:"", den:"", keyword:"", soTongHopId:"" };
 let vbListPage = 1; // trang hiện tại của bảng "Danh sách văn bản đi"
 let vbTrackPage = 1; // trang hiện tại của "Bảng theo dõi tiến độ xử lý"
 let vbDonePage = 1; // trang hiện tại của "Danh sách đã hoàn thành"
@@ -24256,6 +24264,7 @@ function vbFiltered(){
     if(vbFilter.loai && v.loaiVanBan!==vbFilter.loai) return false;
     if(vbFilter.trangThai && vbNormTrangThai(v.trangThai)!==vbFilter.trangThai) return false;
     if(vbFilter.nguoiSoan && !(v.nguoiSoan||"").toLowerCase().includes(vbFilter.nguoiSoan.toLowerCase())) return false;
+    if(vbFilter.soTongHopId && v.soTongHopId!==vbFilter.soTongHopId) return false;
     if(vbFilter.tu && v.ngayLap && v.ngayLap < vbFilter.tu) return false;
     if(vbFilter.den && v.ngayLap && v.ngayLap > vbFilter.den) return false;
     if(vbFilter.keyword){
@@ -24479,7 +24488,7 @@ function renderVanBan(){
 
   ${cardOpen('vb-list', 'Danh sách văn bản đi', isAdmin() ? (vbScopeAll ? `🔓 Admin — đang xem TOÀN KHOA — ${list.length} / ${vbRecords.length} văn bản.` : `🔓 Admin — đang thu hẹp xem theo "${esc(currentUserName||"chưa chọn tên")}" — ${list.length} / ${vbRecords.length} văn bản.`) : `🔒 Bạn chỉ xem được văn bản do CHÍNH MÌNH soạn (${esc(currentUserName||"")}) — ${list.length} văn bản.`)}
     <div class="ddnl-toolbar" style="justify-content:flex-end;margin-bottom:8px;">
-      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBFlipView" title="Xem lần lượt từng văn bản đang lọc như lật từng trang sổ giấy — chọn khoảng &quot;Từ ngày lập / Đến ngày lập&quot; bên dưới trước khi bấm để chọn đúng phạm vi sổ"><i class="ti ti-books"></i> Xem lật trang</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBFlipView" title="Xem lần lượt từng văn bản đang lọc như lật từng trang sổ giấy — chọn &quot;Sổ tổng hợp&quot; (và/hoặc khoảng &quot;Từ ngày lập / Đến ngày lập&quot;) bên dưới trước khi bấm để chỉ xem đúng các phiếu thuộc sổ đó"><i class="ti ti-books"></i> Xem lật trang</button>
       <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportExcel" title="Xuất danh sách đang lọc/xem ra file Excel"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
       <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportWord" title="Xuất danh sách đang lọc/xem ra file Word"><i class="ti ti-file-word"></i> Xuất Word</button>
     </div>
@@ -24498,6 +24507,13 @@ function renderVanBan(){
         </select>
       </div>
       ${isAdmin()?`<div class="ddnl-field"><label>Người soạn</label><input type="text" id="ddnlVBFl_nguoi" placeholder="Tìm tên…" value="${esc(vbFilter.nguoiSoan)}"></div>`:``}
+      <div class="ddnl-field">
+        <label>📚 Sổ tổng hợp</label>
+        <select id="ddnlVBFl_soTongHop">
+          <option value="">Tất cả</option>
+          ${soTongHopList.map(s=>`<option value="${esc(s.id)}" ${vbFilter.soTongHopId===s.id?"selected":""}>${esc(s.ten||"(chưa đặt tên)")} — ${s.soLuotGop||0} phiếu</option>`).join("")}
+        </select>
+      </div>
       <div class="ddnl-field"><label>Từ ngày lập</label><input type="date" id="ddnlVBFl_tu" value="${vbFilter.tu}"></div>
       <div class="ddnl-field"><label>Đến ngày lập</label><input type="date" id="ddnlVBFl_den" value="${vbFilter.den}"></div>
     </div>
@@ -25262,6 +25278,7 @@ document.querySelectorAll('[data-create-card]').forEach(b=>b.onclick=async ()=>{
   setupComboField('ddnlVBFl_loai', ()=>(config.docTypes&&config.docTypes.length?config.docTypes:SEED_DOC_TYPES), (val)=>{ vbFilter.loai = val; vbListPage = 1; render(); });
   const flTT=document.getElementById('ddnlVBFl_trangThai'); if(flTT) flTT.onchange=()=>{ vbFilter.trangThai=flTT.value; vbListPage = 1; render(); };
   const flNguoi=document.getElementById('ddnlVBFl_nguoi'); if(flNguoi) flNguoi.oninput=()=>{ vbFilter.nguoiSoan=flNguoi.value; vbListPage = 1; render(); };
+  const flSoTH=document.getElementById('ddnlVBFl_soTongHop'); if(flSoTH) flSoTH.onchange=()=>{ vbFilter.soTongHopId=flSoTH.value; vbListPage = 1; render(); };
   const flTu=document.getElementById('ddnlVBFl_tu'); if(flTu) flTu.onchange=()=>{ vbFilter.tu=flTu.value; vbListPage = 1; render(); };
   const flDen=document.getElementById('ddnlVBFl_den'); if(flDen) flDen.onchange=()=>{ vbFilter.den=flDen.value; vbListPage = 1; render(); };
   const flKeyword=document.getElementById('ddnlVBFl_keyword'); if(flKeyword) flKeyword.oninput=()=>{ vbFilter.keyword=flKeyword.value; vbListPage = 1; render(); };
@@ -26380,7 +26397,7 @@ function buildVanBanPreviewHtml(data){
 function openVanBanFlipView(){
   const list = vbFiltered();
   if(!list.length){
-    alert('Không có văn bản nào phù hợp bộ lọc hiện tại để xem theo dạng lật trang.\nVui lòng chỉnh lại "Từ ngày lập" / "Đến ngày lập" (hoặc Nơi gửi, Trạng thái…) ở khối lọc phía trên rồi bấm lại.');
+    alert('Không có văn bản nào phù hợp bộ lọc hiện tại để xem theo dạng lật trang.\nVui lòng chỉnh lại "Sổ tổng hợp" (hoặc "Từ ngày lập" / "Đến ngày lập", Nơi gửi, Trạng thái…) ở khối lọc phía trên rồi bấm lại.');
     return;
   }
   // Sắp xếp cũ → mới theo Ngày lập, giống thứ tự trang trong 1 quyển sổ giấy thật (trang 1 là văn bản lập sớm nhất)
