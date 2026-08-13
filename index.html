@@ -27003,11 +27003,21 @@ function ddnlSanitizePasteHtml(html){
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   const boChoPhep = new Set(['B','STRONG','I','EM','U','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','P','BR','UL','OL','LI','SPAN','DIV','A']);
+  // Các thẻ này KHÔNG được "bóc vỏ giữ nội dung" như font/o:p — vì nội dung bên trong chúng là mã
+  // CSS/JS/metadata thô (không phải chữ người đọc), nếu bóc vỏ sẽ lộ nguyên khối code ra thành chữ
+  // nhìn thấy được trong văn bản (đúng lỗi đã gặp khi dán từ Word/HTML có kèm khối <style> @font-face...).
+  // Phải XÓA HẲN cả thẻ lẫn nội dung bên trong, không giữ lại gì.
+  const boXoaHan = new Set(['STYLE','SCRIPT','HEAD','TITLE','META','LINK','NOSCRIPT','XML','TEMPLATE','IFRAME','OBJECT','EMBED']);
   (function laMSach(node){
     Array.from(node.childNodes).forEach(child=>{
+      if(child.nodeType===8){ child.parentNode.removeChild(child); return; } // <!-- comment/conditional Word --> -> xóa hẳn
       if(child.nodeType===1){ // element
+        if(boXoaHan.has(child.tagName) || child.tagName.includes(':')){
+          child.parentNode.removeChild(child);
+          return;
+        }
         if(!boChoPhep.has(child.tagName)){
-          // Thẻ lạ (font, o:p, mso-...) -> giữ nội dung bên trong, bỏ vỏ thẻ
+          // Thẻ lạ (font, o:p, span lạ...) -> giữ nội dung bên trong, bỏ vỏ thẻ
           while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
           child.parentNode.removeChild(child);
           return;
