@@ -660,6 +660,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <div class="home-card" data-hc="22" onclick="openSvttScreen()" style="background:linear-gradient(135deg,#1e3a5f,#0f2338);color:#fff;border-color:#0a1a28"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-school"></i><div class="home-card-title">SV/HV Thực hành<br>(Nghị định 96)</div><div class="home-card-sub">Quản lý sinh viên thực tập & học viên chứng chỉ hành nghề tại khoa</div></div>
       <div class="home-card" data-hc="23" onclick="sdbOpen()" style="background:linear-gradient(135deg,#0f766e,#134e4a);color:#fff;border-color:#0a3733"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-clipboard-heart"></i><div class="home-card-title">Sổ đi buồng<br>Điều dưỡng trưởng</div><div class="home-card-sub">Ghi nhận đi buồng hàng ngày — giám sát, nhiễm khuẩn, vệ sinh buồng bệnh, xuất Word</div></div>
       <div class="home-card" data-hc="24" onclick="nvkOpen()" style="background:linear-gradient(135deg,#5c6bc0,#283593);color:#fff;border-color:#1a237e"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-address-book"></i><div class="home-card-title">Danh sách<br>nhân viên khoa</div><div class="home-card-sub">Danh bạ tra cứu nhanh — họ tên, đơn vị, chức vụ, văn bằng. Ai cũng xem được</div></div>
+      <div class="home-card" data-hc="25" onclick="gcbcRequireAdmin()" style="background:linear-gradient(135deg,#b8860b,#7a5a05);color:#fff;border-color:#5c4404"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-notes"></i><div class="home-card-title">Ghi chú<br>Báo cáo</div><div class="home-card-sub">Ghi nhanh số liệu/sự kiện quanh năm — lọc theo chủ đề để soạn sơ kết, tổng kết (chỉ Quản lý)</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -14200,6 +14201,7 @@ function goAdminDirect(){
 function closeAdminHomeModal(){
   document.getElementById('adminHomeModal').classList.remove('on');
   _pqPendingOpen=false; // reset nếu người dùng bấm Hủy
+  _gcbcPendingOpen=false;
 }
 // doHomeAdminLogin defined below (full version with nghiphep support)
 
@@ -17222,6 +17224,12 @@ function doHomeAdminLogin(dest){
   if(_pqPendingOpen){
     _pqPendingOpen=false;
     _openPqSafe();
+    return;
+  }
+  // Nếu có pending mở Ghi chú Báo cáo
+  if(_gcbcPendingOpen){
+    _gcbcPendingOpen=false;
+    gcbcOpen();
     return;
   }
   if(dest==='kanban'||dest===undefined){
@@ -43763,6 +43771,561 @@ function nvkExportWord(){
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'DanhSachNhanVien_GMHS_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.doc';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+</script>
+
+<!-- ══════════════ MODULE: GHI CHÚ BÁO CÁO (độc lập, không dùng chung biến/hàm với module khác) ══════════════ -->
+<div id="gcbcScreen" style="display:none;min-height:100vh;background:#fbf7ec;flex-direction:column">
+  <div style="background:linear-gradient(135deg,#b8860b,#7a5a05);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+    <button onclick="gcbcClose()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button>
+    <i class="ti ti-notes" style="font-size:22px;color:#fff"></i>
+    <div>
+      <div style="color:#fff;font-size:15px;font-weight:700">Ghi chú Báo cáo — Khoa Gây mê Hồi sức</div>
+      <div style="color:rgba(255,255,255,.78);font-size:11px">Ghi nhanh số liệu/sự kiện quanh năm — lọc theo chủ đề &amp; thời gian khi soạn sơ kết, tổng kết</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+      <button class="tbtn" onclick="gcbcOpenCatManage()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-tags"></i> Quản lý danh mục</button>
+      <button class="tbtn" onclick="gcbcCopyText()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-copy"></i> Copy văn bản (đã lọc)</button>
+      <button class="tbtn" onclick="gcbcExportWord()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-file-word"></i> Xuất Word (đã lọc)</button>
+      <button class="tbtn" id="gcbcWideBtn" onclick="kpiToggleWideBox('gcbcMainBox','gcbcWideBtn')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
+    </div>
+  </div>
+
+  <div style="max-width:1080px;margin:0 auto;padding:16px 14px 60px;width:100%" id="gcbcMainBox">
+
+    <!-- FORM GHI NHANH -->
+    <div style="background:#fff;border:1.5px dashed #d9c48a;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#8a6d1f;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px"><i class="ti ti-square-plus"></i> Ghi chú mới</div>
+      <div style="display:grid;grid-template-columns:140px 1fr 220px;gap:9px;margin-bottom:9px">
+        <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Ngày sự việc</label>
+          <input type="date" id="gcbcNgay" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13px;font-family:inherit"></div>
+        <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Danh mục (chủ đề báo cáo)</label>
+          <select id="gcbcDanhMuc" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13px;font-family:inherit"></select></div>
+        <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Số liệu minh chứng (nếu có)</label>
+          <input type="text" id="gcbcSoLieu" placeholder="VD: 42/42 ca, đạt 100%" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      </div>
+      <div style="margin-bottom:9px"><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Nội dung ghi chú</label>
+        <textarea id="gcbcNoiDung" rows="2" placeholder="VD: Triển khai bảng kiểm an toàn phẫu thuật (Surgical Safety Checklist) cho 100% ca mổ tại 12 phòng mổ…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical"></textarea></div>
+      <div style="margin-bottom:9px">
+        <label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:5px">Đính kèm minh chứng (ảnh chụp / scan / tệp / link)</label>
+        <input type="file" id="gcbcFileCam" accept="image/*" capture="environment" style="display:none" onchange="gcbcHandleFiles(event,'add')">
+        <input type="file" id="gcbcFileGallery" accept="image/*" multiple style="display:none" onchange="gcbcHandleFiles(event,'add')">
+        <input type="file" id="gcbcFileDoc" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx" multiple style="display:none" onchange="gcbcHandleFiles(event,'add')">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button type="button" onclick="document.getElementById('gcbcFileCam').click()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-camera"></i> Chụp ảnh</button>
+          <button type="button" onclick="document.getElementById('gcbcFileGallery').click()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-photo"></i> Chọn ảnh / scan</button>
+          <button type="button" onclick="document.getElementById('gcbcFileDoc').click()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-paperclip"></i> Chọn tệp</button>
+          <input type="text" id="gcbcLinkInput" placeholder="Dán link minh chứng (Drive, Zalo…)" style="flex:1;min-width:180px;padding:6px 10px;border:1.5px solid #d9c48a;border-radius:7px;font-size:12px;font-family:inherit">
+          <button type="button" onclick="gcbcAddLink('add')" style="background:#fff;color:#3949ab;border:1.5px solid #c5cae9;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-link"></i> Thêm link</button>
+        </div>
+        <div id="gcbcAttPrev" style="display:flex;gap:10px;flex-wrap:wrap"><span style="font-size:12px;color:#aaa">Chưa có minh chứng nào</span></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button onclick="gcbcSaveNote()" style="background:#8a6d1f;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu ghi chú</button>
+      </div>
+    </div>
+
+    <!-- BỘ LỌC -->
+    <div style="background:#fff;border:1.5px solid #eee0bc;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;gap:9px;flex-wrap:wrap;align-items:end">
+      <div style="flex:1;min-width:200px"><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Tìm từ khóa</label>
+        <input type="text" id="gcbcSearch" oninput="gcbcRender()" placeholder="🔍 Tìm trong nội dung, số liệu…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0d5ae;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Danh mục</label>
+        <select id="gcbcFilterDanhMuc" onchange="gcbcRender()" style="padding:8px 10px;border:1.5px solid #e0d5ae;border-radius:8px;font-size:13px;font-family:inherit"><option value="">Tất cả danh mục</option></select></div>
+      <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Từ ngày</label>
+        <input type="date" id="gcbcFilterTuNgay" onchange="gcbcRender()" style="padding:8px 10px;border:1.5px solid #e0d5ae;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Đến ngày</label>
+        <input type="date" id="gcbcFilterDenNgay" onchange="gcbcRender()" style="padding:8px 10px;border:1.5px solid #e0d5ae;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <button onclick="gcbcClearFilter()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:8px;padding:8px 14px;font-size:12.5px;cursor:pointer;font-family:inherit">Xóa lọc</button>
+      <span id="gcbcCount" style="font-size:12.5px;color:#666;white-space:nowrap;margin-left:auto"></span>
+    </div>
+
+    <!-- DANH SÁCH -->
+    <div id="gcbcList"></div>
+  </div>
+  <div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai &nbsp;·&nbsp; Ghi chú Báo cáo (nội bộ)</div>
+</div>
+
+<!-- MODAL: Quản lý danh mục -->
+<!-- MODAL: Sửa ghi chú -->
+<div class="modal-bg" id="gcbcEditModal" onclick="if(event.target===this)gcbcCloseEdit()">
+  <div class="modal" id="gcbcEditModalBox" style="max-width:480px;transition:max-width .18s ease">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+      <h3 style="margin:0;flex:1"><i class="ti ti-edit"></i> Sửa ghi chú</h3>
+      <button id="gcbcEditWideBtn" onclick="gcbcToggleEditWide()" title="Phóng to" style="background:#fbf1d6;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0">
+      <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Ngày sự việc</label>
+        <input type="date" id="gcbcENgay" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Danh mục</label>
+        <select id="gcbcEDanhMuc" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13px;font-family:inherit"></select></div>
+    </div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Số liệu minh chứng (nếu có)</label>
+      <input type="text" id="gcbcESoLieu" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13px;font-family:inherit"></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Nội dung ghi chú</label>
+      <textarea id="gcbcENoiDung" rows="4" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical;transition:height .18s ease"></textarea></div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:5px">Đính kèm minh chứng (ảnh chụp / scan / tệp / link)</label>
+      <input type="file" id="gcbcEFileCam" accept="image/*" capture="environment" style="display:none" onchange="gcbcHandleFiles(event,'edit')">
+      <input type="file" id="gcbcEFileGallery" accept="image/*" multiple style="display:none" onchange="gcbcHandleFiles(event,'edit')">
+      <input type="file" id="gcbcEFileDoc" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx" multiple style="display:none" onchange="gcbcHandleFiles(event,'edit')">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button type="button" onclick="document.getElementById('gcbcEFileCam').click()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-camera"></i> Chụp ảnh</button>
+        <button type="button" onclick="document.getElementById('gcbcEFileGallery').click()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-photo"></i> Chọn ảnh / scan</button>
+        <button type="button" onclick="document.getElementById('gcbcEFileDoc').click()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-paperclip"></i> Chọn tệp</button>
+        <input type="text" id="gcbcELinkInput" placeholder="Dán link minh chứng…" style="flex:1;min-width:160px;padding:6px 10px;border:1.5px solid #d9c48a;border-radius:7px;font-size:12px;font-family:inherit">
+        <button type="button" onclick="gcbcAddLink('edit')" style="background:#fff;color:#3949ab;border:1.5px solid #c5cae9;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-link"></i> Thêm link</button>
+      </div>
+      <div id="gcbcEAttPrev" style="display:flex;gap:10px;flex-wrap:wrap"><span style="font-size:12px;color:#aaa">Chưa có minh chứng nào</span></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="gcbcCloseEdit()" style="background:#fff;color:#555;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">Hủy</button>
+      <button onclick="gcbcSaveEdit()" style="background:#8a6d1f;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="gcbcCatModal" onclick="if(event.target===this)gcbcCloseCatManage()">
+  <div class="modal" id="gcbcCatModalBox" style="max-width:420px;transition:max-width .18s ease">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+      <h3 style="margin:0;flex:1"><i class="ti ti-tags"></i> Quản lý danh mục ghi chú</h3>
+      <button id="gcbcCatWideBtn" onclick="gcbcToggleCatWide()" title="Phóng to" style="background:#fbf1d6;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+    </div>
+    <div style="font-size:12px;color:#666;margin:10px 0 12px">Danh mục dùng để lọc ghi chú theo chủ đề khi soạn báo cáo (VD: An toàn phẫu thuật, Kiểm soát nhiễm khuẩn, Vật tư–TTB, KPI, Chuyển đổi số…).</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <input type="text" id="gcbcCatNewName" placeholder="Tên danh mục mới…" style="flex:1;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="gcbcCatAdd()" style="background:#8a6d1f;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit">+ Thêm</button>
+    </div>
+    <div id="gcbcCatList" style="max-height:280px;overflow-y:auto;transition:max-height .18s ease"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button onclick="gcbcCloseCatManage()" style="background:#fff;color:#555;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── GHI CHÚ BÁO CÁO — module hoàn toàn độc lập, tiền tố "gcbc", node Firebase riêng "ghiChuBaoCao" ── */
+function gcbcEsc(s){ s=(s===undefined||s===null)?'':String(s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function gcbcGetDb(){ try{ if(typeof db!=='undefined' && db) return db; }catch(e){} return null; }
+function gcbcIsAdmin(){
+  try{ if(typeof adminSession!=='undefined' && adminSession.active) return true; }catch(e){}
+  try{ if(typeof cu!=='undefined' && cu && cu.role==='admin') return true; }catch(e){}
+  return false;
+}
+var _gcbcPendingOpen = false;
+function gcbcRequireAdmin(){
+  // Chỉ Quản lý (Admin) mới được vào — nhân viên thường bấm vào sẽ bị yêu cầu mật khẩu Admin.
+  if(typeof adminSession!=='undefined' && adminSession.active){
+    adminSessionReset();
+    document.getElementById('homeScreen').style.display='none';
+    cu={name:'Quản lý',role:'admin'};
+    gcbcOpen();
+    return;
+  }
+  _gcbcPendingOpen = true;
+  goAdminDirect();
+}
+var GCBC_DEFAULT_CATS = ['An toàn phẫu thuật','Hồi sức tích cực','Kiểm soát nhiễm khuẩn','Vật tư – Trang thiết bị y tế','KPI nhân viên','Chuyển đổi số','Thi đua – Khen thưởng – Sáng kiến','Đào tạo – CNKT','Khác'];
+var gcbcCats = GCBC_DEFAULT_CATS.slice();
+function gcbcSortedCats(){
+  return gcbcCats.slice().sort(function(a,b){
+    if(a==='Khác') return 1;
+    if(b==='Khác') return -1;
+    return a.localeCompare(b, 'vi', {sensitivity:'base'});
+  });
+}
+var gcbcNotes = [];
+var gcbcPendingAtt = [];
+var gcbcEditAtt = [];
+var gcbcListenerOn = false, gcbcCatListenerOn = false;
+function gcbcNotesRef(){ var d=gcbcGetDb(); return d ? d.ref('ghiChuBaoCao/danhSach') : null; }
+function gcbcCatsRef(){ var d=gcbcGetDb(); return d ? d.ref('ghiChuBaoCao/danhMuc') : null; }
+
+function gcbcEnsureListener(){
+  if(gcbcListenerOn) return; gcbcListenerOn = true;
+  var r = gcbcNotesRef();
+  if(!r){ document.getElementById('gcbcList').innerHTML = '<div style="text-align:center;padding:24px;color:#c62828">Không kết nối được dữ liệu — kiểm tra lại kết nối mạng.</div>'; return; }
+  r.on('value', function(snap){
+    var val = snap.val() || {};
+    gcbcNotes = Object.keys(val).map(function(k){ var o=Object.assign({id:k}, val[k]); return o; });
+    gcbcRender();
+  });
+}
+function gcbcEnsureCatListener(){
+  if(gcbcCatListenerOn) return; gcbcCatListenerOn = true;
+  var r = gcbcCatsRef();
+  if(!r) return;
+  r.on('value', function(snap){
+    var val = snap.val();
+    gcbcCats = (Array.isArray(val) && val.length) ? val : GCBC_DEFAULT_CATS.slice();
+    gcbcFillCatSelects();
+    gcbcUpdateCatListUI();
+  });
+}
+function gcbcFillCatSelects(){
+  var add = document.getElementById('gcbcDanhMuc');
+  var filt = document.getElementById('gcbcFilterDanhMuc');
+  if(add){ var curA=add.value; add.innerHTML = gcbcSortedCats().map(function(c){ return '<option value="'+gcbcEsc(c)+'">'+gcbcEsc(c)+'</option>'; }).join(''); if(gcbcCats.indexOf(curA)>-1) add.value=curA; }
+  if(filt){ var curF=filt.value; filt.innerHTML = '<option value="">Tất cả danh mục</option>' + gcbcSortedCats().map(function(c){ return '<option value="'+gcbcEsc(c)+'">'+gcbcEsc(c)+'</option>'; }).join(''); filt.value=curF; }
+}
+function gcbcOpen(){
+  if(!gcbcIsAdmin()){ alert('⚠️ Bạn cần đăng nhập Quản lý (Admin) để truy cập Ghi chú Báo cáo!'); return; }
+  document.getElementById('homeScreen').style.display='none';
+  document.getElementById('gcbcScreen').style.display='flex';
+  var dNgay = document.getElementById('gcbcNgay'); if(dNgay && !dNgay.value) dNgay.value = today();
+  gcbcRenderAttPrev('gcbcAttPrev', gcbcPendingAtt, 'add');
+  gcbcEnsureCatListener();
+  gcbcEnsureListener();
+  gcbcRender();
+}
+function gcbcClose(){
+  document.getElementById('gcbcScreen').style.display='none';
+  document.getElementById('homeScreen').style.display='block';
+}
+function gcbcFmtD(iso){
+  if(!iso) return '';
+  var p = String(iso).split('-');
+  return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : iso;
+}
+/* ── Đính kèm minh chứng: ảnh chụp/scan, tệp, link — tái dùng ttGetFileKind()/ttCompressImage() sẵn có ── */
+function gcbcHandleFiles(evt, mode){
+  var files = Array.from(evt.target.files || []);
+  if(!files.length) return;
+  files.forEach(function(file){
+    var kind = ttGetFileKind(file);
+    if(kind==='image'){
+      ttCompressImage(file, function(dataUrl){ gcbcStoreAttItem({type:'image', name:file.name, data:dataUrl}, mode); });
+    } else {
+      var reader = new FileReader();
+      reader.onload = function(e){ gcbcStoreAttItem({type:kind, name:file.name, data:e.target.result}, mode); };
+      reader.onerror = function(){ alert('⚠️ Không thể đọc tệp "'+file.name+'" — tệp có thể bị hỏng hoặc quá lớn.'); };
+      reader.readAsDataURL(file);
+    }
+  });
+  evt.target.value='';
+}
+function gcbcAddLink(mode){
+  var inpId = mode==='edit' ? 'gcbcELinkInput' : 'gcbcLinkInput';
+  var inp = document.getElementById(inpId);
+  var url = (inp.value||'').trim();
+  if(!url){ alert('Vui lòng dán link minh chứng.'); return; }
+  if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  gcbcStoreAttItem({type:'link', name:url, data:url}, mode);
+  inp.value = '';
+}
+function gcbcStoreAttItem(item, mode){
+  if(mode==='edit'){ gcbcEditAtt.push(item); gcbcRenderAttPrev('gcbcEAttPrev', gcbcEditAtt, 'edit'); }
+  else { gcbcPendingAtt.push(item); gcbcRenderAttPrev('gcbcAttPrev', gcbcPendingAtt, 'add'); }
+}
+function gcbcRemoveAtt(i, mode){
+  if(mode==='edit'){ gcbcEditAtt.splice(i,1); gcbcRenderAttPrev('gcbcEAttPrev', gcbcEditAtt, 'edit'); }
+  else { gcbcPendingAtt.splice(i,1); gcbcRenderAttPrev('gcbcAttPrev', gcbcPendingAtt, 'add'); }
+}
+function gcbcRenderAttPrev(containerId, arr, mode){
+  var wrap = document.getElementById(containerId);
+  if(!wrap) return;
+  if(!arr || !arr.length){ wrap.innerHTML = '<span style="font-size:12px;color:#aaa">Chưa có minh chứng nào</span>'; return; }
+  wrap.innerHTML = arr.map(function(a,i){
+    var thumb = a.type==='image'
+      ? '<img src="'+a.data+'" style="width:52px;height:52px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee0bc" onclick="gcbcViewImage(\''+encodeURIComponent(a.data)+'\')">'
+      : a.type==='link'
+      ? '<div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:#eef2ff;border-radius:6px;font-size:20px;color:#3949ab"><i class="ti ti-link"></i></div>'
+      : '<div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:#fff3e0;border-radius:6px;font-size:20px;color:#e65100"><i class="ti ti-file-description"></i></div>';
+    return '<div style="position:relative;text-align:center">'+thumb
+      +'<div style="font-size:9.5px;color:#888;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+gcbcEsc(a.name||'')+'</div>'
+      +'<button type="button" onclick="gcbcRemoveAtt('+i+',\''+(mode||'add')+'\')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#c62828;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;padding:0">×</button>'
+      +'</div>';
+  }).join('');
+}
+function gcbcViewImage(encodedUrl){
+  var img = document.getElementById('lboxImg');
+  var box = document.getElementById('lbox');
+  if(!img || !box) return;
+  img.src = decodeURIComponent(encodedUrl);
+  box.classList.add('on');
+}
+function gcbcSaveNote(){
+  var ngay = document.getElementById('gcbcNgay').value;
+  var danhMuc = document.getElementById('gcbcDanhMuc').value;
+  var soLieu = document.getElementById('gcbcSoLieu').value.trim();
+  var noiDung = document.getElementById('gcbcNoiDung').value.trim();
+  if(!ngay){ alert('Vui lòng chọn ngày sự việc.'); return; }
+  if(!noiDung){ alert('Vui lòng nhập nội dung ghi chú.'); return; }
+  var r = gcbcNotesRef();
+  if(!r){ alert('Không kết nối được Firebase.'); return; }
+  var nguoiGhi = (typeof cu!=='undefined' && cu && cu.name) ? cu.name : '';
+  var newRef = r.push();
+  newRef.set({ ngay:ngay, danhMuc:danhMuc, soLieu:soLieu, noiDung:noiDung, nguoiGhi:nguoiGhi, createdAt: Date.now(), dinhKem: gcbcPendingAtt.slice() }).then(function(){
+    document.getElementById('gcbcNoiDung').value='';
+    document.getElementById('gcbcSoLieu').value='';
+    gcbcPendingAtt = [];
+    gcbcRenderAttPrev('gcbcAttPrev', gcbcPendingAtt);
+  });
+}
+function gcbcDeleteNote(id){
+  if(!confirm('Xóa ghi chú này?')) return;
+  var r = gcbcNotesRef();
+  if(!r) return;
+  r.child(id).remove();
+}
+var gcbcEditingId = null;
+function gcbcOpenEdit(id){
+  var e = gcbcNotes.filter(function(x){ return x.id===id; })[0];
+  if(!e) return;
+  gcbcEditingId = id;
+  var selE = document.getElementById('gcbcEDanhMuc');
+  selE.innerHTML = gcbcSortedCats().map(function(c){ return '<option value="'+gcbcEsc(c)+'">'+gcbcEsc(c)+'</option>'; }).join('');
+  document.getElementById('gcbcENgay').value = e.ngay || '';
+  if(e.danhMuc && gcbcCats.indexOf(e.danhMuc)===-1){ selE.innerHTML += '<option value="'+gcbcEsc(e.danhMuc)+'">'+gcbcEsc(e.danhMuc)+'</option>'; }
+  selE.value = e.danhMuc || '';
+  document.getElementById('gcbcESoLieu').value = e.soLieu || '';
+  document.getElementById('gcbcENoiDung').value = e.noiDung || '';
+  gcbcEditAtt = (e.dinhKem || []).slice();
+  gcbcRenderAttPrev('gcbcEAttPrev', gcbcEditAtt, 'edit');
+  var box=document.getElementById('gcbcEditModalBox'), btn=document.getElementById('gcbcEditWideBtn'), ta=document.getElementById('gcbcENoiDung');
+  if(box) box.style.maxWidth='480px';
+  if(ta) ta.style.height='';
+  if(btn) btn.innerHTML='<i class="ti ti-arrows-maximize"></i> Phóng to';
+  document.getElementById('gcbcEditModal').classList.add('on');
+}
+function gcbcCloseEdit(){
+  gcbcEditingId = null;
+  document.getElementById('gcbcEditModal').classList.remove('on');
+}
+function gcbcSaveEdit(){
+  if(!gcbcEditingId) return;
+  var ngay = document.getElementById('gcbcENgay').value;
+  var danhMuc = document.getElementById('gcbcEDanhMuc').value;
+  var soLieu = document.getElementById('gcbcESoLieu').value.trim();
+  var noiDung = document.getElementById('gcbcENoiDung').value.trim();
+  if(!ngay){ alert('Vui lòng chọn ngày sự việc.'); return; }
+  if(!noiDung){ alert('Vui lòng nhập nội dung ghi chú.'); return; }
+  var r = gcbcNotesRef();
+  if(!r){ alert('Không kết nối được Firebase.'); return; }
+  r.child(gcbcEditingId).update({ ngay:ngay, danhMuc:danhMuc, soLieu:soLieu, noiDung:noiDung, dinhKem: gcbcEditAtt.slice() }).then(function(){
+    gcbcCloseEdit();
+  });
+}
+function gcbcGetFilteredList(){
+  var q = (document.getElementById('gcbcSearch')||{}).value || '';
+  q = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d');
+  var dm = (document.getElementById('gcbcFilterDanhMuc')||{}).value || '';
+  var tu = (document.getElementById('gcbcFilterTuNgay')||{}).value || '';
+  var den = (document.getElementById('gcbcFilterDenNgay')||{}).value || '';
+  return gcbcNotes.filter(function(e){
+    if(dm && e.danhMuc!==dm) return false;
+    if(tu && (!e.ngay || e.ngay<tu)) return false;
+    if(den && (!e.ngay || e.ngay>den)) return false;
+    if(q){
+      var hay = ((e.noiDung||'')+' '+(e.soLieu||'')+' '+(e.danhMuc||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d');
+      if(hay.indexOf(q)===-1) return false;
+    }
+    return true;
+  }).sort(function(a,b){ return (b.ngay||'').localeCompare(a.ngay||''); });
+}
+function gcbcClearFilter(){
+  document.getElementById('gcbcSearch').value='';
+  document.getElementById('gcbcFilterDanhMuc').value='';
+  document.getElementById('gcbcFilterTuNgay').value='';
+  document.getElementById('gcbcFilterDenNgay').value='';
+  gcbcRender();
+}
+function gcbcRender(){
+  var wrap = document.getElementById('gcbcList');
+  var cnt = document.getElementById('gcbcCount');
+  if(!wrap) return;
+  var list = gcbcGetFilteredList();
+  if(cnt) cnt.textContent = list.length + ' / ' + gcbcNotes.length + ' ghi chú';
+  if(!list.length){ wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#999;background:#fff;border-radius:12px;border:1.5px solid #eee0bc">Chưa có ghi chú nào phù hợp bộ lọc.</div>'; return; }
+  var isA = gcbcIsAdmin();
+  wrap.innerHTML = list.map(function(e){
+    return '<div style="background:#fff;border:1.5px solid #eee0bc;border-radius:11px;padding:11px 14px;margin-bottom:9px">'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
+      + '<span style="font-size:11px;font-weight:700;color:#8a6d1f;background:#fbf1d6;border-radius:6px;padding:2px 8px">'+gcbcEsc(e.danhMuc||'Khác')+'</span>'
+      + '<span style="font-size:11.5px;color:#888">'+gcbcFmtD(e.ngay)+'</span>'
+      + (e.nguoiGhi ? '<span style="font-size:11.5px;color:#aaa">· '+gcbcEsc(e.nguoiGhi)+'</span>' : '')
+      + (isA ? '<span style="margin-left:auto;display:flex;gap:6px">'
+             + '<button onclick="gcbcOpenEdit(\''+e.id+'\')" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;font-family:inherit">Sửa</button>'
+             + '<button onclick="gcbcDeleteNote(\''+e.id+'\')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;font-family:inherit">Xóa</button>'
+             + '</span>' : '')
+      + '</div>'
+      + '<div style="font-size:13.5px;color:#222;line-height:1.5;white-space:pre-wrap">'+gcbcEsc(e.noiDung||'')+'</div>'
+      + (e.soLieu ? '<div style="font-size:12.5px;color:#4a6030;margin-top:4px"><i class="ti ti-chart-bar" style="vertical-align:-2px"></i> '+gcbcEsc(e.soLieu)+'</div>' : '')
+      + gcbcRenderAttChips(e.dinhKem)
+      + '</div>';
+  }).join('');
+}
+function gcbcRenderAttChips(list){
+  if(!list || !list.length) return '';
+  return '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">' + list.map(function(a){
+    if(a.type==='image'){
+      return '<img src="'+a.data+'" alt="minh chứng" style="width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee0bc" onclick="gcbcViewImage(\''+encodeURIComponent(a.data)+'\')">';
+    }
+    if(a.type==='link'){
+      return '<a href="'+gcbcEsc(a.data)+'" target="_blank" rel="noopener" style="font-size:11px;background:#eef2ff;color:#3949ab;border-radius:6px;padding:6px 9px;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-link"></i> '+gcbcEsc((a.name||a.data).length>26?(a.name||a.data).slice(0,26)+'…':(a.name||a.data))+'</a>';
+    }
+    return '<a href="'+a.data+'" download="'+gcbcEsc(a.name||'tep-dinh-kem')+'" style="font-size:11px;background:#fff3e0;color:#e65100;border-radius:6px;padding:6px 9px;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-file-description"></i> '+gcbcEsc((a.name||'').length>22?a.name.slice(0,22)+'…':a.name)+'</a>';
+  }).join('') + '</div>';
+}
+/* ── Quản lý danh mục ── */
+function gcbcOpenCatManage(){
+  document.getElementById('gcbcCatModal').classList.add('on');
+  gcbcUpdateCatListUI();
+}
+function gcbcCloseCatManage(){
+  document.getElementById('gcbcCatModal').classList.remove('on');
+}
+function gcbcToggleCatWide(){
+  var box = document.getElementById('gcbcCatModalBox');
+  var btn = document.getElementById('gcbcCatWideBtn');
+  var list = document.getElementById('gcbcCatList');
+  if(!box) return;
+  var isWide = box.style.maxWidth === '900px';
+  box.style.maxWidth = isWide ? '420px' : '900px';
+  if(list) list.style.maxHeight = isWide ? '280px' : '62vh';
+  if(btn) btn.innerHTML = isWide ? '<i class="ti ti-arrows-maximize"></i> Phóng to' : '<i class="ti ti-arrows-minimize"></i> Thu gọn';
+}
+function gcbcToggleEditWide(){
+  var box = document.getElementById('gcbcEditModalBox');
+  var btn = document.getElementById('gcbcEditWideBtn');
+  var ta = document.getElementById('gcbcENoiDung');
+  if(!box) return;
+  var isWide = box.style.maxWidth === '820px';
+  box.style.maxWidth = isWide ? '480px' : '820px';
+  if(ta) ta.style.height = isWide ? '' : '46vh';
+  if(btn) btn.innerHTML = isWide ? '<i class="ti ti-arrows-maximize"></i> Phóng to' : '<i class="ti ti-arrows-minimize"></i> Thu gọn';
+}
+function gcbcUpdateCatListUI(){
+  var wrap = document.getElementById('gcbcCatList');
+  if(!wrap) return;
+  wrap.innerHTML = gcbcSortedCats().map(function(c){
+    var soLuong = gcbcNotes.filter(function(e){ return e.danhMuc===c; }).length;
+    var safe = gcbcEsc(c).replace(/'/g,"\\'");
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid #eee;border-radius:7px;margin-bottom:6px;font-size:13px">'
+      + '<span>'+gcbcEsc(c)+' <span style="color:#999;font-size:11.5px">('+soLuong+' ghi chú)</span></span>'
+      + '<span style="display:flex;gap:6px">'
+      + '<button onclick="gcbcCatRename(\''+safe+'\')" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit">Sửa</button>'
+      + '<button onclick="gcbcCatRemove(\''+safe+'\')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit">Xóa</button>'
+      + '</span>'
+      + '</div>';
+  }).join('');
+}
+function gcbcCatRename(ten){
+  var moi = prompt('Đổi tên danh mục "'+ten+'" thành:', ten);
+  if(moi===null) return;
+  moi = moi.trim();
+  if(!moi){ alert('Tên danh mục không được để trống.'); return; }
+  if(moi===ten) return;
+  if(gcbcCats.indexOf(moi)>-1){ alert('Danh mục "'+moi+'" đã tồn tại rồi.'); return; }
+  var r = gcbcCatsRef();
+  if(!r){ alert('Không kết nối được Firebase.'); return; }
+  var newList = gcbcCats.map(function(c){ return c===ten ? moi : c; });
+  r.set(newList).then(function(){
+    // Cập nhật lại danh mục cho tất cả ghi chú đang dùng tên cũ, tránh mất liên kết
+    var notesR = gcbcNotesRef();
+    if(!notesR) return;
+    gcbcNotes.filter(function(e){ return e.danhMuc===ten; }).forEach(function(e){
+      notesR.child(e.id).update({ danhMuc: moi });
+    });
+  });
+}
+function gcbcCatAdd(){
+  var input = document.getElementById('gcbcCatNewName');
+  var ten = input.value.trim();
+  if(!ten){ alert('Vui lòng nhập tên danh mục.'); return; }
+  if(gcbcCats.indexOf(ten)>-1){ alert('Danh mục này đã có rồi.'); return; }
+  var r = gcbcCatsRef();
+  if(!r){ alert('Không kết nối được Firebase.'); return; }
+  r.set(gcbcCats.concat([ten])).then(function(){ input.value=''; });
+}
+function gcbcCatRemove(ten){
+  var soLuong = gcbcNotes.filter(function(e){ return e.danhMuc===ten; }).length;
+  var canhBao = soLuong>0 ? '\n\n⚠️ Đang có '+soLuong+' ghi chú thuộc danh mục này — xóa danh mục KHÔNG xóa ghi chú, chỉ mất hiển thị nhãn.' : '';
+  if(!confirm('Xóa danh mục "'+ten+'"?'+canhBao)) return;
+  var r = gcbcCatsRef();
+  if(!r) return;
+  var newList = gcbcCats.filter(function(c){ return c!==ten; });
+  r.set(newList);
+}
+/* ── Xuất Word / Copy văn bản (theo danh sách ĐANG LỌC, gộp theo danh mục) ── */
+function gcbcAttSummaryText(list){
+  if(!list || !list.length) return '';
+  var imgN=0, fileN=0, links=[];
+  list.forEach(function(a){
+    if(a.type==='image') imgN++;
+    else if(a.type==='link') links.push(a.data);
+    else fileN++;
+  });
+  var parts=[];
+  if(imgN) parts.push(imgN+' ảnh/scan');
+  if(fileN) parts.push(fileN+' tệp');
+  var s = parts.length ? ' [Đính kèm: '+parts.join(', ')+']' : '';
+  if(links.length) s += ' — Link minh chứng: ' + links.join(', ');
+  return s;
+}
+function gcbcBuildGroupedText(){
+  var list = gcbcGetFilteredList();
+  var byCat = {};
+  var order = [];
+  list.forEach(function(e){
+    var c = e.danhMuc || 'Khác';
+    if(!byCat[c]){ byCat[c]=[]; order.push(c); }
+    byCat[c].push(e);
+  });
+  return { list:list, byCat:byCat, order:order };
+}
+function gcbcCopyText(){
+  var g = gcbcBuildGroupedText();
+  if(!g.list.length){ alert('Không có ghi chú nào trong bộ lọc hiện tại để copy.'); return; }
+  var txt = '';
+  g.order.forEach(function(cat){
+    txt += cat.toUpperCase() + '\n';
+    g.byCat[cat].forEach(function(e){
+      txt += '- ('+gcbcFmtD(e.ngay)+') ' + e.noiDung + (e.soLieu ? ' — Số liệu: '+e.soLieu : '') + gcbcAttSummaryText(e.dinhKem) + '\n';
+    });
+    txt += '\n';
+  });
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ alert('✅ Đã copy '+g.list.length+' ghi chú vào bộ nhớ tạm — dán trực tiếp vào báo cáo.'); },
+      function(){ gcbcFallbackCopy(txt); });
+  } else { gcbcFallbackCopy(txt); }
+}
+function gcbcFallbackCopy(txt){
+  var ta = document.createElement('textarea');
+  ta.value = txt; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); alert('✅ Đã copy vào bộ nhớ tạm.'); }catch(e){ alert('Không copy được tự động — vui lòng chọn và copy thủ công.'); }
+  document.body.removeChild(ta);
+}
+function gcbcExportWord(){
+  var g = gcbcBuildGroupedText();
+  if(!g.list.length){ alert('Không có ghi chú nào trong bộ lọc hiện tại để xuất.'); return; }
+  var now = new Date();
+  var nowStr = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+  var tu = (document.getElementById('gcbcFilterTuNgay')||{}).value || '';
+  var den = (document.getElementById('gcbcFilterDenNgay')||{}).value || '';
+  var phamVi = (tu||den) ? ('Từ '+(gcbcFmtD(tu)||'…')+' đến '+(gcbcFmtD(den)||'…')) : 'Toàn bộ dữ liệu hiện có';
+  var body = '';
+  g.order.forEach(function(cat){
+    body += '<h3 style="color:#7a5a05;border-bottom:1px solid #d9c48a;padding-bottom:3px">'+gcbcEsc(cat)+'</h3><ul>';
+    g.byCat[cat].forEach(function(e){
+      body += '<li style="margin-bottom:6px"><b>'+gcbcFmtD(e.ngay)+':</b> '+gcbcEsc(e.noiDung)+(e.soLieu?' <i>(Số liệu: '+gcbcEsc(e.soLieu)+')</i>':'')+gcbcEsc(gcbcAttSummaryText(e.dinhKem))+'</li>';
+    });
+    body += '</ul>';
+  });
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+    + '<head><meta charset="UTF-8"><title>Tong hop ghi chu bao cao</title>'
+    + '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->'
+    + '<style>body{font-family:"Times New Roman",Times,serif;font-size:13pt} .org{text-align:center;margin:1pt 0;font-weight:bold} h2{text-align:center;margin:8pt 0 4pt} li{font-size:13pt}</style>'
+    + '</head><body>'
+    + '<p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</p><p class="org">KHOA GÂY MÊ HỒI SỨC</p>'
+    + '<h2>TỔNG HỢP GHI CHÚ BÁO CÁO</h2>'
+    + '<p style="text-align:center">'+gcbcEsc(phamVi)+' — Xuất ngày: '+nowStr+' — Tổng số: '+g.list.length+' ghi chú</p>'
+    + body
+    + '</body></html>';
+  var blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'GhiChuBaoCao_GMHS_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.doc';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 </script>
