@@ -1363,7 +1363,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
             <th style="background:#00695c">Từ ngày</th>
             <th style="background:#00695c">Đến ngày</th>
             <th style="background:#00695c">Số ngày</th>
-            <th style="background:#00695c;width:95px">Đã nghỉ đến nay</th>
+            <th style="background:#00695c;width:100px" title="Số ngày ĐÃ NGHỈ (đã duyệt, đồng bộ từ Quản lý Phép năm) / Tổng số ngày phép năm được cấp">Đã nghỉ/Tổng phép năm</th>
             <th style="background:#00695c">Loại phép</th>
             <th style="background:#00695c">Lý do</th>
             <th style="background:#00695c">Đính kèm</th>
@@ -16789,6 +16789,52 @@ function npCountApprovedDaysToDate(person, uptoISODate){
   });
   return sum;
 }
+// Tổng số ngày phép đã XIN trong 1 năm (đã duyệt + chờ duyệt, không tính phiếu Từ chối/Hủy) —
+// khác với npCountApprovedDaysToDate vì không lọc theo đã tới ngày nghỉ hay chưa.
+function npCountRequestedDaysInYear(person, yearStr){
+  if(!person || !yearStr) return 0;
+  var sum = 0;
+  (npRecords||[]).forEach(function(r){
+    if(!r || r.status==='denied') return;
+    if((r.person||'').trim()!==person.trim()) return;
+    if(!r.dateFrom || r.dateFrom.slice(0,4)!==yearStr) return;
+    sum += (r.days||0);
+  });
+  return sum;
+}
+// Tổng phép năm được cấp (base + thâm niên + khác + chuyển tiếp) và số ngày ĐÃ NGHỈ thực tế
+// (emp.daNghi, được đồng bộ tự động qua qlpApplyLeaveDelta mỗi khi phiếu Nghỉ Phép loại "Phép năm"
+// được Duyệt/Từ chối/Hủy) của 1 nhân viên, lấy theo tên từ danh sách QLP_EMPLOYEES.
+// Tự động tải ngầm dữ liệu Quản lý Phép năm (QLP_EMPLOYEES) nếu chưa có, để cột
+// "Đã nghỉ/Tổng phép năm" có số liệu ngay cả khi chưa từng mở màn Quản lý Phép năm.
+// Không đụng tới cờ qlpLoaded/luồng tải chính thức của màn Quản lý Phép năm — chỉ tải riêng, 1 lần.
+var npQlpAutoLoadTried = false;
+function npEnsureQlpLoaded(){
+  if(npQlpAutoLoadTried) return;
+  if(qlpLoaded && QLP_EMPLOYEES && QLP_EMPLOYEES.length) return; // đã có sẵn (do màn Quản lý Phép năm đã tải)
+  if(typeof phepRef==='undefined' || !phepRef) return;
+  npQlpAutoLoadTried = true;
+  phepRef.once('value').then(function(snap){
+    var data = snap.val();
+    if(data && data.employees && data.employees.length && (!QLP_EMPLOYEES || !QLP_EMPLOYEES.length)){
+      QLP_EMPLOYEES = data.employees;
+    }
+    if(typeof npRenderList==='function') npRenderList(); // vẽ lại để cột cập nhật số liệu vừa tải
+  }).catch(function(err){
+    console.error('Lỗi tải ngầm Quản lý Phép năm (để tính Đã nghỉ/Tổng phép năm):', err);
+  });
+}
+function npGetQlpQuota(person){
+  if(!person || typeof QLP_EMPLOYEES==='undefined') return null;
+  npEnsureQlpLoaded();
+  var emp=(QLP_EMPLOYEES||[]).find(function(e){return (e.name||'').trim()===person.trim();});
+  if(!emp) return null;
+  var autoTham = qlpSeniorityAuto(emp);
+  var tham = (autoTham!==null && autoTham!==undefined) ? autoTham : (emp.thamManual||0);
+  var total = qlpBaseLeave() + tham + (emp.khac||0) + (emp.carryover||0);
+  var daNghi = emp.daNghi||0;
+  return {daNghi:daNghi, total:total};
+}
 function npRenderList(){
   if(!npCurrentUser)return;
   const isStaff=npCurrentUser.role==='staff';
@@ -16822,7 +16868,10 @@ function npRenderList(){
   if(!list.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   tbody.innerHTML=list.map((r,i)=>{
-    var daysToDate = npCountApprovedDaysToDate(r.person, today());
+    var qlpQuota = npGetQlpQuota(r.person);
+    var quotaCellHtml = qlpQuota
+      ? (qlpQuota.daNghi+'/'+qlpQuota.total)
+      : '<span style="color:#bbb;font-size:11px" title="Chưa có hồ sơ phép năm cho nhân viên này trong Quản lý Phép năm">—</span>';
     return `<tr>
     <td style="color:#aaa;text-align:center">${i+1}</td>
     <td><b>${esc(r.person)}</b><div style="font-size:11px;color:#888">${fmtDT(r.createdAt)}</div></td>
@@ -16830,7 +16879,7 @@ function npRenderList(){
     <td><b>${fmtD(r.dateFrom)}</b></td>
     <td><b>${fmtD(r.dateTo)}</b></td>
     <td style="text-align:center;font-weight:700;color:#00695c">${r.days}</td>
-    <td style="text-align:center;font-weight:700;color:#0d47a1" title="Tổng số ngày phép năm đã được duyệt và đã nghỉ (tính đến hôm nay) trong năm ${today().slice(0,4)} của ${esc(r.person)}">${daysToDate}</td>
+    <td style="text-align:center;font-weight:700;color:#0d47a1" title="Số ngày ĐÃ NGHỈ / Tổng phép năm được cấp (theo Quản lý Phép năm) của ${esc(r.person)}">${quotaCellHtml}</td>
     <td style="font-size:12px">${npTypeLabel[r.type]||r.type}</td>
     <td style="max-width:140px;word-break:break-word;font-size:12px">${plainQTNote(r.reason)}</td>
     <td style="min-width:100px">${npAttachBadges(r)}</td>
@@ -16980,6 +17029,13 @@ function npNavReplRowDrop(e,idx){
 function npDoApprove(status){
   if(!npApproveTarget)return;
   var note=document.getElementById('npApproveNote').value.trim();
+  // Bắt buộc nhập lý do khi TỪ CHỐI — để nhân viên biết vì sao (giống Nghỉ Bù)
+  if(status==='denied' && !note){
+    npShowAl('Vui lòng nhập lý do từ chối vào ô "Ghi chú của quản lý" trước khi bấm Từ chối!','warn');
+    var noteElNp=document.getElementById('npApproveNote');
+    if(noteElNp){ noteElNp.style.borderColor='#c62828'; noteElNp.focus(); }
+    return;
+  }
   var rec=npRecords.find(function(x){return String(x.id)===String(npApproveTarget);});
   var oldStatus = rec ? rec.status : null;
   // Collect per-day replacers
@@ -17342,10 +17398,21 @@ function doHomeAdminLogin(dest){
 
 /* ── Staff Edit/Cancel for NP ── */
 function npCancelStaff(id){
-  if(!confirm('Xác nhận HỦY phiếu nghỉ phép này?'))return;
+  var isAdminCancel = npCurrentUser && npCurrentUser.role==='admin';
+  var noteText = 'Nhân viên tự hủy';
+  if(isAdminCancel){
+    // Admin từ chối/hủy phiếu của nhân viên → bắt buộc nhập lý do để nhân viên biết
+    var ly = prompt('Vui lòng nhập LÝ DO từ chối/hủy phiếu này (để nhân viên xem được ở cột "Ghi chú QT"):','');
+    if(ly===null) return; // bấm Cancel trên hộp nhập lý do → không làm gì cả
+    ly = ly.trim();
+    if(!ly){ alert('Lý do không được để trống. Vui lòng nhập lại.'); return; }
+    noteText = ly;
+  } else {
+    if(!confirm('Xác nhận HỦY phiếu nghỉ phép này?'))return;
+  }
   var rec=npRecords.find(function(x){return String(x.id)===String(id);});
   var wasApproved = rec && rec.status==='approved';
-  npRef.child(String(id)).update({status:'denied',adminNote:'Nhân viên tự hủy',approvedBy:npCurrentUser.name,approvedAt:new Date().toISOString()})
+  npRef.child(String(id)).update({status:'denied',adminNote:noteText,approvedBy:npCurrentUser.name,approvedAt:new Date().toISOString()})
     .then(function(){
       npShowAl('Đã hủy phiếu nghỉ phép!','warn');
       if(wasApproved && rec.type==='phep-nam') qlpApplyLeaveDelta(rec.person, rec.dateFrom, rec.dateTo, -1, !!rec.half);
