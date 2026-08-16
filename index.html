@@ -879,6 +879,8 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
                 border-top:none;border-radius:0 0 9px 9px;z-index:999;
                 box-shadow:0 6px 16px rgba(21,101,192,.15)"></div>
             </div>
+            <div id="nbPersonLeaveStat" style="display:none;margin-top:6px;font-size:11.5px;color:#1565C0;
+              font-weight:600;background:#eef4ff;border:1px solid #c5cfe8;border-radius:6px;padding:5px 9px"></div>
           </div>
 
           <!-- LÝ DO CHUNG -->
@@ -1037,9 +1039,10 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
             <th>Lập phiếu</th>
             <th>Ngày & Ca nghỉ bù</th>
             <th style="width:50px">Số ca</th>
-            <th style="width:90px">Ngày nghỉ/tháng</th>
+            <th style="width:90px" title="Đã nghỉ (đã duyệt) / Đã xin (đã duyệt + chờ duyệt, không tính Từ chối)">Đã nghỉ/Đã xin (tháng)</th>
             <th>Lý do</th>
             <th>Trạng thái</th>
+            <th title="Lý do từ chối / ghi chú của quản lý khi Duyệt hoặc Từ chối">Ghi chú QT</th>
             <th style="width:60px">Chữ ký</th>
             <th>Người thay thế</th>
             <th>Duyệt bởi</th>
@@ -14563,6 +14566,63 @@ function nbBuildWeekendMessages(){
   }
   return msgs;
 }
+// Đếm số ngày nghỉ bù đã có (không tính phiếu bị từ chối) của 1 người trong 1 năm (yyyy)
+function nbCountDaysInYear(person, yearStr, excludeId){
+  if(!person || !yearStr) return 0;
+  var count = 0;
+  (nbRecords||[]).forEach(function(r){
+    if(!r || !r.person || r.person!==person) return;
+    if(excludeId && String(r.id)===String(excludeId)) return;
+    if(r.status==='denied') return; // phiếu bị từ chối không tính
+    var entries = (r.entries && r.entries.length) ? r.entries : (r.date?[{date:r.date}]:[]);
+    entries.forEach(function(e){ if(e.date && e.date.slice(0,4)===yearStr) count++; });
+  });
+  return count;
+}
+// Đếm số ngày nghỉ bù ĐÃ DUYỆT (đã nghỉ thực tế, status==='approved') của 1 người trong 1 tháng (yyyy-mm)
+function nbCountDaysInMonthApproved(person, monthStr, excludeId){
+  if(!person || !monthStr) return 0;
+  var count = 0;
+  (nbRecords||[]).forEach(function(r){
+    if(!r || !r.person || r.person!==person) return;
+    if(excludeId && String(r.id)===String(excludeId)) return;
+    if(r.status!=='approved') return; // chỉ tính phiếu đã duyệt = đã nghỉ thực tế
+    var entries = (r.entries && r.entries.length) ? r.entries : (r.date?[{date:r.date}]:[]);
+    entries.forEach(function(e){ if(e.date && e.date.slice(0,7)===monthStr) count++; });
+  });
+  return count;
+}
+// Đếm số ngày nghỉ bù ĐÃ DUYỆT (đã nghỉ thực tế, status==='approved') của 1 người trong 1 năm (yyyy)
+function nbCountDaysInYearApproved(person, yearStr, excludeId){
+  if(!person || !yearStr) return 0;
+  var count = 0;
+  (nbRecords||[]).forEach(function(r){
+    if(!r || !r.person || r.person!==person) return;
+    if(excludeId && String(r.id)===String(excludeId)) return;
+    if(r.status!=='approved') return;
+    var entries = (r.entries && r.entries.length) ? r.entries : (r.date?[{date:r.date}]:[]);
+    entries.forEach(function(e){ if(e.date && e.date.slice(0,4)===yearStr) count++; });
+  });
+  return count;
+}
+// Hiển thị số ngày nghỉ bù đã có của người đang chọn trong tháng hiện tại và năm hiện tại,
+// ngay dưới ô chọn nhân viên đăng ký (không tính ngày đang nhập dở trên form).
+function nbUpdatePersonLeaveStat(){
+  var el=document.getElementById('nbPersonLeaveStat');
+  if(!el) return;
+  var person=nbGetFormPersonName();
+  if(!person){ el.style.display='none'; return; }
+  var now=new Date();
+  var monthStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var yearStr=String(now.getFullYear());
+  var nbRowsEl=document.getElementById('nbRows');
+  var editId=(nbRowsEl&&nbRowsEl.dataset&&nbRowsEl.dataset.editId)||'';
+  var monthCount=nbCountDaysInMonth(person, monthStr, editId, null);
+  var yearCount=nbCountDaysInYear(person, yearStr, editId);
+  el.style.display='block';
+  el.innerHTML='<i class="ti ti-calendar-stats"></i> '+esc(person)+' đã nghỉ bù <b>'+monthCount+'</b> ngày trong tháng '+
+    monthStr.split('-')[1]+'/'+monthStr.split('-')[0]+' · <b>'+yearCount+'</b> ngày trong năm '+yearStr;
+}
 window.nbCheckMonthlyLimit = function(){
   var warnEl=document.getElementById('nbMonthLimitWarning');
   if(!warnEl) return;
@@ -14577,6 +14637,7 @@ window.nbCheckMonthlyLimit = function(){
   } else {
     warnEl.style.display='none';
   }
+  nbUpdatePersonLeaveStat();
 };
 
 function nbAddDateRange(){
@@ -15093,7 +15154,9 @@ function nbRenderMyList(){
   el.innerHTML='<div style="overflow-x:auto"><table class="nb-tbl" style="min-width:640px">'
     +'<thead><tr><th>#</th>'
     +(showNbPerson?'<th>Nhân viên</th>':'')
-    +'<th>Lập phiếu</th><th>Ngày & Ca nghỉ bù</th><th>Số ca</th><th>Lý do</th><th>Trạng thái</th><th>Chữ ký</th><th>Người thay</th><th>Ghi chú QT</th><th>Thao tác</th>'
+    +'<th>Lập phiếu</th><th>Ngày & Ca nghỉ bù</th><th>Số ca</th><th>Lý do</th><th>Trạng thái</th>'
+    +'<th title="Đã nghỉ (đã duyệt) / Số đã xin (đã duyệt + chờ duyệt, không tính phiếu bị Từ chối/Hủy)">Đã nghỉ/Đã xin (tháng·năm)</th>'
+    +'<th>Chữ ký</th><th>Người thay</th><th>Ghi chú QT</th><th>Thao tác</th>'
     +'</tr></thead>'
     +'<tbody>'+mine.map(function(r,i){
       // Viewer có thể sửa phiếu của chính mình khi còn pending
@@ -15114,6 +15177,19 @@ function nbRenderMyList(){
             : '<span style="color:#aaa;font-size:11px">'+(statusLabel[r.status]||r.status)+'</span>');
       nbActBtn += '<br><button class="nb-btn nb-btn-sm" style="background:#555;margin-top:3px" data-rid="'+r.id+'" onclick="nbXemPhieu(this.dataset.rid)"><i class="ti ti-printer"></i> Xem phiếu</button>'
         +'<button class="nb-btn nb-btn-sm" style="background:#2E7D32;margin-top:3px" data-rid="'+r.id+'" onclick="nbXuatWord(this.dataset.rid)"><i class="ti ti-file-word"></i> Xuất Word</button>';
+      // Số ngày nghỉ bù của người này trong tháng hiện tại / năm hiện tại, dạng "đã nghỉ / đã xin"
+      // (đã nghỉ = đã duyệt; đã xin = đã duyệt + chờ duyệt, không tính phiếu bị Từ chối/Hủy)
+      var nowStat=new Date();
+      var monthStatStr=nowStat.getFullYear()+'-'+String(nowStat.getMonth()+1).padStart(2,'0');
+      var yearStatStr=String(nowStat.getFullYear());
+      var monthDaNghi=nbCountDaysInMonthApproved(r.person, monthStatStr, null);
+      var monthDaXin=nbCountDaysInMonth(r.person, monthStatStr, null, null);
+      var yearDaNghi=nbCountDaysInYearApproved(r.person, yearStatStr, null);
+      var yearDaXin=nbCountDaysInYear(r.person, yearStatStr, null);
+      var leaveStatCell='<span style="font-weight:700;color:'+(monthDaXin>NB_MONTHLY_LIMIT?'#c62828':'#1b5e20')+'">'+monthDaNghi+'/'+monthDaXin+'</span>'
+        +' <span style="color:#999;font-size:10.5px">ngày · tháng '+monthStatStr.split('-')[1]+'</span><br>'
+        +'<span style="font-weight:700;color:#0d47a1">'+yearDaNghi+'/'+yearDaXin+'</span>'
+        +' <span style="color:#999;font-size:10.5px">ngày · năm '+yearStatStr+'</span>';
       return '<tr>'
         +'<td>'+(i+1)+'</td>'
         +(showNbPerson?'<td><b>'+esc(r.person||'')+'</b></td>':'')
@@ -15122,6 +15198,7 @@ function nbRenderMyList(){
         +'<td style="text-align:center;font-weight:700;color:#1565C0">'+nbEntriesCount(r)+'</td>'
         +'<td style="max-width:160px;word-break:break-word">'+plainQTNote(r.reason)+'</td>'
         +'<td><span class="nb-badge '+(statusClass[r.status]||'')+'">'+( statusLabel[r.status]||r.status)+'</span></td>'
+        +'<td style="font-size:11.5px;text-align:center;white-space:nowrap">'+leaveStatCell+'</td>'
         +'<td style="text-align:center;">'+chuKyThumbHtml(r)+'</td>'
         +'<td>'+nbReplacerDisplay(r)+'</td>'
         +'<td style="font-size:12px;color:#555">'+plainQTNote(r.adminNote)+'</td>'
@@ -15282,11 +15359,12 @@ function nbRenderList(){
     var firstEntryDate=(r.entries&&r.entries.length&&r.entries[0].date)?r.entries[0].date:(r.date||'');
     if(firstEntryDate&&r.person){
       var monthStrRow=firstEntryDate.slice(0,7);
-      var monthCount=nbCountDaysInMonth(r.person, monthStrRow, null, null);
+      var monthDaNghiRow=nbCountDaysInMonthApproved(r.person, monthStrRow, null); // đã duyệt = đã nghỉ thực tế
+      var monthDaXinRow=nbCountDaysInMonth(r.person, monthStrRow, null, null); // đã duyệt + chờ duyệt (không tính từ chối)
       var monthLblRow='T'+monthStrRow.split('-')[1];
-      var overLimitRow=monthCount>NB_MONTHLY_LIMIT;
-      monthCellHtml='<span style="font-weight:700;'+(overLimitRow?'color:#c62828':'color:#1b5e20')+'" title="Tổng số ngày nghỉ bù (không tính phiếu bị từ chối) của '+esc(r.person)+' trong tháng '+monthStrRow.split('-')[1]+'/'+monthStrRow.split('-')[0]+'">'
-        +monthCount+'/'+NB_MONTHLY_LIMIT+'</span> <span style="font-size:10px;color:#999">('+monthLblRow+')</span>'
+      var overLimitRow=monthDaXinRow>NB_MONTHLY_LIMIT;
+      monthCellHtml='<span style="font-weight:700;'+(overLimitRow?'color:#c62828':'color:#1b5e20')+'" title="'+esc(r.person)+': đã nghỉ (đã duyệt) '+monthDaNghiRow+' / đã xin (đã duyệt + chờ duyệt, không tính từ chối) '+monthDaXinRow+' ngày trong tháng '+monthStrRow.split('-')[1]+'/'+monthStrRow.split('-')[0]+'">'
+        +monthDaNghiRow+'/'+monthDaXinRow+'</span> <span style="font-size:10px;color:#999">('+monthLblRow+')</span>'
         +(overLimitRow?'<div style="font-size:10px;color:#c62828;font-weight:600">⚠ Vượt hạn mức</div>':'');
     }
     return '<tr>'
@@ -15298,6 +15376,7 @@ function nbRenderList(){
       +'<td style="text-align:center">'+monthCellHtml+'</td>'
       +'<td style="max-width:180px;word-break:break-word;font-size:12px">'+plainQTNote(r.reason)+'</td>'
       +'<td><span class="nb-badge '+(statusClass[r.status]||'')+'">'+( statusLabel[r.status]||r.status)+'</span>'+approvedDateHtml+'</td>'
+      +'<td style="max-width:170px;word-break:break-word;font-size:12px;color:#7a5800">'+(r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+plainQTNote(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>')+'</td>'
       +'<td style="text-align:center;">'+chuKyThumbHtml(r)+'</td>'
       +'<td style="font-size:12px">'+nbReplacerDisplay(r)+'</td>'
       +'<td style="font-size:12px">'+esc(r.approvedBy||'—')+'</td>'
@@ -15545,6 +15624,14 @@ function nbDoApprove(status){
   // For backward compat: replacer = first non-empty, or joined
   const replacer = replacers.filter(Boolean).join(', ') || '';
   const note=document.getElementById('nbApproveNote').value.trim();
+
+  // Bắt buộc nhập lý do khi TỪ CHỐI (khác với nút "Hủy" ở bảng cá nhân) — để nhân viên biết vì sao
+  if(status==='denied' && !note){
+    nbShowAl('Vui lòng nhập lý do từ chối vào ô "Ghi chú của quản lý" trước khi bấm Từ chối!','warn');
+    var noteEl=document.getElementById('nbApproveNote');
+    if(noteEl){ noteEl.style.borderColor='#c62828'; noteEl.focus(); }
+    return;
+  }
 
   nbSetSync('sync');
   // An toàn: nếu biến "config" toàn cục chưa sẵn sàng (chưa load xong / khác scope), dùng object rỗng
@@ -17320,8 +17407,19 @@ function npCancelEditMode(){
 
 /* ── Staff Edit/Cancel for NB ── */
 function nbCancelStaff(id){
-  if(!confirm('Xác nhận HỦY phiếu nghỉ bù này?'))return;
-  nbRef.child(String(id)).update({status:'denied',adminNote:'Nhân viên tự hủy',approvedBy:nbCurrentUser.name,approvedAt:new Date().toISOString()})
+  var isAdminCancel = nbCurrentUser && nbCurrentUser.role==='admin';
+  var noteText = 'Nhân viên tự hủy';
+  if(isAdminCancel){
+    // Admin từ chối/hủy phiếu của nhân viên → bắt buộc nhập lý do để nhân viên biết
+    var ly = prompt('Vui lòng nhập LÝ DO từ chối/hủy phiếu này (để nhân viên xem được ở cột "Ghi chú QT"):','');
+    if(ly===null) return; // bấm Cancel trên hộp nhập lý do → không làm gì cả
+    ly = ly.trim();
+    if(!ly){ alert('Lý do không được để trống. Vui lòng nhập lại.'); return; }
+    noteText = ly;
+  } else {
+    if(!confirm('Xác nhận HỦY phiếu nghỉ bù này?'))return;
+  }
+  nbRef.child(String(id)).update({status:'denied',adminNote:noteText,approvedBy:nbCurrentUser.name,approvedAt:new Date().toISOString()})
     .then(function(){nbShowAl('Đã hủy phiếu nghỉ bù!','warn');})
     .catch(function(e){nbShowAl('Lỗi: '+e.message,'err');});
 }
@@ -17348,6 +17446,7 @@ function nbEditStaff(id){
   document.getElementById('nbFormReason').value=r.reason||'';
   // Store edit ID on rows container
   el.dataset.editId=id;
+  if(typeof nbCheckMonthlyLimit==='function') nbCheckMonthlyLimit();
   switchNbTab(1);
   var btn=document.querySelector('#nbPane1 .nb-btn[onclick="nbSubmitForm()"]');
   if(btn){btn.innerHTML='<i class="ti ti-device-floppy"></i> Cập nhật phiếu';btn.style.background='#0d47a1';}
