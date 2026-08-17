@@ -2419,6 +2419,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
         <span>📋 Đã ghi trong hôm nay (mới nhất lên đầu)</span>
         <button class="btne" onclick="qnGoToBoard()" style="font-size:12px;padding:5px 12px;"><i class="ti ti-layout-kanban"></i> Xem trên bảng chính</button>
       </div>
+      <div id="qnFilterBar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div id="qnTodayList"></div>
     </div>
   </div>
@@ -2572,7 +2573,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     <button class="tbtn" id="btnGoPhanQuyen" onclick="adminGoPhanQuyen()" style="display:none;background:rgba(74,20,140,.7);border-color:#4a148c"><i class="ti ti-shield-lock"></i> Phân quyền</button>
     <button class="tbtn" id="btnToolbarCfg" onclick="openToolbarCfgModal()" style="display:none;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3)" title="Chọn nút nào hiện/ẩn trên thanh công cụ của riêng bạn"><i class="ti ti-adjustments"></i> Tùy chỉnh</button>
     <button class="tbtn" id="btnGiaoBan" onclick="openBriefModal()" style="background:linear-gradient(135deg,rgba(230,81,0,.85),rgba(191,54,12,.85));border-color:rgba(255,183,77,.7)" title="Tóm tắt việc cần xử lý gấp hôm nay"><i class="ti ti-sunrise"></i> Giao ban sáng</button>
-    <button class="tbtn" onclick="qnOpen()" style="background:linear-gradient(135deg,rgba(0,150,136,.85),rgba(0,105,92,.85));border-color:rgba(128,203,196,.7)" title="Nhập nhanh từng vấn đề phát sinh trong ngày, giao diện rộng như 1 sổ tay — mỗi nội dung tự tạo thành 1 thẻ Kanban riêng để xử lý sau"><i class="ti ti-notes"></i> Ghi chú nhanh</button>
+    <button class="tbtn" id="btnQuickNote" onclick="qnOpen()" style="background:linear-gradient(135deg,rgba(0,150,136,.85),rgba(0,105,92,.85));border-color:rgba(128,203,196,.7)" title="Nhập nhanh từng vấn đề phát sinh trong ngày, giao diện rộng như 1 sổ tay — mỗi nội dung tự tạo thành 1 thẻ Kanban riêng để xử lý sau"><i class="ti ti-notes"></i> Ghi chú nhanh</button>
     <button class="tbtn" onclick="openThanhTichPanel()" style="background:rgba(218,165,32,.25);border-color:rgba(218,165,32,.6)" title="Thành tích tập thể"><i class="ti ti-award"></i> Thành tích</button>
     <button class="tbtn" onclick="openPersonalTTPanel()" style="background:rgba(76,29,149,.25);border-color:rgba(124,77,255,.6)" title="Thành tích cá nhân"><i class="ti ti-user-star"></i> Cá nhân</button>
     <button class="tbtn" onclick="forceReloadKanban(this)" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3)" title="Làm mới dữ liệu"><i class="ti ti-refresh"></i> Làm mới</button>
@@ -10810,8 +10811,10 @@ function enterApp(){
   document.getElementById('tAv').textContent=ini(cu.name);
   document.getElementById('abanner').style.display=isA?'flex':'none';
   document.getElementById('filterSec').style.display=isA?'block':'none';
-  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','btnDeptCatalogEdit','deptStatsCatalogBtn','btnToolbarCfg'].forEach(id=>{
+  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','btnDeptCatalogEdit','deptStatsCatalogBtn','btnToolbarCfg','btnGiaoBan','btnQuickNote'].forEach(id=>{
     var el=document.getElementById(id);if(el)el.style.display=isA?'flex':'none';});
+  // Downtime: cho mọi người dùng đã đăng nhập XEM được (thao tác sửa bên trong panel vẫn chỉ dành cho admin)
+  var btnDtEnterApp=document.getElementById('btnDowntime'); if(btnDtEnterApp) btnDtEnterApp.style.display='flex';
   if(isA){ loadToolbarCfgAndApply(); }
   document.getElementById('inPersonDisp').value=cu.name;
   if(cu.role==='admin'){
@@ -10839,7 +10842,7 @@ function logout(){
   cu=null;pendingImgs=[];
   // Reset TẤT CẢ nút admin về ẩn khi đăng xuất
   ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime',
-   'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen']
+   'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnGiaoBan','btnQuickNote']
     .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   document.getElementById('appScreen').style.display='none';
   document.getElementById('loginScreen').style.display='none';
@@ -11460,9 +11463,11 @@ function addCard(){
    để lọc riêng cho danh sách "Đã ghi trong hôm nay" ngay trong màn hình này, không ảnh hưởng gì
    tới cách các thẻ khác trên Kanban đang hoạt động. ── */
 function qnOpen(){
+  if(!(cu && cu.role==='admin')){ if(typeof showAl==='function') showAl('Chỉ Quản lý mới dùng được Ghi chú nhanh!','warn'); return; }
   const modal = document.getElementById('qnModal');
   if(!modal) return;
   qnEditingId = null;
+  qnFilterMode = 'all';
   modal.classList.add('on');
   qnRenderTodayList();
   setTimeout(()=>{ const el=document.getElementById('qnInput'); if(el){ el.value=''; el.focus(); } }, 60);
@@ -11497,7 +11502,7 @@ function qnSubmit(){
   const personName = qnGetPersonName();
   const id = Date.now();
   const newCard = { id, person:personName, dept:'Ghi chú nhanh', date:today(), content:'', todo:text, doing:'', done:'',
-    pri:'m', status:'todo', imgs:[], assignee:null, quickNote:true,
+    pri:'m', status:'todo', imgs:[], assignee:null, quickNote:true, byAdmin: !!(cu && cu.role==='admin'),
     history:[{action:'Ghi chú nhanh trong ngày', actor:personName, at:new Date().toISOString()}] };
   input.disabled = true;
   cardsRef.child(String(id)).set(newCard)
@@ -11514,16 +11519,66 @@ function qnSubmit(){
     });
 }
 let qnEditingId = null;
+let qnFilterMode = 'all'; // 'all' | 'admin' | 'mine' | 'person:<Tên>'
+function qnIsAdminNote(c){
+  // Thẻ tạo trước khi có cờ byAdmin: coi ghi chú đứng tên "Quản lý" là của admin
+  return c.byAdmin===true || (c.byAdmin===undefined && c.person==='Quản lý');
+}
+function qnSetFilterMode(mode){
+  qnFilterMode = mode;
+  qnRenderTodayList();
+}
+function qnRenderFilterBar(todayList){
+  const bar = document.getElementById('qnFilterBar');
+  if(!bar) return;
+  const total = todayList.length;
+  const adminCount = todayList.filter(qnIsAdminNote).length;
+  const myName = qnGetPersonName();
+  const mineCount = todayList.filter(c=>c.person===myName).length;
+  // Danh sách người đã ghi hôm nay (để lọc theo từng cá nhân nếu cần)
+  const persons = [...new Set(todayList.map(c=>c.person).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi'));
+  const mkBtn = (mode,label,count,activeColor)=>{
+    const active = qnFilterMode===mode;
+    return `<button class="btne" onclick="qnSetFilterMode('${mode.replace(/'/g,"\\'")}')" style="padding:5px 12px;font-size:12px;border-radius:20px;${active?`background:${activeColor};border-color:${activeColor};color:#fff;font-weight:700;`:''}">${label} <span style="opacity:.85">(${count})</span></button>`;
+  };
+  let html = mkBtn('all','📋 Tất cả',total,'#00897b')
+    + mkBtn('admin','👑 Của Admin',adminCount,'#8e24aa')
+    + mkBtn('mine','🙋 Của tôi',mineCount,'#1565C0');
+  if(persons.length>2){
+    html += `<select onchange="if(this.value)qnSetFilterMode('person:'+this.value)" style="padding:5px 10px;font-size:12px;border-radius:20px;border:1.5px solid #b2dfdb;background:#fff;font-family:inherit;">
+      <option value="">👤 Lọc theo người...</option>
+      ${persons.map(p=>`<option value="${esc(p)}" ${qnFilterMode==='person:'+p?'selected':''}>${esc(p)}</option>`).join('')}
+    </select>`;
+  }
+  bar.innerHTML = html;
+}
 function qnRenderTodayList(){
   const wrap = document.getElementById('qnTodayList');
   if(!wrap) return;
   const t = today();
-  const list = (cards||[]).filter(c=>c.quickNote && c.date===t).sort((a,b)=>b.id-a.id);
-  if(!list.length){ wrap.innerHTML = '<div style="color:#999;font-size:13px;padding:10px 0;">Chưa có ghi chú nào hôm nay — gõ nội dung ở ô trên rồi bấm Thêm.</div>'; return; }
+  const todayList = (cards||[]).filter(c=>c.quickNote && c.date===t).sort((a,b)=>b.id-a.id);
+  qnRenderFilterBar(todayList);
+  let list = todayList;
+  if(qnFilterMode==='admin'){
+    list = list.filter(qnIsAdminNote);
+  }else if(qnFilterMode==='mine'){
+    const myName = qnGetPersonName();
+    list = list.filter(c=>c.person===myName);
+  }else if(qnFilterMode.startsWith('person:')){
+    const pName = qnFilterMode.slice(7);
+    list = list.filter(c=>c.person===pName);
+  }
+  if(!list.length){
+    wrap.innerHTML = todayList.length
+      ? '<div style="color:#999;font-size:13px;padding:10px 0;">Không có ghi chú nào khớp bộ lọc hiện tại.</div>'
+      : '<div style="color:#999;font-size:13px;padding:10px 0;">Chưa có ghi chú nào hôm nay — gõ nội dung ở ô trên rồi bấm Thêm.</div>';
+    return;
+  }
   const badge = {todo:['#e65100','Chưa xử lý'], doing:['#1565C0','Đang xử lý'], done:['#2e7d32','Đã xong']};
   wrap.innerHTML = list.map(c=>{
     const b = badge[c.status]||badge.todo;
     const dangSua = qnEditingId===c.id;
+    const adminTag = qnIsAdminNote(c) ? '<span style="flex-shrink:0;font-size:10px;font-weight:700;color:#8e24aa;background:#f3e5f5;padding:2px 7px;border-radius:6px;white-space:nowrap;">👑 Admin</span>' : '';
     if(dangSua){
       return `<div style="padding:10px 12px;border:1.5px solid #00897b;border-radius:10px;margin-bottom:8px;background:#e0f2f1;">
         <textarea id="qnEditTa_${c.id}" rows="2" style="width:100%;box-sizing:border-box;font-size:14px;font-family:inherit;padding:8px;border:1px solid #b2dfdb;border-radius:8px;resize:vertical;">${esc(c.todo||c.content||'')}</textarea>
@@ -11535,7 +11590,8 @@ function qnRenderTodayList(){
     }
     return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:8px;background:#fafafa;">
       <span style="flex-shrink:0;font-size:10.5px;font-weight:700;color:#fff;background:${b[0]};padding:3px 8px;border-radius:6px;white-space:nowrap;">${b[1]}</span>
-      <span style="flex:1;font-size:14px;white-space:pre-wrap;">${escNl(c.todo||c.content||'')}</span>
+      ${adminTag}
+      <span style="flex:1;font-size:14px;white-space:pre-wrap;">${escNl(c.todo||c.content||'')}<br><span style="font-size:11px;color:#999;">— ${esc(c.person||'')}</span></span>
       <span style="flex-shrink:0;display:flex;gap:6px;">
         <button class="btne" onclick="qnStartEdit(${c.id})" style="padding:4px 10px;font-size:12px;"><i class="ti ti-edit"></i> Sửa</button>
         <button class="btne" onclick="qnDeleteNote(${c.id})" style="padding:4px 10px;font-size:12px;color:#c62828;border-color:#ef9a9a;"><i class="ti ti-trash"></i> Xóa</button>
@@ -12491,6 +12547,7 @@ function briefGoToQt(id){
   },350);
 }
 function openBriefModal(){
+  if(!(cu && cu.role==='admin')){ if(typeof showAl==='function') showAl('Chỉ Quản lý mới xem được Giao ban sáng!','warn'); return; }
   document.getElementById('briefDateLbl').textContent='Ngày '+fmtD(today());
   const data=(typeof getFiltered==='function')?getFiltered():cards;
   const pending=data.filter(c=>c.status!=='done');
@@ -13944,9 +14001,11 @@ function authConfirm(){
       document.getElementById('tAv').textContent=ini(cu.name);
       document.getElementById('abanner').style.display='none';
       document.getElementById('filterSec').style.display=_vw?'flex':'none';
-      ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime',
-       'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen'].concat(_vw?['btnGiaoBan']:[])
+      ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore',
+       'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnGiaoBan','btnQuickNote']
         .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+      // Downtime: cho nhân viên (staff) và người xem (viewer) đều XEM được, chỉ thao tác sửa mới cần admin
+      var btnDtEk=document.getElementById('btnDowntime'); if(btnDtEk) btnDtEk.style.display='flex';
       document.getElementById('inPersonDisp').style.display='block';
       document.getElementById('inPersonDisp').value=cu.name;
       document.getElementById('inPersonAdminWrap').style.display='none';
@@ -14126,7 +14185,7 @@ function goKanbanViewPublic(){
   document.getElementById('abanner').style.display='none';
   document.getElementById('filterSec').style.display='flex';
   ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore',
-   'btnDowntime','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnClearTestData']
+   'btnDowntime','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnClearTestData','btnGiaoBan','btnQuickNote']
     .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   document.getElementById('inPersonDisp').style.display='block';
   document.getElementById('inPersonDisp').value='';
@@ -14215,7 +14274,7 @@ function goHome(){
   document.getElementById('homeScreen').style.display='flex';
   // Reset TẤT CẢ nút admin về ẩn
   ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime',
-   'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen']
+   'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnGiaoBan','btnQuickNote']
     .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   nbStopAutoRefresh();
   npStopAutoRefresh();
