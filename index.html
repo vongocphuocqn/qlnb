@@ -2672,8 +2672,16 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
         <div class="ff"><label>Đến ngày</label><input type="date" id="fTo" onchange="renderBoard()"></div>
         <div class="ff" style="justify-content:flex-end">
           <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#00695c;white-space:nowrap;cursor:pointer">
-            <input type="checkbox" id="fQuickNote" onchange="renderBoard()" style="width:15px;height:15px"> 📝 Chỉ Ghi chú nhanh
+            <input type="checkbox" id="fQuickNote" onchange="qnSyncGroupFilterVisibility();renderBoard()" style="width:15px;height:15px"> 📝 Chỉ Ghi chú nhanh
           </label>
+        </div>
+        <div class="ff" id="fQuickNoteGroupWrap" style="display:none">
+          <label>Nhóm ghi chú nhanh</label>
+          <select id="fQuickNoteGroup" onchange="renderBoard()">
+            <option value="">Tất cả</option>
+            <option value="admin">👑 Của Admin</option>
+            <option value="mine">🙋 Của tôi</option>
+          </select>
         </div>
         <button class="btne" onclick="clearFilters()"><i class="ti ti-refresh"></i> Xóa lọc</button>
       </div>
@@ -10720,6 +10728,10 @@ function startListening(){
     cards=Object.values(data);
     renderBoard();
     setSyncStatus('ok');
+    // Ghi chú nhanh: nếu khung "Ghi chú nhanh" đang mở, cập nhật lại danh sách ngay khi có dữ liệu mới
+    // (VD: khi mở trên 2 thiết bị cùng lúc, hoặc admin vừa tick/ghi chú xong).
+    var _qnModalLive=document.getElementById('qnModal');
+    if(_qnModalLive && _qnModalLive.classList.contains('on') && typeof qnRenderTodayList==='function') qnRenderTodayList();
   }, err=>{setSyncStatus('err');});
 
   function fillSharedStaffDatalists(){
@@ -11534,6 +11546,22 @@ function qnSetFilterMode(mode){
   qnFilterMode = mode;
   qnRenderTodayList();
 }
+// Tick nhanh 1 ghi chú là "Đã xử lý" (hoặc bỏ tick để trả về "Chưa xử lý") — dùng chung hàm
+// moveCard() đã có sẵn của bảng Kanban chính để đảm bảo đồng bộ lịch sử/trạng thái y hệt nhau.
+function qnToggleDone(id){
+  var c=(cards||[]).find(function(x){return String(x.id)===String(id);});
+  if(!c) return;
+  var newSt = c.status==='done' ? 'todo' : 'done';
+  moveCard(id, newSt);
+}
+// Lưu ghi chú xử lý cho 1 ghi chú nhanh — dùng chung trường "doing" (Đang làm) đã có sẵn của
+// thẻ Kanban, để ghi chú này cũng hiển thị đồng bộ khi xem thẻ trên bảng Kanban chính.
+function qnSaveNote(id, val){
+  if(!(cu && cu.role==='admin')) return;
+  cardsRef.child(String(id)).update({doing: (val||'').trim()})
+    .then(function(){ if(typeof setSyncStatus==='function') setSyncStatus('ok'); })
+    .catch(function(){ if(typeof setSyncStatus==='function') setSyncStatus('err'); });
+}
 function qnRenderFilterBar(todayList){
   const bar = document.getElementById('qnFilterBar');
   if(!bar) return;
@@ -11594,11 +11622,22 @@ function qnRenderTodayList(){
         </div>
       </div>`;
     }
-    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:8px;background:#fafafa;">
-      <span style="flex-shrink:0;font-size:10.5px;font-weight:700;color:#fff;background:${b[0]};padding:3px 8px;border-radius:6px;white-space:nowrap;">${b[1]}</span>
-      ${adminTag}
-      <span style="flex:1;font-size:14px;white-space:pre-wrap;">${escNl(c.todo||c.content||'')}<br><span style="font-size:11px;color:#999;">— ${esc(c.person||'')}</span></span>
-      <span style="flex-shrink:0;display:flex;gap:6px;">
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:8px;background:${c.status==='done'?'#f1f8e9':'#fafafa'};">
+      <button onclick="qnToggleDone(${c.id})" title="${c.status==='done'?'Bỏ đánh dấu đã xử lý':'Tích để đánh dấu đã xử lý'}"
+        style="flex-shrink:0;width:26px;height:26px;margin-top:1px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;
+        border:2px solid ${c.status==='done'?'#2e7d32':'#bbb'};background:${c.status==='done'?'#2e7d32':'#fff'};color:#fff;">${c.status==='done'?'✓':''}</button>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+          <span style="flex-shrink:0;font-size:10.5px;font-weight:700;color:#fff;background:${b[0]};padding:3px 8px;border-radius:6px;white-space:nowrap;">${b[1]}</span>
+          ${adminTag}
+        </div>
+        <div style="font-size:14px;white-space:pre-wrap;">${escNl(c.todo||c.content||'')}</div>
+        <div style="font-size:11px;color:#999;margin-bottom:6px;">— ${esc(c.person||'')}</div>
+        <input type="text" value="${esc(c.doing||'')}" placeholder="+ Ghi chú xử lý (VD: đã báo phòng VTYT, đang chờ vật tư...)"
+          onchange="qnSaveNote(${c.id}, this.value)" onkeydown="if(event.key==='Enter'){this.blur();}"
+          style="width:100%;box-sizing:border-box;font-size:12.5px;padding:6px 9px;border:1px solid #ddd;border-radius:6px;font-family:inherit;color:#5d4037;background:#fffdf7;">
+      </div>
+      <span style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
         <button class="btne" onclick="qnStartEdit(${c.id})" style="padding:4px 10px;font-size:12px;"><i class="ti ti-edit"></i> Sửa</button>
         <button class="btne" onclick="qnDeleteNote(${c.id})" style="padding:4px 10px;font-size:12px;color:#c62828;border-color:#ef9a9a;"><i class="ti ti-trash"></i> Xóa</button>
       </span>
@@ -12120,6 +12159,7 @@ function getFiltered(){
   const fr=document.getElementById('fFrom').value||'';
   const to=document.getElementById('fTo').value||'';
   const qnOnly=document.getElementById('fQuickNote')?document.getElementById('fQuickNote').checked:false;
+  const qnGroup=document.getElementById('fQuickNoteGroup')?document.getElementById('fQuickNoteGroup').value:'';
   if(nm)r=r.filter(c=>c.person.toLowerCase().includes(nm.toLowerCase())||vnNoAccent(c.person).includes(vnNoAccent(nm)));
   if(asg)r=r.filter(c=>c.assignee&&(c.assignee.toLowerCase().includes(asg.toLowerCase())||vnNoAccent(c.assignee).includes(vnNoAccent(asg))));
   if(dp)r=r.filter(c=>c.dept===dp);
@@ -12128,11 +12168,24 @@ function getFiltered(){
   if(fr)r=r.filter(c=>c.date>=fr);
   if(to)r=r.filter(c=>c.date<=to);
   if(qnOnly)r=r.filter(c=>c.quickNote===true);
+  if(qnOnly && qnGroup==='admin')r=r.filter(c=>typeof qnIsAdminNote==='function' && qnIsAdminNote(c));
+  else if(qnOnly && qnGroup==='mine')r=r.filter(c=>(c.person||'').trim()===((cu&&cu.name)?cu.name.trim():''));
   return r;
+}
+// Chỉ hiện bộ lọc "Nhóm ghi chú nhanh" (Tất cả/Của Admin/Của tôi) khi đang bật "Chỉ Ghi chú nhanh" —
+// tránh gây rối bộ lọc chính khi không liên quan.
+function qnSyncGroupFilterVisibility(){
+  var chk=document.getElementById('fQuickNote');
+  var wrap=document.getElementById('fQuickNoteGroupWrap');
+  if(!chk||!wrap) return;
+  wrap.style.display=chk.checked?'flex':'none';
+  if(!chk.checked){ var sel=document.getElementById('fQuickNoteGroup'); if(sel) sel.value=''; }
 }
 function clearFilters(){
   ['fName','fAssignee','fDept','fStatus','fPri','fFrom','fTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const qn=document.getElementById('fQuickNote'); if(qn) qn.checked=false;
+  const qng=document.getElementById('fQuickNoteGroup'); if(qng) qng.value='';
+  qnSyncGroupFilterVisibility();
   renderBoard();
 }
 
@@ -13390,7 +13443,7 @@ function printWord(){
         <td>${esc(c.dept||'—')}</td>
         <td style="text-align:center">${fmtD(c.date)}</td>
         <td>${pm[c.pri]||'🟡 Bình thường'}</td>
-        <td>${escNl(c.content||'')}</td>
+        <td>${escNl(c.content || c.todo || c.doing || c.done || '')}</td>
         <td>${[c.todo&&`<b>Cần làm:</b> ${escNl(c.todo)}`,c.doing&&`<b>Đang làm:</b> ${escNl(c.doing)}`,c.done&&`<b>Hoàn thành:</b> ${escNl(c.done)}`].filter(Boolean).join('<br>')}</td>
         <td style="text-align:center">${stDate?fmtD(stDate):'—'}</td>
         <td style="text-align:center">${dtDays!==null?dtDays+' ngày':'—'}</td>
