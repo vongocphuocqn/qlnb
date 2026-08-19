@@ -1202,6 +1202,12 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
               style="background:#e0f2f1;font-weight:700;color:#00695c;border-color:#a7d4ce;border-radius:8px;padding:8px 11px;font-size:13px;width:100%;font-family:inherit;border:1.5px solid #a7d4ce"
               placeholder="Tự tính...">
           </div>
+          <div class="nb-field" id="npFormRemainWrap" style="display:none">
+            <label style="color:#00695c">Số ngày phép năm còn lại</label>
+            <input type="text" id="npFormRemain" readonly
+              style="background:#fff8e1;font-weight:700;color:#e65100;border-color:#ffe082;border-radius:8px;padding:8px 11px;font-size:13px;width:100%;font-family:inherit;border:1.5px solid #ffe082"
+              placeholder="—">
+          </div>
           <div class="nb-field">
             <label style="color:#00695c">Loại nghỉ phép <span style="color:red">*</span></label>
             <select id="npFormType" onchange="npCalcDays()" style="border-color:#a7d4ce;color:#004d40;border-radius:8px;padding:8px 11px;font-size:13px;font-family:inherit;border:1.5px solid #a7d4ce;width:100%">
@@ -14868,6 +14874,17 @@ function buildPhieuNghiHtml(loai, r, mucDich){
     tongSo = r.days||0;
   }
   const maPhieu = 'GMHS-'+(loai==='bu'?'NB':'NP')+'-'+r.id;
+  // Số ngày phép năm còn lại (tính đến thời điểm in phiếu) — chỉ áp dụng cho phiếu Nghỉ phép,
+  // loại "Phép năm" (loại DUY NHẤT trừ vào quỹ phép năm ở "Quản lý Phép năm"). Lấy cùng nguồn dữ
+  // liệu với cột "Đã nghỉ/Tổng phép năm" ở danh sách, qua npGetQlpQuota() đã có sẵn.
+  let dongPhepConLai = '';
+  if(!isBu && r.type==='phep-nam' && typeof npGetQlpQuota==='function'){
+    const _q = npGetQlpQuota(r.person);
+    if(_q){
+      const _remain = _q.total - _q.daNghi;
+      dongPhepConLai = `<div class="pn-line">Số ngày phép năm còn lại: <b>${_remain}</b> ngày (tổng được cấp ${_q.total} ngày, đã nghỉ ${_q.daNghi} ngày)</div>`;
+    }
+  }
   const ngayLap = r.createdAt ? new Date(r.createdAt) : new Date();
   const ngayLapStr = `${ngayLap.getDate()} tháng ${ngayLap.getMonth()+1} năm ${ngayLap.getFullYear()}`;
   // Dựng QR ngay tại đây (đồng bộ, không cần script-tag nhúng nữa) — an toàn hơn (tránh lặp lại lỗi
@@ -14951,6 +14968,7 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   <div class="pn-line">Nay tôi viết đơn này xin được nghỉ ${isBu?'bù':'phép'} năm ${nam}</div>
   <div class="pn-line">Thời gian nghỉ:<br>${dongThoiGian}</div>
   <div class="pn-line">Tổng thời gian: ${tongSo} ${isBu?'ngày/ca':'ngày'}</div>
+  ${dongPhepConLai}
   <div class="pn-line">Lý do nghỉ ${isBu?'bù':'phép'}: ${esc(r.reason||'')}</div>
   <div class="pn-line">Tôi cam kết bàn giao công việc trước khi nghỉ ${isBu?'bù':'phép'}./.</div>
   <div style="text-align:right;font-style:italic;margin-top:16pt;">Gia Lai, ngày ${ngayLapStr}</div>
@@ -16462,7 +16480,7 @@ function npCalcDays(){
   const type=typeEl?typeEl.value:'';
   const halfEl=document.getElementById('npFormHalf');
   const el=document.getElementById('npFormDays');
-  if(!fr||!to){el.value='';if(halfEl){halfEl.disabled=true;halfEl.value='';}return;}
+  if(!fr||!to){el.value='';if(halfEl){halfEl.disabled=true;halfEl.value='';}npUpdateRemainDisplay();return;}
   const sameDay = fr===to;
   if(halfEl){
     halfEl.disabled=!sameDay;
@@ -16470,9 +16488,10 @@ function npCalcDays(){
   }
   const half = (halfEl && sameDay) ? halfEl.value : '';
   const d=Math.round((new Date(to)-new Date(fr))/(1000*60*60*24))+1;
-  if(d<=0){ el.value='Ngày không hợp lệ'; return; }
+  if(d<=0){ el.value='Ngày không hợp lệ'; npUpdateRemainDisplay(); return; }
   if(half){
     el.value = '0.5 ngày ('+(half==='sang'?'buổi sáng':'buổi chiều')+')';
+    npUpdateRemainDisplay();
     return;
   }
   // Loại "Phép năm" là loại DUY NHẤT tự động trừ vào quỹ Phép năm (Quản lý Phép năm),
@@ -16484,6 +16503,42 @@ function npCalcDays(){
   } else {
     el.value=`${d} ngày`;
   }
+  npUpdateRemainDisplay();
+}
+// Hiện số ngày phép năm còn lại của nhân viên đang đăng ký, ngay trong form — chỉ áp dụng
+// khi loại nghỉ = "Phép năm" (loại DUY NHẤT trừ vào quỹ phép năm). Lấy dữ liệu quỹ phép từ
+// "Quản lý Phép năm" qua npGetQlpQuota() đã có sẵn (dùng chung với cột "Đã nghỉ/Tổng phép năm").
+function npUpdateRemainDisplay(){
+  const wrap=document.getElementById('npFormRemainWrap');
+  const box=document.getElementById('npFormRemain');
+  if(!wrap||!box) return;
+  const typeEl=document.getElementById('npFormType');
+  const type=typeEl?typeEl.value:'';
+  if(type!=='phep-nam'){ wrap.style.display='none'; return; }
+  const isA=npCurrentUser&&npCurrentUser.role==='admin';
+  const personEl=document.getElementById('npPersonVal');
+  const searchEl=document.getElementById('npPersonSearch');
+  const person=isA?((personEl&&personEl.value)||(searchEl&&searchEl.value)||'').trim():(npCurrentUser?npCurrentUser.name:'');
+  if(!person){ wrap.style.display='none'; return; }
+  const quota=(typeof npGetQlpQuota==='function')?npGetQlpQuota(person):null;
+  if(!quota){
+    wrap.style.display='block';
+    box.value='— (chưa có hồ sơ trong Quản lý Phép năm)';
+    box.style.color='#999';
+    return;
+  }
+  const remainNow=quota.total-quota.daNghi;
+  const fr=document.getElementById('npFormFrom').value;
+  const to=document.getElementById('npFormTo').value;
+  const halfEl=document.getElementById('npFormHalf');
+  const half=(halfEl && fr===to) ? halfEl.value : '';
+  const daysXin=(typeof npCalcDaysNum==='function')?npCalcDaysNum(fr,to,half):0;
+  const remainAfter=remainNow-daysXin;
+  wrap.style.display='block';
+  box.style.color=remainAfter<0?'#c62828':'#e65100';
+  box.value=daysXin>0
+    ? `Hiện còn ${remainNow} ngày → Sau khi đăng ký: ${remainAfter} ngày`
+    : `Hiện còn ${remainNow} ngày`;
 }
 // Tải trước danh sách ngày nghỉ đặc biệt (lễ/Tết) của Quản lý Phép năm ngay khi vào màn Đăng ký Nghỉ Phép,
 // để ô "Số ngày nghỉ" tính đúng ngay từ đầu (không phải đợi mở "Quản lý Phép năm" trước mới có dữ liệu).
@@ -16559,6 +16614,7 @@ function npPopulatePersonSelect(){
   else{if(sd){sd.style.display='block';sd.value=npCurrentUser.name;}if(aw)aw.style.display='none';
     document.getElementById('npPersonVal').value=npCurrentUser?npCurrentUser.name:'';}
   document.getElementById('npReplSearch').value='';document.getElementById('npReplVal').value='';
+  npUpdateRemainDisplay();
 }
 /* Person */
 function npFilterPerson(){
@@ -16574,7 +16630,7 @@ function npShowPersonDrop(){
   if(b){b.innerHTML=npMakeItems(npPersonFiltered,'npPickPerson');b.style.display='block';npAttachPicker('npPersonDrop',npPersonFiltered);}
 }
 function npHidePersonDrop(){const b=document.getElementById('npPersonDrop');if(b)b.style.display='none';if(!document.getElementById('npPersonVal').value)document.getElementById('npPersonSearch').value='';}
-function npPickPerson(n){document.getElementById('npPersonSearch').value=n;document.getElementById('npPersonVal').value=n;const b=document.getElementById('npPersonDrop');if(b)b.style.display='none';}
+function npPickPerson(n){document.getElementById('npPersonSearch').value=n;document.getElementById('npPersonVal').value=n;const b=document.getElementById('npPersonDrop');if(b)b.style.display='none';npUpdateRemainDisplay();}
 function npNavPersonDrop(e){const b=document.getElementById('npPersonDrop');if(!b||b.style.display==='none'){if(e.key==='ArrowDown')npShowPersonDrop();return;}const items=b.querySelectorAll('[data-np-idx]');if(!items.length)return;if(e.key==='ArrowDown'){e.preventDefault();npPersonHi=Math.min(npPersonHi+1,items.length-1);}else if(e.key==='ArrowUp'){e.preventDefault();npPersonHi=Math.max(npPersonHi-1,0);}else if(e.key==='Enter'){e.preventDefault();if(npPersonHi>=0&&npPersonFiltered[npPersonHi])npPickPerson(npPersonFiltered[npPersonHi]);return;}else if(e.key==='Escape'){npHidePersonDrop();return;}items.forEach((el,i)=>el.style.background=i===npPersonHi?'#b2dfdb':'');if(npPersonHi>=0)items[npPersonHi].scrollIntoView({block:'nearest'});}
 /* Replacer */
 function npFilterRepl(){const q=document.getElementById('npReplSearch').value;npReplFiltered=npBuildList(q);const b=document.getElementById('npReplDrop');if(b)b.innerHTML='<div onmousedown="npPickRepl(\'\')" style="padding:9px 12px;cursor:pointer;font-size:13px;color:#888;border-bottom:1px solid #e0f2f1" onmouseover="this.style.background=\'#e0f2f1\'" onmouseout="this.style.background=\'\'">— Không phân thay thế —</div>'+npMakeItems(npReplFiltered,'npPickRepl');npShowReplDrop();}
