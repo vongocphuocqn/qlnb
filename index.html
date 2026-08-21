@@ -16374,6 +16374,11 @@ function nbExportWord(){
   .tbtn.dl:hover{background:#e3eefd}
   .page{background:#fff;border-radius:8px;padding:28px 32px;
     box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}
+  .zoom-grp{display:flex;align-items:center;gap:2px;border:1.5px solid rgba(255,255,255,.5);border-radius:8px;overflow:hidden}
+  .zoom-grp button{border:none;background:rgba(255,255,255,.15);color:#fff;padding:8px 12px;cursor:pointer;font-size:15px;font-weight:700;font-family:inherit}
+  .zoom-grp span{min-width:46px;text-align:center;font-size:12.5px;font-weight:700;color:#fff;padding:0 4px}
+  .zoom-grp .rs{font-size:11px;font-weight:400;border-left:1.5px solid rgba(255,255,255,.5)}
+  #pageZoomWrap{transform-origin:top center;transition:transform .12s}
   .hdr-top{text-align:center;margin-bottom:4pt}
   .org{font-size:10pt;color:#444;font-style:italic}
   .dep{font-size:11pt;font-weight:700;color:#1565C0}
@@ -16406,11 +16411,18 @@ function nbExportWord(){
   <!-- Toolbar xem trước -->
   <div class="toolbar no-print">
     <span>📄 Xem trước – Danh sách Nghỉ Bù Khoa GMHS (${printDate})</span>
+    <div class="zoom-grp">
+      <button onclick="previewZoom(-10)" title="Thu nhỏ">−</button>
+      <span id="pvZoomPct">100%</span>
+      <button onclick="previewZoom(10)" title="Phóng to">+</button>
+      <button class="rs" onclick="previewZoom(0,true)">Reset</button>
+    </div>
     <button class="tbtn" onclick="window.close()">✕ Đóng</button>
     <button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>
     <button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>
   </div>
 
+  <div id="pageZoomWrap">
   <div class="page">
     <!-- Header -->
     <div class="hdr-top">
@@ -16514,6 +16526,7 @@ function nbExportWord(){
       Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai &nbsp;·&nbsp; Hệ thống quản lý Nghỉ Bù nội bộ
     </div>
   </div><!-- /page -->
+  </div><!-- /pageZoomWrap -->
 </div>
 <script>
 function downloadWordDoc(){
@@ -16525,6 +16538,14 @@ function downloadWordDoc(){
   a.href=URL.createObjectURL(blob);
   a.download='${docFileName}';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+var _pvZoom=100;
+function previewZoom(delta,reset){
+  _pvZoom = reset ? 100 : Math.min(200, Math.max(50, _pvZoom+delta));
+  var w=document.getElementById('pageZoomWrap');
+  var lbl=document.getElementById('pvZoomPct');
+  if(w) w.style.transform='scale('+(_pvZoom/100)+')';
+  if(lbl) lbl.textContent=_pvZoom+'%';
 }
 <\/script>
 </body></html>`;
@@ -17746,6 +17767,11 @@ function npExportWord(){
   .tbtn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:2px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:#fff;font-family:inherit}
   .tbtn.print{background:#2e7d32;border-color:#2e7d32}
   .tbtn.dl{background:#1565C0;border-color:#1565C0}
+  .zoom-grp{display:flex;align-items:center;gap:2px;border:1.5px solid rgba(255,255,255,.5);border-radius:8px;overflow:hidden}
+  .zoom-grp button{border:none;background:rgba(255,255,255,.15);color:#fff;padding:8px 12px;cursor:pointer;font-size:15px;font-weight:700;font-family:inherit}
+  .zoom-grp span{min-width:46px;text-align:center;font-size:12.5px;font-weight:700;color:#fff;padding:0 4px}
+  .zoom-grp .rs{font-size:11px;font-weight:400;border-left:1.5px solid rgba(255,255,255,.5)}
+  #pageZoomWrap{transform-origin:top center;transition:transform .12s}
   .page{background:#fff;border-radius:8px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px}
   .hdr-top{text-align:center;margin-bottom:4pt}
   .org{font-size:10pt;color:#444;font-style:italic}
@@ -17769,10 +17795,17 @@ function npExportWord(){
 <div class="preview-wrap">
   <div class="toolbar no-print">
     <span>📄 Xem trước – Danh sách Nghỉ Phép Khoa GMHS (${printDate})</span>
+    <div class="zoom-grp">
+      <button onclick="previewZoom(-10)" title="Thu nhỏ">−</button>
+      <span id="pvZoomPct">100%</span>
+      <button onclick="previewZoom(10)" title="Phóng to">+</button>
+      <button class="rs" onclick="previewZoom(0,true)">Reset</button>
+    </div>
     <button class="tbtn" onclick="window.close()">✕ Đóng</button>
     <button class="tbtn dl" onclick="downloadWordDoc()">💾 Tải Word (.doc)</button>
     <button class="tbtn print" onclick="window.print()">🖨 In tài liệu</button>
   </div>
+  <div id="pageZoomWrap">
   <div class="page">
     <div class="hdr-top">
       <div class="org">SỞ Y TẾ TỈNH GIA LAI</div>
@@ -17804,7 +17837,7 @@ function npExportWord(){
         <td>${npTypeLabel[r.type]||''}</td>
         <td>${plainQTNote(r.reason)}</td>
         <td class="st-${r.status==='approved'?'ok':r.status==='denied'?'deny':'pend'}" style="text-align:center">${slb[r.status]||''}</td>
-        <td>${esc(r.replacer||'—')}</td>
+        <td>${npReplacerDisplay(r)}</td>
         <td style="font-size:9pt">${plainQTNote(r.adminNote)}</td>
       </tr>`).join('')}</tbody>
       <tfoot><tr>
@@ -17828,6 +17861,7 @@ function npExportWord(){
     </div>
     <div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Hệ thống quản lý Nghỉ Phép nội bộ</div>
   </div>
+  </div>
 </div>
 <script>
 function downloadWordDoc(){
@@ -17839,6 +17873,14 @@ function downloadWordDoc(){
   a.href=URL.createObjectURL(blob);
   a.download='${docFileName}';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+var _pvZoom=100;
+function previewZoom(delta,reset){
+  _pvZoom = reset ? 100 : Math.min(200, Math.max(50, _pvZoom+delta));
+  var w=document.getElementById('pageZoomWrap');
+  var lbl=document.getElementById('pvZoomPct');
+  if(w) w.style.transform='scale('+(_pvZoom/100)+')';
+  if(lbl) lbl.textContent=_pvZoom+'%';
 }
 <\/script>
 </body></html>`;
