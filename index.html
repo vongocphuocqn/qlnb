@@ -44178,9 +44178,16 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     });
   }
   // ── TÓM TẮT NHANH — rút nội dung trọng tâm từ 1 buổi đi buồng để gửi nhóm nắm tình hình ──
-  // Chỉ lấy bệnh nhân CÓ ghi "Diễn biến" (đúng nghĩa "ca cần lưu ý" theo yêu cầu Trưởng khoa/ĐDT —
-  // không lấy toàn bộ danh sách bệnh nhân, vì bảng III vốn chỉ nên chứa các ca có diễn biến mới).
-  // doneSet: object {"p0_i1":true,...} đánh dấu chỉ định nào đã tích "hoàn thành" — nội dung đó sẽ
+  // "Cần lưu ý" = có ÍT NHẤT MỘT trong 3 dấu hiệu sau, không chỉ riêng ô "Diễn biến" có chữ như
+  // trước đây — vì thực tế nhiều trường hợp chỉ tích ô "Có diễn biến hôm nay" hoặc chỉ điền Chỉ
+  // định mà chưa kịp gõ Diễn biến, vẫn cần xuất hiện trong bản tóm tắt gửi nhóm:
+  // 1) Đã tích checkbox "Có diễn biến hôm nay" (coDienBien), hoặc
+  // 2) Có gõ nội dung ở ô "Diễn biến", hoặc
+  // 3) Có gõ/tích nội dung ở ô "Chỉ định điều trị/Chăm sóc".
+  function sdbLaBenhNhanCanLuuY(b){
+    return !!(b.coDienBien) || (b.dienBien && String(b.dienBien).trim()) || (b.chiDinh && String(b.chiDinh).trim());
+  }
+  // doanSet: object {"p0_i1":true,...} đánh dấu chỉ định nào đã tích "hoàn thành" — nội dung đó sẽ
   // được TÁCH RIÊNG xuống mục "✅ Đã hoàn thành" của đúng bệnh nhân đó, giống hệt cơ chế tích nhanh
   // "Cần làm -> Hoàn thành" đã có ở thẻ Kanban chính (Ghi chú nhanh).
   window.sdbBuildSummaryText = function(e, doneSet){
@@ -44190,7 +44197,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     lines.push('👩‍⚕️ ĐDT: '+(e.dieuDuongTruong||'—')+'  |  ĐDV: '+(e.dieuDuongVien||'—'));
     lines.push('📊 Tổng BN: '+(e.tongSoBN||0)+'  (CS I: '+(e.csCap1||0)+', CS II: '+(e.csCap2||0)+', CS III: '+(e.csCap3||0)+')');
     lines.push('');
-    var canLuuY = (e.benhNhan||[]).filter(function(b){ return b.dienBien && String(b.dienBien).trim(); });
+    var canLuuY = (e.benhNhan||[]).filter(sdbLaBenhNhanCanLuuY);
     if(canLuuY.length){
       lines.push('⚠️ BỆNH NHÂN CẦN LƯU Ý ('+canLuuY.length+'):');
       canLuuY.forEach(function(b,pi){
@@ -44207,6 +44214,8 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
             lines.push('   ✅ Đã hoàn thành:');
             done.forEach(function(txt){ lines.push('      ✓ '+txt); });
           }
+        } else {
+          lines.push('   • (Chưa ghi Chỉ định cụ thể)');
         }
         lines.push('');
       });
@@ -44234,7 +44243,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
   function sdbRenderSummaryChecklist(){
     var wrap = document.getElementById('sdbSummaryChecklist');
     if(!wrap || !sdbSummaryCurEntry) return;
-    var canLuuY = (sdbSummaryCurEntry.benhNhan||[]).filter(function(b){ return b.dienBien && String(b.dienBien).trim(); });
+    var canLuuY = (sdbSummaryCurEntry.benhNhan||[]).filter(sdbLaBenhNhanCanLuuY);
     if(!canLuuY.length){ wrap.innerHTML=''; return; }
     wrap.innerHTML = canLuuY.map(function(b,pi){
       var items = b.chiDinh ? String(b.chiDinh).split('\n').map(function(l){return l.trim().replace(/^[•☐☑✓]\s*/,'');}).filter(Boolean) : [];
