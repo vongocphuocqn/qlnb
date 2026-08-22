@@ -42818,10 +42818,6 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     <button id="pbvWideBtn" onclick="kpiToggleWideBox('pbvMainBox','pbvWideBtn')" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
   <div id="pbvMainBox" style="max-width:760px;margin:0 auto;padding:18px 16px 60px;width:100%">
-    <div style="background:#fff;border:1.5px solid #ffcdd2;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:12.5px;color:#b71c1c;line-height:1.6">
-      <i class="ti ti-info-circle"></i> Điền đầy đủ thông tin bên dưới → bấm <b>"Tạo phiếu &amp; In"</b> → mang bản in đến <b>Trưởng khoa ký sống (ký tay trực tiếp)</b>. Đồng thời hệ thống <b>tự động gửi 1 bản sang "Đăng ký Nghỉ Phép" của Khoa</b> ở trạng thái "Chờ duyệt" — Khoa duyệt bình thường như mọi phiếu khác, khi duyệt xong sẽ <b>tự động trừ vào quỹ Phép năm</b> đúng như cơ chế đang chạy. Mẫu này KHÔNG dùng chữ ký điện tử.<br>
-      📱 <b>Làm trên điện thoại xong, muốn qua máy tính in?</b> Bấm <b>"Xuất Word"</b> để tải file .doc về máy, rồi bấm <b>"Chia sẻ"</b> để gửi file đó qua Zalo cho mình (hoặc cho người trực máy tính) — mở lại trên máy tính rồi in như bình thường.
-    </div>
     <div style="background:#fff;border:1.5px solid #eee;border-radius:12px;padding:16px 18px;margin-bottom:18px">
       <div class="mgrid">
         <div class="mf"><label>Họ và tên <span style="color:red">*</span></label>
@@ -42830,9 +42826,12 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         </div>
         <div class="mf"><label>Chức danh (chức vụ) <span style="font-weight:400;color:#999;font-size:10px">(tự điền, sửa được)</span></label><input type="text" id="pbvChucDanh" placeholder="VD: Điều dưỡng, Bác sĩ..."></div>
         <div class="mf sp2"><label>Khoa, phòng <span style="color:red">*</span> <span style="font-weight:400;color:#999;font-size:10px">(tự điền, sửa được)</span></label><input type="text" id="pbvKhoaPhong" placeholder="VD: Khoa Nội tổng hợp"></div>
-        <div class="mf sp2"><label>Người ký duyệt (Trưởng khoa) <span style="font-weight:400;color:#999;font-size:10px">(để in tên sẵn dưới chỗ ký)</span></label>
-          <input type="text" id="pbvTruongKhoa" list="pbvTruongKhoaList" placeholder="🔍 Gõ để tìm tên..." autocomplete="off">
+        <div class="mf sp2"><label>Người ký duyệt <span style="font-weight:400;color:#999;font-size:10px">(để in đúng chức danh + tên dưới chỗ ký)</span></label>
+          <input type="text" id="pbvTruongKhoa" list="pbvTruongKhoaList" placeholder="🔍 Gõ để tìm tên..." autocomplete="off" oninput="pbvSyncSignerRoleFromTyping()">
           <datalist id="pbvTruongKhoaList"></datalist>
+          <input type="hidden" id="pbvTruongKhoaRole" value="Trưởng khoa">
+          <div id="pbvTruongKhoaChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+          <button type="button" onclick="pbvOpenSignerConfig()" style="margin-top:6px;background:none;border:none;color:#c62828;font-size:11px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:0"><i class="ti ti-settings"></i> Cấu hình sẵn danh sách người ký</button>
         </div>
         <div class="mf"><label>Từ ngày <span style="color:red">*</span></label><input type="date" id="pbvTuNgay" onchange="pbvCalcDays()"></div>
         <div class="mf"><label>Đến ngày <span style="color:red">*</span></label><input type="date" id="pbvDenNgay" onchange="pbvCalcDays()"></div>
@@ -42842,14 +42841,36 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         <div class="mf sp2"><label>Địa chỉ nghỉ phép</label><input type="text" id="pbvDiaChi" placeholder="VD: 12 Trần Hưng Đạo, TP Quy Nhơn..."></div>
         <div class="mf sp2"><label>Phương tiện di chuyển (nếu có)</label><input type="text" id="pbvPhuongTien" placeholder="VD: Xe khách, xe cá nhân..."></div>
       </div>
-      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
-        <button onclick="pbvSubmit()" style="background:#c62828;color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px"><i class="ti ti-printer"></i> Tạo phiếu &amp; In</button>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;align-items:center">
+        <button id="pbvSubmitBtn" onclick="pbvSubmit()" style="background:#c62828;color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px"><i class="ti ti-device-floppy"></i> Tạo phiếu</button>
+        <button onclick="pbvCancelEdit()" style="background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:9px;padding:11px 16px;font-size:13px;cursor:pointer;font-family:inherit">Hủy sửa / Làm mới</button>
+        <span id="pbvSuccessMsg" style="display:none;color:#1b5e20;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600"><i class="ti ti-circle-check"></i> Đã tạo phiếu — kéo xuống "Phiếu đã tạo gần đây" để Xem/In, Xuất Word hoặc Chia sẻ.</span>
       </div>
     </div>
     <div style="background:#fff;border:1.5px solid #eee;border-radius:12px;padding:14px 16px">
-      <div style="font-weight:700;color:#c62828;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-history"></i> Phiếu đã tạo gần đây <span style="font-weight:400;font-size:11px;color:#999">(lưu để in lại khi cần, không có bước duyệt)</span></div>
+      <div style="font-weight:700;color:#c62828;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <i class="ti ti-history"></i> Phiếu đã tạo gần đây <span style="font-weight:400;font-size:11px;color:#999">(lưu để in lại khi cần, không có bước duyệt)</span>
+        <button type="button" id="pbvAdminModeBtn" onclick="pbvToggleAdminMode()" style="margin-left:auto;background:#f5f5f5;border:1px solid #ddd;color:#666;border-radius:14px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-lock"></i> Chế độ Quản lý (xóa mọi phiếu)</button>
+      </div>
       <input type="text" id="pbvSearchMine" placeholder="🔍 Gõ tên để tìm phiếu đã tạo..." oninput="pbvRenderList()" style="width:100%;box-sizing:border-box;border:1.5px solid #eee;border-radius:8px;padding:8px 11px;font-size:13px;font-family:inherit;margin-bottom:10px">
       <div id="pbvList"></div>
+    </div>
+  </div>
+  <!-- Khung nhỏ nổi (modal đơn giản) — Cấu hình sẵn danh sách "Người ký duyệt" -->
+  <div id="pbvSignerCfgBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)pbvCloseSignerConfig()">
+    <div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 20px;max-height:85vh;overflow-y:auto">
+      <div style="font-weight:700;color:#c62828;margin-bottom:4px;display:flex;align-items:center;gap:6px"><i class="ti ti-settings"></i> Cấu hình sẵn người ký</div>
+      <div style="font-size:11.5px;color:#888;margin-bottom:12px">Khai báo trước tên những người thường ký duyệt (Trưởng khoa, Phó trưởng khoa...) để chọn nhanh bằng 1 lần bấm, khỏi phải gõ tìm mỗi lần.</div>
+      <div id="pbvSignerCfgList" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="pbvSignerCfgNew" placeholder="Thêm tên người ký..." style="flex:1;min-width:160px;border:1.5px solid #eee;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter'){event.preventDefault();pbvAddSigner();}">
+        <select id="pbvSignerCfgRole" style="border:1.5px solid #eee;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit">
+          <option value="Trưởng khoa">Trưởng khoa</option>
+          <option value="Phó trưởng khoa">Phó trưởng khoa</option>
+        </select>
+        <button onclick="pbvAddSigner()" style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit">Thêm</button>
+      </div>
+      <button onclick="pbvCloseSignerConfig()" style="width:100%;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;padding:9px;font-size:13px;cursor:pointer;font-family:inherit">Đóng</button>
     </div>
   </div>
 </div>
@@ -45059,6 +45080,7 @@ function phepBvOpen(){
   pbvCalcDays();
   pbvFillNameSelect();
   pbvEnsureListener();
+  pbvEnsureSignerListener();
 }
 // Nạp danh sách nhân viên của Khoa vào ô "Họ và tên" (dạng gõ-để-tìm, dùng <input list="..."> +
 // <datalist> để nhập nhanh trên cả điện thoại lẫn máy tính). Ưu tiên dùng lại config.employees/
@@ -45066,6 +45088,29 @@ function phepBvOpen(){
 // Firebase "dieuDongNhanLuc/danhMuc" (nguồn danh mục nhân viên dùng chung toàn app) — không phụ thuộc
 // việc đã mở màn hình nào khác hay chưa, tránh bị trống danh sách như trước.
 var pbvEmployeeCache = [];
+// ── CHẾ ĐỘ QUẢN LÝ (để xóa được MỌI phiếu, kể cả phiếu không phải do máy này tạo) ── Màn hình
+// "Đăng ký phép BV" không bắt đăng nhập admin của app chính (mở thẳng từ Trang chủ), nên không
+// dựa vào biến "cu" (thường chỉ có giá trị sau khi đăng nhập "Quản lý" ở Trang chủ) — dùng luôn
+// đúng mật khẩu Quản lý chung của toàn hệ thống (biến "adminPwd" đã có sẵn) để mở khóa RIÊNG cho
+// phiên làm việc hiện tại trên màn hình này (không lưu lại, tắt trình duyệt là phải nhập lại).
+var pbvIsAdminMode = false;
+function pbvToggleAdminMode(){
+  var btn = document.getElementById('pbvAdminModeBtn');
+  if(pbvIsAdminMode){
+    pbvIsAdminMode = false;
+    if(btn){ btn.innerHTML = '<i class="ti ti-lock"></i> Chế độ Quản lý (xóa mọi phiếu)'; btn.style.background='#f5f5f5'; btn.style.color='#666'; btn.style.borderColor='#ddd'; }
+    pbvRenderList();
+    return;
+  }
+  var pwd = prompt('Nhập mật khẩu Quản lý để bật chế độ xóa mọi phiếu:');
+  if(pwd===null) return;
+  var real = (typeof adminPwd!=='undefined' && adminPwd) ? adminPwd : null;
+  if(real===null){ alert('Chưa tải được mật khẩu Quản lý (kiểm tra lại kết nối mạng) — thử lại sau vài giây.'); return; }
+  if(pwd!==real){ alert('Sai mật khẩu!'); return; }
+  pbvIsAdminMode = true;
+  if(btn){ btn.innerHTML = '<i class="ti ti-lock-open"></i> Đang bật Chế độ Quản lý'; btn.style.background='#c62828'; btn.style.color='#fff'; btn.style.borderColor='#c62828'; }
+  pbvRenderList();
+}
 function pbvFillNameSelect(){
   var dl = document.getElementById('pbvHoTenList');
   if(!dl) return;
@@ -45112,6 +45157,86 @@ function pbvAutoFillFromName(){
   if(cdEl) cdEl.value = emp.vanBang || emp.chucVu || '';
   if(kpEl) kpEl.value = 'Khoa Gây mê Hồi sức';
 }
+// ── CẤU HÌNH SẴN DANH SÁCH "NGƯỜI KÝ DUYỆT" — lưu trên Firebase (dùng chung cho mọi người vào
+// trang này, không phải riêng từng máy) để khai báo 1 lần, sau đó chọn nhanh bằng nút bấm thay vì
+// phải gõ tìm tên mỗi lần lập phiếu. Vẫn giữ ô gõ-tìm-tên tự do song song, không bắt buộc dùng
+// đúng danh sách này. Mỗi người ký có kèm CHỨC VỤ (Trưởng khoa / Phó trưởng khoa) — khi chọn, cả
+// tên lẫn chức vụ đều tự điền, để bản in ghi đúng "TRƯỞNG KHOA XÁC NHẬN" hay "PHÓ TRƯỞNG KHOA XÁC
+// NHẬN" tương ứng, không phải luôn mặc định là Trưởng khoa. Dữ liệu cũ (chỉ là chuỗi tên, chưa có
+// chức vụ) vẫn đọc được bình thường, tự hiểu ngầm là "Trưởng khoa".
+var pbvSignerListenerOn = false;
+var pbvSignerList = []; // [{ten, chucVu}]
+function pbvNormalizeSignerList(val){
+  if(!Array.isArray(val)) return [];
+  return val.filter(Boolean).map(function(it){
+    return (typeof it === 'string') ? {ten:it, chucVu:'Trưởng khoa'} : {ten:it.ten||'', chucVu:it.chucVu||'Trưởng khoa'};
+  }).filter(function(it){ return it.ten; });
+}
+function pbvEnsureSignerListener(){
+  if(pbvSignerListenerOn) return;
+  pbvSignerListenerOn = true;
+  db.ref('phepBenhVienConfig/nguoiKy').on('value', function(snap){
+    pbvSignerList = pbvNormalizeSignerList(snap.val());
+    pbvRenderSignerChips();
+    pbvRenderSignerCfgList();
+  }, function(){ pbvSignerList = []; pbvRenderSignerChips(); });
+}
+function pbvRenderSignerChips(){
+  var wrap = document.getElementById('pbvTruongKhoaChips');
+  if(!wrap) return;
+  if(!pbvSignerList.length){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = pbvSignerList.map(function(s){
+    return '<button type="button" onclick="pbvPickSigner(\''+s.ten.replace(/'/g,"\\'")+'\',\''+s.chucVu.replace(/'/g,"\\'")+'\')" style="background:#fdecea;border:1.5px solid #f5c2c0;color:#c62828;border-radius:14px;padding:4px 11px;font-size:12px;cursor:pointer;font-family:inherit">'+esc(s.ten)+' <span style="opacity:.7">('+esc(s.chucVu)+')</span></button>';
+  }).join('');
+}
+function pbvPickSigner(ten, chucVu){
+  var el = document.getElementById('pbvTruongKhoa');
+  var roleEl = document.getElementById('pbvTruongKhoaRole');
+  if(el) el.value = ten;
+  if(roleEl) roleEl.value = chucVu || 'Trưởng khoa';
+}
+// Nếu anh gõ tay (không bấm chip có sẵn) mà tên gõ TRÙNG KHỚP với 1 người đã cấu hình sẵn, tự đồng
+// bộ đúng chức vụ của người đó — tránh trường hợp gõ tay xong bản in vẫn ghi nhầm "Trưởng khoa"
+// cho 1 Phó trưởng khoa.
+function pbvSyncSignerRoleFromTyping(){
+  var ten = (document.getElementById('pbvTruongKhoa')||{}).value || '';
+  var match = pbvSignerList.find(function(s){ return s.ten===ten; });
+  var roleEl = document.getElementById('pbvTruongKhoaRole');
+  if(roleEl) roleEl.value = match ? match.chucVu : 'Trưởng khoa';
+}
+function pbvOpenSignerConfig(){
+  document.getElementById('pbvSignerCfgBg').style.display = 'flex';
+  pbvRenderSignerCfgList();
+}
+function pbvCloseSignerConfig(){
+  document.getElementById('pbvSignerCfgBg').style.display = 'none';
+}
+function pbvRenderSignerCfgList(){
+  var wrap = document.getElementById('pbvSignerCfgList');
+  if(!wrap) return;
+  if(!pbvSignerList.length){ wrap.innerHTML = '<div style="color:#999;font-size:12.5px;padding:8px 0">Chưa khai báo người ký nào — thêm ở ô bên dưới.</div>'; return; }
+  wrap.innerHTML = pbvSignerList.map(function(s, i){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid #f0f0f0;border-radius:8px;margin-bottom:6px">'
+      + '<span style="font-size:13px">'+esc(s.ten)+' <span style="color:#999;font-size:11.5px">— '+esc(s.chucVu)+'</span></span>'
+      + '<button onclick="pbvRemoveSigner('+i+')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:16px;line-height:1">×</button>'
+      + '</div>';
+  }).join('');
+}
+function pbvAddSigner(){
+  var el = document.getElementById('pbvSignerCfgNew');
+  var roleEl = document.getElementById('pbvSignerCfgRole');
+  var ten = el ? el.value.trim() : '';
+  var chucVu = roleEl ? roleEl.value : 'Trưởng khoa';
+  if(!ten){ alert('Vui lòng nhập tên.'); return; }
+  if(pbvSignerList.some(function(s){ return s.ten===ten; })){ alert('Tên này đã có trong danh sách.'); return; }
+  var updated = pbvSignerList.concat([{ten:ten, chucVu:chucVu}]);
+  db.ref('phepBenhVienConfig/nguoiKy').set(updated).then(function(){ if(el) el.value=''; }).catch(function(err){ alert('Lỗi lưu: '+err.message); });
+}
+function pbvRemoveSigner(idx){
+  var updated = pbvSignerList.slice();
+  updated.splice(idx,1);
+  db.ref('phepBenhVienConfig/nguoiKy').set(updated).catch(function(err){ alert('Lỗi lưu: '+err.message); });
+}
 function phepBvClose(){
   document.getElementById('phepBvScreen').style.display='none';
   document.getElementById('homeScreen').style.display='block';
@@ -45148,6 +45273,21 @@ function pbvCalcDays(){
   var d = Math.round((new Date(to)-new Date(fr))/86400000)+1;
   el.value = d>0 ? (d+' ngày') : 'Ngày không hợp lệ';
 }
+// ── "AI NẤY XEM/SỬA" — module này không có đăng nhập riêng, nên dùng bộ nhớ trình duyệt (localStorage)
+// để nhớ NHỮNG PHIẾU ĐÃ TỰ TẠO TRÊN CHÍNH MÁY/TRÌNH DUYỆT NÀY — chỉ những phiếu đó mới hiện nút
+// Sửa/Xóa; phiếu của người khác (tạo từ máy khác) chỉ xem/in/xuất được, không sửa/xóa được. Đây là
+// cách phân quyền đơn giản theo THIẾT BỊ, không phải tài khoản thật — nếu đổi trình duyệt/xóa dữ
+// liệu duyệt web thì sẽ mất quyền sửa các phiếu cũ (vẫn xem/in bình thường).
+function pbvGetMyIds(){
+  try{ return JSON.parse(localStorage.getItem('pbvMyIds')||'[]'); }catch(e){ return []; }
+}
+function pbvAddMyId(id){
+  try{
+    var ids = pbvGetMyIds();
+    if(ids.indexOf(String(id))===-1){ ids.push(String(id)); localStorage.setItem('pbvMyIds', JSON.stringify(ids)); }
+  }catch(e){}
+}
+var pbvEditingId = null;
 function pbvSubmit(){
   var hoTen=(document.getElementById('pbvHoTen')||{}).value.trim();
   var khoaPhong=(document.getElementById('pbvKhoaPhong')||{}).value.trim();
@@ -45158,24 +45298,100 @@ function pbvSubmit(){
   if(!tuNgay||!denNgay){ alert('Vui lòng chọn Từ ngày – Đến ngày.'); return; }
   if(new Date(denNgay)<new Date(tuNgay)){ alert('Đến ngày phải sau hoặc bằng Từ ngày.'); return; }
   var tongNgay = Math.round((new Date(denNgay)-new Date(tuNgay))/86400000)+1;
+  var isEdit = !!pbvEditingId;
+  var old = isEdit ? pbvRecords.find(function(x){ return String(x.id)===String(pbvEditingId); }) : null;
   var rec = {
-    id: Date.now(),
+    id: isEdit ? old.id : Date.now(),
     hoTen: hoTen,
     chucDanh: (document.getElementById('pbvChucDanh')||{}).value.trim(),
     khoaPhong: khoaPhong,
     truongKhoaKy: (document.getElementById('pbvTruongKhoa')||{}).value.trim(),
+    truongKhoaRole: (document.getElementById('pbvTruongKhoaRole')||{}).value || 'Trưởng khoa',
     tuNgay: tuNgay, denNgay: denNgay, tongNgay: tongNgay,
     namNghiPhep: (document.getElementById('pbvNam')||{}).value.trim() || new Date().getFullYear(),
     lyDo: (document.getElementById('pbvLyDo')||{}).value.trim(),
     diaChi: (document.getElementById('pbvDiaChi')||{}).value.trim(),
     phuongTien: (document.getElementById('pbvPhuongTien')||{}).value.trim(),
-    createdAt: new Date().toISOString()
+    createdAt: isEdit ? old.createdAt : new Date().toISOString(),
+    npRecordId: isEdit ? (old.npRecordId||null) : null
   };
-  pbvRef.child(String(rec.id)).set(rec).then(function(){
-    return pbvSyncToKhoa(rec);
+  var savePromise = pbvRef.child(String(rec.id)).set(rec);
+  savePromise.then(function(){
+    pbvAddMyId(rec.id);
+    if(isEdit && rec.npRecordId && typeof npRef!=='undefined' && npRef){
+      // Cập nhật lại đúng các trường nội dung của phiếu bên Khoa đang "Chờ duyệt" cho khớp với
+      // phiếu BV vừa sửa — KHÔNG đụng tới status/approvedBy/approvedAt (giữ nguyên tiến trình duyệt).
+      return npRef.child(String(rec.npRecordId)).update({ person:rec.hoTen, dateFrom:rec.tuNgay, dateTo:rec.denNgay, days:rec.tongNgay, reason:rec.lyDo||'' });
+    }
+    return isEdit ? Promise.resolve() : pbvSyncToKhoa(rec);
   }).then(function(){
-    pbvOpenPrint(rec.id);
+    pbvEditingId = null;
+    pbvClearFormAfterSubmit();
+    var btn = document.getElementById('pbvSubmitBtn');
+    if(btn) btn.innerHTML = '<i class="ti ti-device-floppy"></i> Tạo phiếu';
+    var msg = document.getElementById('pbvSuccessMsg');
+    if(msg){
+      msg.innerHTML = '<i class="ti ti-circle-check"></i> '+(isEdit?'Đã cập nhật phiếu':'Đã tạo phiếu')+' — kéo xuống "Phiếu đã tạo gần đây" để Xem/In, Xuất Word hoặc Chia sẻ.';
+      msg.style.display = 'block';
+      clearTimeout(pbvSuccessMsgTimer);
+      pbvSuccessMsgTimer = setTimeout(function(){ msg.style.display='none'; }, 4000);
+    }
+    setTimeout(function(){
+      var listBox = document.getElementById('pbvList');
+      if(listBox) listBox.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 100);
   }).catch(function(err){ alert('Lỗi lưu phiếu: '+err.message); });
+}
+// Mở phiếu để sửa — chỉ gọi được từ nút "Sửa" (đã tự kiểm tra quyền ở pbvRenderList rồi, hàm này
+// không cần kiểm tra lại quyền, chỉ tập trung nạp dữ liệu vào form).
+function pbvStartEdit(id){
+  var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
+  if(!r) return;
+  pbvEditingId = id;
+  document.getElementById('pbvHoTen').value = r.hoTen||'';
+  document.getElementById('pbvChucDanh').value = r.chucDanh||'';
+  document.getElementById('pbvKhoaPhong').value = r.khoaPhong||'';
+  document.getElementById('pbvTruongKhoa').value = r.truongKhoaKy||'';
+  document.getElementById('pbvTruongKhoaRole').value = r.truongKhoaRole||'Trưởng khoa';
+  document.getElementById('pbvTuNgay').value = r.tuNgay||'';
+  document.getElementById('pbvDenNgay').value = r.denNgay||'';
+  document.getElementById('pbvNam').value = r.namNghiPhep||'';
+  document.getElementById('pbvLyDo').value = r.lyDo||'';
+  document.getElementById('pbvDiaChi').value = r.diaChi||'';
+  document.getElementById('pbvPhuongTien').value = r.phuongTien||'';
+  pbvCalcDays();
+  var btn = document.getElementById('pbvSubmitBtn');
+  if(btn) btn.innerHTML = '<i class="ti ti-device-floppy"></i> Cập nhật phiếu';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function pbvCancelEdit(){
+  pbvEditingId = null;
+  pbvClearFormAfterSubmit();
+  var btn = document.getElementById('pbvSubmitBtn');
+  if(btn) btn.innerHTML = '<i class="ti ti-device-floppy"></i> Tạo phiếu';
+}
+// Xóa phiếu — chặn cứng nếu phiếu bên Khoa ĐÃ DUYỆT (vì duyệt xong đã trừ quỹ Phép năm, xóa lúc
+// này sẽ làm lệch số liệu) — trường hợp đó phải nhờ Khoa xử lý qua đúng màn hình "Đăng ký Nghỉ
+// Phép" của họ. Nếu chưa duyệt (hoặc chưa kịp gửi sang Khoa), xóa cả 2 nơi cho sạch, không để phiếu
+// "Chờ duyệt" mồ côi bên danh sách Khoa.
+function pbvDeleteRecord(id){
+  var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
+  if(!r) return;
+  var stKhoa = r.npRecordId ? pbvNpStatusCache[r.npRecordId] : null;
+  if(stKhoa==='approved'){ alert('Phiếu này đã được Khoa DUYỆT (đã trừ quỹ Phép năm) — không thể xóa ở đây. Cần hủy/sửa qua đúng màn hình "Đăng ký Nghỉ Phép" của Khoa.'); return; }
+  if(!confirm('Xóa phiếu của "'+(r.hoTen||'')+'" ('+fmtD(r.tuNgay)+' → '+fmtD(r.denNgay)+')? Không thể hoàn tác.')) return;
+  var jobs = [pbvRef.child(String(id)).remove()];
+  if(r.npRecordId && typeof npRef!=='undefined' && npRef) jobs.push(npRef.child(String(r.npRecordId)).remove());
+  Promise.all(jobs).then(function(){
+    if(pbvEditingId===id) pbvCancelEdit();
+  }).catch(function(err){ alert('Lỗi xóa phiếu: '+err.message); });
+}
+var pbvSuccessMsgTimer = null;
+function pbvClearFormAfterSubmit(){
+  ['pbvHoTen','pbvChucDanh','pbvLyDo','pbvDiaChi','pbvPhuongTien'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value = '';
+  });
+  pbvCalcDays();
 }
 // ── TỰ ĐỘNG SINH PHIẾU BÊN "ĐĂNG KÝ NGHỈ PHÉP" CỦA KHOA (trạng thái "Chờ duyệt") ──────────────
 // Để Khoa duyệt bằng đúng quy trình đang chạy bình thường (không đụng/sửa gì code duyệt của Khoa
@@ -45216,6 +45432,7 @@ function pbvRenderList(){
   var q = ((document.getElementById('pbvSearchMine')||{}).value||'').trim().toLowerCase();
   var list = q ? pbvRecords.filter(function(r){ return (r.hoTen||'').toLowerCase().indexOf(q)>-1; }) : pbvRecords.slice(0,30);
   if(!list.length){ wrap.innerHTML='<div style="text-align:center;color:#aaa;padding:16px;font-size:12.5px">Chưa có phiếu nào'+(q?' khớp tìm kiếm':'')+'.</div>'; return; }
+  var myIds = pbvGetMyIds();
   wrap.innerHTML = list.map(function(r){
     var stKhoa = r.npRecordId ? pbvNpStatusCache[r.npRecordId] : null;
     var stBadge = stKhoa
@@ -45223,24 +45440,44 @@ function pbvRenderList(){
           (stKhoa==='approved' ? 'background:#e8f5e9;color:#1b5e20' : stKhoa==='denied' ? 'background:#fdecea;color:#c0392b' : 'background:#fff3e0;color:#e65100')+
           '">Khoa: '+(stKhoa==='approved'?'Đã duyệt':stKhoa==='denied'?'Từ chối':'Chờ duyệt')+'</span>')
       : (r.npRecordId ? '' : '<span style="font-size:10.5px;color:#bbb;margin-left:6px">(chưa gửi sang Khoa)</span>');
+    // "Ai nấy xem/sửa": chỉ phiếu tự tạo trên CHÍNH máy/trình duyệt này (lưu trong localStorage) mới
+    // được hiện nút Sửa/Xóa — phiếu của người khác chỉ Xem/In/Xuất Word/Chia sẻ (không sửa/xóa được).
+    // Kể cả phiếu của mình, nếu Khoa ĐÃ DUYỆT rồi thì cũng khóa Sửa/Xóa (tránh làm lệch quỹ phép).
+    // RIÊNG Quản lý (đăng nhập admin ở Trang chủ) được XÓA mọi phiếu — để dọn phiếu rác/phiếu thử,
+    // kể cả phiếu không phải do máy này tạo ra (chỉ Xóa, KHÔNG cho Sửa nội dung của người khác).
+    var laCuaToi = myIds.indexOf(String(r.id))>-1;
+    var laAdmin = pbvIsAdminMode || (typeof cu!=='undefined' && cu && cu.role==='admin');
+    var daDuyet = stKhoa==='approved';
+    var suaXoaHtml = '';
+    if(!daDuyet){
+      if(laCuaToi) suaXoaHtml += '<button onclick="pbvStartEdit(\''+r.id+'\')" style="background:#6a1b9a;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> Sửa</button>';
+      if(laCuaToi || laAdmin) suaXoaHtml += '<button onclick="pbvDeleteRecord(\''+r.id+'\')" style="background:#fff;color:#c62828;border:1px solid #ef9a9a;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa</button>';
+    } else if(laCuaToi){
+      suaXoaHtml = '<span style="font-size:10.5px;color:#aaa;align-self:center">Đã duyệt — không sửa/xóa được nữa</span>';
+    }
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border:1px solid #f0f0f0;border-radius:8px;margin-bottom:7px;flex-wrap:wrap">'
       + '<div style="font-size:12.5px"><b>'+esc(r.hoTen)+'</b> — '+fmtD(r.tuNgay)+' → '+fmtD(r.denNgay)+' ('+r.tongNgay+' ngày)'+stBadge+'<div style="font-size:11px;color:#999">'+esc(r.khoaPhong||'')+' · Lập lúc '+new Date(r.createdAt).toLocaleString('vi-VN')+'</div></div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
       + '<button onclick="pbvOpenPrint(\''+r.id+'\')" style="background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> Xem/In</button>'
       + '<button onclick="pbvExportWord(\''+r.id+'\')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-file-word"></i> Xuất Word</button>'
       + '<button onclick="pbvShareFile(\''+r.id+'\')" style="background:#00838f;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-share"></i> Chia sẻ</button>'
+      + suaXoaHtml
       + '</div></div>';
   }).join('');
 }
+// Mở bản xem trước bằng thẻ <a target="_blank"> giả lập cú click thật, thay vì window.open() —
+// Safari trên iPhone/iPad hay chặn window.open() dù bấm nút trực tiếp (đặc biệt với link dạng
+// blob:), trong khi click vào thẻ <a> thật thì hầu như không bị chặn ở mọi trình duyệt/thiết bị.
 function pbvOpenPrint(id){
   var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
   if(!r) return;
   var html = buildPhieuBVHtml(r);
   var blob = new Blob([html], {type:'text/html'});
   var url = URL.createObjectURL(blob);
-  var win = window.open(url, '_blank');
-  if(!win){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup rồi bấm lại.'); return; }
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 10000);
+  var a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 15000);
 }
 // Xuất file .doc để mở được bằng Word trên máy tính (giống cách "Xuất Word" ở các phiếu khác trong
 // app) — tải trực tiếp về máy đang dùng (điện thoại hoặc máy tính).
@@ -45298,6 +45535,9 @@ function buildPhieuBVHtml(r){
   var maPhieu = 'BV-NP-'+r.id;
   var ngayLap = r.createdAt ? new Date(r.createdAt) : new Date();
   var ngayLapStr = ngayLap.getDate()+' tháng '+(ngayLap.getMonth()+1)+' năm '+ngayLap.getFullYear();
+  // Nhãn ô ký đầu tiên đổi theo đúng chức vụ đã chọn (Trưởng khoa / Phó trưởng khoa) — không cố
+  // định cứng "TRƯỞNG KHOA XÁC NHẬN" như trước, để đúng người ký thực tế.
+  var vaiTroKy = (r.truongKhoaRole||'Trưởng khoa').toUpperCase();
   return '<!doctype html><html><head><meta charset="utf-8"><title>'+esc(maPhieu)+'</title>'
     + '<style>@page{size:A4;margin:20mm 20mm 15mm}'
     + 'body{font-family:"Times New Roman",Times,serif;font-size:13pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 22mm 30mm}'
@@ -45306,7 +45546,7 @@ function buildPhieuBVHtml(r){
     + '.pn-toolbar{text-align:center;margin-bottom:14px}.pn-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5}'
     + '.pn-line{margin:5pt 0;text-align:justify}.sig-box{text-align:center;width:50%;padding:0 8pt;vertical-align:top}'
     + '.sig-role{font-weight:bold;font-size:12.5pt}'
-    + '.sig-space{height:95pt}.sig-name{font-weight:bold;font-size:13pt}'
+    + '.sig-space{line-height:1.8}.sig-name{font-weight:bold;font-size:13pt}'
     + '@media print{ .pn-no-print{display:none !important} body{padding:0 22mm} }</style></head><body>'
     + '<div class="pn-center pn-bold" style="font-size:13pt">CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>'
     + '<div class="pn-center pn-bold pn-underline" style="font-size:13pt;margin-bottom:2pt">Độc lập - Tự do - Hạnh phúc</div>'
@@ -45328,8 +45568,8 @@ function buildPhieuBVHtml(r){
     + '<div class="pn-line">Tôi cam kết bàn giao công việc trước khi nghỉ phép./.</div>'
     + '<div style="text-align:right;font-style:italic;margin-top:18pt">Gia Lai, ngày '+ngayLapStr+'</div>'
     + '<table style="width:100%;table-layout:fixed;border-collapse:collapse;margin-top:6pt"><tr>'
-    + '<td class="sig-box"><div class="sig-role">TRƯỞNG KHOA XÁC NHẬN</div><div class="sig-space"></div><div class="sig-name">'+esc(r.truongKhoaKy||'')+'</div></td>'
-    + '<td class="sig-box"><div class="sig-role">NGƯỜI VIẾT ĐƠN</div><div class="sig-space"></div><div class="sig-name">'+esc(r.hoTen||'')+'</div></td>'
+    + '<td class="sig-box"><div class="sig-role">'+esc(vaiTroKy)+' XÁC NHẬN</div><div class="sig-space">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</div><div class="sig-name">'+esc(r.truongKhoaKy||'')+'</div></td>'
+    + '<td class="sig-box"><div class="sig-role">NGƯỜI VIẾT ĐƠN</div><div class="sig-space">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</div><div class="sig-name">'+esc(r.hoTen||'')+'</div></td>'
     + '</tr></table>'
     + '<div style="font-size:10pt;color:#888;margin-top:16pt">BM.01.TCCB · Mã phiếu: '+esc(maPhieu)+'</div>'
     + '</body></html>';
