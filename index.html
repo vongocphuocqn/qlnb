@@ -843,6 +843,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <button class="nb-tab" id="nbTab2" onclick="switchNbTab(2)"><i class="ti ti-list"></i> Danh sách phiếu</button>
       <button class="nb-tab" id="nbTab3" onclick="switchNbTab(3)" style="display:none"><i class="ti ti-chart-bar"></i> Thống kê</button>
       <button class="nb-tab" id="nbTab4" onclick="switchNbTab(4)" style="background:rgba(255,255,255,.15)"><i class="ti ti-calendar-user"></i> Lịch nghỉ chung</button>
+      <button class="nb-tab" id="nbTab5" onclick="switchNbTab(5)" style="background:rgba(255,255,255,.15)"><i class="ti ti-clipboard-check"></i> Đối chiếu HIS</button>
     </div>
 
     <!-- TAB 1: ĐĂNG KÝ -->
@@ -1103,6 +1104,33 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         <button class="nb-btn nb-btn-sec nb-btn-sm" onclick="document.getElementById('nbPubFrom').value='';document.getElementById('nbPubTo').value='';nbRenderPublic()"><i class="ti ti-refresh"></i> Xóa lọc</button>
       </div>
       <div id="nbPublicTable"><div style="text-align:center;padding:20px;color:#aaa"><i class="ti ti-loader" style="font-size:24px"></i><br>Đang tải...</div></div>
+    </div>
+
+    <!-- ══ TAB 5: ĐỐI CHIẾU BẢNG CHẤM CÔNG HIS ══ -->
+    <div id="nbPane5" style="display:none;padding:0 4px">
+      <div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#e65100;line-height:1.6">
+        <i class="ti ti-info-circle"></i> Tải lên file PDF "Bảng chấm công" xuất từ HIS hằng tháng → hệ thống tự đọc và <b>so sánh với dữ liệu Nghỉ bù/Nghỉ phép đã duyệt trên Kanban</b> để tìm chỗ lệch.
+        <br>• <b>Nghỉ phép:</b> phải khớp <b>2 chiều</b> — HIS có mà Kanban không có (hoặc ngược lại) đều báo lệch.
+        <br>• <b>Nghỉ bù:</b> chỉ kiểm tra <b>1 chiều</b> — ngày nào Kanban đã duyệt nghỉ bù thì HIS bắt buộc phải chấm NB; HIS có NB nhiều hơn Kanban là bình thường (do chế độ nghỉ bù sau trực không cần đăng ký), không báo lệch.
+        <br>• <b>Đã tự động bỏ qua Thứ 7, Chủ nhật và các ngày lễ cố định</b> (1/1, 30/4, 1/5, 2/9) khỏi việc đối chiếu — các ngày này không tính là ngày làm việc nên không cần khớp Phép/Nghỉ bù. Riêng ngày lễ âm lịch (Tết Nguyên Đán...) do đổi theo từng năm nên chưa tự loại trừ được, cần tự kiểm tra tay nếu tháng đối chiếu trùng dịp Tết.
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <input type="file" id="hisPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="hisPdfFileChange(event)">
+        <button class="nb-btn" id="hisUploadBtn" onclick="document.getElementById('hisPdfInp').click()"><i class="ti ti-file-type-pdf"></i> Tải lên Bảng chấm công (PDF)</button>
+        <span id="hisFileInfo" style="font-size:12.5px;color:#666"></span>
+      </div>
+      <div id="hisReviewWrap" style="display:none;margin-bottom:16px">
+        <div style="font-weight:700;color:#e65100;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-eye-check"></i> Xem trước dữ liệu đọc được <span style="font-weight:400;font-size:11.5px;color:#999">(kiểm tra lại trước khi so sánh — sửa tay được nếu đọc sai)</span></div>
+        <div style="overflow-x:auto;max-height:340px;overflow-y:auto;border:1px solid #eee;border-radius:8px" id="hisReviewTableWrap"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">
+          <button class="nb-btn" style="background:#e65100" onclick="hisRunCompare()"><i class="ti ti-scale"></i> So sánh với Kanban</button>
+          <label style="font-size:12.5px;color:#666;display:flex;align-items:center;gap:6px">Chỉ đối chiếu tới ngày:
+            <input type="number" id="hisLastDayInp" min="1" max="31" style="width:56px;border:1.5px solid #eee;border-radius:6px;padding:4px 6px;font-size:12.5px;text-align:center" onchange="hisLastDataDay=parseInt(this.value,10)||hisLastDataDay">
+            <span style="font-size:11px;color:#999">(tự dò được, sửa tay nếu sai)</span>
+          </label>
+        </div>
+      </div>
+      <div id="hisCompareResultWrap"></div>
     </div>
 
   </div><!-- /nb-main -->
@@ -2236,6 +2264,40 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
   </div>
 </div>
 
+<!-- ══ PHÓNG TO — CẦN LÀM / ĐANG LÀM / HOÀN THÀNH màn hình lớn cho form "Tạo báo cáo mới" (tiện gõ trên điện thoại) ══ -->
+<div class="modal-bg" id="newProgressFsModal" onclick="if(event.target===this)closeNewProgressFs()">
+  <div class="modal" id="newProgressFsModalBox" style="max-width:640px">
+    <h3 style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span><i class="ti ti-list-check"></i> Tiến độ công việc</span>
+      <button type="button" id="newProgressFsMaxBtn" onclick="kpiToggleMaximizeBox('newProgressFsModalBox','newProgressFsMaxBtn')" style="background:#e3f2fd;border:1.5px solid #c5cfe8;color:#0d47a1;font-size:12.5px;padding:5px 11px;border-radius:8px;cursor:pointer;flex-shrink:0"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+    </h3>
+    <div class="fg"><label>Việc cần làm</label><textarea id="newTodoFsTa" style="min-height:18vh;font-size:15px"></textarea></div>
+    <div class="fg"><label>Đang thực hiện</label><textarea id="newDoingFsTa" style="min-height:18vh;font-size:15px"></textarea></div>
+    <div class="fg"><label>Hoàn thành</label><textarea id="newDoneFsTa" style="min-height:18vh;font-size:15px"></textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="saveNewProgressFs()"><i class="ti ti-device-floppy"></i> Lưu</button>
+      <button class="btne" style="flex:1" onclick="closeNewProgressFs()"><i class="ti ti-x"></i> Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PHÓNG TO — NHẬP "NỘI DUNG BÁO CÁO" MÀN HÌNH LỚN cho form "Tạo báo cáo mới" (tiện gõ trên điện thoại) ══ -->
+<div class="modal-bg" id="newContentFsModal" onclick="if(event.target===this)closeNewContentFs()">
+  <div class="modal" id="newContentFsModalBox" style="max-width:640px">
+    <h3 style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span><i class="ti ti-file-text"></i> Nội dung báo cáo</span>
+      <button type="button" id="newContentFsMaxBtn" onclick="kpiToggleMaximizeBox('newContentFsModalBox','newContentFsMaxBtn')" style="background:#e3f2fd;border:1.5px solid #c5cfe8;color:#0d47a1;font-size:12.5px;padding:5px 11px;border-radius:8px;cursor:pointer;flex-shrink:0"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+    </h3>
+    <div class="fg">
+      <textarea id="newContentFsTa" style="min-height:50vh;font-size:15px" placeholder="Tóm tắt nội dung, sự việc, vấn đề cần ghi nhận..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btnp" style="flex:1" onclick="saveNewContentFs()"><i class="ti ti-device-floppy"></i> Lưu</button>
+      <button class="btne" style="flex:1" onclick="closeNewContentFs()"><i class="ti ti-x"></i> Hủy</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SỔ XEM THEO NGÀY — LẬT TRANG (dùng chung cho Nghỉ phép / Nghỉ bù / Đổi trực) ══ -->
 <div class="modal-bg" id="genFlipModal" onclick="if(event.target===this)closeGenFlip()">
   <div class="modal" id="genFlipModalBox" style="max-width:960px">
@@ -2717,7 +2779,13 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
             <button id="btnDeptCatalog" onclick="deptOpenCatalogPanel()" title="Quản lý danh mục Bộ phận" style="display:none;flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1.5px solid var(--bd2);background:#fff;color:var(--g600);cursor:pointer;align-items:center;justify-content:center"><i class="ti ti-settings"></i></button>
           </div>
         </div>
-        <div class="mf sp2"><label>Nội dung báo cáo <span class="req-star" title="Cần điền ít nhất 1 trong 4 ô: Nội dung / Cần làm / Đang làm / Hoàn thành">*</span></label><textarea id="inContent" placeholder="Tóm tắt nội dung, sự việc, vấn đề cần ghi nhận..."></textarea></div>
+        <div class="mf sp2"><label style="display:flex;align-items:center;justify-content:space-between">Nội dung báo cáo <span class="req-star" title="Cần điền ít nhất 1 trong 4 ô: Nội dung / Cần làm / Đang làm / Hoàn thành">*</span>
+          <button type="button" class="btne" style="padding:3px 9px;font-size:11.5px" title="Mở màn hình đầy đủ để nhập nội dung (tiện gõ trên điện thoại)" onclick="openNewContentFs()"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        </label><textarea id="inContent" placeholder="Tóm tắt nội dung, sự việc, vấn đề cần ghi nhận..."></textarea></div>
+        <div class="mf sp2" style="margin:0 0 -4px"><div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;color:#8098bb;font-weight:700">TIẾN ĐỘ CÔNG VIỆC</span>
+          <button type="button" class="btne" style="padding:3px 9px;font-size:11.5px" title="Mở màn hình đầy đủ cho cả 3 ô Việc cần làm/Đang làm/Hoàn thành (tiện gõ trên điện thoại)" onclick="openNewProgressFs()"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        </div></div>
         <div class="mf"><label>Việc cần làm – To Do</label><textarea id="inTodo" placeholder="Công việc cần thực hiện..."></textarea></div>
         <div class="mf"><label>Đang thực hiện – Doing</label><textarea id="inDoing" placeholder="Đang trong quá trình xử lý..."></textarea></div>
         <div class="mf"><label>Hoàn thành – Done</label><textarea id="inDone" placeholder="Kết quả đã hoàn tất..."></textarea></div>
@@ -12131,6 +12199,54 @@ function closeEditContentFs(){
   const btn = document.getElementById('editContentFsMaxBtn');
   if(btn) btn.innerHTML = '<i class="ti ti-arrows-maximize"></i> Phóng to';
 }
+// ── PHÓNG TO cho form "TẠO BÁO CÁO MỚI" (khác với các hàm editXxxFs ở trên vốn chỉ dùng cho form
+// SỬA báo cáo) — cùng cơ chế: mở màn hình lớn riêng để gõ thoải mái, đồng bộ 1 chiều vào đúng ô
+// gốc (inContent/inTodo/inDoing/inDone) khi bấm Lưu.
+function openNewContentFs(){
+  const src = document.getElementById('inContent');
+  const dst = document.getElementById('newContentFsTa');
+  if(!src || !dst) return;
+  dst.value = src.value;
+  document.getElementById('newContentFsModal').classList.add('on');
+  setTimeout(()=>{ dst.focus(); }, 60);
+}
+function saveNewContentFs(){
+  const src = document.getElementById('inContent');
+  const dst = document.getElementById('newContentFsTa');
+  if(src && dst) src.value = dst.value;
+  closeNewContentFs();
+}
+function closeNewContentFs(){
+  document.getElementById('newContentFsModal').classList.remove('on');
+  const box = document.getElementById('newContentFsModalBox');
+  if(box) box.classList.remove('kpi-box-maximized');
+  const btn = document.getElementById('newContentFsMaxBtn');
+  if(btn) btn.innerHTML = '<i class="ti ti-arrows-maximize"></i> Phóng to';
+}
+function openNewProgressFs(){
+  const pairs = [['inTodo','newTodoFsTa'],['inDoing','newDoingFsTa'],['inDone','newDoneFsTa']];
+  pairs.forEach(([srcId,dstId])=>{
+    const src=document.getElementById(srcId), dst=document.getElementById(dstId);
+    if(src && dst) dst.value = src.value;
+  });
+  document.getElementById('newProgressFsModal').classList.add('on');
+  setTimeout(()=>{ const el=document.getElementById('newTodoFsTa'); if(el) el.focus(); }, 60);
+}
+function saveNewProgressFs(){
+  const pairs = [['inTodo','newTodoFsTa'],['inDoing','newDoingFsTa'],['inDone','newDoneFsTa']];
+  pairs.forEach(([srcId,dstId])=>{
+    const src=document.getElementById(srcId), dst=document.getElementById(dstId);
+    if(src && dst) src.value = dst.value;
+  });
+  closeNewProgressFs();
+}
+function closeNewProgressFs(){
+  document.getElementById('newProgressFsModal').classList.remove('on');
+  const box = document.getElementById('newProgressFsModalBox');
+  if(box) box.classList.remove('kpi-box-maximized');
+  const btn = document.getElementById('newProgressFsMaxBtn');
+  if(btn) btn.innerHTML = '<i class="ti ti-arrows-maximize"></i> Phóng to';
+}
 function editRenderContentTickList(){
   const wrap = document.getElementById('editContentTickWrap');
   const list = document.getElementById('editContentTickList');
@@ -14729,7 +14845,7 @@ const statusClass={'pending':'nb-badge-wait','approved':'nb-badge-ok','denied':'
 /* ── SWITCH TABS ── */
 function switchNbTab(n){
   console.log('[NB] switchNbTab to', n, '| nbRecords:', nbRecords.length, '| user:', nbCurrentUser&&nbCurrentUser.name);
-  [1,2,3,4].forEach(i=>{
+  [1,2,3,4,5].forEach(i=>{
     var tab=document.getElementById('nbTab'+i);
     var pane=document.getElementById('nbPane'+i);
     if(tab)tab.classList.toggle('on',i===n);
@@ -14739,6 +14855,301 @@ function switchNbTab(n){
   if(n===2)nbRenderList();
   if(n===3)nbRenderStat();
   if(n===4)nbRenderPublic();
+}
+// ══════════════════════════════════════════════════════════════════════════
+// ĐỐI CHIẾU BẢNG CHẤM CÔNG HIS — đọc file PDF "Bảng chấm công" xuất từ HIS (mẫu C01-HD, có cột
+// từng ngày trong tháng với ký hiệu X/NB/P/H/Xc...), tách theo từng nhân viên/từng ngày, rồi so
+// sánh với dữ liệu Nghỉ bù (nbRecords) và Nghỉ phép (npRecords) ĐÃ DUYỆT trên Kanban để tìm lệch.
+// Quy tắc so sánh (theo đúng yêu cầu Trưởng khoa):
+//  - Nghỉ PHÉP: so 2 CHIỀU — HIS có "P" mà Kanban không có phiếu phép duyệt ngày đó → báo lệch;
+//    Kanban có phiếu phép duyệt ngày đó mà HIS không chấm "P" → cũng báo lệch.
+//  - Nghỉ BÙ: chỉ so 1 CHIỀU — ngày nào Kanban ĐÃ DUYỆT nghỉ bù thì HIS bắt buộc phải có "NB" hôm
+//    đó, thiếu thì báo lệch; NGƯỢC LẠI thì KHÔNG báo (HIS có thể có nhiều NB hơn vì còn tính cả bù
+//    sau trực, không phải lúc nào cũng đăng ký qua Kanban).
+// ══════════════════════════════════════════════════════════════════════════
+var hisParsedRows = []; // [{stt, hoTen, chucVu, days:{1:'X',2:'NB',...}}]
+var hisMonthInfo = null; // {year, month, daysInMonth}
+var hisLastDataDay = null; // Ngày cuối cùng HIS có dữ liệu chấm công (tự dò được từ file)
+function hisPdfFileChange(e){
+  var f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!f) return;
+  var btn = document.getElementById('hisUploadBtn');
+  var info = document.getElementById('hisFileInfo');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> Đang đọc PDF…'; }
+  if(info) info.textContent = '';
+  hisExtractFromPdf(f).then(function(res){
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="ti ti-file-type-pdf"></i> Tải lên Bảng chấm công (PDF)'; }
+    if(!res.rows.length){ alert('Không đọc được dòng nhân viên nào từ file này. Kiểm tra lại đúng file "Bảng chấm công" (mẫu C01-HD) xuất từ HIS.'); return; }
+    hisParsedRows = res.rows;
+    hisMonthInfo = res.monthInfo;
+    hisLastDataDay = res.lastDataDay;
+    var lastDayInp = document.getElementById('hisLastDayInp');
+    if(lastDayInp){ lastDayInp.max = (res.monthInfo?res.monthInfo.daysInMonth:31); lastDayInp.value = hisLastDataDay; }
+    if(info) info.innerHTML = '<i class="ti ti-circle-check" style="color:#2e7d32"></i> Đã đọc <b>'+res.rows.length+'</b> nhân viên, tháng '+(res.monthInfo?res.monthInfo.month+'/'+res.monthInfo.year:'?')+' — HIS đã chấm đến <b>ngày '+hisLastDataDay+'</b> (chỉ đối chiếu tới ngày này)';
+    hisRenderReviewTable();
+    document.getElementById('hisReviewWrap').style.display = 'block';
+    document.getElementById('hisCompareResultWrap').innerHTML = '';
+  }).catch(function(err){
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="ti ti-file-type-pdf"></i> Tải lên Bảng chấm công (PDF)'; }
+    alert('Lỗi đọc file PDF: '+err.message);
+  });
+}
+async function hisExtractFromPdf(file){
+  var buf = await file.arrayBuffer();
+  var pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  var allItems = [];
+  var monthInfo = null;
+  for(var p=1;p<=pdf.numPages;p++){
+    var page = await pdf.getPage(p);
+    var viewport = page.getViewport({ scale: 1 });
+    var content = await page.getTextContent();
+    var items = content.items.map(function(it){
+      var pt = viewport.convertToViewportPoint(it.transform[4], it.transform[5]);
+      return {str:it.str, x:pt[0], y:pt[1], w:(it.width||0), page:p};
+    }).filter(function(it){ return it.str && it.str.trim(); });
+    allItems = allItems.concat(items);
+    if(!monthInfo){
+      var dRangeItem = items.find(function(it){ return /Từ ngày\s*\d{2}\/\d{2}\/\d{4}\s*đến\s*\d{2}\/\d{2}\/\d{4}/.test(it.str); });
+      if(dRangeItem){
+        var m = dRangeItem.str.match(/đến\s*(\d{2})\/(\d{2})\/(\d{4})/);
+        if(m) monthInfo = { day:parseInt(m[1],10), month:parseInt(m[2],10), year:parseInt(m[3],10), daysInMonth:parseInt(m[1],10) };
+      }
+    }
+  }
+  var rows = hisParseRows(allItems, monthInfo);
+  var lastDataDay = hisComputeLastDataDay(rows, monthInfo);
+  return { rows: rows, monthInfo: monthInfo, lastDataDay: lastDataDay };
+}
+// Tự nhận biết HIS đã chấm công tới NGÀY NÀO trong tháng — dò ngày lớn nhất có BẤT KỲ mã chấm công
+// nào (ở BẤT KỲ nhân viên nào) trong toàn bộ file. Dùng để chỉ đối chiếu tới đúng ngày HIS đã chấm,
+// tránh báo "lệch" giả cho các ngày cuối tháng mà HIS chưa kịp cập nhật (VD tải file giữa tháng).
+function hisComputeLastDataDay(rows, monthInfo){
+  var daysInMonth = (monthInfo && monthInfo.daysInMonth) || 31;
+  var last = 0;
+  rows.forEach(function(r){
+    for(var d=1; d<=daysInMonth; d++){
+      if(r.days[d] && String(r.days[d]).trim()){ if(d>last) last=d; }
+    }
+  });
+  return last || daysInMonth;
+}
+// Gộp các mẩu chữ (đã quy đổi đúng theo phép xoay trang) thành từng DÒNG theo tọa độ Y gần nhau —
+// mỗi trang lặp lại tiêu đề bảng nên phải xử lý riêng từng trang (không gộp lẫn giữa 2 trang).
+function hisGroupRowsByY(items){
+  var arr = items.slice().sort(function(a,b){ return a.page-b.page || a.y-b.y || a.x-b.x; });
+  var rows = [], cur = null;
+  arr.forEach(function(it){
+    if(!cur || cur.page!==it.page || Math.abs(it.y-cur.y) > 2.5){ cur = {page:it.page, y:it.y, items:[]}; rows.push(cur); }
+    cur.items.push(it);
+  });
+  return rows;
+}
+function hisParseRows(allItems, monthInfo){
+  var daysInMonth = (monthInfo && monthInfo.daysInMonth) || 31;
+  var rows = hisGroupRowsByY(allItems);
+  var out = [];
+  // Xử lý riêng theo từng trang vì mỗi trang có cột tiêu đề (STT/Họ tên/Chức vụ/số ngày) lặp lại.
+  var byPage = {};
+  rows.forEach(function(r){ (byPage[r.page]=byPage[r.page]||[]).push(r); });
+  Object.keys(byPage).forEach(function(pageKey){
+    var pageRows = byPage[pageKey];
+    // Dò dòng tiêu đề CỘT (STT/HỌ VÀ TÊN/CHỨC VỤ) — dòng có đúng các nhãn này.
+    var hdrRow = pageRows.find(function(r){ return r.items.some(function(it){return it.str.trim()==='STT';}) && r.items.some(function(it){return it.str.trim()==='CHỨC VỤ';}); });
+    if(!hdrRow) return; // trang không có bảng dữ liệu (VD trang chú thích cuối) -> bỏ qua
+    var sttX = (hdrRow.items.find(function(it){return it.str.trim()==='STT';})||{}).x;
+    var hoTenX = (hdrRow.items.find(function(it){return it.str.trim()==='HỌ VÀ TÊN';})||{}).x;
+    var chucVuX = (hdrRow.items.find(function(it){return it.str.trim()==='CHỨC VỤ';})||{}).x;
+    // Dò dòng tiêu đề NGÀY (dòng có nhiều số 1-2 chữ số nhất trên trang) để lấy tọa độ X từng ngày.
+    var dayHdrRow = null, dayHdrCount = 0;
+    pageRows.forEach(function(r){
+      var cnt = r.items.filter(function(it){ return /^\d{1,2}$/.test(it.str.trim()); }).length;
+      if(cnt > dayHdrCount){ dayHdrCount = cnt; dayHdrRow = r; }
+    });
+    if(!dayHdrRow || dayHdrCount < daysInMonth) return;
+    var dayHeaders = dayHdrRow.items.filter(function(it){ return /^\d{1,2}$/.test(it.str.trim()); })
+      .sort(function(a,b){ return a.x-b.x; }).slice(0, daysInMonth)
+      .map(function(it,i){ return { day:i+1, x:it.x }; });
+    var lastDayX = dayHeaders[dayHeaders.length-1].x;
+    // Duyệt từng dòng dữ liệu (dòng nằm SAU dòng tiêu đề ngày, có ô đầu tiên là số STT hợp lệ).
+    pageRows.forEach(function(r){
+      if(r===hdrRow || r===dayHdrRow) return;
+      if(r.y <= dayHdrRow.y) return; // ở trên dòng tiêu đề ngày (VD dòng "Ngày trong tháng"/"Quy ra công") -> bỏ
+      var sorted = r.items.slice().sort(function(a,b){ return a.x-b.x; });
+      var first = sorted[0];
+      if(!first || !/^\d{1,3}$/.test(first.str.trim())) return; // không phải dòng nhân viên (VD dòng "Phòng Mổ") -> bỏ
+      if(Math.abs(first.x - sttX) > 15) return; // số ở đầu dòng không nằm đúng cột STT -> bỏ (tránh nhầm với cột khác)
+      var hoTenItem = sorted.find(function(it){ return it.x > sttX+5 && it.x < chucVuX-5; });
+      var chucVuItem = sorted.find(function(it){ return it.x >= chucVuX-5 && it.x < dayHeaders[0].x-8; });
+      if(!hoTenItem) return;
+      var days = {};
+      sorted.forEach(function(it){
+        if(it.x < dayHeaders[0].x - 8 || it.x > lastDayX + 8) return; // ngoài vùng cột ngày -> bỏ (VD cột "Số công")
+        var best=null, bestD=Infinity;
+        dayHeaders.forEach(function(dh){ var d=Math.abs(it.x-dh.x); if(d<bestD){bestD=d;best=dh;} });
+        if(best && bestD <= 8) days[best.day] = it.str.trim();
+      });
+      out.push({ stt:first.str.trim(), hoTen:hoTenItem.str.trim(), chucVu: chucVuItem?chucVuItem.str.trim():'', days: days });
+    });
+  });
+  return out;
+}
+// Nhận biết 1 mã ngày có phải "Nghỉ bù"/"Nghỉ phép" hay không — kể cả các mã kết hợp nửa ngày như
+// "+/NB", "Ô/P", "P/Ô", "Lm/NB", "NB/Ô" (xem đúng bảng chú thích ký hiệu cuối bảng chấm công).
+function hisCodeHasNB(code){ return !!code && /(^|\/)NB($|\/)/.test(code); }
+function hisCodeHasP(code){ return !!code && /(^|\/)P($|\/)/.test(code); }
+function hisRenderReviewTable(){
+  var wrap = document.getElementById('hisReviewTableWrap');
+  if(!wrap) return;
+  var daysInMonth = (hisMonthInfo && hisMonthInfo.daysInMonth) || 31;
+  var head = '<tr><th style="position:sticky;top:0;background:#e65100;color:#fff;padding:6px 8px;font-size:11px">STT</th><th style="position:sticky;top:0;background:#e65100;color:#fff;padding:6px 8px;font-size:11px;text-align:left">Họ tên</th><th style="position:sticky;top:0;background:#e65100;color:#fff;padding:6px 8px;font-size:11px">Chức vụ</th><th style="position:sticky;top:0;background:#e65100;color:#fff;padding:6px 8px;font-size:11px">Ngày có NB</th><th style="position:sticky;top:0;background:#e65100;color:#fff;padding:6px 8px;font-size:11px">Ngày có P</th></tr>';
+  var body = hisParsedRows.map(function(r,i){
+    var nbDays=[], pDays=[];
+    for(var d=1; d<=daysInMonth; d++){ var c=r.days[d]; if(hisCodeHasNB(c)) nbDays.push(d); if(hisCodeHasP(c)) pDays.push(d); }
+    return '<tr style="border-bottom:1px solid #f5f5f5">'
+      + '<td style="padding:5px 8px;font-size:12px;text-align:center">'+esc(r.stt)+'</td>'
+      + '<td style="padding:5px 8px;font-size:12px">'+esc(r.hoTen)+'</td>'
+      + '<td style="padding:5px 8px;font-size:12px;text-align:center">'+esc(r.chucVu)+'</td>'
+      + '<td style="padding:5px 8px;font-size:11.5px;color:#e65100">'+(nbDays.length?nbDays.join(', '):'—')+'</td>'
+      + '<td style="padding:5px 8px;font-size:11.5px;color:#c2185b">'+(pDays.length?pDays.join(', '):'—')+'</td>'
+      + '</tr>';
+  }).join('');
+  wrap.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>';
+}
+// ── ĐỘNG CƠ ĐỐI CHIẾU — lấy dữ liệu Nghỉ bù/Nghỉ phép ĐÃ DUYỆT trên Kanban trong đúng tháng của
+// bảng chấm công, quy đổi thành {tên: {nb:Set(ngày), phep:Set(ngày)}}, rồi so với dữ liệu đọc từ
+// HIS theo đúng quy tắc: Phép so 2 chiều, Nghỉ bù chỉ so 1 chiều (Kanban -> phải có trên HIS).
+function hisNormName(s){ return vnNoAccent((s||'').trim().toLowerCase()).replace(/\s+/g,' '); }
+function hisBuildKanbanMap(npList){
+  var map = {}; // normName -> {nb:Map(ngay->chiTiết), phep:Map(ngay->chiTiết), tenGoc:string}
+  var y = hisMonthInfo.year, m = hisMonthInfo.month;
+  var prefix = y+'-'+String(m).padStart(2,'0')+'-';
+  var shiftLbl = {'ngay':'Cả ngày','ca-ngay':'Ca ngày','ca-dem':'Ca đêm'};
+  function ensure(ten){
+    var key = hisNormName(ten);
+    if(!map[key]) map[key] = { nb:new Map(), phep:new Map(), tenGoc:ten };
+    return map[key];
+  }
+  (typeof nbRecords!=='undefined'?nbRecords:[]).forEach(function(r){
+    if(r.status!=='approved' || !r.person) return;
+    var slot = ensure(r.person);
+    (r.entries||[]).forEach(function(en){
+      if(en.date && en.date.indexOf(prefix)===0){
+        var d = parseInt(en.date.slice(8,10),10);
+        slot.nb.set(d, { ca: shiftLbl[en.shift]||en.shift||'', lyDo: r.reason||'' });
+      }
+    });
+  });
+  (npList||[]).forEach(function(r){
+    if(r.status!=='approved' || !r.person || !r.dateFrom || !r.dateTo) return;
+    var slot = ensure(r.person);
+    var d = new Date(r.dateFrom), end = new Date(r.dateTo);
+    while(d<=end){
+      var iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      if(iso.indexOf(prefix)===0) slot.phep.set(d.getDate(), { lyDo: r.reason||'', tuNgay:r.dateFrom, denNgay:r.dateTo });
+      d.setDate(d.getDate()+1);
+    }
+  });
+  return map;
+}
+// Đảm bảo có dữ liệu Nghỉ phép để đối chiếu dù anh chưa từng mở màn "Đăng ký Nghỉ Phép" trong
+// phiên làm việc này (npRecords lúc đó vẫn rỗng) — tự đọc thẳng 1 lần từ đúng node Firebase của
+// Nghỉ phép, KHÔNG đụng/ghi đè biến npRecords gốc của module Nghỉ phép để tránh ảnh hưởng lẫn nhau.
+function hisGetNpListForCompare(){
+  if(typeof npRecords!=='undefined' && npRecords && npRecords.length) return Promise.resolve(npRecords);
+  if(typeof npRef==='undefined' || !npRef) return Promise.resolve([]);
+  return npRef.once('value').then(function(snap){
+    var val = snap.val();
+    return val ? Object.values(val) : [];
+  }).catch(function(){ return []; });
+}
+function hisRunCompare(){
+  if(!hisMonthInfo){ alert('Không xác định được tháng của bảng chấm công.'); return; }
+  hisGetNpListForCompare().then(function(npList){
+    var kanban = hisBuildKanbanMap(npList);
+    hisFinishCompare(kanban);
+  });
+}
+// Bỏ Thứ 7/Chủ nhật/ngày lễ ra khỏi việc đối chiếu — vì các ngày này Kanban không tính là ngày làm
+// việc bình thường nên không cần khớp Phép/Nghỉ bù, tránh báo lệch giả. Ngày lễ cố định theo dương
+// lịch (Tết Dương lịch, 30/4, 1/5, Quốc khánh) — ngày lễ âm lịch (Tết Nguyên Đán...) thay đổi theo
+// từng năm nên KHÔNG tự động nhận biết được, cần loại trừ tay nếu tháng đối chiếu trùng dịp Tết.
+var HIS_FIXED_HOLIDAYS = ['01-01','04-30','05-01','09-02'];
+function hisIsWeekendOrHoliday(day, month, year){
+  var dow = new Date(year, month-1, day).getDay();
+  if(dow===0 || dow===6) return true; // Chủ nhật=0, Thứ 7=6
+  var mmdd = String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  return HIS_FIXED_HOLIDAYS.indexOf(mmdd)>-1;
+}
+function hisFinishCompare(kanban){
+  var daysInMonth = hisMonthInfo.daysInMonth;
+  var mismatches = [];
+  var matchedKeys = {};
+  hisParsedRows.forEach(function(r){
+    var key = hisNormName(r.hoTen);
+    matchedKeys[key] = true;
+    var kb = kanban[key] || { nb:new Map(), phep:new Map() };
+    var hisNb=new Set(), hisP=new Set();
+    for(var d=1; d<=daysInMonth; d++){ var c=r.days[d]; if(hisCodeHasNB(c)) hisNb.add(d); if(hisCodeHasP(c)) hisP.add(d); }
+    // Phép: 2 chiều
+    var allPDays = new Set([].concat([...hisP],[...kb.phep.keys()]));
+    allPDays.forEach(function(d){
+      if(hisIsWeekendOrHoliday(d, hisMonthInfo.month, hisMonthInfo.year)) return; // bỏ T7/CN/lễ
+      if(hisLastDataDay && d>hisLastDataDay) return; // HIS chưa chấm tới ngày này (VD đang giữa tháng) -> chưa đối chiếu được, bỏ qua
+      var onHis=hisP.has(d), onKb=kb.phep.has(d);
+      var maHis = r.days[d] || '—';
+      var kbInfo = kb.phep.get(d);
+      var chiTietKanban = kbInfo ? ('Phiếu '+fmtD(kbInfo.tuNgay)+'→'+fmtD(kbInfo.denNgay)+(kbInfo.lyDo?(' — Lý do: '+kbInfo.lyDo):'')) : '—';
+      if(onHis && !onKb) mismatches.push({ten:r.hoTen, loai:'Phép', ngay:d, kieu:'HIS có "P" nhưng Kanban chưa có phiếu phép đã duyệt', maHis:maHis, chiTietKanban:chiTietKanban});
+      else if(!onHis && onKb) mismatches.push({ten:r.hoTen, loai:'Phép', ngay:d, kieu:'Kanban đã duyệt phép nhưng HIS không chấm "P"', maHis:maHis, chiTietKanban:chiTietKanban});
+    });
+    // Nghỉ bù: chỉ 1 chiều (Kanban -> HIS)
+    kb.nb.forEach(function(info, d){
+      if(hisIsWeekendOrHoliday(d, hisMonthInfo.month, hisMonthInfo.year)) return; // bỏ T7/CN/lễ
+      if(hisLastDataDay && d>hisLastDataDay) return; // HIS chưa chấm tới ngày này -> bỏ qua
+      if(!hisNb.has(d)){
+        var maHis2 = r.days[d] || '—';
+        var chiTietKanban2 = 'Nghỉ bù '+(info.ca||'')+(info.lyDo?(' — Lý do: '+info.lyDo):'');
+        mismatches.push({ten:r.hoTen, loai:'Nghỉ bù', ngay:d, kieu:'Kanban đã duyệt nghỉ bù nhưng HIS không chấm "NB"', maHis:maHis2, chiTietKanban:chiTietKanban2});
+      }
+    });
+  });
+  // Nhân viên có phiếu duyệt trên Kanban trong tháng nhưng KHÔNG xuất hiện trong bảng chấm công HIS
+  // (VD gõ sai tên/không có trong danh sách khoa) — báo riêng để dễ phát hiện lỗi tên.
+  var khongCoTrenHis = [];
+  Object.keys(kanban).forEach(function(key){
+    if(!matchedKeys[key] && (kanban[key].nb.size || kanban[key].phep.size)){
+      khongCoTrenHis.push(kanban[key].tenGoc);
+    }
+  });
+  hisRenderCompareResult(mismatches, khongCoTrenHis);
+}
+function hisRenderCompareResult(mismatches, khongCoTrenHis){
+  var wrap = document.getElementById('hisCompareResultWrap');
+  if(!wrap) return;
+  var html = '';
+  if(khongCoTrenHis.length){
+    html += '<div style="background:#fdecea;border:1px solid #f5c2c0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#c0392b">'
+      + '<i class="ti ti-alert-triangle"></i> <b>'+khongCoTrenHis.length+' người</b> có phiếu Nghỉ bù/Phép đã duyệt trong tháng trên Kanban nhưng KHÔNG tìm thấy tên khớp trong bảng chấm công HIS (kiểm tra lại chính tả tên): '
+      + khongCoTrenHis.map(esc).join(', ') + '</div>';
+  }
+  if(!mismatches.length){
+    html += '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:16px;text-align:center;color:#1b5e20;font-weight:700"><i class="ti ti-circle-check"></i> Không phát hiện lệch nào giữa HIS và Kanban trong tháng này.</div>';
+  } else {
+    mismatches.sort(function(a,b){ return a.ten.localeCompare(b.ten,'vi') || a.ngay-b.ngay; });
+    html += '<div style="font-weight:700;color:#c62828;margin-bottom:8px"><i class="ti ti-alert-triangle"></i> Phát hiện '+mismatches.length+' chỗ lệch:</div>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+      + '<thead><tr><th style="background:#c62828;color:#fff;padding:6px 8px;font-size:11.5px;text-align:left">Họ tên</th><th style="background:#c62828;color:#fff;padding:6px 8px;font-size:11.5px">Loại</th><th style="background:#c62828;color:#fff;padding:6px 8px;font-size:11.5px">Ngày</th><th style="background:#c62828;color:#fff;padding:6px 8px;font-size:11.5px;text-align:left">Chi tiết lệch</th><th style="background:#c62828;color:#fff;padding:6px 8px;font-size:11.5px">Mã trên HIS</th><th style="background:#c62828;color:#fff;padding:6px 8px;font-size:11.5px;text-align:left">Chi tiết phiếu Kanban</th></tr></thead><tbody>'
+      + mismatches.map(function(m){
+          return '<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:5px 8px;font-size:12.5px;font-weight:600">'+esc(m.ten)+'</td>'
+          + '<td style="padding:5px 8px;font-size:12px;text-align:center">'+(m.loai==='Phép'?'<span style="color:#c2185b">🏖 Phép</span>':'<span style="color:#e65100">🔁 Nghỉ bù</span>')+'</td>'
+          + '<td style="padding:5px 8px;font-size:12.5px;text-align:center;font-weight:700">'+m.ngay+'</td>'
+          + '<td style="padding:5px 8px;font-size:12px;color:#666">'+esc(m.kieu)+'</td>'
+          + '<td style="padding:5px 8px;font-size:12.5px;text-align:center;font-weight:700;color:#1565C0">'+esc(m.maHis||'—')+'</td>'
+          + '<td style="padding:5px 8px;font-size:11.5px;color:#555">'+esc(m.chiTietKanban||'—')+'</td></tr>';
+        }).join('') + '</tbody></table></div>';
+  }
+  wrap.innerHTML = html;
 }
 
 /* ── SELECT SHIFT ── */
@@ -16096,6 +16507,33 @@ function closeNbApprove(){
   nbApproveTarget=null;
 }
 
+// ── CHỐNG XUNG ĐỘT LOẠI NGHỈ CÙNG NGÀY ─────────────────────────────────────────────────────
+// 1 người trong CÙNG 1 NGÀY chỉ nên có 1 loại nghỉ đã duyệt: HOẶC Phép, HOẶC Nghỉ bù — không được
+// cả 2 cùng lúc (tránh lập trùng 2 phiếu khác loại cho cùng 1 ngày, gây lệch khi đối chiếu với HIS
+// sau này). Hàm này kiểm tra TẤT CẢ phiếu ĐÃ DUYỆT (Phép + Nghỉ bù) của đúng người đó, loại trừ
+// chính phiếu đang xử lý, trả về danh sách mô tả các ngày bị trùng (rỗng = không trùng).
+function checkLeaveConflict(person, dateList, excludeNbId, excludeNpId){
+  var conflicts = [];
+  (typeof nbRecords!=='undefined'?nbRecords:[]).forEach(function(r){
+    if(r.status!=='approved' || r.person!==person) return;
+    if(excludeNbId && String(r.id)===String(excludeNbId)) return;
+    (r.entries||[]).forEach(function(en){
+      if(en.date && dateList.indexOf(en.date)>-1) conflicts.push('Nghỉ bù ngày '+fmtD(en.date));
+    });
+  });
+  (typeof npRecords!=='undefined'?npRecords:[]).forEach(function(r){
+    if(r.status!=='approved' || r.person!==person) return;
+    if(excludeNpId && String(r.id)===String(excludeNpId)) return;
+    if(!r.dateFrom || !r.dateTo) return;
+    var d = new Date(r.dateFrom), end = new Date(r.dateTo);
+    while(d<=end){
+      var iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      if(dateList.indexOf(iso)>-1) conflicts.push('Nghỉ phép ngày '+fmtD(iso));
+      d.setDate(d.getDate()+1);
+    }
+  });
+  return conflicts;
+}
 function nbDoApprove(status){
   if(!nbApproveTarget)return;
   const r=nbRecords.find(x=>String(x.id)===String(nbApproveTarget));
@@ -16119,6 +16557,16 @@ function nbDoApprove(status){
     var noteEl=document.getElementById('nbApproveNote');
     if(noteEl){ noteEl.style.borderColor='#c62828'; noteEl.focus(); }
     return;
+  }
+
+  // Chống trùng loại nghỉ cùng ngày: 1 người/1 ngày chỉ nên có 1 loại nghỉ đã duyệt (Phép HOẶC
+  // Nghỉ bù). Chỉ kiểm tra khi DUYỆT (không kiểm tra khi Từ chối, vì Từ chối không tạo xung đột gì).
+  if(status==='approved'){
+    var nbConflictDates = entries.map(function(en){ return en.date; }).filter(Boolean);
+    var nbConflicts = checkLeaveConflict(r.person, nbConflictDates, r.id, null);
+    if(nbConflicts.length){
+      if(!confirm('CẢNH BÁO: '+r.person+' đã có phiếu ĐÃ DUYỆT khác trùng ngày:\n- '+nbConflicts.join('\n- ')+'\n\n1 ngày chỉ nên có 1 loại nghỉ (Phép hoặc Nghỉ bù), tránh lệch khi đối chiếu HIS. Vẫn muốn duyệt phiếu này?')) return;
+    }
   }
 
   nbSetSync('sync');
@@ -17585,6 +18033,16 @@ function npDoApprove(status){
   }
   var rec=npRecords.find(function(x){return String(x.id)===String(npApproveTarget);});
   var oldStatus = rec ? rec.status : null;
+  // Chống trùng loại nghỉ cùng ngày: 1 người/1 ngày chỉ nên có 1 loại nghỉ đã duyệt (Phép HOẶC
+  // Nghỉ bù). Chỉ kiểm tra khi DUYỆT, và chỉ tính các ngày trong khoảng Từ ngày–Đến ngày của phiếu.
+  if(status==='approved' && rec && rec.dateFrom && rec.dateTo){
+    var npConflictDates=[]; var _d=new Date(rec.dateFrom), _end=new Date(rec.dateTo);
+    while(_d<=_end){ npConflictDates.push(_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0')); _d.setDate(_d.getDate()+1); }
+    var npConflicts = checkLeaveConflict(rec.person, npConflictDates, null, rec.id);
+    if(npConflicts.length){
+      if(!confirm('CẢNH BÁO: '+rec.person+' đã có phiếu ĐÃ DUYỆT khác trùng ngày:\n- '+npConflicts.join('\n- ')+'\n\n1 ngày chỉ nên có 1 loại nghỉ (Phép hoặc Nghỉ bù), tránh lệch khi đối chiếu HIS. Vẫn muốn duyệt phiếu này?')) return;
+    }
+  }
   // Collect per-day replacers
   var replacers=[];
   var i=0;
@@ -42858,8 +43316,11 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
   </div>
   <!-- Khung nhỏ nổi (modal đơn giản) — Cấu hình sẵn danh sách "Người ký duyệt" -->
   <div id="pbvSignerCfgBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)pbvCloseSignerConfig()">
-    <div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 20px;max-height:85vh;overflow-y:auto">
-      <div style="font-weight:700;color:#c62828;margin-bottom:4px;display:flex;align-items:center;gap:6px"><i class="ti ti-settings"></i> Cấu hình sẵn người ký</div>
+    <div id="pbvSignerCfgBox" style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 20px;max-height:85vh;overflow-y:auto;transition:max-width .18s,max-height .18s">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+        <div style="font-weight:700;color:#c62828;display:flex;align-items:center;gap:6px"><i class="ti ti-settings"></i> Cấu hình sẵn người ký</div>
+        <button type="button" id="pbvSignerCfgMaxBtn" onclick="kpiToggleMaximizeBox('pbvSignerCfgBox','pbvSignerCfgMaxBtn')" style="background:#f5f5f5;border:1px solid #ddd;color:#666;border-radius:8px;padding:4px 10px;font-size:11.5px;cursor:pointer;font-family:inherit;flex-shrink:0"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+      </div>
       <div style="font-size:11.5px;color:#888;margin-bottom:12px">Khai báo trước tên những người thường ký duyệt (Trưởng khoa, Phó trưởng khoa...) để chọn nhanh bằng 1 lần bấm, khỏi phải gõ tìm mỗi lần.</div>
       <div id="pbvSignerCfgList" style="margin-bottom:10px"></div>
       <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
@@ -45210,17 +45671,47 @@ function pbvOpenSignerConfig(){
 }
 function pbvCloseSignerConfig(){
   document.getElementById('pbvSignerCfgBg').style.display = 'none';
+  var box = document.getElementById('pbvSignerCfgBox');
+  if(box) box.classList.remove('kpi-box-maximized');
+  var btn = document.getElementById('pbvSignerCfgMaxBtn');
+  if(btn) btn.innerHTML = '<i class="ti ti-arrows-maximize"></i> Phóng to';
+  pbvSignerEditIdx = null;
 }
+var pbvSignerEditIdx = null;
 function pbvRenderSignerCfgList(){
   var wrap = document.getElementById('pbvSignerCfgList');
   if(!wrap) return;
   if(!pbvSignerList.length){ wrap.innerHTML = '<div style="color:#999;font-size:12.5px;padding:8px 0">Chưa khai báo người ký nào — thêm ở ô bên dưới.</div>'; return; }
   wrap.innerHTML = pbvSignerList.map(function(s, i){
+    if(i===pbvSignerEditIdx){
+      return '<div style="display:flex;align-items:center;gap:6px;padding:7px 10px;border:1.5px solid #c62828;border-radius:8px;margin-bottom:6px;flex-wrap:wrap;background:#fff5f5">'
+        + '<input type="text" id="pbvSignerEditName" value="'+esc(s.ten)+'" style="flex:1;min-width:140px;border:1.5px solid #eee;border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit">'
+        + '<select id="pbvSignerEditRole" style="border:1.5px solid #eee;border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit">'
+          + '<option value="Trưởng khoa"'+(s.chucVu==='Trưởng khoa'?' selected':'')+'>Trưởng khoa</option>'
+          + '<option value="Phó trưởng khoa"'+(s.chucVu==='Phó trưởng khoa'?' selected':'')+'>Phó trưởng khoa</option>'
+        + '</select>'
+        + '<button onclick="pbvSaveSignerEdit('+i+')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit">Lưu</button>'
+        + '<button onclick="pbvSignerEditIdx=null;pbvRenderSignerCfgList()" style="background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit">Hủy</button>'
+        + '</div>';
+    }
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid #f0f0f0;border-radius:8px;margin-bottom:6px">'
       + '<span style="font-size:13px">'+esc(s.ten)+' <span style="color:#999;font-size:11.5px">— '+esc(s.chucVu)+'</span></span>'
-      + '<button onclick="pbvRemoveSigner('+i+')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:16px;line-height:1">×</button>'
+      + '<span style="display:flex;gap:4px;flex-shrink:0">'
+        + '<button onclick="pbvSignerEditIdx='+i+';pbvRenderSignerCfgList()" style="background:none;border:none;color:#6a1b9a;cursor:pointer;font-size:12px;font-family:inherit"><i class="ti ti-edit"></i> Sửa</button>'
+        + '<button onclick="pbvRemoveSigner('+i+')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:16px;line-height:1">×</button>'
+      + '</span>'
       + '</div>';
   }).join('');
+}
+function pbvSaveSignerEdit(idx){
+  var nameEl = document.getElementById('pbvSignerEditName');
+  var roleEl = document.getElementById('pbvSignerEditRole');
+  var ten = nameEl ? nameEl.value.trim() : '';
+  if(!ten){ alert('Vui lòng nhập tên.'); return; }
+  if(pbvSignerList.some(function(s,i){ return s.ten===ten && i!==idx; })){ alert('Tên này đã có trong danh sách.'); return; }
+  var updated = pbvSignerList.slice();
+  updated[idx] = { ten: ten, chucVu: roleEl ? roleEl.value : 'Trưởng khoa' };
+  db.ref('phepBenhVienConfig/nguoiKy').set(updated).then(function(){ pbvSignerEditIdx = null; }).catch(function(err){ alert('Lỗi lưu: '+err.message); });
 }
 function pbvAddSigner(){
   var el = document.getElementById('pbvSignerCfgNew');
@@ -45233,6 +45724,7 @@ function pbvAddSigner(){
   db.ref('phepBenhVienConfig/nguoiKy').set(updated).then(function(){ if(el) el.value=''; }).catch(function(err){ alert('Lỗi lưu: '+err.message); });
 }
 function pbvRemoveSigner(idx){
+  if(pbvSignerEditIdx===idx) pbvSignerEditIdx = null;
   var updated = pbvSignerList.slice();
   updated.splice(idx,1);
   db.ref('phepBenhVienConfig/nguoiKy').set(updated).catch(function(err){ alert('Lỗi lưu: '+err.message); });
@@ -45479,15 +45971,35 @@ function pbvOpenPrint(id){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 15000);
 }
+// Đóng gói đúng chuẩn MIME/MHTML (giống hệt cách "Xuất Word" của Nghỉ phép/Nghỉ bù đã dùng thành
+// công từ trước, kể cả mở trên điện thoại) — thay cho cách cũ (chỉ dán thêm BOM vào HTML thường),
+// vì cách cũ mở được trên Word máy tính nhưng KHÔNG mở được khi xem trực tiếp trên điện thoại
+// (VD nhận file qua Zalo rồi bấm xem trong Files/iOS — hiện trống không đọc được nội dung).
+function buildPhieuBVMht(r){
+  var html = buildPhieuBVHtml(r);
+  var boundary = '----=_NextPart_GMHS_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  return 'MIME-Version: 1.0\r\n'
+    + 'Content-Type: multipart/related; boundary="'+boundary+'"; type="text/html"\r\n'
+    + '\r\n'
+    + '--'+boundary+'\r\n'
+    + 'Content-Type: text/html; charset="utf-8"\r\n'
+    + 'Content-Transfer-Encoding: 8bit\r\n'
+    + '\r\n'
+    + html + '\r\n'
+    + '\r\n'
+    + '--'+boundary+'--\r\n';
+}
 // Xuất file .doc để mở được bằng Word trên máy tính (giống cách "Xuất Word" ở các phiếu khác trong
 // app) — tải trực tiếp về máy đang dùng (điện thoại hoặc máy tính).
 function pbvExportWord(id){
   var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
   if(!r) return;
   try{
-    var html = buildPhieuBVHtml(r);
+    var mht = buildPhieuBVMht(r);
     var maPhieu = 'BV-NP-'+r.id;
-    var blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
+    // KHÔNG thêm BOM (\ufeff) — MHTML bắt buộc byte đầu tiên phải đúng là chuỗi "MIME-Version:"
+    // thì Word/các app đọc file mới nhận diện đúng định dạng, thêm BOM sẽ làm hỏng việc này.
+    var blob = new Blob([mht], {type:'application/msword'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = maPhieu+'.doc';
@@ -45505,9 +46017,9 @@ function pbvExportWord(id){
 function pbvShareFile(id){
   var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
   if(!r) return;
-  var html = buildPhieuBVHtml(r);
+  var mht = buildPhieuBVMht(r);
   var maPhieu = 'BV-NP-'+r.id;
-  var blob = new Blob(['\ufeff', html], {type:'application/msword'});
+  var blob = new Blob([mht], {type:'application/msword'});
   var file;
   try{ file = new File([blob], maPhieu+'.doc', {type:'application/msword'}); }
   catch(e){ pbvExportWord(id); return; }
