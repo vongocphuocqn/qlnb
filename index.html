@@ -6671,6 +6671,8 @@ function downloadWordDoc(){
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <!-- Thư viện tạo mã QR — nhúng trực tiếp (không cần tải từ Internet mỗi lần dùng) -->
 <script>
@@ -45951,8 +45953,9 @@ function pbvRenderList(){
       + '<div style="font-size:12.5px"><b>'+esc(r.hoTen)+'</b> — '+fmtD(r.tuNgay)+' → '+fmtD(r.denNgay)+' ('+r.tongNgay+' ngày)'+stBadge+'<div style="font-size:11px;color:#999">'+esc(r.khoaPhong||'')+' · Lập lúc '+new Date(r.createdAt).toLocaleString('vi-VN')+'</div></div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
       + '<button onclick="pbvOpenPrint(\''+r.id+'\')" style="background:#c62828;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> Xem/In</button>'
-      + '<button onclick="pbvExportWord(\''+r.id+'\')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-file-word"></i> Xuất Word</button>'
-      + '<button onclick="pbvShareFile(\''+r.id+'\')" style="background:#00838f;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-share"></i> Chia sẻ</button>'
+      + '<button onclick="pbvExportPdf(\''+r.id+'\')" style="background:#6d1b1b;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit" title="Mở được ngay trên điện thoại"><i class="ti ti-file-type-pdf"></i> Xuất PDF</button>'
+      + '<button onclick="pbvExportWord(\''+r.id+'\')" style="background:#1565C0;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit" title="Để sửa tiếp trên Word máy tính"><i class="ti ti-file-word"></i> Xuất Word</button>'
+      + '<button onclick="pbvShareFile(\''+r.id+'\')" style="background:#00838f;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-share"></i> Chia sẻ (PDF)</button>'
       + suaXoaHtml
       + '</div></div>';
   }).join('');
@@ -45989,6 +45992,64 @@ function buildPhieuBVMht(r){
     + '\r\n'
     + '--'+boundary+'--\r\n';
 }
+// ── XUẤT PDF THẬT — để mở được ngay trên điện thoại (Quick Look của iPhone/Files của Android chỉ
+// đọc đúng chuẩn PDF/ảnh, KHÔNG hiểu được file .doc dạng HTML/MHTML dù Word trên máy tính vẫn mở
+// được). Dùng html2canvas "chụp" đúng nội dung phiếu đã render sẵn trong trình duyệt (giữ nguyên
+// font, dấu tiếng Việt chính xác 100% vì không qua bộ mã hóa font PDF nào cả) rồi đóng gói thành 1
+// file PDF chuẩn bằng jsPDF.
+function pbvBuildCaptureHtml(r){
+  var full = buildPhieuBVHtml(r);
+  var styleM = full.match(/<style>([\s\S]*?)<\/style>/);
+  var bodyM = full.match(/<body>([\s\S]*?)<\/body>/);
+  return '<style>'+(styleM?styleM[1]:'')+'</style>'+(bodyM?bodyM[1]:'');
+}
+async function pbvGeneratePdfBlob(r){
+  if(typeof html2canvas==='undefined' || typeof window.jspdf==='undefined'){
+    throw new Error('Chưa tải được thư viện tạo PDF (kiểm tra lại kết nối mạng rồi thử lại).');
+  }
+  var container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-99999px;top:0;width:800px;background:#fff;z-index:-1';
+  container.innerHTML = pbvBuildCaptureHtml(r);
+  document.body.appendChild(container);
+  await new Promise(function(res){ setTimeout(res, 80); }); // để trình duyệt kịp dàn trang/tải font trước khi chụp
+  var canvas;
+  try{
+    canvas = await html2canvas(container, { scale:2, backgroundColor:'#ffffff', useCORS:true });
+  } finally {
+    document.body.removeChild(container);
+  }
+  var imgData = canvas.toDataURL('image/jpeg', 0.95);
+  var jsPDF = window.jspdf.jsPDF;
+  var pdf = new jsPDF({ unit:'mm', format:'a4' });
+  var pageW = 210, pageH = 297;
+  var imgW = pageW, imgH = canvas.height * imgW / canvas.width;
+  if(imgH <= pageH){
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+  } else {
+    var heightLeft = imgH, y = 0;
+    pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH);
+    heightLeft -= pageH;
+    while(heightLeft > 0){
+      y = heightLeft - imgH;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH);
+      heightLeft -= pageH;
+    }
+  }
+  return pdf.output('blob');
+}
+function pbvExportPdf(id){
+  var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
+  if(!r) return;
+  pbvGeneratePdfBlob(r).then(function(blob){
+    var maPhieu = 'BV-NP-'+r.id;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = maPhieu+'.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 10000);
+  }).catch(function(err){ alert('Có lỗi khi tạo PDF: '+err.message); });
+}
 // Xuất file .doc để mở được bằng Word trên máy tính (giống cách "Xuất Word" ở các phiếu khác trong
 // app) — tải trực tiếp về máy đang dùng (điện thoại hoặc máy tính).
 function pbvExportWord(id){
@@ -46017,28 +46078,30 @@ function pbvExportWord(id){
 function pbvShareFile(id){
   var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
   if(!r) return;
-  var mht = buildPhieuBVMht(r);
   var maPhieu = 'BV-NP-'+r.id;
-  var blob = new Blob([mht], {type:'application/msword'});
-  var file;
-  try{ file = new File([blob], maPhieu+'.doc', {type:'application/msword'}); }
-  catch(e){ pbvExportWord(id); return; }
-  var hoTro = false;
-  try{ hoTro = !!(navigator.share && navigator.canShare && navigator.canShare({files:[file]})); }catch(e){ hoTro = false; }
-  if(hoTro){
-    navigator.share({files:[file], title:'Đơn xin nghỉ phép — '+(r.hoTen||''), text:'Đơn xin nghỉ phép năm của '+(r.hoTen||'')})
-      .catch(function(err){
-        if(err && err.name==='AbortError') return; // anh tự bấm hủy khi đang chọn ứng dụng để chia sẻ — không phải lỗi
-        alert('Không mở được bảng chia sẻ ('+(err&&err.message||'lỗi không rõ')+') — mình tự tải file về máy giúp anh, anh mở Zalo và tự đính kèm file vừa tải để gửi nhé.');
-        pbvExportWord(id);
-      });
-  } else {
-    var lyDo = (location.protocol==='file:')
-      ? 'vì đang mở file tải về máy (không phải link web thật)'
-      : (!/Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'vì tính năng này chỉ hỗ trợ trên điện thoại' : 'trình duyệt này chưa hỗ trợ');
-    alert('Máy/trình duyệt hiện tại chưa dùng được nút Chia sẻ trực tiếp ('+lyDo+') — mình tự tải file về máy giúp anh, anh mở Zalo và tự đính kèm file vừa tải để gửi nhé.');
-    pbvExportWord(id);
-  }
+  pbvGeneratePdfBlob(r).then(function(blob){
+    var file;
+    try{ file = new File([blob], maPhieu+'.pdf', {type:'application/pdf'}); }
+    catch(e){ pbvExportPdf(id); return; }
+    var hoTro = false;
+    try{ hoTro = !!(navigator.share && navigator.canShare && navigator.canShare({files:[file]})); }catch(e){ hoTro = false; }
+    if(hoTro){
+      navigator.share({files:[file], title:'Đơn xin nghỉ phép — '+(r.hoTen||''), text:'Đơn xin nghỉ phép năm của '+(r.hoTen||'')})
+        .catch(function(err){
+          if(err && err.name==='AbortError') return; // anh tự bấm hủy khi đang chọn ứng dụng để chia sẻ — không phải lỗi
+          alert('Không mở được bảng chia sẻ ('+(err&&err.message||'lỗi không rõ')+') — mình tự tải file PDF về máy giúp anh, anh mở Zalo và tự đính kèm file vừa tải để gửi nhé.');
+          pbvExportPdf(id);
+        });
+    } else {
+      var lyDo = (location.protocol==='file:')
+        ? 'vì đang mở file tải về máy (không phải link web thật)'
+        : (!/Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'vì tính năng này chỉ hỗ trợ trên điện thoại' : 'trình duyệt này chưa hỗ trợ');
+      alert('Máy/trình duyệt hiện tại chưa dùng được nút Chia sẻ trực tiếp ('+lyDo+') — mình tự tải file PDF về máy giúp anh, anh mở Zalo và tự đính kèm file vừa tải để gửi nhé.');
+      pbvExportPdf(id);
+    }
+  }).catch(function(err){
+    alert('Có lỗi khi tạo file để chia sẻ: '+err.message+' — thử lại "Xuất Word" thay thế.');
+  });
 }
 // Khuôn phiếu ĐÚNG THEO MẪU CHÍNH THỨC BM.01.TCCB — 3 nơi kính gửi, đủ Địa chỉ nghỉ phép/Phương
 // tiện di chuyển, và CHỈ 2 ô ký trống (Trưởng khoa xác nhận / Người viết đơn) để ký sống trên giấy
