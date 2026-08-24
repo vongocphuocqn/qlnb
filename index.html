@@ -29024,6 +29024,7 @@ function renderConfig(){
     </div>
   ${cardClose()}
   ${cardOpen('cfg-sotonghop', '📚 Sổ tổng hợp', 'Mỗi sổ là 1 file .rtf gộp nhiều phiếu — ai soạn phiếu cũng chọn "Gộp vào Sổ tổng hợp" được (không riêng Admin), phiếu mới luôn chèn lên trên cùng, phiếu cũ giữ nguyên bên dưới, mỗi phiếu vẫn nằm riêng 1 trang để in tách ra được.')}
+    <button type="button" class="ddnl-btn ddnl-btn-sm" id="ddnlBtnTaoSoMoiCfg" style="margin-bottom:10px"><i class="ti ti-plus"></i> Tạo sổ mới</button>
     <div class="ddnl-rows-wrap" style="max-height:300px;overflow-y:auto;">
     <table>
       <thead><tr><th>Tên sổ</th><th>Số phiếu đã gộp</th><th>Cập nhật lần cuối</th><th>Người tạo</th><th style="width:140px;"></th></tr></thead>
@@ -29878,6 +29879,20 @@ function bindConfigEvents(){
     if(!so) return;
     downloadRtf(`${(so.ten||'SoTongHop').replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, so.bodyAccumulated||'');
   });
+  // Nút "Tạo sổ mới" đặt trực tiếp trong bảng Sổ tổng hợp (tab Cấu hình) — để khai báo 1 sổ mới mà
+  // KHÔNG cần vào soạn phiếu mới tìm ra nút tạo sổ. Ai cũng bấm được (không riêng Admin), giống hệt
+  // quyền của nút "Tạo sổ mới" trong khung soạn phiếu.
+  const btnTaoSoMoiCfg = document.getElementById('ddnlBtnTaoSoMoiCfg');
+  if(btnTaoSoMoiCfg) btnTaoSoMoiCfg.onclick = async ()=>{
+    const ten = prompt('Đặt tên cho Sổ tổng hợp mới (VD: "GIẤY ĐỀ NGHỊ VTYT — Sổ tổng hợp"):', '');
+    if(!ten || !ten.trim()) return;
+    const id = ddSoTongHopRef.push().key;
+    const ok = await ddSoTongHopRef.child(id).set({
+      ten: ten.trim(), bodyAccumulated: '', capNhatLanCuoi: Date.now(), soLuotGop: 0, taoBoi: currentUserName||''
+    }).then(()=>true).catch(()=>false);
+    if(!ok){ alert('Không tạo được Sổ tổng hợp — kiểm tra kết nối mạng rồi thử lại.'); return; }
+    render();
+  };
   document.querySelectorAll('[data-doi-ten-so-cfg]').forEach(b=>b.onclick=async ()=>{
     const id = b.dataset.doiTenSoCfg;
     const so = soTongHopList.find(s=>s.id===id);
