@@ -26548,9 +26548,13 @@ function renderModal(){
 
           <div class="ddnl-doc-title">Giấy đề nghị điều động nhân lực</div>
 
-          <p><strong>Kính gửi:</strong></p>
-          <p style="margin:2px 0 2px 20px;">– Ban Giám đốc;</p>
-          <p style="margin:2px 0 10px 20px;">– Phòng Tổ chức cán bộ;</p>
+          <div style="display:flex;margin:4px 0;">
+            <div style="font-weight:bold;flex-shrink:0;width:85px;">Kính gửi:</div>
+            <div style="flex:1;">
+              <div style="margin:2px 0;">– Ban Giám đốc;</div>
+              <div style="margin:2px 0 10px;">– Phòng Tổ chức cán bộ;</div>
+            </div>
+          </div>
           <p>Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính đề nghị Ban Giám đốc xem xét, phê duyệt điều động nhân lực tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý, cụ thể như sau:</p>
 
           <div class="ddnl-doc-section-title">1. Lý do đề nghị</div>
@@ -26668,9 +26672,13 @@ th{ border:1px solid #000; padding:4px 6px; background:#eeeeee; font-weight:bold
 
 <p style="text-align:center;font-weight:bold;font-size:15pt;margin:10pt 0 0;">GIẤY ĐỀ NGHỊ ĐIỀU ĐỘNG NHÂN LỰC</p>
 
-<p style="margin:4px 0;"><b>Kính gửi:</b></p>
-<p style="margin:2px 0 2px 30px;">– Ban Giám đốc;</p>
-<p style="margin:2px 0 10px 30px;">– Phòng Tổ chức cán bộ;</p>
+<table style="border-collapse:collapse;margin:4px 0;"><tr>
+  <td style="vertical-align:top;padding:0;font-weight:bold;width:85px;">Kính gửi:</td>
+  <td style="vertical-align:top;padding:0;">
+    <p style="margin:2px 0;">– Ban Giám đốc;</p>
+    <p style="margin:2px 0 10px;">– Phòng Tổ chức cán bộ;</p>
+  </td>
+</tr></table>
 <p style="margin:4px 0;text-align:justify;">Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính đề nghị Ban Giám đốc xem xét, phê duyệt điều động nhân lực tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý, cụ thể như sau:</p>
 
 <p style="font-weight:bold;margin:8pt 0 2pt;">1. Lý do đề nghị</p>
@@ -26773,9 +26781,13 @@ function ddnlInGopTheoNhanVien(){
   </tr></table>
   <div class="ddnl-pv-title">TỔNG HỢP ĐIỀU ĐỘNG NHÂN LỰC</div>
   <div class="ddnl-pv-center" style="font-style:italic;margin-bottom:10pt;">(Nhân viên: <b>${esc(data.ten)}</b> — ${esc(khoangNgay)})</div>
-  <div style="margin:4px 0;"><b>Kính gửi:</b></div>
-  <div style="margin:2px 0 2px 30px;">– Ban Giám đốc;</div>
-  <div style="margin:2px 0 10px 30px;">– Phòng Tổ chức cán bộ;</div>
+  <div style="display:flex;margin:4px 0;">
+    <div style="font-weight:bold;flex-shrink:0;width:85px;">Kính gửi:</div>
+    <div style="flex:1;">
+      <div style="margin:2px 0;">– Ban Giám đốc;</div>
+      <div style="margin:2px 0 10px;">– Phòng Tổ chức cán bộ;</div>
+    </div>
+  </div>
   <div style="margin:4px 0;text-align:justify;">Căn cứ tình hình thực tế hoạt động phẫu thuật và công tác gây mê hồi sức, Khoa Gây mê Hồi sức kính báo cáo và đề nghị Ban Giám đốc xem xét, phê duyệt tổng hợp các lượt điều động nhân lực đối với ông/bà <b>${esc(data.ten)}</b> tham gia công tác gây mê hồi sức và phục vụ hoạt động phẫu thuật/thủ thuật thuộc khoa quản lý trong khoảng thời gian nêu trên, cụ thể như sau:</div>
   <table class="ddnl-gop">
     <thead><tr><th style="width:4%;">STT</th><th style="width:11%;">Ngày</th><th>Bộ phận thực hiện</th><th style="width:9%;">Giờ BĐ</th><th style="width:9%;">Giờ KT</th><th style="width:7%;">Số giờ</th><th style="width:24%;">Nhiệm vụ</th><th style="width:11%;">Số phiếu</th></tr></thead>
@@ -26909,7 +26921,7 @@ function taoFileExcelTrongDeSoan(){
   rows.push(["Số: " + (draftVB.soVanBan||"…………"), "", "", `Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}`]);
   rows.push([]);
   rows.push([(draftVB.hinhThucVB||"GIẤY ĐỀ NGHỊ").toUpperCase()]);
-  if(draftVB.veViec) rows.push([`(Về việc: ${draftVB.veViec})`]);
+  if(draftVB.veViec) rows.push([`(V/v ${draftVB.veViec})`]);
   rows.push([]);
   rows.push(["Kính gửi:"]);
   if(draftVB.noiNhan && draftVB.noiNhan.length){
@@ -27169,6 +27181,18 @@ function rtfP(text, opts){
   let open = (opts.bold?'\\b ':'') + (opts.italic?'\\i ':'') + (opts.underline?'\\ul ':'');
   let close = (opts.underline?'\\ulnone ':'') + (opts.italic?'\\i0 ':'') + (opts.bold?'\\b0 ':'');
   return '\\pard '+align+open+rtfEsc(text)+close+'\\par\n';
+}
+// Dòng "Kính gửi:" kiểu 2 CỘT — nhãn "Kính gửi:" và dòng đầu tiên nằm CÙNG 1 DÒNG, các dòng sau
+// thẳng cột bên dưới dòng đầu (không phải thẳng dưới chữ "Kính gửi:") — đúng thể thức mẫu công văn
+// hành chính chuẩn (khác với kiểu cũ: "Kính gửi:" tách riêng 1 dòng, các mục thụt lề bên dưới).
+function rtfKinhGuiRow(items){
+  const w1 = 1600, w2 = 8300; // độ rộng cột (twips) — cột nhãn hẹp, cột nội dung rộng
+  let out = '\\trowd\\trgaph108\\trleft0\\cellx'+w1+'\\cellx'+(w1+w2)+'\n';
+  out += '\\intbl\\b Kính gửi:\\b0\\cell\n';
+  out += '\\intbl ';
+  items.forEach((it,i)=>{ out += (i>0?'\\line ':'') + rtfEsc(it); });
+  out += '\\cell\n\\row\n';
+  return out;
 }
 // Bảng 2 cột đơn giản không viền, dùng cho khối quốc hiệu và khối chữ ký
 function rtfTwoColTable(leftLines, rightLines, opts){
@@ -27524,8 +27548,8 @@ function buildVanBanBodyInnerHtml(data){
   const noiDungPhan = noiDungHtml ? ddnlChuanHoaFontXemTruoc(noiDungHtml)
     : (isBlank ? '<p style="margin:4px 0;">……………………………………………………………………………………………………………</p>'.repeat(4)
     : (tomTat ? `<p style="text-align:justify;margin:4px 0;">${esc(tomTat)}</p>` : ''));
-  const kinhGuiPhan = (noiNhan && noiNhan.length) ? noiNhan.map(n=>`<p style="margin:2px 0 2px 24px;">– ${esc(n)};</p>`).join('')
-    : (isBlank ? '<p style="margin:2px 0 2px 24px;">– ……………………………………;</p>' : '');
+  const kinhGuiPhan = (noiNhan && noiNhan.length) ? noiNhan.map((n,i)=>`<div style="margin:2px 0 ${i===noiNhan.length-1?10:2}px;">– ${esc(n)};</div>`).join('')
+    : (isBlank ? '<div style="margin:2px 0 10px;">– ……………………………………;</div>' : '');
   const noiNhanFooter = (noiNhan && noiNhan.length) ? '– Như trên;' : (isBlank ? '– ……………………………………;' : '');
   return `
   <table class="ddnl-pv-head"><tr>
@@ -27541,9 +27565,11 @@ function buildVanBanBodyInnerHtml(data){
     </td>
   </tr></table>
   <div class="ddnl-pv-title">${esc((hinhThucVB||'GIẤY ĐỀ NGHỊ').toUpperCase())}</div>
-  ${veViec?`<div class="ddnl-pv-veviec">(Về việc: ${esc(veViec)})</div>`:''}
-  <p class="ddnl-pv-bold" style="margin:4px 0;">Kính gửi:</p>
-  ${kinhGuiPhan}
+  ${veViec?`<div class="ddnl-pv-veviec">(V/v ${esc(veViec)})</div>`:''}
+  <div style="display:flex;margin:4px 0;">
+    <div class="ddnl-pv-bold" style="flex-shrink:0;width:85px;">Kính gửi:</div>
+    <div style="flex:1;">${kinhGuiPhan}</div>
+  </div>
   <div class="ddnl-pv-content" style="margin-top:10px;">${noiDungPhan}</div>
   <table class="ddnl-pv-head" style="margin-top:26pt;"><tr>
     <td style="width:50%;text-align:center;">
@@ -27859,10 +27885,8 @@ function buildVanBanRtfBody(data){
   );
   out += '\\pard\\par\n';
   out += rtfP((hinhThucVB||'GIẤY ĐỀ NGHỊ').toUpperCase(), {align:'center', bold:true});
-  if(veViec) out += rtfP(`(Về việc: ${veViec})`, {align:'center', italic:true});
-  out += rtfP('Kính gửi:', {bold:true});
-  if(noiNhan && noiNhan.length){ noiNhan.forEach(n=> out += rtfP('– '+n+';')); }
-  else if(isBlank){ out += rtfP('– ……………………………………;'); }
+  if(veViec) out += rtfP(`(V/v ${veViec})`, {align:'center', italic:true});
+  out += rtfKinhGuiRow(noiNhan && noiNhan.length ? noiNhan.map(n=>'– '+n+';') : (isBlank ? ['– ……………………………………;'] : []));
   if(isBlank){
     out += '\\pard\\par\n';
     for(let i=0;i<4;i++){ out += rtfP('……………………………………………………………………………………………………………'); }
@@ -28007,9 +28031,11 @@ function openNoiDungSoanModal(){
             </div>
           </div>
           <div class="ddnl-doc-title">${esc((draftVB.hinhThucVB||"GIẤY ĐỀ NGHỊ").toUpperCase())}</div>
-          ${draftVB.veViec?`<div style="text-align:center;font-style:italic;margin:2px 0 8px;">(Về việc: ${esc(draftVB.veViec)})</div>`:``}
-          <p><b>Kính gửi:</b></p>
-          ${(draftVB.noiNhan&&draftVB.noiNhan.length) ? draftVB.noiNhan.map(n=>`<p style="margin:2px 0 2px 30px;">– ${esc(n)};</p>`).join("") : `<p class="ddnl-hint" style="margin-left:30px;">(chưa chọn nơi nhận ở form bên ngoài)</p>`}
+          ${draftVB.veViec?`<div style="text-align:center;font-style:italic;margin:2px 0 8px;">(V/v ${esc(draftVB.veViec)})</div>`:``}
+          <div style="display:flex;margin:4px 0;">
+            <div style="font-weight:bold;flex-shrink:0;width:85px;">Kính gửi:</div>
+            <div style="flex:1;">${(draftVB.noiNhan&&draftVB.noiNhan.length) ? draftVB.noiNhan.map((n,i)=>`<p style="margin:2px 0 ${i===draftVB.noiNhan.length-1?10:2}px;">– ${esc(n)};</p>`).join("") : `<p class="ddnl-hint">(chưa chọn nơi nhận ở form bên ngoài)</p>`}</div>
+          </div>
           <div id="ddnlNoiDungEditable" contenteditable="true" style="min-height:260px;border:1px dashed var(--ddnl-line);border-radius:6px;padding:10px 12px;margin-top:10px;outline:none;overflow-x:auto;">${draftVB.noiDungSoan || '<p>Kính đề nghị… (đánh nội dung tại đây)</p>'}</div>
           <div class="ddnl-signs">
             <div class="ddnl-sign-col">
