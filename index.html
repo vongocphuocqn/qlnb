@@ -844,6 +844,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <button class="nb-tab" id="nbTab3" onclick="switchNbTab(3)" style="display:none"><i class="ti ti-chart-bar"></i> Thống kê</button>
       <button class="nb-tab" id="nbTab4" onclick="switchNbTab(4)" style="background:rgba(255,255,255,.15)"><i class="ti ti-calendar-user"></i> Lịch nghỉ chung</button>
       <button class="nb-tab" id="nbTab5" onclick="switchNbTab(5)" style="background:rgba(255,255,255,.15)"><i class="ti ti-clipboard-check"></i> Đối chiếu HIS</button>
+      <button class="nb-tab" id="nbTab6" onclick="switchNbTab(6)" style="background:rgba(255,255,255,.15)"><i class="ti ti-stethoscope"></i> Đối chiếu Dịch vụ PTTT</button>
     </div>
 
     <!-- TAB 1: ĐĂNG KÝ -->
@@ -1131,6 +1132,39 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         </div>
       </div>
       <div id="hisCompareResultWrap"></div>
+    </div>
+
+    <!-- ══ TAB 6: ĐỐI CHIẾU DANH SÁCH PHẪU THUẬT/THỦ THUẬT VỚI CHẤM CÔNG + CHẤM TRỰC ══ -->
+    <div id="nbPane6" style="display:none;padding:0 4px">
+      <div style="background:#fdecea;border:1px solid #f5c2c0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#c0392b;line-height:1.6">
+        <i class="ti ti-info-circle"></i> Tải lên đủ <b>3 file</b>: Bảng chấm công (PDF) + Bảng chấm trực (PDF) + Danh sách Phẫu thuật/Thủ thuật (Excel, xuất từ HIS/BHYT) — hệ thống tự tìm các ca có <b>tên GMHS (Gây mê chính/phụ, Dụng cụ vòng trong/ngoài) không khớp với chấm công/chấm trực ngày đó</b>, đúng nguyên nhân hay bị BHYT xuất toán.
+        <br>• <b>Chỉ xét đúng nhân viên khoa GMHS</b> (có tên trong bảng Chấm công vừa tải) + danh sách kiêm nhiệm ngoài khoa tự khai báo bên dưới — mọi tên khác (bác sĩ phẫu thuật, nhân viên khoa khác...) sẽ tự động bỏ qua, không đưa vào kết quả.
+        <br>• <b>Kiểm tra chính:</b> nhân viên đứng tên trên ca mổ nhưng hôm đó chấm công KHÔNG phải "X" (VD đang nghỉ phép, nghỉ bù, đi học...) → báo lỗi rõ.
+        <br>• <b>Kiểm tra phụ:</b> ca mổ ngoài ca ngày (trước 7h hoặc từ 19h trở đi, đúng khung ca ngày 7h–19h/ca đêm 19h01–7h hôm sau của Khoa, hoặc cuối tuần) mà nhân viên đó KHÔNG có tên trong bảng chấm trực ngày đó → cũng báo để kiểm tra thêm.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:14px">
+        <div>
+          <input type="file" id="dvCcPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="dvFileChange(event,'cc')">
+          <button class="nb-btn" id="dvCcBtn" onclick="document.getElementById('dvCcPdfInp').click()" style="width:100%;background:#616161"><i class="ti ti-file-type-pdf"></i> 1. Chấm công (PDF)</button>
+          <div id="dvCcInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+        <div>
+          <input type="file" id="dvTrPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="dvFileChange(event,'tr')">
+          <button class="nb-btn" id="dvTrBtn" onclick="document.getElementById('dvTrPdfInp').click()" style="width:100%;background:#616161"><i class="ti ti-file-type-pdf"></i> 2. Chấm trực (PDF)</button>
+          <div id="dvTrInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+        <div>
+          <input type="file" id="dvXlsxInp" accept=".xlsx,.xls" style="display:none" onchange="dvFileChange(event,'dv')">
+          <button class="nb-btn" id="dvDvBtn" onclick="document.getElementById('dvXlsxInp').click()" style="width:100%;background:#1b5e20"><i class="ti ti-file-type-xls"></i> 3. Danh sách PTTT (Excel)</button>
+          <div id="dvDvInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:600;color:#666">Nhân viên kiêm nhiệm ngoài Khoa (chấm công ở khoa khác — vẫn muốn theo dõi riêng, cách nhau bằng dấu phẩy)</label>
+        <input type="text" id="dvKiemNhiemInp" value="Nguyễn Thanh Bảo" placeholder="VD: Nguyễn Thanh Bảo, ..." style="width:100%;box-sizing:border-box;border:1.5px solid #eee;border-radius:8px;padding:8px 11px;font-size:12.5px;font-family:inherit;margin-top:4px">
+      </div>
+      <button class="nb-btn" id="dvCompareBtn" style="background:#c62828" onclick="dvRunCompare()" disabled><i class="ti ti-scale"></i> So sánh (cần đủ cả 3 file)</button>
+      <div id="dvCompareResultWrap" style="margin-top:16px"></div>
     </div>
 
   </div><!-- /nb-main -->
@@ -14847,7 +14881,7 @@ const statusClass={'pending':'nb-badge-wait','approved':'nb-badge-ok','denied':'
 /* ── SWITCH TABS ── */
 function switchNbTab(n){
   console.log('[NB] switchNbTab to', n, '| nbRecords:', nbRecords.length, '| user:', nbCurrentUser&&nbCurrentUser.name);
-  [1,2,3,4,5].forEach(i=>{
+  [1,2,3,4,5,6].forEach(i=>{
     var tab=document.getElementById('nbTab'+i);
     var pane=document.getElementById('nbPane'+i);
     if(tab)tab.classList.toggle('on',i===n);
@@ -15152,6 +15186,261 @@ function hisRenderCompareResult(mismatches, khongCoTrenHis){
         }).join('') + '</tbody></table></div>';
   }
   wrap.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ĐỐI CHIẾU DANH SÁCH PHẪU THUẬT/THỦ THUẬT với CHẤM CÔNG + CHẤM TRỰC — tìm các ca mổ mà nhân viên
+// GMHS đứng tên (Gây mê chính/phụ, Dụng cụ vòng trong/ngoài) nhưng hôm đó KHÔNG có mặt làm việc
+// theo Chấm công (đang nghỉ phép/nghỉ bù/đi học...) — đúng nguyên nhân phổ biến khiến BHYT xuất
+// toán dịch vụ. Dùng lại NGUYÊN VẸN bộ máy đọc PDF cột-theo-tọa-độ đã xây cho "Đối chiếu HIS" (2
+// file PDF này có cấu trúc bảng giống hệt nhau: STT/Họ tên/Chức vụ + cột từng ngày trong tháng).
+// ══════════════════════════════════════════════════════════════════════════
+var dvData = { cc:null, tr:null, dv:null }; // cc=chấm công, tr=chấm trực, dv=danh sách dịch vụ
+function dvUpdateCompareBtn(){
+  var btn = document.getElementById('dvCompareBtn');
+  if(!btn) return;
+  var ok = dvData.cc && dvData.tr && dvData.dv;
+  btn.disabled = !ok;
+  btn.innerHTML = '<i class="ti ti-scale"></i> ' + (ok ? 'So sánh 3 file đã tải' : 'So sánh (cần đủ cả 3 file)');
+}
+function dvFileChange(e, kind){
+  var f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!f) return;
+  var infoId = kind==='cc' ? 'dvCcInfo' : kind==='tr' ? 'dvTrInfo' : 'dvDvInfo';
+  var info = document.getElementById(infoId);
+  if(info) info.innerHTML = '<i class="ti ti-loader-2"></i> Đang đọc…';
+  var job = (kind==='dv') ? dvExtractExcel(f) : hisExtractFromPdf(f);
+  job.then(function(res){
+    dvData[kind] = res;
+    if(info){
+      if(kind==='dv') info.innerHTML = '<i class="ti ti-circle-check" style="color:#2e7d32"></i> Đã đọc <b>'+res.rows.length+'</b> ca';
+      else info.innerHTML = '<i class="ti ti-circle-check" style="color:#2e7d32"></i> Đã đọc <b>'+res.rows.length+'</b> nhân viên, tháng '+(res.monthInfo?res.monthInfo.month+'/'+res.monthInfo.year:'?');
+    }
+    dvUpdateCompareBtn();
+  }).catch(function(err){
+    if(info) info.innerHTML = '<span style="color:#c62828">Lỗi đọc file: '+esc(err.message)+'</span>';
+  });
+}
+// Đọc file Excel "Báo cáo bồi dưỡng phẫu thuật/thủ thuật" — dò đúng dòng tiêu đề (không hard-code
+// số dòng/cột cố định, vì mỗi lần HIS xuất có thể lệch vài dòng do dòng ghi chú phía trên) rồi ánh
+// xạ đúng tên cột cần dùng: Ngày BĐ, Gây mê chính/phụ, Dụng cụ vòng trong/ngoài.
+function dvNormHdr(s){ return String(s||'').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase(); }
+// Đọc ngày giờ TRỰC TIẾP TỪ SỐ GỐC lưu trong file Excel (không tạo đối tượng Date của JavaScript)
+// — vì cách cũ (cellDates:true rồi đọc qua Date) có rủi ro lệch giờ tùy cách trình duyệt của từng
+// máy diễn giải, không đảm bảo đúng 100% mọi lúc mọi nơi. Cách này dùng đúng công thức chuyển đổi
+// gốc của Excel (qua XLSX.SSF.parse_date_code) — cho ra ĐÚNG số năm/tháng/ngày/giờ/phút y hệt số
+// đang hiển thị trong Excel, không phụ thuộc múi giờ máy tính đang chạy trình duyệt.
+function dvParseExcelDateVal(v){
+  if(v===null || v===undefined || v==='') return null;
+  if(typeof v==='number'){
+    var dc = XLSX.SSF.parse_date_code(v);
+    if(!dc) return null;
+    return { y:dc.y, m:dc.m, d:dc.d, H:dc.H||0, M:dc.M||0 };
+  }
+  if(v instanceof Date){
+    return { y:v.getFullYear(), m:v.getMonth()+1, d:v.getDate(), H:v.getHours(), M:v.getMinutes() };
+  }
+  // Phòng trường hợp ô bị lưu dạng chữ "01-07-2026 5:31" (DD-MM-YYYY H:MM) thay vì số ngày Excel
+  var s = String(v).trim();
+  var m1 = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})[ T]+(\d{1,2}):(\d{2})/);
+  if(m1) return { y:+m1[3], m:+m1[2], d:+m1[1], H:+m1[4], M:+m1[5] };
+  return null;
+}
+function dvFmtDateVal(dv){ return dv ? (String(dv.d).padStart(2,'0')+'/'+String(dv.m).padStart(2,'0')+' '+String(dv.H).padStart(2,'0')+':'+String(dv.M).padStart(2,'0')) : ''; }
+async function dvExtractExcel(file){
+  if(typeof XLSX==='undefined') throw new Error('Chưa tải được thư viện đọc Excel (XLSX) — kiểm tra kết nối mạng.');
+  var buf = await file.arrayBuffer();
+  var wb = XLSX.read(buf, {type:'array', cellDates:false}); // KHÔNG bật cellDates — tự đọc số gốc để tránh lệch giờ
+  var wsName = wb.SheetNames.find(function(n){ return wb.Sheets[n]['!ref']; }) || wb.SheetNames[0];
+  var ws = wb.Sheets[wsName];
+  var aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+  var hdrRowIdx = -1, colIdx = {};
+  for(var i=0;i<Math.min(aoa.length,20);i++){
+    var row = aoa[i]||[];
+    var found = {};
+    row.forEach(function(cell,ci){
+      var h = dvNormHdr(cell);
+      if(h==='NGÀY BĐ') found.ngayBD=ci;
+      if(h==='NGÀY KT') found.ngayKT=ci;
+      if(h==='GÂY MÊ CHÍNH') found.gayMeChinh=ci;
+      if(h==='GÂY MÊ PHỤ') found.gayMePhu=ci;
+      if(h.indexOf('DỤNG CỤ')>-1 && h.indexOf('TRONG')>-1) found.dcTrong=ci;
+      if(h.indexOf('DỤNG CỤ')>-1 && h.indexOf('NGOÀI')>-1) found.dcNgoai=ci;
+      if(h==='HỌ TÊN') found.hoTenBN=ci;
+      if(h==='TÊN DỊCH VỤ') found.tenDV=ci;
+    });
+    if(found.ngayBD!==undefined && found.gayMeChinh!==undefined){ hdrRowIdx=i; colIdx=found; break; }
+  }
+  if(hdrRowIdx===-1) throw new Error('Không tìm thấy đúng dòng tiêu đề trong file (cần có cột "Ngày BĐ" và "Gây mê chính") — kiểm tra lại đúng file "Danh sách Phẫu thuật/Thủ thuật" xuất từ HIS.');
+  var rows = [];
+  for(var r=hdrRowIdx+1; r<aoa.length; r++){
+    var row = aoa[r]||[];
+    var dt = dvParseExcelDateVal(row[colIdx.ngayBD]);
+    if(!dt) continue;
+    var dtKT = colIdx.ngayKT!==undefined ? dvParseExcelDateVal(row[colIdx.ngayKT]) : null;
+    rows.push({
+      ngayBD: dt,
+      ngayKT: dtKT,
+      hoTenBN: colIdx.hoTenBN!==undefined ? row[colIdx.hoTenBN] : '',
+      tenDV: colIdx.tenDV!==undefined ? row[colIdx.tenDV] : '',
+      gayMeChinh: row[colIdx.gayMeChinh]||'',
+      gayMePhu: colIdx.gayMePhu!==undefined ? (row[colIdx.gayMePhu]||'') : '',
+      dcTrong: colIdx.dcTrong!==undefined ? (row[colIdx.dcTrong]||'') : '',
+      dcNgoai: colIdx.dcNgoai!==undefined ? (row[colIdx.dcNgoai]||'') : ''
+    });
+  }
+  return { rows: rows };
+}
+function dvFindDayCode(parsedRows, hoTen, day){
+  var key = hisNormName(hoTen);
+  var row = parsedRows.find(function(r){ return hisNormName(r.hoTen)===key; });
+  if(!row) return { found:false, code:null };
+  return { found:true, code: row.days[day] || '' };
+}
+function dvRunCompare(){
+  if(!(dvData.cc && dvData.tr && dvData.dv)) return;
+  var flags = [];
+  // Chỉ quan tâm ĐÚNG nhân viên khoa GMHS (có tên trong bảng Chấm công vừa đọc) + danh sách kiêm
+  // nhiệm ngoài khoa do Trưởng khoa tự khai báo (VD "Nguyễn Thanh Bảo" — chấm công thuộc khoa khác
+  // nên không kiểm tra được qua file này, nhưng vẫn muốn liệt kê riêng để theo dõi/đối chiếu thủ
+  // công). MỌI TÊN KHÁC (bác sĩ phẫu thuật, nhân viên khoa khác...) sẽ bị BỎ QUA hoàn toàn, không
+  // đưa vào bất kỳ danh sách lệch nào — tránh nhiễu vì đây không phải phạm vi cần kiểm tra.
+  var gmhsRosterKeys = {};
+  dvData.cc.rows.forEach(function(r){ gmhsRosterKeys[hisNormName(r.hoTen)] = true; });
+  var kiemNhiemList = ((document.getElementById('dvKiemNhiemInp')||{}).value||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var kiemNhiemKeys = {};
+  kiemNhiemList.forEach(function(t){ kiemNhiemKeys[hisNormName(t)] = t; });
+  var vaiTroList = [
+    {key:'gayMeChinh', nhan:'Gây mê chính'},
+    {key:'gayMePhu', nhan:'Gây mê phụ'},
+    {key:'dcTrong', nhan:'Dụng cụ vòng trong'},
+    {key:'dcNgoai', nhan:'Dụng cụ vòng ngoài'}
+  ];
+  dvData.dv.rows.forEach(function(sv){
+    // ngayBD/ngayKT giờ là object {y,m,d,H,M} đọc trực tiếp từ số gốc Excel (không phải đối tượng
+    // Date của JS) — đảm bảo đúng tuyệt đối, không phụ thuộc múi giờ máy đang chạy trình duyệt.
+    var day = sv.ngayBD.d;
+    var hour = sv.ngayBD.H;
+    var minute = sv.ngayBD.M;
+    var dow = new Date(Date.UTC(sv.ngayBD.y, sv.ngayBD.m-1, sv.ngayBD.d)).getUTCDay(); // chỉ dùng Date để tính THỨ trong tuần (không liên quan giờ trong ngày nên an toàn, không bị lệch múi giờ)
+    var gioStr = String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0');
+    var gioKTStr = sv.ngayKT ? (String(sv.ngayKT.H).padStart(2,'0')+':'+String(sv.ngayKT.M).padStart(2,'0')) : '';
+    var gioKhoangStr = gioKTStr ? (gioStr+' – '+gioKTStr) : gioStr;
+    // Đúng khung ca thực tế của Khoa: ca ngày 07h00–19h00, ca đêm 19h01–07h00 hôm sau (tua trực
+    // 12/24); tua trực 24/24 thì 07h00 hôm nay đến 07h00 hôm sau — nên "ngoài giờ hành chính" (cần
+    // đối chiếu thêm với Chấm trực) là TRƯỚC 7h HOẶC TỪ 19h TRỞ ĐI (không phải 17h như giờ hành
+    // chính văn phòng thông thường).
+    var ngoaiGio = (hour<7 || hour>=19 || dow===0 || dow===6);
+    vaiTroList.forEach(function(vt){
+      var ten = (sv[vt.key]||'').trim();
+      if(!ten) return;
+      var tenKey = hisNormName(ten);
+      var laGmhs = !!gmhsRosterKeys[tenKey];
+      var laKiemNhiem = !!kiemNhiemKeys[tenKey];
+      if(!laGmhs && !laKiemNhiem) return; // không thuộc phạm vi quan tâm -> bỏ qua hoàn toàn
+      if(laKiemNhiem && !laGmhs){
+        // Kiêm nhiệm ngoài khoa — không có dữ liệu Chấm công của khoa GMHS để đối chiếu, chỉ liệt
+        // kê riêng để Trưởng khoa biết mà tự đối chiếu qua Chấm công của khoa gốc người đó.
+        flags.push({
+          ten: ten, vaiTro: vt.nhan, ngay: day, gio: gioKhoangStr, maCC: '(chấm công ở khoa khác)',
+          benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'',
+          loaiLoi: 'kiemnhiem',
+          moTa: 'Nhân viên kiêm nhiệm ngoài Khoa — cần tự đối chiếu với Chấm công của khoa gốc'
+        });
+        return;
+      }
+      var cc = dvFindDayCode(dvData.cc.rows, ten, day);
+      var dangLamViec = cc.found && /^X/.test(cc.code||'');
+      if(cc.found && !dangLamViec){
+        // Ca sáng sớm (trước 8h) mà Chấm công ngày đó ghi "NB" HOẶC ĐỂ TRỐNG (chưa có mã) — RẤT CÓ
+        // THỂ là ca thuộc phiên trực đêm hôm trước kéo dài sang sáng hôm sau (NB là ngày nghỉ bù
+        // SAU ca trực, hoặc ô trống đơn giản vì HIS chưa chấm/không chấm ngày có trực đêm), không
+        // hẳn là lỗi thật. Kiểm tra chéo Chấm trực của đúng NGÀY HÔM TRƯỚC — nếu có mã trực, hạ
+        // xuống mục "khả năng hợp lệ" riêng thay vì báo lỗi chính, tránh làm nhiễu báo động giả.
+        var coTheHopLe = false, ghiChuTruc = '', lyDoHopLe = '';
+        if(hour<8 && day>1 && (cc.code==='NB' || !cc.code)){
+          // Ca sáng sớm: có thể thuộc phiên trực đêm HÔM TRƯỚC kéo dài sang sáng hôm sau —
+          // kiểm tra chéo Chấm trực của NGÀY HÔM TRƯỚC (day-1).
+          var trHomTruoc = dvFindDayCode(dvData.tr.rows, ten, day-1);
+          if(trHomTruoc.found && trHomTruoc.code){
+            coTheHopLe = true;
+            ghiChuTruc = 'Chấm trực ngày '+(day-1)+' (hôm trước): "'+trHomTruoc.code+'"';
+            lyDoHopLe = 'ca thuộc phiên trực đêm hôm trước kéo dài';
+          }
+        } else if(hour>=19 && (cc.code==='NB' || !cc.code)){
+          // Ca buổi tối/đầu đêm (>=19h, tức đầu phiên trực đêm CÙNG NGÀY): kiểm tra chéo Chấm
+          // trực của ĐÚNG NGÀY ĐÓ (không phải hôm trước) — vì phiên trực đêm được ghi nhận dưới
+          // đúng ngày bắt đầu trực.
+          var trCungNgay = dvFindDayCode(dvData.tr.rows, ten, day);
+          if(trCungNgay.found && trCungNgay.code){
+            coTheHopLe = true;
+            ghiChuTruc = 'Chấm trực ngày '+day+' (cùng ngày, đầu phiên trực đêm): "'+trCungNgay.code+'"';
+            lyDoHopLe = 'ca thuộc đầu phiên trực đêm cùng ngày';
+          }
+        }
+        flags.push({
+          ten: ten, vaiTro: vt.nhan, ngay: day,
+          gio: gioKhoangStr,
+          maCC: cc.code || '(trống)',
+          benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'',
+          loaiLoi: coTheHopLe ? 'ngonho' : 'chinh',
+          moTa: coTheHopLe
+            ? 'Ca lúc '+gioStr+' ngày '+day+' đứng tên "'+vt.nhan+'" — Chấm công ngày '+day+' ghi "'+(cc.code||'trống')+'" nhưng '+ghiChuTruc+' → khả năng là '+lyDoHopLe+', cần đối chiếu thêm chứ chưa chắc là lỗi.'
+            : 'Đứng tên "'+vt.nhan+'" nhưng Chấm công ngày '+day+' ghi "'+(cc.code||'trống')+'" (không phải "X" — không có mặt làm việc)'
+        });
+      } else if(ngoaiGio){
+        // Ca đêm vắt qua nửa đêm (VD trực đêm 19h01 ngày 3 → 7h00 ngày 4) được ghi nhận dưới đúng
+        // NGÀY BẮT ĐẦU trực (ngày 3) trong bảng Chấm trực, không phải ngày hôm sau — nên với ca
+        // phẫu thuật rơi vào rạng sáng (trước 7h), phải kiểm tra Chấm trực của NGÀY HÔM TRƯỚC mới
+        // đúng; các trường hợp còn lại (từ 19h trở đi, hoặc ban ngày cuối tuần) kiểm tra đúng ngày
+        // hiện tại như bình thường.
+        var ngayTraCuu = (hour<7 && day>1) ? day-1 : day;
+        var tr = dvFindDayCode(dvData.tr.rows, ten, ngayTraCuu);
+        if(!tr.found || !tr.code){
+          flags.push({
+            ten: ten, vaiTro: vt.nhan, ngay: day,
+            gio: gioKhoangStr,
+            maCC: cc.code, benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'',
+            loaiLoi: 'phu',
+            moTa: 'Ca ngoài ca ngày (7h–19h) lúc '+gioStr+' nhưng KHÔNG có tên trong bảng Chấm trực ngày '+ngayTraCuu+(ngayTraCuu!==day?' (đúng ngày bắt đầu ca trực đêm, vì ca này thuộc phiên trực từ tối hôm trước)':'')
+          });
+        }
+      }
+    });
+  });
+  dvRenderResult(flags);
+}
+function dvRenderResult(flags){
+  var wrap = document.getElementById('dvCompareResultWrap');
+  if(!wrap) return;
+  if(!flags.length){
+    wrap.innerHTML = '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:16px;text-align:center;color:#1b5e20;font-weight:700"><i class="ti ti-circle-check"></i> Không phát hiện ca nào bị lệch trong phạm vi nhân viên khoa GMHS (+ danh sách kiêm nhiệm đã khai báo).</div>';
+    return;
+  }
+  var chinh = flags.filter(function(f){ return f.loaiLoi==='chinh'; });
+  var ngonho = flags.filter(function(f){ return f.loaiLoi==='ngonho'; });
+  var phu = flags.filter(function(f){ return f.loaiLoi==='phu'; });
+  var kiemNhiem = flags.filter(function(f){ return f.loaiLoi==='kiemnhiem'; });
+  function tbl(list, title, color){
+    if(!list.length) return '';
+    list.sort(function(a,b){ return a.ngay-b.ngay || (a.gio||'').localeCompare(b.gio||'') || a.ten.localeCompare(b.ten,'vi'); });
+    return '<div style="font-weight:700;color:'+color+';margin:14px 0 8px"><i class="ti ti-alert-triangle"></i> '+title+' ('+list.length+')</div>'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+      + '<thead><tr><th style="background:'+color+';color:#fff;padding:6px 8px;font-size:11px">Ngày</th><th style="background:'+color+';color:#fff;padding:6px 8px;font-size:11px">Giờ</th><th style="background:'+color+';color:#fff;padding:6px 8px;font-size:11px;text-align:left">Nhân viên</th><th style="background:'+color+';color:#fff;padding:6px 8px;font-size:11px;text-align:left">Vai trò</th><th style="background:'+color+';color:#fff;padding:6px 8px;font-size:11px;text-align:left">Bệnh nhân / Dịch vụ</th><th style="background:'+color+';color:#fff;padding:6px 8px;font-size:11px;text-align:left">Chi tiết</th></tr></thead><tbody>'
+      + list.map(function(f){
+          return '<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:5px 8px;font-size:12px;text-align:center;font-weight:700">'+f.ngay+'</td>'
+          + '<td style="padding:5px 8px;font-size:12px;text-align:center;font-weight:700;color:#1565C0">'+esc(f.gio||'—')+'</td>'
+          + '<td style="padding:5px 8px;font-size:12.5px;font-weight:600">'+esc(f.ten)+'</td>'
+          + '<td style="padding:5px 8px;font-size:12px">'+esc(f.vaiTro)+'</td>'
+          + '<td style="padding:5px 8px;font-size:11.5px;color:#555">'+esc(f.benhNhan)+'<br><span style="color:#999">'+esc(f.dichVu)+'</span></td>'
+          + '<td style="padding:5px 8px;font-size:11.5px;color:#666">'+esc(f.moTa)+'</td></tr>';
+        }).join('') + '</tbody></table></div>';
+  }
+  wrap.innerHTML = tbl(chinh, 'Đứng tên ca mổ nhưng KHÔNG làm việc theo Chấm công (ưu tiên kiểm tra trước)', '#c62828')
+    + tbl(ngonho, 'Ca sáng sớm mã "NB" nhưng hôm trước có trực — khả năng hợp lệ, cần đối chiếu thêm', '#f9a825')
+    + tbl(phu, 'Ca ngoài ca ngày (7h–19h) không có tên trong Chấm trực (kiểm tra thêm)', '#e65100')
+    + tbl(kiemNhiem, 'Nhân viên kiêm nhiệm ngoài Khoa — tự đối chiếu với chấm công khoa gốc', '#616161');
 }
 
 /* ── SELECT SHIFT ── */
