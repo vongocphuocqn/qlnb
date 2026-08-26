@@ -258,11 +258,17 @@ font-size:10px;color:var(--tx3)}
   align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
 .modal-bg.on{display:flex}
 .kpi-box-maximized{max-width:97vw!important;width:97vw!important;max-height:94vh!important;height:94vh!important}
+.kpi-box-maximized #assignNoteInput{min-height:40vh}
 .kpi-wide-maximized{max-width:98vw!important;width:98vw!important}
 .modal{background:#fff;border-radius:14px;padding:22px 20px;width:100%;max-width:400px;
-  box-shadow:0 8px 32px rgba(0,0,0,.18);margin:auto}
+  box-shadow:0 8px 32px rgba(0,0,0,.18);margin:auto;transition:max-width .15s}
 .modal h3{font-size:15px;font-weight:700;color:var(--g800);margin-bottom:14px;
   display:flex;align-items:center;gap:7px}
+.modal.modal-wide{max-width:720px}
+.modal-wide-btn{margin-left:auto;background:none;border:1px solid var(--bd);border-radius:7px;
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  color:var(--tx3);font-size:13px;flex-shrink:0}
+.modal-wide-btn:hover{background:#f4f4f4}
 .lbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;
   align-items:center;justify-content:center}
 .lbox.on{display:flex}
@@ -2166,8 +2172,11 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
 
 <!-- MODAL: CHỌN NGÀY CHUYỂN TRẠNG THÁI (để tính Downtime chính xác) -->
 <div class="modal-bg" id="moveTimeModal" style="z-index:2200" onclick="if(event.target===this)closeMoveTimeModal()">
-  <div class="modal" style="max-width:380px">
-    <h3 id="moveTimeTitle"><i class="ti ti-clock-check"></i> Chuyển trạng thái</h3>
+  <div class="modal" id="moveTimeModalBox" style="max-width:380px">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:14px">
+      <h3 id="moveTimeTitle" style="margin-bottom:0"><i class="ti ti-clock-check"></i> Chuyển trạng thái</h3>
+      <button type="button" class="modal-wide-btn" id="moveTimeWideBtn" title="Phóng to giao diện" onclick="toggleMoveTimeModalWide()"><i class="ti ti-arrows-maximize"></i></button>
+    </div>
     <div id="moveTimeInfo" style="background:#f8fbf4;border:1.5px solid var(--bd);
       border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--tx2)"></div>
     <div class="fg">
@@ -2179,7 +2188,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     </div>
     <div class="fg">
       <label id="moveTimeNoteLabel">Diễn giải</label>
-      <textarea id="moveTimeNote" placeholder="Ghi rõ đã/đang xử lý bằng cách nào..." style="min-height:70px"></textarea>
+      <textarea id="moveTimeNote" placeholder="Ghi rõ đã/đang xử lý bằng cách nào..." style="min-height:70px;resize:vertical"></textarea>
     </div>
     <div class="lerr" id="moveTimeErr" style="margin-bottom:10px">
       <i class="ti ti-alert-circle"></i><span>Vui lòng chọn ngày hợp lệ!</span>
@@ -2379,8 +2388,11 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
 
 <!-- ══ PHÂN CÔNG NGƯỜI PHỤ TRÁCH XỬ LÝ ══ -->
 <div class="modal-bg" id="assignModal" onclick="if(event.target===this)closeAssignModal()">
-  <div class="modal" style="max-width:400px">
-    <h3><i class="ti ti-user-check"></i> Phân công người phụ trách</h3>
+  <div class="modal" id="assignModalBox" style="max-width:400px">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:14px">
+      <h3 style="margin-bottom:0"><i class="ti ti-user-check"></i> Phân công người phụ trách</h3>
+      <button type="button" id="assignMaxBtn" class="modal-wide-btn" title="Phóng to giao diện" onclick="kpiToggleMaximizeBox('assignModalBox','assignMaxBtn')"><i class="ti ti-arrows-maximize"></i></button>
+    </div>
     <div id="assignCardInfo" style="font-size:12.5px;color:#555;background:#f4f8f0;border-radius:8px;padding:8px 11px;margin-bottom:12px"></div>
     <div class="fg">
       <label>Người phụ trách xử lý <span class="req-star">*</span></label>
@@ -2396,7 +2408,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     </div>
     <div class="fg">
       <label>Ghi chú giao việc <span style="font-weight:400;color:#8098bb">(yêu cầu cụ thể, hạn xử lý...)</span></label>
-      <textarea id="assignNoteInput" style="min-height:55px" placeholder="VD: Anh/chị kiểm tra và thay thế trước ngày 15/07, báo lại kết quả trên hệ thống..."></textarea>
+      <textarea id="assignNoteInput" style="min-height:55px;resize:vertical" placeholder="VD: Anh/chị kiểm tra và thay thế trước ngày 15/07, báo lại kết quả trên hệ thống..."></textarea>
     </div>
     <div style="display:flex;gap:8px;margin-top:6px">
       <button class="btnp" style="flex:1" onclick="confirmAssign()"><i class="ti ti-check"></i> Phân công</button>
@@ -11965,11 +11977,22 @@ function askMoveCard(id,st){
   if(noteLbl) noteLbl.textContent = st==='doing' ? 'Đang làm gì (diễn giải)' : 'Đã xử lý bằng cách nào / kết quả';
   if(noteInput) noteInput.value = (st==='doing' ? c.doing : c.done) || '';
   document.getElementById('moveTimeErr').style.display='none';
+  document.getElementById('moveTimeModalBox').classList.remove('modal-wide');
+  document.getElementById('moveTimeWideBtn').innerHTML = '<i class="ti ti-arrows-maximize"></i>';
+  document.getElementById('moveTimeNote').style.minHeight = '70px';
   document.getElementById('moveTimeModal').classList.add('on');
 }
 function closeMoveTimeModal(){
   document.getElementById('moveTimeModal').classList.remove('on');
   moveTargetId=null; moveTargetStatus=null;
+}
+function toggleMoveTimeModalWide(){
+  const box = document.getElementById('moveTimeModalBox');
+  const btn = document.getElementById('moveTimeWideBtn');
+  const ta  = document.getElementById('moveTimeNote');
+  const isWide = box.classList.toggle('modal-wide');
+  if(ta) ta.style.minHeight = isWide ? '320px' : '70px';
+  if(btn) btn.innerHTML = isWide ? '<i class="ti ti-arrows-minimize"></i>' : '<i class="ti ti-arrows-maximize"></i>';
 }
 function confirmMoveTime(){
   const val=document.getElementById('moveTimeDate').value;
@@ -12718,6 +12741,8 @@ function openAssignModal(id){
     '<b>'+esc(c.content||c.todo||'(không có nội dung)')+'</b><br>Người báo cáo: '+esc(c.person)+' · Ngày BC: '+fmtD(c.date);
   document.getElementById('assignPersonInput').value=c.assignee||'';
   document.getElementById('assignNoteInput').value=c.assignNote||'';
+  document.getElementById('assignModalBox').classList.remove('kpi-box-maximized');
+  document.getElementById('assignMaxBtn').innerHTML='<i class="ti ti-arrows-maximize"></i>';
   document.getElementById('assignModal').classList.add('on');
 }
 function closeAssignModal(){
