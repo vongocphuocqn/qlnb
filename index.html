@@ -851,6 +851,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <button class="nb-tab" id="nbTab4" onclick="switchNbTab(4)" style="background:rgba(255,255,255,.15)"><i class="ti ti-calendar-user"></i> Lịch nghỉ chung</button>
       <button class="nb-tab" id="nbTab5" onclick="switchNbTab(5)" style="background:rgba(255,255,255,.15)"><i class="ti ti-clipboard-check"></i> Đối chiếu HIS</button>
       <button class="nb-tab" id="nbTab6" onclick="switchNbTab(6)" style="background:rgba(255,255,255,.15)"><i class="ti ti-stethoscope"></i> Đối chiếu Dịch vụ PTTT</button>
+      <button class="nb-tab" id="nbTab7" onclick="switchNbTab(7)" style="background:rgba(255,255,255,.15)"><i class="ti ti-users-group"></i> Kiểm sĩ số trực</button>
     </div>
 
     <!-- TAB 1: ĐĂNG KÝ -->
@@ -1208,6 +1209,30 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       </div>
       <button class="nb-btn" id="dvCompareBtn" style="background:#c62828" onclick="dvRunCompare()" disabled><i class="ti ti-scale"></i> So sánh (cần đủ 3 file bắt buộc)</button>
       <div id="dvCompareResultWrap" style="margin-top:16px"></div>
+    </div>
+
+    <div id="nbPane7" style="display:none;padding:0 4px">
+      <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#0d47a1;line-height:1.6">
+        <i class="ti ti-info-circle"></i> Tải lên <b>1 file Chấm trực (PDF)</b> của tháng cần kiểm — hệ thống tự đếm số người trực mỗi ngày, so với <b>số người chuẩn/ngày</b> anh đặt bên dưới (tự giảm 1 vào đúng ngày anh khai có BS kiêm nhiệm trực), và chỉ ra ngày nào lệch + lệch ở <b>nhóm chức vụ nào</b> so với ngày bình thường trong cùng tháng (giúp khoanh vùng nhanh, không phải dò từng dòng).
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
+        <div>
+          <input type="file" id="ssTrPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="ssFileChange(event)">
+          <button class="nb-btn" id="ssTrBtn" onclick="document.getElementById('ssTrPdfInp').click()" style="background:#616161"><i class="ti ti-file-type-pdf"></i> Tải Bảng Chấm trực (PDF)</button>
+          <div id="ssTrInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Số người trực CHUẨN / ngày</label>
+          <input type="number" id="ssChuanInp" value="34" min="1" style="width:110px;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-size:13.5px;font-family:inherit" onchange="ssSaveChuan()">
+        </div>
+        <div style="flex:1;min-width:260px">
+          <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Ngày có BS kiêm nhiệm trực trong tháng (cách nhau dấu phẩy — CHUẨN ngày đó tự giảm 1)</label>
+          <input type="text" id="ssKiemNhiemInp" placeholder="VD: 2, 5, 7, 12, 17, 21" style="width:100%;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-size:13px;font-family:inherit" onchange="ssSaveKiemNhiem()">
+        </div>
+        <button class="nb-btn" id="ssRunBtn" style="background:#2e7d32" onclick="ssRunAnalyze()" disabled><i class="ti ti-search"></i> Kiểm tra sĩ số</button>
+      </div>
+      <div id="ssGroupCfgWrap" style="display:none;margin-bottom:14px"></div>
+      <div id="ssResultWrap" style="margin-top:8px"></div>
     </div>
 
   </div><!-- /nb-main -->
@@ -12929,6 +12954,7 @@ var SFV_FEATURES = [
   {module:'Nghỉ bù', key:'nb_tab2', id:'nbTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ bù', key:'nb_tab3', id:'nbTab3', label:'Tab "Thống kê"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ bù', key:'nb_tab4', id:'nbTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
+  {module:'Nghỉ bù', key:'nb_tab7', id:'nbTab7', label:'Tab "Kiểm sĩ số trực"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ phép', key:'np_tab2', id:'npTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }},
   {module:'Nghỉ phép', key:'np_tab4', id:'npTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }}
 ];
@@ -15078,7 +15104,7 @@ function switchNbTab(n){
     nbListUnlocked = true;
   }
   console.log('[NB] switchNbTab to', n, '| nbRecords:', nbRecords.length, '| user:', nbCurrentUser&&nbCurrentUser.name);
-  [1,2,3,4,5,6].forEach(i=>{
+  [1,2,3,4,5,6,7].forEach(i=>{
     var tab=document.getElementById('nbTab'+i);
     var pane=document.getElementById('nbPane'+i);
     if(tab)tab.classList.toggle('on',i===n);
@@ -15088,6 +15114,7 @@ function switchNbTab(n){
   if(n===2)nbRenderList();
   if(n===3)nbRenderStat();
   if(n===4)nbRenderPublic();
+  if(n===7 && typeof ssInit==='function')ssInit();
   if(typeof sfvApply==='function') sfvApply();
 }
 // ══════════════════════════════════════════════════════════════════════════
@@ -15151,9 +15178,10 @@ async function hisExtractFromPdf(file){
       }
     }
   }
-  var rows = hisParseRows(allItems, monthInfo);
+  var parsed = hisParseRows(allItems, monthInfo);
+  var rows = parsed.rows;
   var lastDataDay = hisComputeLastDataDay(rows, monthInfo);
-  return { rows: rows, monthInfo: monthInfo, lastDataDay: lastDataDay };
+  return { rows: rows, monthInfo: monthInfo, lastDataDay: lastDataDay, officialTotals: parsed.officialTotals };
 }
 // Tự nhận biết HIS đã chấm công tới NGÀY NÀO trong tháng — dò ngày lớn nhất có BẤT KỲ mã chấm công
 // nào (ở BẤT KỲ nhân viên nào) trong toàn bộ file. Dùng để chỉ đối chiếu tới đúng ngày HIS đã chấm,
@@ -15183,6 +15211,7 @@ function hisParseRows(allItems, monthInfo){
   var daysInMonth = (monthInfo && monthInfo.daysInMonth) || 31;
   var rows = hisGroupRowsByY(allItems);
   var out = [];
+  var officialTotals = null; // {ngay: tổng số} — lấy TRỰC TIẾP từ dòng "Tổng cộng" có sẵn trong PDF (nếu có), đáng tin hơn tự cộng dồn
   // Xử lý riêng theo từng trang vì mỗi trang có cột tiêu đề (STT/Họ tên/Chức vụ/số ngày) lặp lại.
   var byPage = {};
   rows.forEach(function(r){ (byPage[r.page]=byPage[r.page]||[]).push(r); });
@@ -15214,9 +15243,20 @@ function hisParseRows(allItems, monthInfo){
       .sort(function(a,b){ return a.x-b.x; }).slice(0, daysInMonth)
       .map(function(it,i){ return { day:i+1, x:it.x }; });
     var lastDayX = dayHeaders[dayHeaders.length-1].x;
+    // Dò dòng "Tổng cộng" (nếu có trên trang này — thường chỉ có ở bảng Chấm TRỰC) — đếm số người
+    // trực mỗi ngày do chính hệ thống HIS tính sẵn, dùng làm số liệu THAM CHIẾU đáng tin cậy nhất.
+    var tongCongRow = pageRows.find(function(r){ return r.items.some(function(it){ return it.str.indexOf('Tổng cộng')>-1; }); });
+    if(tongCongRow){
+      officialTotals = officialTotals || {};
+      tongCongRow.items.filter(function(it){ return /^\d{1,2}$/.test(it.str.trim()); }).forEach(function(it){
+        var best=null, bestD=Infinity;
+        dayHeaders.forEach(function(dh){ var d=Math.abs(it.x-dh.x); if(d<bestD){bestD=d;best=dh;} });
+        if(best && bestD <= 8) officialTotals[best.day] = parseInt(it.str.trim(),10);
+      });
+    }
     // Duyệt từng dòng dữ liệu (dòng nằm SAU dòng tiêu đề ngày, có ô đầu tiên là số STT hợp lệ).
     pageRows.forEach(function(r){
-      if(r===hdrRow || r===dayHdrRow) return;
+      if(r===hdrRow || r===dayHdrRow || r===tongCongRow) return;
       if(r.y <= dayHdrRow.y) return; // ở trên dòng tiêu đề ngày (VD dòng "Ngày trong tháng"/"Quy ra công") -> bỏ
       var sorted = r.items.slice().sort(function(a,b){ return a.x-b.x; });
       var first = sorted[0];
@@ -15235,7 +15275,7 @@ function hisParseRows(allItems, monthInfo){
       out.push({ stt:first.str.trim(), hoTen:hoTenItem.str.trim(), chucVu: chucVuItem?chucVuItem.str.trim():'', days: days });
     });
   });
-  return out;
+  return { rows: out, officialTotals: officialTotals };
 }
 // Nhận biết 1 mã ngày có phải "Nghỉ bù"/"Nghỉ phép" hay không — kể cả các mã kết hợp nửa ngày như
 // "+/NB", "Ô/P", "P/Ô", "Lm/NB", "NB/Ô" (xem đúng bảng chú thích ký hiệu cuối bảng chấm công).
@@ -15529,6 +15569,319 @@ function dvFindDayCode(parsedRows, hoTen, day){
   var row = parsedRows.find(function(r){ return hisNormName(r.hoTen)===key; });
   if(!row) return { found:false, code:null };
   return { found:true, code: row.days[day] || '' };
+}
+// ══════════════════════════════════════════════════════════════════════════
+// KIỂM SĨ SỐ TRỰC — đọc 1 file Chấm trực (PDF), đếm số người trực THẬT mỗi
+// ngày (đếm số dòng nhân viên có mã trực khác rỗng ngày đó — không dựa vào
+// dòng "Tổng cộng" có sẵn trong PDF, để tự kiểm chứng độc lập), so với "Số
+// người trực CHUẨN/ngày" do Trưởng khoa tự cấu hình (mặc định 34, có thể đổi
+// bất kỳ lúc nào). Ngày nào lệch chuẩn sẽ được chỉ thẳng ra NHÓM CHỨC VỤ nào
+// khác với "mức bình thường" của nhóm đó trong cùng tháng, để tra cứu nhanh.
+// ══════════════════════════════════════════════════════════════════════════
+var ssData = null; // { rows:[{hoTen,chucVu,days:{1:code,...}}], monthInfo }
+var ssGroupLabels = { bacsi:'Bác sĩ', gayme:'Gây mê', dungcu:'Dụng cụ', dieuduong:'Điều dưỡng', holy:'Hộ lý', khac:'Không tính' };
+var ssGroupOrder = ['bacsi','gayme','dungcu','dieuduong','holy','khac'];
+// Danh sách gốc: gán nhóm THEO ĐÚNG TÊN từng người (chính xác hơn nhiều so với đoán qua Chức vụ viết
+// tắt) — lấy từ "Danh sách nhân viên Khoa GMHS" (xuất ngày 27/08/2026, 116 người, đã có sẵn cột "Nhóm").
+// Admin có thể bổ sung/sửa thêm cho người mới hoặc người kiêm nhiệm ở khung cấu hình bên dưới.
+var SS_NAME_GROUP_SEED = {"Cao Việt Thắng":"dungcu","Đào Thị Phương Thúy":"dieuduong","Đặng Hồ Hồng Phi":"gayme","Đặng Thị Mỹ Lai":"dungcu","Đặng Thu Hiền":"gayme","Đặng Văn Cảnh":"gayme","Đinh Kim Vũ":"dungcu","Đinh Thị Thu Hoài":"gayme","Đỗ Hồ Mỹ Hạnh":"dungcu","Đỗ Kim Oanh":"gayme","Đỗ Lê Thanh Ngọc":"gayme","Đỗ Ngọc Vũ":"bacsi","Đỗ Thành Khương":"gayme","Đỗ Thị Ngọc Diễm":"dieuduong","Đỗ Thị Thúy Sinh":"holy","Hoàng Minh Hải":"gayme","Hoàng Thị Ngọc Lan":"holy","Hồ Thái Nhiều":"dieuduong","Hồ Thị Chúng":"dieuduong","Hồ Thị Mỹ":"gayme","Huỳnh Thị Kim Hồng":"dieuduong","Huỳnh Thị Ngọc Thơ":"holy","Huỳnh Thị Sự":"dieuduong","Hứa Hữu Tuấn":"bacsi","La Thị Thanh Trà":"dungcu","Lê Quốc Triều":"dungcu","Lê Thị Ái Phương":"dungcu","Lê Thị Huệ":"gayme","Lê Thị Kim Sao":"dieuduong","Lê Thị Kim Thịnh":"dieuduong","Lê Thị Mạnh Quyền":"dungcu","Lê Thị Thanh Hương":"holy","Lê Thị Thúy Vân":"dieuduong","Lê Văn Kha":"dungcu","Lê Văn Long":"dungcu","Lê Văn Thủy":"bacsi","Lê Võ Thu":"dungcu","Lương Phan Thu Hằng":"holy","Ngô Thị Hồng Diễm":"holy","Ngô Thị Lẹ":"dungcu","Ngô Thị Nhựt":"gayme","Nguyễn Cảnh Muộn":"dungcu","Nguyễn Chí Bảo":"bacsi","Nguyễn Duy Mỹ":"gayme","Nguyễn Đình Kim Loan":"dieuduong","Nguyễn Đình Thắng":"dungcu","Nguyễn Hà Tiến Dũng":"bacsi","Nguyễn Hoàng Sơn Nữ":"dungcu","Nguyễn Hữu Phước":"dungcu","Nguyễn Kim Sơn":"dungcu","Nguyễn Phan Anh Quân":"gayme","Nguyễn Tài Thu":"bacsi","Nguyễn Thành":"bacsi","Nguyễn Thanh Hoàng":"gayme","Nguyễn Thị Bích Thủy":"bacsi","Nguyễn Thị Diệu My":"dieuduong","Nguyễn Thị Hảo":"dieuduong","Nguyễn Thị Hồng Nhi":"gayme","Nguyễn Thị Minh Châu":"dieuduong","Nguyễn Thị Ngọc Mỹ":"holy","Nguyễn Thị Quỳnh Thoa":"holy","Nguyễn Thị Thanh Nhi":"dieuduong","Nguyễn Thị Thúy Hằng":"dungcu","Nguyễn Thị Út":"holy","Nguyễn Thị Xuân Thảo":"dieuduong","Nguyễn Tiến Dũng":"dungcu","Nguyễn Trung Thành":"bacsi","Nguyễn Văn Chinh":"gayme","Nguyễn Văn Chung":"gayme","Nguyễn Văn Thương":"bacsi","Nguyễn Văn Tuy":"gayme","Nguyễn Vũ Cẩm Tú":"gayme","Nguyễn Xuân Hiền":"dungcu","Nguyễn Xuân Hoài":"dungcu","Phạm Thị Chiến":"dieuduong","Phạm Thị Hoàng Cúc":"gayme","Phạm Thị Kim Cúc":"holy","Phạm Thị Thu Thảo":"holy","Phan Quốc Sang":"dungcu","Phan Thảo Vy":"gayme","Phan Thị Hòa":"holy","Phan Thị Mỹ Duyên":"gayme","Phan Thị Thanh Nga":"dieuduong","Thân Hoàng Khang":"gayme","Thân Thị Liễu":"dungcu","Trần Bá Quyền":"gayme","Trần Đăng Trung":"dungcu","Trần Đình Bản":"dungcu","Trần Đình Duy":"dungcu","Trần Quốc Khang":"gayme","Trần Thị Bích Tuyền":"dieuduong","Trần Thị Cẩm Nhung":"dieuduong","Trần Thị Dung":"bacsi","Trần Thị Lệ Tuyết":"holy","Trần Thị Mỹ Dung":"dungcu","Trần Thị Ngâng":"gayme","Trần Thị Thanh Huyền":"dungcu","Trần Thị Thu Thảo":"holy","Trần Tiến Thành":"dungcu","Trần Văn Đại":"gayme","Trần Xuân Hùng":"dungcu","Trương Đình Trí":"dungcu","Trương Ngọc Báu":"gayme","Trương Thị Bích Liễu":"gayme","Trương Thị Gia Ly Ly":"holy","Trương Thị Thu Hằng":"dieuduong","Trương Thị Tín":"dieuduong","Trương Văn Pháp":"gayme","Võ Đình Tây":"dungcu","Võ Đông Kinh":"bacsi","Võ Huy Cường":"bacsi","Võ Ngọc Bình":"gayme","Võ Ngọc Phước":"dungcu","Võ Thị Tường Vi":"dungcu","Võ Thị Xuân Việt":"gayme","Vũ Thị Kim Lệ":"holy"};
+var ssNameGroupMap = Object.assign({}, SS_NAME_GROUP_SEED); // {hoTen: 'bacsi'|'gayme'|...}
+var ssGroupMap = {};             // {chucVu: 'bacsi'|'gayme'|...} — CHỈ dùng dự phòng cho người KHÔNG có trong danh sách tên ở trên (VD nhân viên kiêm nhiệm mới)
+var ssGroupReq = { bacsi:2, gayme:10, dungcu:10, dieuduong:8, holy:4 }; // số lượng CẦN ĐỦ mỗi nhóm/ngày
+function ssGuessGroup(chucVu){
+  var cv = (chucVu||'').toUpperCase();
+  if(cv==='HL') return 'holy';
+  if(/^BS|^THS|^TK$|^PTK$|^PGĐ$/.test(cv)) return 'bacsi';
+  if(cv.indexOf('GM')>-1) return 'gayme'; // ĐDGMHS, CNGM... có chứa "GM"
+  if(cv.indexOf('ĐD')>-1 || cv.indexOf('CN')>-1) return 'dieuduong';
+  return 'khac';
+}
+function ssGroupOfPerson(hoTen, chucVu){
+  // Ưu tiên 1: đúng tên có trong danh sách 116 người (chính xác nhất)
+  if(ssNameGroupMap[hoTen]) return ssNameGroupMap[hoTen];
+  // Ưu tiên 2: Admin đã tự gán riêng theo Chức vụ (cấu hình dự phòng)
+  if(ssGroupMap[chucVu]) return ssGroupMap[chucVu];
+  // Cuối cùng: đoán theo tên viết tắt Chức vụ
+  return ssGuessGroup(chucVu);
+}
+function ssSaveChuan(){
+  var v = parseInt((document.getElementById('ssChuanInp')||{}).value,10);
+  if(!v || v<1) return;
+  try{ if(typeof db!=='undefined') db.ref('nbSiSoChuan').set(v); }catch(e){}
+}
+function ssParseKiemNhiemDays(){
+  var raw = (document.getElementById('ssKiemNhiemInp')||{}).value || '';
+  var set = {};
+  raw.split(',').map(function(s){ return parseInt(s.trim(),10); }).forEach(function(n){ if(n>=1 && n<=31) set[n]=true; });
+  return set;
+}
+function ssSaveKiemNhiem(){
+  var raw = (document.getElementById('ssKiemNhiemInp')||{}).value || '';
+  try{ if(typeof db!=='undefined') db.ref('nbSiSoKiemNhiemDays').set(raw); }catch(e){}
+}
+function ssInit(){
+  // Nạp lại số chuẩn + danh sách ngày kiêm nhiệm đã lưu (nếu có) khi mở tab
+  try{
+    if(typeof db!=='undefined'){
+      db.ref('nbSiSoChuan').once('value').then(function(snap){
+        var v = snap.val();
+        var inp = document.getElementById('ssChuanInp');
+        if(v && inp) inp.value = v;
+      });
+      db.ref('nbSiSoKiemNhiemDays').once('value').then(function(snap){
+        var v = snap.val();
+        var inp = document.getElementById('ssKiemNhiemInp');
+        if(v && inp) inp.value = v;
+      });
+      db.ref('nbSiSoNameGroupExtra').once('value').then(function(snap){
+        if(snap.val()) Object.assign(ssNameGroupMap, snap.val());
+      });
+      db.ref('nbSiSoGroupReq').once('value').then(function(snap){ if(snap.val()) ssGroupReq = snap.val(); });
+    }
+  }catch(e){}
+}
+async function ssFileChange(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var infoEl = document.getElementById('ssTrInfo');
+  if(infoEl){ infoEl.textContent = 'Đang đọc file…'; infoEl.style.color = '#666'; }
+  try{
+    var res = await hisExtractFromPdf(f);
+    if(!res || !res.rows || !res.rows.length){
+      if(infoEl){ infoEl.textContent = '⚠ Không đọc được dữ liệu từ file này.'; infoEl.style.color = '#c0392b'; }
+      return;
+    }
+    ssData = res;
+    if(infoEl){ infoEl.textContent = '✅ Đã đọc '+res.rows.length+' nhân viên, tháng '+(res.monthInfo?res.monthInfo.month+'/'+res.monthInfo.year:'?'); infoEl.style.color = '#2e7d32'; }
+    var runBtn = document.getElementById('ssRunBtn');
+    if(runBtn) runBtn.disabled = false;
+    ssRenderGroupConfig();
+  }catch(err){
+    if(infoEl){ infoEl.textContent = '⚠ Lỗi đọc file: '+(err&&err.message||err); infoEl.style.color = '#c0392b'; }
+  }
+}
+function ssRenderGroupConfig(){
+  var wrap = document.getElementById('ssGroupCfgWrap');
+  if(!wrap || !ssData) return;
+  var unmatched = {}; // {hoTen: chucVu} — người trong file Chấm trực nhưng KHÔNG có trong 116 người
+  ssData.rows.forEach(function(r){
+    if(!ssNameGroupMap[r.hoTen]) unmatched[r.hoTen] = r.chucVu || '';
+  });
+  var unmatchedArr = Object.keys(unmatched).sort();
+  var html = '<div style="border:1.5px solid #b39ddb;border-radius:10px;padding:12px 14px;background:#f3e5f5">';
+  html += '<div style="font-weight:700;color:#4a148c;margin-bottom:8px"><i class="ti ti-adjustments"></i> Cấu hình Nhóm & Số lượng cần đủ mỗi ngày</div>';
+  html += '<div style="font-size:11.5px;color:#666;margin-bottom:10px">Nhóm của <b>116 nhân viên</b> trong "Danh sách nhân viên Khoa GMHS" đã được gán sẵn theo đúng tên (chính xác, không cần chỉnh). '+(unmatchedArr.length?('Riêng <b>'+unmatchedArr.length+' người</b> dưới đây KHÔNG có trong danh sách đó (nhân viên mới / kiêm nhiệm) — anh gán nhóm cho họ:'):'Tất cả nhân viên trong file này đều đã khớp đúng tên, không có ai cần gán thêm.')+'</div>';
+  if(unmatchedArr.length){
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px">';
+    unmatchedArr.forEach(function(ten){
+      var cv = unmatched[ten];
+      if(!ssGroupMap[cv]) ssGroupMap[cv] = ssGuessGroup(cv);
+      var curVal = ssGroupMap[cv];
+      html += '<div style="background:#fff;border:1px solid #e1bee7;border-radius:8px;padding:6px 8px">'
+        + '<div style="font-size:11px;font-weight:700;color:#333;margin-bottom:1px">'+ten+'</div>'
+        + '<div style="font-size:10px;color:#999;margin-bottom:3px">'+(cv||'(không rõ chức vụ)')+'</div>'
+        + '<select data-ss-name="'+ten.replace(/"/g,'&quot;')+'" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:5px;font-size:11.5px;font-family:inherit">'
+        + ssGroupOrder.map(function(g){ return '<option value="'+g+'"'+(curVal===g?' selected':'')+'>'+ssGroupLabels[g]+'</option>'; }).join('')
+        + '</select></div>';
+    });
+    html += '</div>';
+  }
+  html += '<div style="font-weight:700;color:#4a148c;margin-bottom:6px;font-size:12.5px">Số lượng CHUẨN mỗi nhóm / ngày (báo cả THIẾU và DƯ nếu khác số này)</div>';
+  html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">';
+  ['bacsi','gayme','dungcu','dieuduong','holy'].forEach(function(g){
+    html += '<div><label style="font-size:11px;color:#666;display:block">'+ssGroupLabels[g]+'</label>'
+      + '<input type="number" min="0" data-ss-req="'+g+'" value="'+(ssGroupReq[g]!=null?ssGroupReq[g]:0)+'" style="width:70px;padding:5px 7px;border:1px solid #ccc;border-radius:6px;font-family:inherit"></div>';
+  });
+  html += '</div>';
+  html += '<div style="font-size:11px;color:#7b1fa2;margin-bottom:10px">Riêng nhóm <b>Bác sĩ</b>: vào đúng những ngày anh đã khai "có BS kiêm nhiệm" ở ô trên, số cần đủ sẽ tự giảm 1 (còn 1) so với số đặt ở đây.</div>';
+  html += '<button class="nb-btn" style="background:#6a1b9a;width:auto;padding:8px 16px" onclick="ssSaveGroupConfig()"><i class="ti ti-device-floppy"></i> Lưu cấu hình nhóm</button>';
+  html += '</div>';
+  wrap.innerHTML = html;
+  wrap.style.display = 'block';
+}
+function ssSaveGroupConfig(){
+  var wrap = document.getElementById('ssGroupCfgWrap');
+  if(!wrap) return;
+  wrap.querySelectorAll('[data-ss-name]').forEach(function(sel){ ssNameGroupMap[sel.getAttribute('data-ss-name')] = sel.value; });
+  wrap.querySelectorAll('[data-ss-req]').forEach(function(inp){ ssGroupReq[inp.getAttribute('data-ss-req')] = parseInt(inp.value,10)||0; });
+  try{
+    if(typeof db!=='undefined'){
+      // Chỉ lưu PHẦN THÊM/SỬA so với danh sách gốc 116 người (đỡ tốn dung lượng, dễ theo dõi ai được thêm tay)
+      var extra = {};
+      Object.keys(ssNameGroupMap).forEach(function(ten){
+        if(SS_NAME_GROUP_SEED[ten] !== ssNameGroupMap[ten]) extra[ten] = ssNameGroupMap[ten];
+      });
+      db.ref('nbSiSoNameGroupExtra').set(extra);
+      db.ref('nbSiSoGroupReq').set(ssGroupReq);
+    }
+  }catch(e){}
+  alert('✅ Đã lưu cấu hình nhóm.');
+}
+function ssRunAnalyze(){
+  if(!ssData || !ssData.rows || !ssData.rows.length) return;
+  var chuan = parseInt((document.getElementById('ssChuanInp')||{}).value,10) || 34;
+  var kiemNhiemDays = ssParseKiemNhiemDays(); // {ngay: true} — những ngày CHUẨN tự giảm 1
+  var daysInMonth = (ssData.monthInfo && ssData.monthInfo.daysInMonth) || 31;
+  // Đếm số người trực + gom theo nhóm Chức vụ, cho TỪNG NGÀY
+  var dayTotal = {};      // {ngay: tổng số người trực}
+  var dayGroupCount = {}; // {ngay: {chucVu: số người}}
+  for(var d=1; d<=daysInMonth; d++){ dayTotal[d]=0; dayGroupCount[d]={}; }
+  ssData.rows.forEach(function(r){
+    var cv = r.chucVu || '(Không rõ chức vụ)';
+    for(var d=1; d<=daysInMonth; d++){
+      var code = (r.days && r.days[d]) ? String(r.days[d]).trim() : '';
+      if(!code) continue;
+      dayTotal[d] = (dayTotal[d]||0) + 1;
+      dayGroupCount[d][cv] = (dayGroupCount[d][cv]||0) + 1;
+    }
+  });
+  // Nếu PDF có sẵn dòng "Tổng cộng" (thường có ở bảng Chấm trực), DÙNG SỐ ĐÓ làm Tổng chính thức —
+  // đáng tin hơn tự cộng dồn từ từng dòng nhân viên (có thể nhiễu nhẹ tọa độ ở 1 vài dòng lẻ tẻ).
+  var usedOfficialTotal = false;
+  if(ssData.officialTotals){
+    Object.keys(ssData.officialTotals).forEach(function(d){
+      if(dayTotal[d]!=null){ dayTotal[d] = ssData.officialTotals[d]; usedOfficialTotal = true; }
+    });
+  }
+  // Đếm riêng theo 5 NHÓM CHỨC NĂNG (ưu tiên gán theo đúng TÊN từng người — chính xác hơn nhiều so
+  // với chỉ đoán qua Chức vụ viết tắt, đặc biệt để tách đúng "Dụng cụ" khỏi "Điều dưỡng").
+  var groupDayCount = {}; // {ngay: {bacsi:n, gayme:n, ...}}
+  for(var dg=1; dg<=daysInMonth; dg++){ groupDayCount[dg] = { bacsi:0, gayme:0, dungcu:0, dieuduong:0, holy:0, khac:0 }; }
+  var unmatchedNames = {}; // tên KHÔNG có trong danh sách 116 người -> cần Admin xác nhận nhóm
+  var groupDayNames = {};  // {ngay: {bacsi:[{ten,ma}], gayme:[...], ...}} — để hiện tên cụ thể khi có lệch
+  for(var dn=1; dn<=daysInMonth; dn++){ groupDayNames[dn] = { bacsi:[], gayme:[], dungcu:[], dieuduong:[], holy:[], khac:[] }; }
+  ssData.rows.forEach(function(r){
+    var g = ssGroupOfPerson(r.hoTen, r.chucVu);
+    if(!ssNameGroupMap[r.hoTen]) unmatchedNames[r.hoTen] = r.chucVu||'';
+    for(var d=1; d<=daysInMonth; d++){
+      var code = (r.days && r.days[d]) ? String(r.days[d]).trim() : '';
+      if(!code) continue;
+      groupDayCount[d][g] = (groupDayCount[d][g]||0) + 1;
+      groupDayNames[d][g].push({ ten:r.hoTen, ma:code });
+    }
+  });
+  // "Mức bình thường" của từng nhóm chức vụ = giá trị xuất hiện NHIỀU NHẤT (mode) trong tháng —
+  // để so sánh ngày lệch với thói quen thực tế của khoa, không phải một con số áp đặt cứng nhắc.
+  var allGroups = {};
+  Object.keys(dayGroupCount).forEach(function(d){ Object.keys(dayGroupCount[d]).forEach(function(g){ allGroups[g]=true; }); });
+  var groupMode = {};
+  Object.keys(allGroups).forEach(function(g){
+    var freq = {};
+    for(var d=1; d<=daysInMonth; d++){
+      var v = dayGroupCount[d][g] || 0;
+      freq[v] = (freq[v]||0)+1;
+    }
+    var bestV=0, bestCnt=-1;
+    Object.keys(freq).forEach(function(v){ if(freq[v]>bestCnt){ bestCnt=freq[v]; bestV=parseInt(v,10); } });
+    groupMode[g] = bestV;
+  });
+  // Dựng danh sách ngày lệch chuẩn + chỉ ra nhóm khác thường
+  var rowsOut = [];
+  for(var d=1; d<=daysInMonth; d++){
+    var total = dayTotal[d];
+    if(total===0) continue; // ngày trống hoàn toàn trong PDF (VD ngày chưa xuất) -> bỏ qua, không tính là "lệch"
+    var chuanNgay = chuan - (kiemNhiemDays[d] ? 1 : 0); // ngày có BS kiêm nhiệm trực -> CHUẨN tự giảm 1
+    var lech = total - chuanNgay;
+    if(lech===0) continue; // đúng chuẩn (đã tính cả kiêm nhiệm) -> không đưa vào bảng lệch
+    var groupDiffs = [];
+    Object.keys(allGroups).forEach(function(g){
+      var actual = dayGroupCount[d][g] || 0;
+      var normal = groupMode[g];
+      if(actual !== normal) groupDiffs.push({ nhom:g, thuc:actual, binhThuong:normal, chenh: actual-normal });
+    });
+    groupDiffs.sort(function(a,b){ return Math.abs(b.chenh)-Math.abs(a.chenh); });
+    rowsOut.push({ ngay:d, tong:total, chuanNgay:chuanNgay, coKiemNhiem:!!kiemNhiemDays[d], lech:lech, groupDiffs:groupDiffs });
+  }
+  // Bảng riêng: những ngày LỆCH (thiếu HOẶC dư) so với yêu cầu tối thiểu từng NHÓM CHỨC NĂNG
+  // (Bác sĩ/Gây mê/Dụng cụ/Điều dưỡng/Hộ lý) — giúp biết ngay dư/thiếu rơi vào đúng nhóm nào.
+  var groupShortRows = [];
+  for(var d2=1; d2<=daysInMonth; d2++){
+    if(dayTotal[d2]===0) continue;
+    var lechNhom = [];
+    ['bacsi','gayme','dungcu','dieuduong','holy'].forEach(function(g){
+      var req = ssGroupReq[g]!=null ? ssGroupReq[g] : 0;
+      if(g==='bacsi' && kiemNhiemDays[d2]) req = Math.max(0, req-1);
+      var actual = groupDayCount[d2][g] || 0;
+      if(actual !== req) lechNhom.push({ nhom:g, thuc:actual, canDu:req, kieu: actual<req?'thieu':'du', ten: groupDayNames[d2][g] });
+    });
+    if(lechNhom.length) groupShortRows.push({ ngay:d2, thieu:lechNhom });
+  }
+  ssRenderResult(rowsOut, chuan, daysInMonth, usedOfficialTotal);
+  ssRenderGroupResult(groupShortRows, unmatchedNames);
+}
+function ssRenderResult(rowsOut, chuan, daysInMonth, usedOfficialTotal){
+  var wrap = document.getElementById('ssResultWrap');
+  if(!wrap) return;
+  var srcNote = usedOfficialTotal ? '<div style="font-size:11px;color:#2e7d32;margin-bottom:8px"><i class="ti ti-circle-check"></i> Số "Tổng người trực" lấy trực tiếp từ dòng "Tổng cộng" có sẵn trong file PDF (đáng tin cậy nhất).</div>' : '';
+  if(!rowsOut.length){
+    wrap.innerHTML = srcNote+'<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:16px;text-align:center;color:#2e7d32;font-weight:600">✅ Cả '+daysInMonth+' ngày đều đúng đủ '+chuan+' người trực/ngày — không phát hiện ngày nào lệch.</div>';
+    return;
+  }
+  var html = srcNote+'<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#e65100">⚠ Có <b>'+rowsOut.length+'</b> ngày lệch chuẩn ('+chuan+' người/ngày). Cột "Nhóm gây lệch" so sánh với mức phổ biến nhất của từng nhóm chức vụ trong tháng.</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#37474f;color:#fff">'
+    + '<th style="padding:8px;text-align:center">Ngày</th><th style="padding:8px;text-align:center">Số người trực</th><th style="padding:8px;text-align:center">Chuẩn ngày đó</th><th style="padding:8px;text-align:center">Chênh lệch</th><th style="padding:8px;text-align:left">Nhóm chức vụ gây lệch (thực tế / bình thường)</th>'
+    + '</tr></thead><tbody>';
+  rowsOut.forEach(function(r){
+    var lechTxt = (r.lech>0?'+':'')+r.lech;
+    var lechColor = r.lech>0 ? '#1565C0' : '#c62828';
+    var chuanTxt = r.chuanNgay + (r.coKiemNhiem ? ' <span style="font-size:10px;color:#5e35b1;font-weight:700">(có KN)</span>' : '');
+    var groupTxt = r.groupDiffs.length ? r.groupDiffs.map(function(g){
+      var c = g.chenh>0?'#1565C0':'#c62828';
+      return '<span style="display:inline-block;margin:2px 8px 2px 0"><b>'+g.nhom+'</b>: <span style="color:'+c+';font-weight:700">'+g.thuc+'</span> / '+g.binhThuong+'</span>';
+    }).join('') : '<span style="color:#999">(không nhóm nào rõ rệt — có thể lệch rải rác nhiều nhóm)</span>';
+    html += '<tr style="border-bottom:1px solid #eee">'
+      + '<td style="padding:8px;text-align:center;font-weight:700">'+r.ngay+'</td>'
+      + '<td style="padding:8px;text-align:center">'+r.tong+'</td>'
+      + '<td style="padding:8px;text-align:center">'+chuanTxt+'</td>'
+      + '<td style="padding:8px;text-align:center;font-weight:700;color:'+lechColor+'">'+lechTxt+'</td>'
+      + '<td style="padding:8px">'+groupTxt+'</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+function ssRenderGroupResult(groupShortRows, unmatchedNames){
+  var wrap = document.getElementById('ssResultWrap');
+  if(!wrap) return;
+  var noteBox = document.createElement('div');
+  noteBox.style.cssText = 'margin-top:14px;background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:8px 12px;font-size:11px;color:#0d47a1';
+  noteBox.innerHTML = '<i class="ti ti-info-circle"></i> Số liệu theo NHÓM (Bác sĩ/Gây mê/Dụng cụ...) được đọc từ từng dòng nhân viên trong PDF, có thể lệch nhẹ 1-2 người ở vài ngày do đặc thù font/định dạng file — nếu thấy nghi ngờ, anh mở PDF gốc đối chiếu lại đúng ngày đó trước khi kết luận.';
+  wrap.appendChild(noteBox);
+  var unmatchedArr = Object.keys(unmatchedNames||{});
+  if(unmatchedArr.length){
+    var warnBox = document.createElement('div');
+    warnBox.style.cssText = 'margin-top:10px;background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;font-size:12px;color:#e65100';
+    warnBox.innerHTML = '⚠ Có <b>'+unmatchedArr.length+' người</b> chưa có trong danh sách 116 nhân viên (đang tạm xếp theo đoán chữ viết tắt Chức vụ) — kéo lên khung "Cấu hình Nhóm" phía trên để gán đúng nhóm cho họ, để kết quả chính xác hơn: '+unmatchedArr.join(', ');
+    wrap.appendChild(warnBox);
+  }
+  var box = document.createElement('div');
+  box.style.marginTop = '18px';
+  if(!groupShortRows.length){
+    box.innerHTML = '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:14px;text-align:center;color:#2e7d32;font-weight:600">✅ Không ngày nào lệch (thiếu/dư) so với yêu cầu từng nhóm (Bác sĩ/Gây mê/Dụng cụ/Điều dưỡng/Hộ lý).</div>';
+    wrap.appendChild(box);
+    return;
+  }
+  var html = '<div style="font-weight:700;color:#c62828;margin-bottom:8px"><i class="ti ti-alert-triangle"></i> Ngày LỆCH (thiếu hoặc dư) so với yêu cầu từng nhóm ('+groupShortRows.length+' ngày)</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#c62828;color:#fff">'
+    + '<th style="padding:8px;text-align:center">Ngày</th><th style="padding:8px;text-align:left">Nhóm lệch (thực tế / cần đủ)</th>'
+    + '</tr></thead><tbody>';
+  groupShortRows.forEach(function(r){
+    var txt = r.thieu.map(function(t){
+      var isThieu = t.kieu==='thieu';
+      var c = isThieu ? '#c62828' : '#1565C0';
+      var nhan = isThieu ? 'Thiếu' : 'Dư';
+      var bg = isThieu ? '#fdecea' : '#e3f2fd';
+      var namesHtml = (t.ten||[]).map(function(p){ return '<span style="display:inline-block;background:#fff;border:1px solid #ddd;border-radius:5px;padding:1px 6px;margin:2px 3px 0 0;font-size:11px">'+p.ten+' <b style="color:#666">('+p.ma+')</b></span>'; }).join('');
+      return '<details style="display:inline-block;vertical-align:top;margin:2px 10px 6px 0;background:'+bg+';border-radius:6px;padding:2px 8px">'
+        + '<summary style="cursor:pointer;list-style:none"><b>'+ssGroupLabels[t.nhom]+'</b> — <span style="color:'+c+';font-weight:700">'+nhan+': '+t.thuc+'</span> / '+t.canDu+' <span style="font-size:10px;color:#888">(bấm xem tên)</span></summary>'
+        + '<div style="margin-top:4px;max-width:420px">'+(namesHtml||'<span style="font-size:11px;color:#999">(không có ai)</span>')+'</div>'
+        + '</details>';
+    }).join('');
+    html += '<tr style="border-bottom:1px solid #eee"><td style="padding:8px;text-align:center;font-weight:700">'+r.ngay+'</td><td style="padding:8px">'+txt+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  box.innerHTML = html;
+  wrap.appendChild(box);
 }
 function dvVerifyShift(args){
   // Hàm dùng chung để kiểm tra 1 lượt đứng tên (gây mê/dụng cụ) có khớp Chấm công/Chấm trực hay
