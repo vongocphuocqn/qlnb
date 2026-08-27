@@ -1181,6 +1181,31 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         <label style="font-size:12px;font-weight:600;color:#666">Nhân viên kiêm nhiệm ngoài Khoa (chấm công ở khoa khác — vẫn muốn theo dõi riêng, cách nhau bằng dấu phẩy)</label>
         <input type="text" id="dvKiemNhiemInp" value="Nguyễn Thanh Bảo" placeholder="VD: Nguyễn Thanh Bảo, ..." style="width:100%;box-sizing:border-box;border:1.5px solid #eee;border-radius:8px;padding:8px 11px;font-size:12.5px;font-family:inherit;margin-top:4px">
       </div>
+      <div style="background:#e8eaf6;border:1px solid #9fa8da;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#283593;line-height:1.6">
+        <i class="ti ti-info-circle"></i> <b>Tùy chọn:</b> tải thêm đúng <b>4 file Chấm công/Chấm trực CỦA KHOA GỐC</b> (khoa nơi nhân viên kiêm nhiệm đang biên chế) — hệ thống sẽ đối chiếu HỢP LỆ/KHÔNG HỢP LỆ cho nhân viên này y hệt cách làm với nhân viên khoa GMHS, thay vì chỉ báo "cần tự đối chiếu" như trước.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:10px">
+        <div>
+          <input type="file" id="dvCcKNPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="dvFileChange(event,'ccKN')">
+          <button class="nb-btn" id="dvCcKNBtn" onclick="document.getElementById('dvCcKNPdfInp').click()" style="width:100%;background:#5e35b1"><i class="ti ti-file-type-pdf"></i> 4. Chấm công Kiêm nhiệm (PDF, tùy chọn)</button>
+          <div id="dvCcKNInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+        <div>
+          <input type="file" id="dvTrKNPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="dvFileChange(event,'trKN')">
+          <button class="nb-btn" id="dvTrKNBtn" onclick="document.getElementById('dvTrKNPdfInp').click()" style="width:100%;background:#5e35b1"><i class="ti ti-file-type-pdf"></i> 5. Chấm trực Kiêm nhiệm (PDF, tùy chọn)</button>
+          <div id="dvTrKNInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+        <div>
+          <input type="file" id="dvCcKNPrevPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="dvFileChange(event,'ccKNPrev')">
+          <button class="nb-btn" id="dvCcKNPrevBtn" onclick="document.getElementById('dvCcKNPrevPdfInp').click()" style="width:100%;background:#9575cd"><i class="ti ti-file-type-pdf"></i> 6. Chấm công KN tháng trước (PDF, tùy chọn)</button>
+          <div id="dvCcKNPrevInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+        <div>
+          <input type="file" id="dvTrKNPrevPdfInp" accept="application/pdf,.pdf" style="display:none" onchange="dvFileChange(event,'trKNPrev')">
+          <button class="nb-btn" id="dvTrKNPrevBtn" onclick="document.getElementById('dvTrKNPrevPdfInp').click()" style="width:100%;background:#9575cd"><i class="ti ti-file-type-pdf"></i> 7. Chấm trực KN tháng trước (PDF, tùy chọn)</button>
+          <div id="dvTrKNPrevInfo" style="font-size:11.5px;color:#666;margin-top:4px"></div>
+        </div>
+      </div>
       <button class="nb-btn" id="dvCompareBtn" style="background:#c62828" onclick="dvRunCompare()" disabled><i class="ti ti-scale"></i> So sánh (cần đủ 3 file bắt buộc)</button>
       <div id="dvCompareResultWrap" style="margin-top:16px"></div>
     </div>
@@ -12904,8 +12929,6 @@ var SFV_FEATURES = [
   {module:'Nghỉ bù', key:'nb_tab2', id:'nbTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ bù', key:'nb_tab3', id:'nbTab3', label:'Tab "Thống kê"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ bù', key:'nb_tab4', id:'nbTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
-  {module:'Nghỉ bù', key:'nb_tab5', id:'nbTab5', label:'Tab "Đối chiếu HIS"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
-  {module:'Nghỉ bù', key:'nb_tab6', id:'nbTab6', label:'Tab "Đối chiếu Dịch vụ PTTT"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ phép', key:'np_tab2', id:'npTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }},
   {module:'Nghỉ phép', key:'np_tab4', id:'npTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }}
 ];
@@ -14585,7 +14608,7 @@ function authConfirm(){
     var hasNbPQ = Object.keys(pqAll).length > 0 && pqAll[name] !== undefined;
     if(!hasNbPQ || p.nghibu || p.nghibu_view){
       var nbRole = p.nghibu_view && !p.nghibu ? 'viewer' : 'staff';
-      nbCurrentUser={name:name,role:nbRole,dsPass:p.dsPhieuPass||''};enterNbScreen();
+      nbCurrentUser={name:name,role:nbRole,dsPass:p.dsPhieuPass||'',canHis:!!p.doichieu_his,canPttt:!!p.doichieu_pttt};enterNbScreen();
     } else {
       document.getElementById('homeScreen').style.display='flex';
       var e=document.getElementById('authErr');
@@ -14855,6 +14878,12 @@ function enterNbScreen(){
   ['nbBtnBackup','nbBtnRestore'].forEach(id=>{document.getElementById(id).style.display=isA?'flex':'none';});
   ['nbBtnGoKanban','nbBtnGoNghiPhep','nbBtnGoPhanQuyen'].forEach(id=>{var el=document.getElementById(id);if(el)el.style.display=isA?'flex':'none';});
   document.getElementById('nbTab3').style.display='flex';
+  var tab5Btn=document.getElementById('nbTab5');
+  var tab6Btn=document.getElementById('nbTab6');
+  var canHis = isA || !!nbCurrentUser.canHis;
+  var canPttt = isA || !!nbCurrentUser.canPttt;
+  if(tab5Btn) tab5Btn.style.display = canHis ? '' : 'none';
+  if(tab6Btn) tab6Btn.style.display = canPttt ? '' : 'none';
   nbPopulatePersonSelect();
   nbUpdateTime();
   // Init form after brief delay to ensure DOM is painted
@@ -15026,6 +15055,12 @@ const statusClass={'pending':'nb-badge-wait','approved':'nb-badge-ok','denied':'
 
 /* ── SWITCH TABS ── */
 function switchNbTab(n){
+  // Tab 5 (Đối chiếu HIS) / Tab 6 (Đối chiếu Dịch vụ PTTT): chỉ Admin hoặc người được cấp đúng
+  // quyền riêng (ở màn "Phân quyền Nhân viên") mới vào được — chặn cả khi cố gọi trực tiếp.
+  if(nbCurrentUser && nbCurrentUser.role!=='admin'){
+    if(n===5 && !nbCurrentUser.canHis) return;
+    if(n===6 && !nbCurrentUser.canPttt) return;
+  }
   // Nếu tab này đang bị Admin ẩn với Nhân viên (qua "Chức năng cho NV") thì chặn luôn, không cho vào.
   if(typeof sfvConfig!=='undefined' && !(nbCurrentUser && nbCurrentUser.role==='admin')){
     var _sfvNbF = (typeof SFV_FEATURES!=='undefined'?SFV_FEATURES:[]).find(function(f){ return f.id==='nbTab'+n; });
@@ -15157,11 +15192,20 @@ function hisParseRows(allItems, monthInfo){
     var sttX = (hdrRow.items.find(function(it){return it.str.trim()==='STT';})||{}).x;
     var hoTenX = (hdrRow.items.find(function(it){return it.str.trim()==='HỌ VÀ TÊN';})||{}).x;
     var chucVuX = (hdrRow.items.find(function(it){return it.str.trim()==='CHỨC VỤ';})||{}).x;
-    // Dò dòng tiêu đề NGÀY (dòng có nhiều số 1-2 chữ số nhất trên trang) để lấy tọa độ X từng ngày.
+    // Dò dòng tiêu đề NGÀY: phải là dòng có dãy số TĂNG DẦN LIÊN TỤC bắt đầu từ 1 (1,2,3,...,N) —
+    // KHÔNG được chỉ dựa vào "đếm số lượng số 1-2 chữ số nhiều nhất", vì bảng Chấm TRỰC có thêm
+    // 1 dòng "Tổng cộng: 0 1 0 1 0 0 1..." (đếm số người trực mỗi ngày) toàn số 0/1 — dòng này có
+    // thể có SỐ LƯỢNG số ngang bằng hoặc nhiều hơn dòng tiêu đề ngày thật, dễ bị nhận nhầm nếu chỉ
+    // đếm số lượng. Yêu cầu tăng dần liên tục 1,2,3... mới chắc chắn đúng là dòng tiêu đề ngày.
     var dayHdrRow = null, dayHdrCount = 0;
     pageRows.forEach(function(r){
-      var cnt = r.items.filter(function(it){ return /^\d{1,2}$/.test(it.str.trim()); }).length;
-      if(cnt > dayHdrCount){ dayHdrCount = cnt; dayHdrRow = r; }
+      var nums = r.items.filter(function(it){ return /^\d{1,2}$/.test(it.str.trim()); })
+        .slice().sort(function(a,b){ return a.x-b.x; })
+        .map(function(it){ return parseInt(it.str.trim(),10); });
+      if(nums.length < 3) return; // quá ít số, chắc chắn không phải dòng tiêu đề ngày
+      var isSequential = true;
+      for(var i=0;i<nums.length;i++){ if(nums[i] !== i+1){ isSequential = false; break; } }
+      if(isSequential && nums.length > dayHdrCount){ dayHdrCount = nums.length; dayHdrRow = r; }
     });
     if(!dayHdrRow || dayHdrCount < daysInMonth) return;
     var dayHeaders = dayHdrRow.items.filter(function(it){ return /^\d{1,2}$/.test(it.str.trim()); })
@@ -15356,7 +15400,7 @@ function hisRenderCompareResult(mismatches, khongCoTrenHis){
 // toán dịch vụ. Dùng lại NGUYÊN VẸN bộ máy đọc PDF cột-theo-tọa-độ đã xây cho "Đối chiếu HIS" (2
 // file PDF này có cấu trúc bảng giống hệt nhau: STT/Họ tên/Chức vụ + cột từng ngày trong tháng).
 // ══════════════════════════════════════════════════════════════════════════
-var dvData = { cc:null, tr:null, dv:null, ccPrev:null, trPrev:null }; // cc/tr/dv bắt buộc; ccPrev/trPrev (ngày cuối tháng trước) tùy chọn — thiếu thì ca rạng sáng ngày 1 sẽ không xác định được
+var dvData = { cc:null, tr:null, dv:null, ccPrev:null, trPrev:null, ccKN:null, trKN:null, ccKNPrev:null, trKNPrev:null }; // cc/tr/dv bắt buộc; các file "Prev" và "KN" (kiêm nhiệm) đều tùy chọn
 function dvUpdateCompareBtn(){
   var btn = document.getElementById('dvCompareBtn');
   if(!btn) return;
@@ -15369,7 +15413,7 @@ function dvFileChange(e, kind){
   var f = e.target.files && e.target.files[0];
   e.target.value = '';
   if(!f) return;
-  var infoIds = {cc:'dvCcInfo', tr:'dvTrInfo', dv:'dvDvInfo', ccPrev:'dvCcPrevInfo', trPrev:'dvTrPrevInfo'};
+  var infoIds = {cc:'dvCcInfo', tr:'dvTrInfo', dv:'dvDvInfo', ccPrev:'dvCcPrevInfo', trPrev:'dvTrPrevInfo', ccKN:'dvCcKNInfo', trKN:'dvTrKNInfo', ccKNPrev:'dvCcKNPrevInfo', trKNPrev:'dvTrKNPrevInfo'};
   var info = document.getElementById(infoIds[kind]);
   if(info) info.innerHTML = '<i class="ti ti-loader-2"></i> Đang đọc…';
   var job = (kind==='dv') ? dvExtractExcel(f) : hisExtractFromPdf(f);
@@ -15484,6 +15528,70 @@ function dvFindDayCode(parsedRows, hoTen, day){
   if(!row) return { found:false, code:null };
   return { found:true, code: row.days[day] || '' };
 }
+function dvVerifyShift(args){
+  // Hàm dùng chung để kiểm tra 1 lượt đứng tên (gây mê/dụng cụ) có khớp Chấm công/Chấm trực hay
+  // không — dùng chung được cho cả nhân viên khoa GMHS lẫn nhân viên kiêm nhiệm (khi đã có đủ file
+  // Chấm công/Chấm trực của khoa gốc), chỉ khác nhau ở NGUỒN dữ liệu (ccRows/trRows/ccPrevRows/trPrevRows).
+  var ten=args.ten, vt=args.vt, day=args.day, hour=args.hour, gioStr=args.gioStr, gioKhoangStr=args.gioKhoangStr,
+      phien=args.phien, sv=args.sv, ccRows=args.ccRows, trRows=args.trRows, ccPrevRows=args.ccPrevRows,
+      trPrevRows=args.trPrevRows, trPrevLastDay=args.trPrevLastDay, maLaTraKhongXacDinh=args.maLaTraKhongXacDinh,
+      flags=args.flags;
+  var cc = dvFindDayCode(ccRows, ten, day);
+  var ccCode = cc.code || '';
+  if(phien==='ngay'){
+    if(ccCode==='X') return;
+    var trToday = dvFindDayCode(trRows, ten, day);
+    var kind = dvTrucKhungGio(trToday.code);
+    if(kind==='ngay' || kind==='24h') return;
+    if(trToday.code && kind===null){
+      maLaTraKhongXacDinh[trToday.code] = true;
+      flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trToday.code,
+        benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'khongxacdinh',
+        moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' — Chấm công ghi "'+(ccCode||'trống')+'", Chấm trực ngày '+day+' ghi "'+trToday.code+'" (mã KHÔNG nằm trong danh mục khung giờ đã biết) — cần kiểm tra tay.' });
+      return;
+    }
+    flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trToday.code||'(trống)',
+      benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'chinh',
+      moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' (ca ngày) nhưng Chấm công ghi "'+(ccCode||'trống')+'" (không phải "X") VÀ Chấm trực ngày '+day+' ghi "'+(trToday.code||'trống')+'" (không phải mã trực ca ngày/24h hợp lệ) — KHÔNG HỢP LỆ.' });
+  } else {
+    var checkDay = (hour>=19) ? day : (day-1);
+    if(hour<7 && day===1){
+      if(!ccPrevRows || !trPrevRows){
+        flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR:'?',
+          benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'thieudulieu',
+          moTa: 'Ca rạng sáng ngày 1 đầu tháng lúc '+gioStr+' — có thể thuộc phiên trực đêm NGÀY CUỐI THÁNG TRƯỚC kéo dài, nhưng CHƯA tải file Chấm công/Chấm trực ngày cuối tháng trước nên không xác định được — cần bổ sung file để đối chiếu chính xác.' });
+        return;
+      }
+      var trPrev = dvFindDayCode(trPrevRows, ten, trPrevLastDay);
+      var kindPrev = dvTrucKhungGio(trPrev.code);
+      if(kindPrev==='dem' || kindPrev==='24h') return;
+      if(trPrev.code && kindPrev===null){
+        maLaTraKhongXacDinh[trPrev.code] = true;
+        flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trPrev.code,
+          benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'khongxacdinh',
+          moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày 1 — Chấm trực ngày cuối tháng trước ghi "'+trPrev.code+'" (mã KHÔNG nằm trong danh mục khung giờ đã biết) — cần kiểm tra tay.' });
+        return;
+      }
+      flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trPrev.code||'(trống)',
+        benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'chinh',
+        moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày 1 (ca đêm, kéo dài từ tháng trước) nhưng Chấm trực ngày cuối tháng trước ghi "'+(trPrev.code||'trống')+'" (không phải mã trực ca đêm/24h hợp lệ) — KHÔNG HỢP LỆ.' });
+      return;
+    }
+    var trCheck = dvFindDayCode(trRows, ten, checkDay);
+    var kindC = dvTrucKhungGio(trCheck.code);
+    if(kindC==='dem' || kindC==='24h') return;
+    if(trCheck.code && kindC===null){
+      maLaTraKhongXacDinh[trCheck.code] = true;
+      flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trCheck.code,
+        benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'khongxacdinh',
+        moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' — Chấm trực ngày '+checkDay+(checkDay!==day?' (hôm trước, đầu phiên trực đêm)':'')+' ghi "'+trCheck.code+'" (mã KHÔNG nằm trong danh mục khung giờ đã biết) — cần kiểm tra tay.' });
+      return;
+    }
+    flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trCheck.code||'(trống)',
+      benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'chinh',
+      moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' (ca đêm) nhưng Chấm trực ngày '+checkDay+(checkDay!==day?' (hôm trước, đầu phiên trực đêm)':'')+' ghi "'+(trCheck.code||'trống')+'" (không phải mã trực ca đêm/24h hợp lệ) — KHÔNG HỢP LỆ.' });
+  }
+}
 function dvRunCompare(){
   if(!(dvData.cc && dvData.tr && dvData.dv)) return;
   var flags = [];
@@ -15495,6 +15603,9 @@ function dvRunCompare(){
   var kiemNhiemList = ((document.getElementById('dvKiemNhiemInp')||{}).value||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
   var kiemNhiemKeys = {};
   kiemNhiemList.forEach(function(t){ kiemNhiemKeys[hisNormName(t)] = t; });
+  // Có đủ file Chấm công/Chấm trực CỦA KHOA GỐC cho nhân viên kiêm nhiệm hay chưa? Nếu có → kiểm
+  // tra HỢP LỆ/KHÔNG HỢP LỆ thật sự y hệt nhân viên GMHS; nếu chưa → giữ cách cũ (báo tự đối chiếu).
+  var coFileKN = !!(dvData.ccKN && dvData.trKN);
   var vaiTroList = [
     {key:'gayMeChinh', nhan:'Gây mê chính'},
     {key:'gayMePhu', nhan:'Gây mê phụ'},
@@ -15505,6 +15616,7 @@ function dvRunCompare(){
   // tháng, vì phiên trực đêm 19h01 ngày cuối tháng trước → 7h ngày 1 không nằm trong file tháng này.
   var ccPrevLastDay = (dvData.ccPrev && dvData.ccPrev.monthInfo) ? dvData.ccPrev.monthInfo.daysInMonth : null;
   var trPrevLastDay = (dvData.trPrev && dvData.trPrev.monthInfo) ? dvData.trPrev.monthInfo.daysInMonth : null;
+  var trKNPrevLastDay = (dvData.trKNPrev && dvData.trKNPrev.monthInfo) ? dvData.trKNPrev.monthInfo.daysInMonth : null;
   dvData.dv.rows.forEach(function(sv){
     // ngayBD/ngayKT là object {y,m,d,H,M} đọc trực tiếp từ số gốc Excel — không lệch múi giờ.
     var day = sv.ngayBD.d;
@@ -15522,75 +15634,34 @@ function dvRunCompare(){
       var laKiemNhiem = !!kiemNhiemKeys[tenKey];
       if(!laGmhs && !laKiemNhiem) return; // không thuộc phạm vi quan tâm -> bỏ qua hoàn toàn
       if(laKiemNhiem && !laGmhs){
-        flags.push({
-          ten: ten, vaiTro: vt.nhan, ngay: day, gio: gioKhoangStr, maCC: '(chấm công ở khoa khác)', maTR:'',
-          benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'',
-          loaiLoi: 'kiemnhiem',
-          moTa: 'Nhân viên kiêm nhiệm ngoài Khoa — cần tự đối chiếu với Chấm công của khoa gốc'
-        });
+        if(coFileKN){
+          // Đã có đủ file khoa gốc của nhân viên kiêm nhiệm → kiểm tra HỢP LỆ/KHÔNG HỢP LỆ thật sự.
+          dvVerifyShift({
+            ten:ten, vt:vt, day:day, hour:hour, gioStr:gioStr, gioKhoangStr:gioKhoangStr, phien:phien, sv:sv,
+            ccRows: dvData.ccKN.rows, trRows: dvData.trKN.rows,
+            ccPrevRows: dvData.ccKNPrev ? dvData.ccKNPrev.rows : null,
+            trPrevRows: dvData.trKNPrev ? dvData.trKNPrev.rows : null,
+            trPrevLastDay: trKNPrevLastDay,
+            maLaTraKhongXacDinh: maLaTraKhongXacDinh, flags: flags
+          });
+        } else {
+          flags.push({
+            ten: ten, vaiTro: vt.nhan, ngay: day, gio: gioKhoangStr, maCC: '(chấm công ở khoa khác)', maTR:'',
+            benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'',
+            loaiLoi: 'kiemnhiem',
+            moTa: 'Nhân viên kiêm nhiệm ngoài Khoa — cần tự đối chiếu với Chấm công của khoa gốc (chưa tải file Chấm công/Chấm trực khoa gốc)'
+          });
+        }
         return;
       }
-      var cc = dvFindDayCode(dvData.cc.rows, ten, day);
-      var ccCode = cc.code || '';
-
-      if(phien==='ngay'){
-        // CA NGÀY (7h–19h): "X" (làm nguyên ngày) luôn hợp lệ, không cần đối chiếu thêm. Mọi mã
-        // khác (kể cả "Xc") phải có Chấm trực ĐÚNG NGÀY ĐÓ thuộc loại 'ngay' hoặc '24h' mới hợp lệ.
-        if(ccCode==='X') return; // hợp lệ — không đưa vào danh sách lệch
-        var trToday = dvFindDayCode(dvData.tr.rows, ten, day);
-        var kind = dvTrucKhungGio(trToday.code);
-        if(kind==='ngay' || kind==='24h') return; // hợp lệ — có trực đúng khung ca ngày
-        if(trToday.code && kind===null){
-          maLaTraKhongXacDinh[trToday.code] = true;
-          flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trToday.code,
-            benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'khongxacdinh',
-            moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' — Chấm công ghi "'+(ccCode||'trống')+'", Chấm trực ngày '+day+' ghi "'+trToday.code+'" (mã KHÔNG nằm trong danh mục khung giờ đã biết) — cần kiểm tra tay.' });
-          return;
-        }
-        flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trToday.code||'(trống)',
-          benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'chinh',
-          moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' (ca ngày) nhưng Chấm công ghi "'+(ccCode||'trống')+'" (không phải "X") VÀ Chấm trực ngày '+day+' ghi "'+(trToday.code||'trống')+'" (không phải mã trực ca ngày/24h hợp lệ) — KHÔNG HỢP LỆ.' });
-      } else {
-        // CA ĐÊM (19h–7h hôm sau): LUÔN phải có Chấm trực (đúng ngày bắt đầu trực) thuộc loại
-        // 'dem' hoặc '24h' mới hợp lệ — "X"/"Xc" chấm công KHÔNG tự động hợp lệ cho ca đêm.
-        var checkDay = (hour>=19) ? day : (day-1); // hour<7 -> trực bắt đầu từ hôm trước
-        if(hour<7 && day===1){
-          // Rạng sáng ngày 1 đầu tháng — trực bắt đầu từ NGÀY CUỐI THÁNG TRƯỚC, cần file bổ sung.
-          if(!dvData.ccPrev || !dvData.trPrev){
-            flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR:'?',
-              benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'thieudulieu',
-              moTa: 'Ca rạng sáng ngày 1 đầu tháng lúc '+gioStr+' — có thể thuộc phiên trực đêm NGÀY CUỐI THÁNG TRƯỚC kéo dài, nhưng CHƯA tải file Chấm công/Chấm trực ngày cuối tháng trước nên không xác định được — cần bổ sung file để đối chiếu chính xác.' });
-            return;
-          }
-          var trPrev = dvFindDayCode(dvData.trPrev.rows, ten, trPrevLastDay);
-          var kindPrev = dvTrucKhungGio(trPrev.code);
-          if(kindPrev==='dem' || kindPrev==='24h') return; // hợp lệ
-          if(trPrev.code && kindPrev===null){
-            maLaTraKhongXacDinh[trPrev.code] = true;
-            flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trPrev.code,
-              benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'khongxacdinh',
-              moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày 1 — Chấm trực ngày cuối tháng trước ghi "'+trPrev.code+'" (mã KHÔNG nằm trong danh mục khung giờ đã biết) — cần kiểm tra tay.' });
-            return;
-          }
-          flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trPrev.code||'(trống)',
-            benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'chinh',
-            moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày 1 (ca đêm, kéo dài từ tháng trước) nhưng Chấm trực ngày cuối tháng trước ghi "'+(trPrev.code||'trống')+'" (không phải mã trực ca đêm/24h hợp lệ) — KHÔNG HỢP LỆ.' });
-          return;
-        }
-        var trCheck = dvFindDayCode(dvData.tr.rows, ten, checkDay);
-        var kindC = dvTrucKhungGio(trCheck.code);
-        if(kindC==='dem' || kindC==='24h') return; // hợp lệ
-        if(trCheck.code && kindC===null){
-          maLaTraKhongXacDinh[trCheck.code] = true;
-          flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trCheck.code,
-            benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'khongxacdinh',
-            moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' — Chấm trực ngày '+checkDay+(checkDay!==day?' (hôm trước, đầu phiên trực đêm)':'')+' ghi "'+trCheck.code+'" (mã KHÔNG nằm trong danh mục khung giờ đã biết) — cần kiểm tra tay.' });
-          return;
-        }
-        flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trCheck.code||'(trống)',
-          benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'chinh',
-          moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' (ca đêm) nhưng Chấm trực ngày '+checkDay+(checkDay!==day?' (hôm trước, đầu phiên trực đêm)':'')+' ghi "'+(trCheck.code||'trống')+'" (không phải mã trực ca đêm/24h hợp lệ) — KHÔNG HỢP LỆ.' });
-      }
+      dvVerifyShift({
+        ten:ten, vt:vt, day:day, hour:hour, gioStr:gioStr, gioKhoangStr:gioKhoangStr, phien:phien, sv:sv,
+        ccRows: dvData.cc.rows, trRows: dvData.tr.rows,
+        ccPrevRows: dvData.ccPrev ? dvData.ccPrev.rows : null,
+        trPrevRows: dvData.trPrev ? dvData.trPrev.rows : null,
+        trPrevLastDay: trPrevLastDay,
+        maLaTraKhongXacDinh: maLaTraKhongXacDinh, flags: flags
+      });
     });
   });
   dvRenderResult(flags, Object.keys(maLaTraKhongXacDinh));
@@ -19055,7 +19126,7 @@ function nbCancelEditMode(){
 
 /* ══ PHÂN QUYỀN ══ */
 var pqRef2=db.ref('phanQuyen'),pqData2={};
-var pqMods2=[{key:'is_admin',label:'Admin HT',color:'#b71c1c',icon:'ti-shield-check'},{key:'kanban',label:'Xem BC CV',color:'#2d6a1f',icon:'ti-layout-kanban'},{key:'nghibu',label:'ĐK Nghỉ Bù',color:'#1565C0',icon:'ti-calendar-off'},{key:'nghibu_view',label:'Xem Nghỉ Bù',color:'#0d47a1',icon:'ti-eye'},{key:'nghiphep',label:'ĐK Nghỉ Phép',color:'#00695c',icon:'ti-beach'},{key:'nghiphep_view',label:'Xem Nghỉ Phép',color:'#004d40',icon:'ti-eye'}];
+var pqMods2=[{key:'is_admin',label:'Admin HT',color:'#b71c1c',icon:'ti-shield-check'},{key:'kanban',label:'Xem BC CV',color:'#2d6a1f',icon:'ti-layout-kanban'},{key:'nghibu',label:'ĐK Nghỉ Bù',color:'#1565C0',icon:'ti-calendar-off'},{key:'nghibu_view',label:'Xem Nghỉ Bù',color:'#0d47a1',icon:'ti-eye'},{key:'nghiphep',label:'ĐK Nghỉ Phép',color:'#00695c',icon:'ti-beach'},{key:'nghiphep_view',label:'Xem Nghỉ Phép',color:'#004d40',icon:'ti-eye'},{key:'doichieu_his',label:'Đối chiếu HIS',color:'#e65100',icon:'ti-clipboard-check'},{key:'doichieu_pttt',label:'Đối chiếu PTTT',color:'#c62828',icon:'ti-stethoscope'}];
 function pqRender(){pqRef2.once('value').then(function(s){pqData2=s.val()||{};pqBuild2();}).catch(pqBuild2);}
 function pqBuild2(){var el=document.getElementById('pqTable');if(!el)return;var list=[...staffList].sort(function(a,b){return a.localeCompare(b,'vi');});if(!list.length){el.innerHTML='<p style="text-align:center;color:#aaa">Chưa có nhân viên</p>';return;}var h='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f3e5f5"><th style="padding:9px 10px;text-align:left;border-bottom:2px solid #ce93d8;color:#4a148c">Nhân viên</th>';pqMods2.forEach(function(m){h+='<th style="padding:9px 6px;text-align:center;border-bottom:2px solid #ce93d8;color:'+m.color+';min-width:80px"><i class="ti '+m.icon+'"></i><br><span style="font-size:10px">'+m.label+'</span></th>';});h+='<th style="padding:9px 6px;text-align:center;border-bottom:2px solid #ce93d8;color:#b71c1c;min-width:130px"><i class="ti ti-key"></i><br><span style="font-size:10px">Mật khẩu Admin</span></th>';h+='<th style="padding:9px 6px;text-align:center;border-bottom:2px solid #ce93d8;color:#0d47a1;min-width:150px"><i class="ti ti-lock"></i><br><span style="font-size:10px">Mật khẩu xem DS phiếu<br>(Nghỉ bù/Nghỉ phép)</span></th>';h+='</tr></thead><tbody>';list.forEach(function(name,i){var p=pqData2[name]||{},ev=i%2===1?'background:#faf5ff':'';h+='<tr style="'+ev+'"><td style="padding:8px 10px;font-weight:600;border-bottom:1px solid #f0e6ff">'+esc(name)+'</td>';pqMods2.forEach(function(m){h+='<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #f0e6ff"><input type="checkbox" data-name="'+esc(name)+'" data-mod="'+m.key+'"'+(p[m.key]?' checked':'')+' style="width:17px;height:17px;cursor:pointer;accent-color:'+m.color+'"></td>';});h+='<td style="text-align:center;padding:6px;border-bottom:1px solid #f0e6ff"><input type="password" data-name="'+esc(name)+'" data-passfor="is_admin" value="'+esc(p.adminPass||'')+'" placeholder="Để trống = không cần mật khẩu" style="width:120px;padding:4px 6px;font-size:11px;border:1.5px solid #e0b0e8;border-radius:6px;font-family:monospace"></td>';h+='<td style="text-align:center;padding:6px;border-bottom:1px solid #f0e6ff"><input type="password" data-name="'+esc(name)+'" data-passfor="ds_phieu" value="'+esc(p.dsPhieuPass||'')+'" placeholder="Để trống = không cần" style="width:120px;padding:4px 6px;font-size:11px;border:1.5px solid #90caf9;border-radius:6px;font-family:monospace"></td>';h+='</tr>';});h+='</tbody></table>';el.innerHTML=h;}
 function pqSaveAll(){
@@ -25269,6 +25340,18 @@ function findOpenAssignment(hoTen, ngay, opts){
    ============================================================ */
 let configLoaded = false;
 let requestsLoaded = false;
+var ddnlPhanQuyenCache = {}; // cache db.ref('phanQuyen') — dùng để lấy MẬT KHẨU CHUNG của từng người
+                             // (đặt 1 lần ở màn "Phân quyền Nhân viên", dùng chung cho nhiều thẻ)
+function ddnlEnsurePhanQuyenListener(){
+  if(ddnlPhanQuyenCache._listening) return;
+  ddnlPhanQuyenCache._listening = true;
+  db.ref('phanQuyen').on('value', snap=>{
+    var val = snap.val() || {};
+    Object.keys(ddnlPhanQuyenCache).forEach(k=>{ if(k!=='_listening') delete ddnlPhanQuyenCache[k]; });
+    Object.assign(ddnlPhanQuyenCache, val);
+    if(typeof render==='function') render();
+  });
+}
 
 function objToArray(val){
   if(!val) return [];
@@ -25277,6 +25360,7 @@ function objToArray(val){
 }
 
 function loadAll(){
+  ddnlEnsurePhanQuyenListener();
   // Cấu hình danh mục (nhân viên / bộ phận / người ký / mẫu nội dung / mật khẩu admin)
   ddConfigRef.on('value', snap=>{
     const val = snap.val();
@@ -29280,25 +29364,24 @@ function renderConfig(){
     <div class="ddnl-hint">Nếu để trống, hệ thống sẽ dùng chung danh sách toàn bộ nhân viên cho ô "Người lập phiếu".</div>
   ${cardClose()}
 
-  ${cardOpen('cfg-vbuserauth', '🔒 Danh sách User được vào Giấy đề nghị', 'Thêm tên nhân viên và cấp mật khẩu riêng để họ đăng nhập được vào phân hệ "Giấy đề nghị" (Sổ văn bản đi). Mỗi người chỉ xem/soạn được văn bản của chính mình; Admin xem/sửa được tất cả và mọi thao tác sửa/xóa văn bản của người khác đều được ghi lại ở "Nhật ký chỉnh sửa".')}
+  ${cardOpen('cfg-vbuserauth', '🔒 Danh sách User được vào Giấy đề nghị', 'Thêm tên nhân viên để họ đăng nhập được vào phân hệ "Giấy đề nghị" (Sổ văn bản đi). Mật khẩu dùng CHUNG 1 mật khẩu cá nhân đã cấp ở màn "Phân quyền Nhân viên" (dùng chung cho nhiều thẻ, không cần đặt riêng ở đây). Mỗi người chỉ xem/soạn được văn bản của chính mình; Admin xem/sửa được tất cả và mọi thao tác sửa/xóa văn bản của người khác đều được ghi lại ở "Nhật ký chỉnh sửa".')}
     ${isAdmin()?`<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
       <div style="position:relative;flex:1;min-width:200px;">
         <input type="text" id="ddnlCf_vbAuthName" autocomplete="off" placeholder="Bấm để chọn hoặc gõ tên để tìm…" value="${esc(vbAuthPickName||"")}">
       </div>
-      <input type="text" id="ddnlCf_vbAuthPwd" autocomplete="off" placeholder="Đặt mật khẩu cho người này…" style="flex:1;min-width:160px;">
       <button class="ddnl-btn ddnl-btn-primary" id="ddnlBtnAddVbAuth">+ Thêm vào danh sách</button>
     </div>`:``}
     <div class="ddnl-cf-search"><i class="ti ti-search"></i><input type="text" id="ddnlCfSearch_vbUserAuth" placeholder="Lọc tìm trong danh sách…" value="${esc(cfgFilter.vbUserAuth)}"></div>
     <div class="ddnl-rows-wrap" style="max-height:260px;overflow-y:auto;">
     <table>
-      <thead><tr><th>Nhân viên</th><th>Mật khẩu</th>${isAdmin()?'<th style="width:210px;"></th>':''}</tr></thead>
+      <thead><tr><th>Nhân viên</th><th>Mật khẩu chung</th>${isAdmin()?'<th style="width:100px;"></th>':''}</tr></thead>
       <tbody>
         ${(config.vbUserAuth||[]).map((u,i)=>({u,i})).filter(({u})=>!cfgFilter.vbUserAuth || u.ten.toLowerCase().includes(cfgFilter.vbUserAuth.toLowerCase())).map(({u,i})=>{
+          const hasSharedPwd = !!(ddnlPhanQuyenCache[u.ten] && ddnlPhanQuyenCache[u.ten].dsPhieuPass);
           return `<tr>
           <td>${esc(u.ten)}</td>
-          <td>${u.matKhau ? '<span class="ddnl-hdr-badge" style="background:#2f7a4f;">🔒 Đã cấp</span>' : '<span class="ddnl-hdr-badge" style="background:#b00020;">⚠ Chưa cấp</span>'}</td>
+          <td>${hasSharedPwd ? '<span class="ddnl-hdr-badge" style="background:#2f7a4f;">🔒 Đã cấp</span>' : '<span class="ddnl-hdr-badge" style="background:#b00020;">⚠ Chưa cấp — cấp ở "Phân quyền Nhân viên"</span>'}</td>
           ${isAdmin()?`<td>
-            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-chpwd-vbauth="${i}">${u.matKhau?'Đổi mật khẩu':'Cấp mật khẩu'}</button>
             <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vbauth="${i}">Xóa</button>
           </td>`:``}
         </tr>`;
@@ -29637,9 +29720,11 @@ function bindEvents(){
     if(!name){ vbLoginPwdErr = "Vui lòng chọn tên."; render(); return; }
     const entry = (config.vbUserAuth||[]).find(x=>x.ten===name);
     if(!entry){ vbLoginPwdErr = "Tên này chưa có trong danh sách. Liên hệ Admin để được thêm vào."; render(); return; }
-    if(!entry.matKhau){ vbLoginPwdErr = "Tài khoản này chưa được Admin cấp mật khẩu. Liên hệ Admin để được cấp."; render(); return; }
+    const puEntry = ddnlPhanQuyenCache[name] || {};
+    const sharedPwd = puEntry.dsPhieuPass || "";
+    if(!sharedPwd){ vbLoginPwdErr = "Tài khoản này chưa được Admin cấp mật khẩu (mật khẩu chung). Liên hệ Admin để được cấp ở màn \"Phân quyền Nhân viên\"."; render(); return; }
     if(!pwd){ vbLoginPwdErr = "Vui lòng nhập mật khẩu."; render(); return; }
-    if(pwd !== entry.matKhau){ vbLoginPwdErr = "Sai mật khẩu. Thử lại hoặc liên hệ Admin để được cấp lại."; render(); return; }
+    if(pwd !== sharedPwd){ vbLoginPwdErr = "Sai mật khẩu. Thử lại hoặc liên hệ Admin để được cấp lại."; render(); return; }
     vbAuthed = true; vbAuthUser = name; currentUserName = name; vbLoginPwd = ""; vbLoginPwdErr = "";
     draftVB = newDraftVB(); // tạo lại bản nháp để ô "Người soạn" tự điền đúng tên vừa đăng nhập
     render();
@@ -43995,10 +44080,9 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
 <div class="modal-bg" id="sdbAccessModal" onclick="if(event.target===this)sdbCloseAccessManage()">
   <div class="modal" style="max-width:440px">
     <h3 style="margin-top:0"><i class="ti ti-shield-lock"></i> Quản lý quyền truy cập Sổ đi buồng</h3>
-    <div style="font-size:12px;color:#666;margin-bottom:12px">Admin luôn vào được. Danh sách dưới đây là những người KHÁC được phép xem/ghi Sổ đi buồng.</div>
+    <div style="font-size:12px;color:#666;margin-bottom:12px">Admin luôn vào được. Danh sách dưới đây là những người KHÁC được phép xem/ghi Sổ đi buồng — mật khẩu đăng nhập dùng CHUNG 1 mật khẩu cá nhân đã cấp ở màn "Phân quyền Nhân viên" (không cần đặt riêng ở đây).</div>
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
       <input type="text" id="sdbAccessNewName" placeholder="Bấm để chọn hoặc gõ tên để tìm…" autocomplete="off" style="flex:1;min-width:150px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
-      <input type="text" id="sdbAccessNewPwd" placeholder="Đặt mật khẩu cho người này…" autocomplete="off" style="flex:1;min-width:150px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
       <button onclick="sdbAccessAdd()" style="background:#0f766e;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit">+ Thêm</button>
     </div>
     <div id="sdbAccessList" style="max-height:280px;overflow-y:auto"></div>
@@ -44289,6 +44373,19 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
   var sdbUserAuthListenerOn = false;
   var sdbAuthed = false;          // đã "đăng nhập" (chọn đúng tên) trong PHIÊN LÀM VIỆC này chưa
   var sdbAuthedName = '';
+  var sdbPhanQuyenCache = {};     // cache db.ref('phanQuyen') — MẬT KHẨU CHUNG đặt ở "Phân quyền Nhân viên"
+  var sdbPhanQuyenListenerOn = false;
+  function sdbEnsurePhanQuyenListener(){
+    if(sdbPhanQuyenListenerOn) return;
+    var d = sdbGetDb();
+    if(!d) return;
+    sdbPhanQuyenListenerOn = true;
+    d.ref('phanQuyen').on('value', function(snap){
+      sdbPhanQuyenCache = snap.val() || {};
+      sdbRenderGate();
+      sdbUpdateAccessListUI();
+    });
+  }
   function sdbUserAuthRef(){ var d=sdbGetDb(); return d ? d.ref('soDiBuongUserAuth') : null; }
   function sdbEnsureUserAuthListener(){
     if(sdbUserAuthListenerOn) return;
@@ -44326,12 +44423,13 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     if(!ten){ alert('Vui lòng chọn tên của anh/chị trước.'); return; }
     var entry = sdbUserAuthList.find(function(u){ return u.ten===ten; });
     if(!entry){ alert('Tên này chưa có trong danh sách.'); return; }
-    if(!entry.matKhau){
-      if(errEl){ errEl.textContent='⚠ Tài khoản này chưa được Quản lý cấp mật khẩu. Liên hệ Quản lý để được cấp.'; errEl.style.display='block'; }
+    var sharedPwd = (sdbPhanQuyenCache[ten] && sdbPhanQuyenCache[ten].dsPhieuPass) || '';
+    if(!sharedPwd){
+      if(errEl){ errEl.textContent='⚠ Tài khoản này chưa được cấp mật khẩu chung. Liên hệ Quản lý để được cấp ở màn "Phân quyền Nhân viên".'; errEl.style.display='block'; }
       return;
     }
     if(!pwd){ if(errEl){ errEl.textContent='Vui lòng nhập mật khẩu.'; errEl.style.display='block'; } return; }
-    if(pwd!==entry.matKhau){ if(errEl){ errEl.textContent='❌ Sai mật khẩu. Liên hệ Quản lý nếu quên.'; errEl.style.display='block'; } return; }
+    if(pwd!==sharedPwd){ if(errEl){ errEl.textContent='❌ Sai mật khẩu. Liên hệ Quản lý nếu quên.'; errEl.style.display='block'; } return; }
     sdbAuthed = true;
     sdbAuthedName = ten;
     var pwdEl=document.getElementById('sdbGatePwd'); if(pwdEl) pwdEl.value='';
@@ -44359,39 +44457,22 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     if(!wrap) return;
     if(!sdbUserAuthList.length){ wrap.innerHTML = '<div style="text-align:center;color:#999;padding:14px;font-size:12.5px">Chưa cấp quyền cho ai — chỉ Admin vào được.</div>'; return; }
     wrap.innerHTML = sdbUserAuthList.map(function(u,i){
+      var hasSharedPwd = !!(sdbPhanQuyenCache[u.ten] && sdbPhanQuyenCache[u.ten].dsPhieuPass);
       return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border:1px solid #eee;border-radius:7px;margin-bottom:6px;font-size:13px;flex-wrap:wrap">'
-        + '<span>'+sdbEsc(u.ten)+' '+(u.matKhau?'<span style="font-size:10px;font-weight:700;color:#0f766e;background:#e6f6f4;border-radius:10px;padding:1px 8px;margin-left:4px">🔒 Đã cấp</span>':'<span style="font-size:10px;font-weight:700;color:#c62828;background:#fdecea;border-radius:10px;padding:1px 8px;margin-left:4px">⚠ Chưa cấp</span>')+'</span>'
-        + '<span style="display:flex;gap:6px">'
-        + '<button onclick="sdbAccessChPwd('+i+')" style="background:#fff;color:#0f766e;border:1.5px solid #99d8cf;border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit">'+(u.matKhau?'Đổi mật khẩu':'Cấp mật khẩu')+'</button>'
+        + '<span>'+sdbEsc(u.ten)+' '+(hasSharedPwd?'<span style="font-size:10px;font-weight:700;color:#0f766e;background:#e6f6f4;border-radius:10px;padding:1px 8px;margin-left:4px">🔒 Đã cấp</span>':'<span style="font-size:10px;font-weight:700;color:#c62828;background:#fdecea;border-radius:10px;padding:1px 8px;margin-left:4px">⚠ Chưa cấp — cấp ở "Phân quyền Nhân viên"</span>')+'</span>'
         + '<button onclick="sdbAccessRemove('+i+')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit">Xóa</button>'
-        + '</span>'
         + '</div>';
     }).join('');
   }
   window.sdbAccessAdd = function(){
     var input = document.getElementById('sdbAccessNewName');
-    var pwdInput = document.getElementById('sdbAccessNewPwd');
     var ten = input.value.trim();
-    var pwd = pwdInput ? pwdInput.value.trim() : '';
     if(!ten){ alert('Vui lòng nhập/chọn tên.'); return; }
     if(sdbUserAuthList.some(function(u){ return u.ten===ten; })){ alert('Người này đã có trong danh sách rồi.'); return; }
-    if(!pwd){ alert('Vui lòng đặt mật khẩu cho người này trước khi thêm.'); return; }
     var r = sdbUserAuthRef();
     if(!r){ alert('Không kết nối được Firebase.'); return; }
-    var newList = sdbUserAuthList.concat([{ten:ten, matKhau:pwd}]);
-    r.set(newList).then(function(){ input.value=''; if(pwdInput) pwdInput.value=''; });
-  };
-  window.sdbAccessChPwd = function(idx){
-    var u = sdbUserAuthList[idx];
-    if(!u) return;
-    var newPwd = prompt('Nhập mật khẩu mới cho "'+u.ten+'":', '');
-    if(newPwd===null) return;
-    if(!newPwd.trim()){ alert('Mật khẩu không được để trống.'); return; }
-    var r = sdbUserAuthRef();
-    if(!r) return;
-    var newList = sdbUserAuthList.slice();
-    newList[idx] = {ten:u.ten, matKhau:newPwd.trim()};
-    r.set(newList).then(function(){ alert('✅ Đã cấp mật khẩu mới cho "'+u.ten+'". Nhớ báo lại mật khẩu này cho họ.'); });
+    var newList = sdbUserAuthList.concat([{ten:ten}]);
+    r.set(newList).then(function(){ input.value=''; });
   };
   window.sdbAccessRemove = function(idx){
     var u = sdbUserAuthList[idx];
@@ -44567,6 +44648,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     sdbEnsureEmployeesListener();
     sdbEnsureChuKyListener();
     sdbEnsureUserAuthListener();
+    sdbEnsurePhanQuyenListener();
     var accessBtn = document.getElementById('sdbAccessBtn');
     if(accessBtn) accessBtn.style.display = sdbIsAdmin() ? 'inline-flex' : 'none';
     sdbShowScreenByAuth();
