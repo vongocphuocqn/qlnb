@@ -15011,16 +15011,18 @@ function nbPopulatePersonSelect(){
   if(isA){
     if(staffDisp)staffDisp.style.display='none';
     if(adminWrap)adminWrap.style.display='block';
-    document.getElementById('nbPersonSearch').value='';
-    document.getElementById('nbPersonVal').value='';
+    var pSearchEl=document.getElementById('nbPersonSearch'); if(pSearchEl) pSearchEl.value='';
+    var pValEl=document.getElementById('nbPersonVal'); if(pValEl) pValEl.value='';
   } else {
     if(staffDisp){staffDisp.style.display='block';staffDisp.value=nbCurrentUser.name;}
     if(adminWrap)adminWrap.style.display='none';
-    document.getElementById('nbPersonVal').value=nbCurrentUser?nbCurrentUser.name:'';
+    var pValEl2=document.getElementById('nbPersonVal'); if(pValEl2) pValEl2.value=nbCurrentUser?nbCurrentUser.name:'';
   }
   // Reset replacer
-  document.getElementById('nbReplSearch').value='';
-  document.getElementById('nbReplVal').value='';
+  var replSearchEl = document.getElementById('nbReplSearch');
+  var replValEl = document.getElementById('nbReplVal');
+  if(replSearchEl) replSearchEl.value='';
+  if(replValEl) replValEl.value='';
   if(typeof nbCheckMonthlyLimit==='function') nbCheckMonthlyLimit();
 }
 
