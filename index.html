@@ -15266,13 +15266,20 @@ function hisParseRows(allItems, monthInfo){
       var chucVuItem = sorted.find(function(it){ return it.x >= chucVuX-5 && it.x < dayHeaders[0].x-8; });
       if(!hoTenItem) return;
       var days = {};
+      var snTruc = 0; // Tổng "SN Trực" chính thức (Thường + T7/CN + Lễ) đọc thẳng từ PDF — đáng tin hơn
+                       // tự đếm số mã có trong ngày, vì 1 số mã (VD "Ltb") KHÔNG được HIS tính là 1 lần trực thật.
+      var hasSnCols = false;
       sorted.forEach(function(it){
-        if(it.x < dayHeaders[0].x - 8 || it.x > lastDayX + 8) return; // ngoài vùng cột ngày -> bỏ (VD cột "Số công")
+        if(it.x < dayHeaders[0].x - 8 || it.x > lastDayX + 8){
+          // Vùng SAU cột ngày cuối cùng — đúng là vùng chứa "SN Trực" (Thường/T7-CN/Lễ), cộng dồn lại.
+          if(it.x > lastDayX + 8 && /^\d{1,3}$/.test(it.str.trim())){ snTruc += parseInt(it.str.trim(),10); hasSnCols = true; }
+          return;
+        }
         var best=null, bestD=Infinity;
         dayHeaders.forEach(function(dh){ var d=Math.abs(it.x-dh.x); if(d<bestD){bestD=d;best=dh;} });
         if(best && bestD <= 8) days[best.day] = it.str.trim();
       });
-      out.push({ stt:first.str.trim(), hoTen:hoTenItem.str.trim(), chucVu: chucVuItem?chucVuItem.str.trim():'', days: days });
+      out.push({ stt:first.str.trim(), hoTen:hoTenItem.str.trim(), chucVu: chucVuItem?chucVuItem.str.trim():'', days: days, snTruc: hasSnCols?snTruc:null });
     });
   });
   return { rows: out, officialTotals: officialTotals };
@@ -15668,8 +15675,10 @@ function ssRenderGroupConfig(){
     if(!ssNameGroupMap[r.hoTen]) unmatched[r.hoTen] = r.chucVu || '';
   });
   var unmatchedArr = Object.keys(unmatched).sort();
-  var html = '<div style="border:1.5px solid #b39ddb;border-radius:10px;padding:12px 14px;background:#f3e5f5">';
-  html += '<div style="font-weight:700;color:#4a148c;margin-bottom:8px"><i class="ti ti-adjustments"></i> Cấu hình Nhóm & Số lượng cần đủ mỗi ngày</div>';
+  var openAttr = unmatchedArr.length ? ' open' : ''; // tự mở nếu còn ai cần gán nhóm, còn lại mặc định thu gọn cho gọn màn hình
+  var html = '<details'+openAttr+' style="border:1.5px solid #b39ddb;border-radius:10px;padding:10px 14px;background:#f3e5f5">';
+  html += '<summary style="cursor:pointer;font-weight:700;color:#4a148c;list-style:none"><i class="ti ti-adjustments"></i> Cấu hình Nhóm & Số lượng cần đủ mỗi ngày <span style="font-size:11px;color:#999;font-weight:400">(bấm mở/thu gọn)</span></summary>';
+  html += '<div style="margin-top:10px">';
   html += '<div style="font-size:11.5px;color:#666;margin-bottom:10px">Nhóm của <b>116 nhân viên</b> trong "Danh sách nhân viên Khoa GMHS" đã được gán sẵn theo đúng tên (chính xác, không cần chỉnh). '+(unmatchedArr.length?('Riêng <b>'+unmatchedArr.length+' người</b> dưới đây KHÔNG có trong danh sách đó (nhân viên mới / kiêm nhiệm) — anh gán nhóm cho họ:'):'Tất cả nhân viên trong file này đều đã khớp đúng tên, không có ai cần gán thêm.')+'</div>';
   if(unmatchedArr.length){
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px">';
@@ -15695,7 +15704,7 @@ function ssRenderGroupConfig(){
   html += '</div>';
   html += '<div style="font-size:11px;color:#7b1fa2;margin-bottom:10px">Riêng nhóm <b>Bác sĩ</b>: vào đúng những ngày anh đã khai "có BS kiêm nhiệm" ở ô trên, số cần đủ sẽ tự giảm 1 (còn 1) so với số đặt ở đây.</div>';
   html += '<button class="nb-btn" style="background:#6a1b9a;width:auto;padding:8px 16px" onclick="ssSaveGroupConfig()"><i class="ti ti-device-floppy"></i> Lưu cấu hình nhóm</button>';
-  html += '</div>';
+  html += '</div></details>';
   wrap.innerHTML = html;
   wrap.style.display = 'block';
 }
@@ -15808,6 +15817,7 @@ function ssRunAnalyze(){
   }
   ssRenderResult(rowsOut, chuan, daysInMonth, usedOfficialTotal);
   ssRenderGroupResult(groupShortRows, unmatchedNames);
+  ssRenderEmployeeCount();
 }
 function ssRenderResult(rowsOut, chuan, daysInMonth, usedOfficialTotal){
   var wrap = document.getElementById('ssResultWrap');
@@ -15817,8 +15827,10 @@ function ssRenderResult(rowsOut, chuan, daysInMonth, usedOfficialTotal){
     wrap.innerHTML = srcNote+'<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:16px;text-align:center;color:#2e7d32;font-weight:600">✅ Cả '+daysInMonth+' ngày đều đúng đủ '+chuan+' người trực/ngày — không phát hiện ngày nào lệch.</div>';
     return;
   }
-  var html = srcNote+'<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#e65100">⚠ Có <b>'+rowsOut.length+'</b> ngày lệch chuẩn ('+chuan+' người/ngày). Cột "Nhóm gây lệch" so sánh với mức phổ biến nhất của từng nhóm chức vụ trong tháng.</div>';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#37474f;color:#fff">'
+  var html = srcNote+'<details open style="border:1px solid #ffcc80;border-radius:10px;background:#fff3e0;padding:10px 14px">';
+  html += '<summary style="cursor:pointer;font-weight:700;color:#e65100;list-style:none">⚠ Có <b>'+rowsOut.length+'</b> ngày lệch chuẩn ('+chuan+' người/ngày) <span style="font-size:11px;color:#999;font-weight:400">(bấm mở/thu gọn)</span></summary>';
+  html += '<div style="font-size:12px;color:#e65100;margin:8px 0">Cột "Nhóm gây lệch" so sánh với mức phổ biến nhất của từng nhóm chức vụ trong tháng.</div>';
+  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff"><thead><tr style="background:#37474f;color:#fff">'
     + '<th style="padding:8px;text-align:center">Ngày</th><th style="padding:8px;text-align:center">Số người trực</th><th style="padding:8px;text-align:center">Chuẩn ngày đó</th><th style="padding:8px;text-align:center">Chênh lệch</th><th style="padding:8px;text-align:left">Nhóm chức vụ gây lệch (thực tế / bình thường)</th>'
     + '</tr></thead><tbody>';
   rowsOut.forEach(function(r){
@@ -15837,32 +15849,27 @@ function ssRenderResult(rowsOut, chuan, daysInMonth, usedOfficialTotal){
       + '<td style="padding:8px">'+groupTxt+'</td>'
       + '</tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div></details>';
   wrap.innerHTML = html;
 }
 function ssRenderGroupResult(groupShortRows, unmatchedNames){
   var wrap = document.getElementById('ssResultWrap');
   if(!wrap) return;
-  var noteBox = document.createElement('div');
-  noteBox.style.cssText = 'margin-top:14px;background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:8px 12px;font-size:11px;color:#0d47a1';
-  noteBox.innerHTML = '<i class="ti ti-info-circle"></i> Số liệu theo NHÓM (Bác sĩ/Gây mê/Dụng cụ...) được đọc từ từng dòng nhân viên trong PDF, có thể lệch nhẹ 1-2 người ở vài ngày do đặc thù font/định dạng file — nếu thấy nghi ngờ, anh mở PDF gốc đối chiếu lại đúng ngày đó trước khi kết luận.';
-  wrap.appendChild(noteBox);
   var unmatchedArr = Object.keys(unmatchedNames||{});
-  if(unmatchedArr.length){
-    var warnBox = document.createElement('div');
-    warnBox.style.cssText = 'margin-top:10px;background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;font-size:12px;color:#e65100';
-    warnBox.innerHTML = '⚠ Có <b>'+unmatchedArr.length+' người</b> chưa có trong danh sách 116 nhân viên (đang tạm xếp theo đoán chữ viết tắt Chức vụ) — kéo lên khung "Cấu hình Nhóm" phía trên để gán đúng nhóm cho họ, để kết quả chính xác hơn: '+unmatchedArr.join(', ');
-    wrap.appendChild(warnBox);
-  }
+  var unmatchedHtml = unmatchedArr.length
+    ? '<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;font-size:12px;color:#e65100;margin-bottom:10px">⚠ Có <b>'+unmatchedArr.length+' người</b> chưa có trong danh sách 116 nhân viên (đang tạm xếp theo đoán chữ viết tắt Chức vụ) — kéo lên khung "Cấu hình Nhóm" phía trên để gán đúng nhóm cho họ, để kết quả chính xác hơn: '+unmatchedArr.join(', ')+'</div>'
+    : '';
   var box = document.createElement('div');
-  box.style.marginTop = '18px';
+  box.style.marginTop = '14px';
   if(!groupShortRows.length){
-    box.innerHTML = '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:14px;text-align:center;color:#2e7d32;font-weight:600">✅ Không ngày nào lệch (thiếu/dư) so với yêu cầu từng nhóm (Bác sĩ/Gây mê/Dụng cụ/Điều dưỡng/Hộ lý).</div>';
+    box.innerHTML = unmatchedHtml+'<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:14px;text-align:center;color:#2e7d32;font-weight:600">✅ Không ngày nào lệch (thiếu/dư) so với yêu cầu từng nhóm (Bác sĩ/Gây mê/Dụng cụ/Điều dưỡng/Hộ lý).</div>';
     wrap.appendChild(box);
     return;
   }
-  var html = '<div style="font-weight:700;color:#c62828;margin-bottom:8px"><i class="ti ti-alert-triangle"></i> Ngày LỆCH (thiếu hoặc dư) so với yêu cầu từng nhóm ('+groupShortRows.length+' ngày)</div>';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#c62828;color:#fff">'
+  var html = unmatchedHtml+'<details open style="border:1px solid #ef9a9a;border-radius:10px;background:#fdecea;padding:10px 14px">';
+  html += '<summary style="cursor:pointer;font-weight:700;color:#c62828;list-style:none"><i class="ti ti-alert-triangle"></i> Ngày LỆCH (thiếu hoặc dư) so với yêu cầu từng nhóm ('+groupShortRows.length+' ngày) <span style="font-size:11px;color:#999;font-weight:400">(bấm mở/thu gọn)</span></summary>';
+  html += '<div style="font-size:11px;color:#0d47a1;background:#e3f2fd;border-radius:8px;padding:8px 10px;margin:8px 0"><i class="ti ti-info-circle"></i> Số liệu theo NHÓM (Bác sĩ/Gây mê/Dụng cụ...) được đọc từ từng dòng nhân viên trong PDF, có thể lệch nhẹ 1-2 người ở vài ngày do đặc thù font/định dạng file — nếu thấy nghi ngờ, anh mở PDF gốc đối chiếu lại đúng ngày đó trước khi kết luận.</div>';
+  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff"><thead><tr style="background:#c62828;color:#fff">'
     + '<th style="padding:8px;text-align:center">Ngày</th><th style="padding:8px;text-align:left">Nhóm lệch (thực tế / cần đủ)</th>'
     + '</tr></thead><tbody>';
   groupShortRows.forEach(function(r){
@@ -15879,7 +15886,68 @@ function ssRenderGroupResult(groupShortRows, unmatchedNames){
     }).join('');
     html += '<tr style="border-bottom:1px solid #eee"><td style="padding:8px;text-align:center;font-weight:700">'+r.ngay+'</td><td style="padding:8px">'+txt+'</td></tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div></details>';
+  box.innerHTML = html;
+  wrap.appendChild(box);
+}
+function ssRenderEmployeeCount(){
+  var wrap = document.getElementById('ssResultWrap');
+  if(!wrap || !ssData) return;
+  var daysInMonth = (ssData.monthInfo && ssData.monthInfo.daysInMonth) || 31;
+  var usedSnCol = ssData.rows.some(function(r){ return r.snTruc!=null; });
+  var stats = ssData.rows.map(function(r){
+    var maCount = {}; // đếm theo từng loại mã trực, để xem rõ hơn khi cần (kể cả mã không tính là lần trực thật)
+    for(var d=1; d<=daysInMonth; d++){
+      var code = (r.days && r.days[d]) ? String(r.days[d]).trim() : '';
+      if(!code) continue;
+      maCount[code] = (maCount[code]||0)+1;
+    }
+    // Ưu tiên "SN Trực" đọc thẳng từ PDF (Thường+T7/CN+Lễ) — chính xác nhất, vì có mã (VD "Ltb")
+    // KHÔNG được HIS tính là 1 lần trực thật dù vẫn hiện trong bảng. Chỉ khi PDF không có cột này
+    // (VD file mẫu khác) mới tạm đếm số mã có trong bảng làm dự phòng.
+    var totalMaCount = Object.keys(maCount).reduce(function(s,m){ return s+maCount[m]; },0);
+    var soLan = r.snTruc!=null ? r.snTruc : totalMaCount;
+    // Tự dò xem mã nào KHÔNG được tính vào "SN Trực" (VD "Ltb") — bằng cách thử loại từng mã ra
+    // cho tới khi tổng các mã CÒN LẠI khớp đúng số SN Trực chính thức, để hiển thị tách riêng, rõ ràng.
+    var excludedCodes = {};
+    if(r.snTruc!=null && totalMaCount !== r.snTruc){
+      var gap = totalMaCount - r.snTruc;
+      if(maCount['Ltb']===gap){
+        excludedCodes['Ltb'] = true; // trường hợp đã biết chắc: đúng khớp mã "Ltb"
+      } else {
+        Object.keys(maCount).forEach(function(m){ if(maCount[m]===gap) excludedCodes[m]=true; });
+      }
+    }
+    var g = ssGroupOfPerson(r.hoTen, r.chucVu);
+    return { ten:r.hoTen, chucVu:r.chucVu, nhom:g, soLan:soLan, maCount:maCount, excludedCodes:excludedCodes };
+  }).filter(function(s){ return s.soLan > 0; }) // CHỈ hiện người có trực — bỏ hẳn dòng 0 lần
+    .sort(function(a,b){ return b.soLan - a.soLan; }); // nhiều lần trực nhất lên đầu
+  var box = document.createElement('div');
+  box.style.marginTop = '14px';
+  var html = '<details style="border:1px solid #90caf9;border-radius:10px;background:#e3f2fd;padding:10px 14px">';
+  html += '<summary style="cursor:pointer;font-weight:700;color:#0d47a1;list-style:none"><i class="ti ti-users"></i> Số lần trực theo từng nhân viên trong tháng ('+stats.length+' người CÓ trực) <span style="font-size:11px;color:#999;font-weight:400">(bấm mở/thu gọn)</span></summary>';
+  html += '<div style="font-size:11px;color:#555;margin:8px 0">Xếp theo số lần trực GIẢM DẦN — cột "Chi tiết mã trực" cộng lại đúng bằng "Tổng lần trực" (mã màu xám gạch ngang, VD "Ltb", KHÔNG được tính vào tổng).'+(usedSnCol?' <span style="color:#2e7d32;font-weight:700">✓ Tổng lấy từ cột "SN Trực" có sẵn trong PDF (chính xác nhất).</span>':'')+'</div>';
+  html += '<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff"><thead style="position:sticky;top:0"><tr style="background:#1565C0;color:#fff">'
+    + '<th style="padding:7px 8px;text-align:center;width:40px">STT</th><th style="padding:7px 8px;text-align:left">Họ và tên</th><th style="padding:7px 8px;text-align:left">Chức vụ</th><th style="padding:7px 8px;text-align:left">Nhóm</th><th style="padding:7px 8px;text-align:left">Chi tiết mã trực (số lần)</th><th style="padding:7px 8px;text-align:center">Tổng lần trực</th>'
+    + '</tr></thead><tbody>';
+  stats.forEach(function(s, idx){
+    var maDetail = Object.keys(s.maCount).sort().map(function(m){
+      var isExcluded = !!s.excludedCodes[m];
+      var style = isExcluded
+        ? 'background:#eee;border:1px solid #ccc;color:#999;text-decoration:line-through'
+        : 'background:#e8f5e9;border:1px solid #a5d6a7;color:#2e7d32;font-weight:600';
+      return '<span style="display:inline-block;border-radius:5px;padding:1px 6px;margin:2px 3px 2px 0;font-size:11px;'+style+'" title="'+(isExcluded?'Không tính vào Tổng lần trực':'')+'">'+m+' × '+s.maCount[m]+'</span>';
+    }).join('');
+    html += '<tr style="border-bottom:1px solid #eee">'
+      + '<td style="padding:7px 8px;text-align:center;color:#999">'+(idx+1)+'</td>'
+      + '<td style="padding:7px 8px;font-weight:600;white-space:nowrap">'+s.ten+'</td>'
+      + '<td style="padding:7px 8px;color:#666;white-space:nowrap">'+(s.chucVu||'')+'</td>'
+      + '<td style="padding:7px 8px;color:#666;white-space:nowrap">'+(ssGroupLabels[s.nhom]||s.nhom)+'</td>'
+      + '<td style="padding:7px 8px">'+maDetail+'</td>'
+      + '<td style="padding:7px 8px;text-align:center;font-weight:700;color:#1565C0;white-space:nowrap">'+s.soLan+'</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table></div></details>';
   box.innerHTML = html;
   wrap.appendChild(box);
 }
@@ -29719,7 +29787,7 @@ function renderConfig(){
     <div class="ddnl-hint">Nếu để trống, hệ thống sẽ dùng chung danh sách toàn bộ nhân viên cho ô "Người lập phiếu".</div>
   ${cardClose()}
 
-  ${cardOpen('cfg-vbuserauth', '🔒 Danh sách User được vào Giấy đề nghị', 'Thêm tên nhân viên để họ đăng nhập được vào phân hệ "Giấy đề nghị" (Sổ văn bản đi). Mật khẩu dùng CHUNG 1 mật khẩu cá nhân đã cấp ở màn "Phân quyền Nhân viên" (dùng chung cho nhiều thẻ, không cần đặt riêng ở đây). Mỗi người chỉ xem/soạn được văn bản của chính mình; Admin xem/sửa được tất cả và mọi thao tác sửa/xóa văn bản của người khác đều được ghi lại ở "Nhật ký chỉnh sửa".')}
+  ${cardOpen('cfg-vbuserauth', '🔒 Danh sách User được vào Giấy đề nghị', 'Thêm tên nhân viên để họ đăng nhập được vào phân hệ "Giấy đề nghị" (Sổ văn bản đi). Mật khẩu dùng CHUNG 1 mật khẩu cá nhân (áp dụng luôn cho Sổ đi buồng, Danh sách phiếu Nghỉ bù/Nghỉ phép) — anh có thể cấp/đổi ngay tại đây, hoặc ở màn "Phân quyền Nhân viên", cả 2 nơi đều ghi vào cùng 1 chỗ. Mỗi người chỉ xem/soạn được văn bản của chính mình; Admin xem/sửa được tất cả và mọi thao tác sửa/xóa văn bản của người khác đều được ghi lại ở "Nhật ký chỉnh sửa".')}
     ${isAdmin()?`<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
       <div style="position:relative;flex:1;min-width:200px;">
         <input type="text" id="ddnlCf_vbAuthName" autocomplete="off" placeholder="Bấm để chọn hoặc gõ tên để tìm…" value="${esc(vbAuthPickName||"")}">
@@ -29729,14 +29797,15 @@ function renderConfig(){
     <div class="ddnl-cf-search"><i class="ti ti-search"></i><input type="text" id="ddnlCfSearch_vbUserAuth" placeholder="Lọc tìm trong danh sách…" value="${esc(cfgFilter.vbUserAuth)}"></div>
     <div class="ddnl-rows-wrap" style="max-height:260px;overflow-y:auto;">
     <table>
-      <thead><tr><th>Nhân viên</th><th>Mật khẩu chung</th>${isAdmin()?'<th style="width:100px;"></th>':''}</tr></thead>
+      <thead><tr><th>Nhân viên</th><th>Mật khẩu chung</th>${isAdmin()?'<th style="width:180px;"></th>':''}</tr></thead>
       <tbody>
         ${(config.vbUserAuth||[]).map((u,i)=>({u,i})).filter(({u})=>!cfgFilter.vbUserAuth || u.ten.toLowerCase().includes(cfgFilter.vbUserAuth.toLowerCase())).map(({u,i})=>{
           const hasSharedPwd = !!(ddnlPhanQuyenCache[u.ten] && ddnlPhanQuyenCache[u.ten].dsPhieuPass);
           return `<tr>
           <td>${esc(u.ten)}</td>
-          <td>${hasSharedPwd ? '<span class="ddnl-hdr-badge" style="background:#2f7a4f;">🔒 Đã cấp</span>' : '<span class="ddnl-hdr-badge" style="background:#b00020;">⚠ Chưa cấp — cấp ở "Phân quyền Nhân viên"</span>'}</td>
+          <td>${hasSharedPwd ? '<span class="ddnl-hdr-badge" style="background:#2f7a4f;">🔒 Đã cấp</span>' : '<span class="ddnl-hdr-badge" style="background:#b00020;">⚠ Chưa cấp</span>'}</td>
           ${isAdmin()?`<td>
+            <button class="ddnl-btn ddnl-btn-sm" data-setpwd-vbauth="${esc(u.ten)}" style="background:#0f766e;color:#fff;">${hasSharedPwd?'Đổi mật khẩu':'Cấp mật khẩu'}</button>
             <button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vbauth="${i}">Xóa</button>
           </td>`:``}
         </tr>`;
@@ -30683,16 +30752,16 @@ function bindConfigEvents(){
     config.vbUserAuth.splice(Number(b.dataset.delVbauth),1);
     await saveConfig(); render();
   });
-  document.querySelectorAll('[data-chpwd-vbauth]').forEach(b=>b.onclick= async ()=>{
-    const idx = Number(b.dataset.chpwdVbauth);
-    const u = config.vbUserAuth[idx];
-    if(!u) return;
-    const newPwd = prompt(`Nhập mật khẩu mới cho "${u.ten}":`, "");
+  document.querySelectorAll('[data-setpwd-vbauth]').forEach(b=>b.onclick= async ()=>{
+    const ten = b.dataset.setpwdVbauth;
+    const cur = ddnlPhanQuyenCache[ten] && ddnlPhanQuyenCache[ten].dsPhieuPass;
+    const newPwd = prompt(`Nhập mật khẩu chung cho "${ten}"\n(Mật khẩu này dùng CHUNG cho Giấy đề nghị, Sổ đi buồng, Danh sách phiếu Nghỉ bù/Nghỉ phép — đặt 1 lần, dùng ở cả 4 nơi):`, cur||"");
     if(newPwd===null) return; // bấm Hủy
     if(!newPwd.trim()){ alert("Mật khẩu không được để trống."); return; }
-    config.vbUserAuth[idx] = { ...u, matKhau: newPwd.trim() };
-    await saveConfig(); render();
-    alert(`✅ Đã cấp mật khẩu mới cho "${u.ten}". Anh/chị nhớ báo lại mật khẩu này cho họ.`);
+    try{
+      await db.ref('phanQuyen/'+ten).update({ dsPhieuPass: newPwd.trim() });
+      alert(`✅ Đã cấp mật khẩu chung cho "${ten}". Anh/chị nhớ báo lại mật khẩu này cho họ.`);
+    }catch(e){ alert('Lỗi lưu: '+e.message); }
   });
 
   // ---- Chữ ký Trưởng khoa / ĐD Trưởng (dùng tự động gắn vào phiếu nghỉ phép/bù khi Duyệt) ----
@@ -44435,7 +44504,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
 <div class="modal-bg" id="sdbAccessModal" onclick="if(event.target===this)sdbCloseAccessManage()">
   <div class="modal" style="max-width:440px">
     <h3 style="margin-top:0"><i class="ti ti-shield-lock"></i> Quản lý quyền truy cập Sổ đi buồng</h3>
-    <div style="font-size:12px;color:#666;margin-bottom:12px">Admin luôn vào được. Danh sách dưới đây là những người KHÁC được phép xem/ghi Sổ đi buồng — mật khẩu đăng nhập dùng CHUNG 1 mật khẩu cá nhân đã cấp ở màn "Phân quyền Nhân viên" (không cần đặt riêng ở đây).</div>
+    <div style="font-size:12px;color:#666;margin-bottom:12px">Admin luôn vào được. Danh sách dưới đây là những người KHÁC được phép xem/ghi Sổ đi buồng — mật khẩu dùng CHUNG 1 mật khẩu cá nhân (áp dụng luôn cho Giấy đề nghị, Danh sách phiếu Nghỉ bù/Nghỉ phép). Anh có thể cấp/đổi ngay tại đây, hoặc ở màn "Phân quyền Nhân viên" — cả 2 nơi đều ghi vào cùng 1 chỗ.</div>
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
       <input type="text" id="sdbAccessNewName" placeholder="Bấm để chọn hoặc gõ tên để tìm…" autocomplete="off" style="flex:1;min-width:150px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
       <button onclick="sdbAccessAdd()" style="background:#0f766e;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit">+ Thêm</button>
@@ -44814,11 +44883,24 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     wrap.innerHTML = sdbUserAuthList.map(function(u,i){
       var hasSharedPwd = !!(sdbPhanQuyenCache[u.ten] && sdbPhanQuyenCache[u.ten].dsPhieuPass);
       return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border:1px solid #eee;border-radius:7px;margin-bottom:6px;font-size:13px;flex-wrap:wrap">'
-        + '<span>'+sdbEsc(u.ten)+' '+(hasSharedPwd?'<span style="font-size:10px;font-weight:700;color:#0f766e;background:#e6f6f4;border-radius:10px;padding:1px 8px;margin-left:4px">🔒 Đã cấp</span>':'<span style="font-size:10px;font-weight:700;color:#c62828;background:#fdecea;border-radius:10px;padding:1px 8px;margin-left:4px">⚠ Chưa cấp — cấp ở "Phân quyền Nhân viên"</span>')+'</span>'
+        + '<span>'+sdbEsc(u.ten)+' '+(hasSharedPwd?'<span style="font-size:10px;font-weight:700;color:#0f766e;background:#e6f6f4;border-radius:10px;padding:1px 8px;margin-left:4px">🔒 Đã cấp</span>':'<span style="font-size:10px;font-weight:700;color:#c62828;background:#fdecea;border-radius:10px;padding:1px 8px;margin-left:4px">⚠ Chưa cấp mật khẩu chung</span>')+'</span>'
+        + '<span style="display:flex;gap:6px">'
+        + '<button onclick="sdbSetSharedPwd(\''+u.ten.replace(/'/g,"\\'")+'\')" style="background:#fff;color:#0f766e;border:1.5px solid #99d8cf;border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit">'+(hasSharedPwd?'Đổi mật khẩu':'Cấp mật khẩu')+'</button>'
         + '<button onclick="sdbAccessRemove('+i+')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit">Xóa</button>'
+        + '</span>'
         + '</div>';
     }).join('');
   }
+  window.sdbSetSharedPwd = function(ten){
+    var d = sdbGetDb();
+    if(!d){ alert('Không kết nối được Firebase.'); return; }
+    var newPwd = prompt('Nhập mật khẩu chung cho "'+ten+'"\n(Mật khẩu này dùng CHUNG cho Sổ đi buồng, Giấy đề nghị, Danh sách phiếu Nghỉ bù/Nghỉ phép — đặt 1 lần, dùng ở cả 4 nơi):', '');
+    if(newPwd===null) return;
+    if(!newPwd.trim()){ alert('Mật khẩu không được để trống.'); return; }
+    d.ref('phanQuyen/'+ten).update({ dsPhieuPass: newPwd.trim() }).then(function(){
+      alert('✅ Đã cấp mật khẩu chung cho "'+ten+'". Nhớ báo lại mật khẩu này cho họ.');
+    }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
+  };
   window.sdbAccessAdd = function(){
     var input = document.getElementById('sdbAccessNewName');
     var ten = input.value.trim();
