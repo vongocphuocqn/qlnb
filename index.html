@@ -12978,7 +12978,10 @@ function sfvApply(){
     var isAdmin = false;
     try{ isAdmin = f.adminCheck ? !!f.adminCheck() : sfvIsAdmin(); }catch(e){ isAdmin = false; }
     if(isAdmin){
+      // Admin luôn được xem đủ — khôi phục hiện lại NGAY CẢ KHI trước đó lỡ bị ẩn (VD do sfvApply
+      // chạy 1 lần lúc trang vừa tải, trước khi biết ai đăng nhập, nên tạm coi là "chưa phải Admin").
       el.classList.remove('sfv-hidden-nv');
+      el.style.display = '';
     } else if(sfvConfig[f.key]){
       el.style.display = 'none';
       el.classList.add('sfv-hidden-nv');
