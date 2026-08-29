@@ -2299,7 +2299,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
       <textarea id="editContent" style="min-height:55px" placeholder="Nội dung..." oninput="editRenderContentTickList()"></textarea>
     </div>
     <div class="fg" id="editContentTickWrap" style="display:none;margin-top:-3px">
-      <label style="color:#2e7d32">✓ Tích nhanh từng nội dung đã xong <span style="font-weight:400;color:#8098bb">(tích vào là tự chuyển dòng đó sang "Hoàn thành")</span></label>
+      <label style="color:#2e7d32">✓ Đánh dấu nhanh từng nội dung đã xong <span style="font-weight:400;color:#8098bb">(gõ ghi chú nếu cần rồi mới bấm "Đánh dấu xong" — để trống ghi chú → chuyển thẳng "Hoàn thành"; có ghi chú "làm 1 phần" → chuyển sang "Đang làm")</span></label>
       <div id="editContentTickList" style="display:flex;flex-direction:column;gap:5px;padding:8px 10px;background:#f4faf5;border:1px solid #c8e6c9;border-radius:8px"></div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -2308,12 +2308,16 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:9px">
       <div class="fg" style="margin:0"><label>Cần làm</label><textarea id="editTodo" style="min-height:48px" oninput="editRenderTickList()"></textarea></div>
-      <div class="fg" style="margin:0"><label>Đang làm</label><textarea id="editDoing" style="min-height:48px"></textarea></div>
+      <div class="fg" style="margin:0"><label>Đang làm</label><textarea id="editDoing" style="min-height:48px" oninput="editRenderDoingTickList()"></textarea></div>
       <div class="fg" style="margin:0"><label>Hoàn thành</label><textarea id="editDone" style="min-height:48px"></textarea></div>
     </div>
     <div class="fg" id="editTickWrap" style="display:none;margin-top:-3px">
-      <label style="color:#2e7d32">✓ Tích nhanh từng việc trong "Cần làm" đã xong <span style="font-weight:400;color:#8098bb">(tích vào là tự chuyển dòng đó sang "Hoàn thành")</span></label>
+      <label style="color:#2e7d32">✓ Đánh dấu nhanh từng việc trong "Cần làm" đã xong <span style="font-weight:400;color:#8098bb">(gõ ghi chú nếu cần rồi mới bấm "Đánh dấu xong" — để trống ghi chú → chuyển thẳng "Hoàn thành"; có ghi chú "làm 1 phần" → chuyển sang "Đang làm")</span></label>
       <div id="editTickList" style="display:flex;flex-direction:column;gap:5px;padding:8px 10px;background:#f4faf5;border:1px solid #c8e6c9;border-radius:8px"></div>
+    </div>
+    <div class="fg" id="editDoingTickWrap" style="display:none;margin-top:-3px">
+      <label style="color:#0d47a1">✓ Tích nhanh từng việc trong "Đang làm" đã xong hẳn <span style="font-weight:400;color:#8098bb">(tích vào là chuyển dòng đó sang "Hoàn thành")</span></label>
+      <div id="editDoingTickList" style="display:flex;flex-direction:column;gap:5px;padding:8px 10px;background:#eef4fb;border:1px solid #c7ddf3;border-radius:8px"></div>
     </div>
     <div class="fg" id="editImgSection"><label>Minh chứng – Đính kèm ảnh</label>
       <div class="imgup" id="editImgUpBtn" onclick="document.getElementById('editImgInp').click()">
@@ -2814,7 +2818,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
 </div>
 
 <!-- APP -->
-<div id="pqScreen" style="display:none;min-height:100vh;background:#f5f0ff;flex-direction:column"><div style="background:linear-gradient(90deg,#4a148c,#6a1e7e);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:10px"><i class="ti ti-shield-lock" style="font-size:22px"></i><div style="font-weight:700;font-size:15px">PHÂN QUYỀN NHÂN VIÊN – KHOA GÂY MÊ HỒI SỨC</div><button onclick="pqPrintList()" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> In danh sách</button><button onclick="document.getElementById('pqScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button><button id="pqWideBtn" onclick="kpiToggleWideBox('pqMainBox','pqWideBtn')" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button></div><div style="max-width:960px;margin:20px auto;padding:0 16px;width:100%" id="pqMainBox"><div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(106,30,126,.1)"><div style="font-weight:700;font-size:14px;color:#4a148c;margin-bottom:12px"><i class="ti ti-users"></i> Danh sách nhân viên & quyền truy cập</div><div style="background:#f3e5f5;border:1px solid #ce93d8;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:12.5px;color:#4a148c"><i class="ti ti-shield-lock"></i> Ẩn/hiện từng chức năng cụ thể bên trong các thẻ (tab, nút bấm...) cho Nhân viên thường:</span><button onclick="sfvOpenManage()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-adjustments"></i> Chức năng cho NV</button></div><div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><div style="position:relative;flex:1;min-width:180px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i><input type="text" id="pqSearch" placeholder="Tìm tên nhân viên..." oninput="pqFilter()" style="width:100%;padding:8px 8px 8px 32px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div><button onclick="pqSelectAll(true)" style="background:#4a148c;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Tích tất cả</button><button onclick="pqSelectAll(false)" style="background:#fff;color:#4a148c;border:1.5px solid #4a148c;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Bỏ tích</button></div><div id="pqCount" style="font-size:11px;color:#7b1fa2;margin-bottom:6px;min-height:16px"></div><div id="pqTable" style="overflow-x:auto"></div><div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button onclick="pqSaveAll()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-device-floppy"></i> Lưu tất cả quyền</button><button onclick="pqResetAll()" style="background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa tất cả</button></div></div><div id="pqAlert" style="display:none;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:13px"></div></div></div>
+<div id="pqScreen" style="display:none;min-height:100vh;background:#f5f0ff;flex-direction:column"><div style="background:linear-gradient(90deg,#4a148c,#6a1e7e);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:10px"><i class="ti ti-shield-lock" style="font-size:22px"></i><div style="font-weight:700;font-size:15px">PHÂN QUYỀN NHÂN VIÊN – KHOA GÂY MÊ HỒI SỨC</div><button onclick="pqPrintList()" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> In danh sách</button><button onclick="document.getElementById('pqScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button><button id="pqWideBtn" onclick="kpiToggleWideBox('pqMainBox','pqWideBtn')" style="margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button></div><div style="max-width:960px;margin:20px auto;padding:0 16px;width:100%" id="pqMainBox"><div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(106,30,126,.1)"><div style="font-weight:700;font-size:14px;color:#4a148c;margin-bottom:12px"><i class="ti ti-users"></i> Danh sách nhân viên & quyền truy cập</div><div style="background:#f3e5f5;border:1px solid #ce93d8;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:12.5px;color:#4a148c"><i class="ti ti-shield-lock"></i> Ẩn/hiện từng chức năng cụ thể bên trong các thẻ (tab, nút bấm...) cho Nhân viên thường:</span><button onclick="sfvToggleInline()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-adjustments"></i> Chức năng cho NV</button></div><div id="sfvInlineWrap" style="display:none;background:#fff;border:1.5px solid #ce93d8;border-radius:10px;padding:16px;margin-bottom:14px"><div style="font-size:12px;color:#777;margin-bottom:14px"><i class="ti ti-info-circle"></i> Tích vào mục nào thì mục đó sẽ <b>ẩn khỏi màn hình Nhân viên thường</b> (Admin luôn thấy đủ). Áp dụng ngay, không cần tải lại trang.</div><div id="sfvRowsInline" style="display:flex;flex-direction:column;gap:10px"></div></div><div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><div style="position:relative;flex:1;min-width:180px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none"></i><input type="text" id="pqSearch" placeholder="Tìm tên nhân viên..." oninput="pqFilter()" style="width:100%;padding:8px 8px 8px 32px;border:1.5px solid #ce93d8;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div><button onclick="pqSelectAll(true)" style="background:#4a148c;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Tích tất cả</button><button onclick="pqSelectAll(false)" style="background:#fff;color:#4a148c;border:1.5px solid #4a148c;border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Bỏ tích</button></div><div id="pqCount" style="font-size:11px;color:#7b1fa2;margin-bottom:6px;min-height:16px"></div><div id="pqTable" style="overflow-x:auto"></div><div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button onclick="pqSaveAll()" style="background:#4a148c;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700"><i class="ti ti-device-floppy"></i> Lưu tất cả quyền</button><button onclick="pqResetAll()" style="background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa tất cả</button></div></div><div id="pqAlert" style="display:none;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:13px"></div></div></div>
 <div id="appScreen" style="display:none">
   <div class="topbar">
     <div class="tlogo"><i class="ti ti-clipboard-heart"></i></div>
@@ -2938,7 +2942,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
         </div>
         <div class="ff"><label>Từ ngày</label><input type="date" id="fFrom" onchange="renderBoard()"></div>
         <div class="ff"><label>Đến ngày</label><input type="date" id="fTo" onchange="renderBoard()"></div>
-        <div class="ff" style="justify-content:flex-end">
+        <div class="ff" id="fQuickNoteWrap" style="justify-content:flex-end">
           <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#00695c;white-space:nowrap;cursor:pointer">
             <input type="checkbox" id="fQuickNote" onchange="qnSyncGroupFilterVisibility();renderBoard()" style="width:15px;height:15px"> 📝 Chỉ Ghi chú nhanh
           </label>
@@ -11099,6 +11103,7 @@ function enterApp(){
   document.getElementById('tAv').textContent=ini(cu.name);
   document.getElementById('abanner').style.display=isA?'flex':'none';
   document.getElementById('filterSec').style.display=isA?'block':'none';
+  var fqnW3=document.getElementById('fQuickNoteWrap'); if(fqnW3) fqnW3.style.display=isA?'flex':'none';
   ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','btnDeptCatalogEdit','deptStatsCatalogBtn','btnToolbarCfg','btnSfvManage','btnGiaoBan','btnQuickNote'].forEach(id=>{
     var el=document.getElementById(id);if(el)el.style.display=isA?'flex':'none';});
   // Downtime: cho mọi người dùng đã đăng nhập XEM được (thao tác sửa bên trong panel vẫn chỉ dành cho admin)
@@ -11276,7 +11281,10 @@ function renderDt(){
   const q=(document.getElementById('dtSearch').value||'').toLowerCase();
   const fr=document.getElementById('dtFiltFrom')?document.getElementById('dtFiltFrom').value:'';
   const to=document.getElementById('dtFiltTo')?document.getElementById('dtFiltTo').value:'';
-  let list=[...cards];
+  // Panel Downtime hiện với cả Nhân viên (không chỉ Admin) — phải loại Ghi chú nhanh khỏi dữ liệu
+  // gốc trước khi lọc/tính toán, để không lộ nhật ký riêng của Admin qua đường này.
+  const dtBaseCards=(cu&&cu.role==='admin')?cards:cards.filter(c=>!c.quickNote && !c.hidePublic);
+  let list=[...dtBaseCards];
   if(fr) list=list.filter(c=>c.date>=fr);
   if(to) list=list.filter(c=>c.date<=to);
   if(st) list=list.filter(c=>c.status===st);
@@ -11293,7 +11301,7 @@ function renderDt(){
   }
 
   // Overview (tính theo đúng khoảng ngày đang lọc, nếu có)
-  let all=cards;
+  let all=dtBaseCards;
   if(fr) all=all.filter(c=>c.date>=fr);
   if(to) all=all.filter(c=>c.date<=to);
   const avg=all.length?Math.round(all.reduce((s,c)=>{const d=calcDowntime(c);return s+(d||0);},0)/all.length):0;
@@ -12216,11 +12224,16 @@ function editRenderTickList(){
   const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
   if(!lines.length){ wrap.style.display='none'; list.innerHTML=''; return; }
   wrap.style.display='block';
+  // Không dùng checkbox tự chuyển ngay khi bấm (dễ mất nội dung nếu chưa kịp gõ ghi chú).
+  // Gõ ghi chú (nếu cần) trước, xong mới bấm nút "✓ Đánh dấu xong" thì mới thật sự chuyển dòng.
   list.innerHTML = lines.map((line,i)=>`
-    <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;color:#333;cursor:pointer">
-      <input type="checkbox" onclick="editTickDone(${i})" style="margin-top:3px;width:16px;height:16px;flex-shrink:0">
+    <div style="display:flex;flex-direction:column;gap:5px;font-weight:400;font-size:13px;color:#333;padding:6px 0;border-bottom:1px dashed #dbe8dc">
       <span style="white-space:pre-wrap">${escNl(line)}</span>
-    </label>`).join('');
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="editTickNote_${i}" placeholder="Ghi chú nếu chỉ làm 1 phần (không bắt buộc, để sau này truy vấn)..." style="flex:1;min-width:160px;padding:5px 8px;font-size:11.5px;border:1px solid #dcdcdc;border-radius:6px;font-family:inherit;box-sizing:border-box;color:#555">
+        <button type="button" onclick="editTickDone(${i})" style="flex-shrink:0;background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Đánh dấu xong</button>
+      </div>
+    </div>`).join('');
 }
 // Kiểm tra sau khi tích 1 dòng (ở "Cần làm" hoặc "Nội dung báo cáo"): nếu CẢ 3 ô Nội dung/Cần làm/Đang làm
 // đều đã trống hết -> TỰ ĐỘNG lưu và chuyển luôn thẻ này sang cột "Đã xong", giống hệt thẻ "Ghi chú nhanh".
@@ -12257,13 +12270,24 @@ function editCheckAutoComplete(doneTa){
 function editTickDone(idx){
   const ta = document.getElementById('editTodo');
   const doneTa = document.getElementById('editDone');
-  if(!ta || !doneTa) return;
+  const doingTa = document.getElementById('editDoing');
+  if(!ta || !doneTa || !doingTa) return;
   const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
   if(idx<0 || idx>=lines.length) return;
-  const line = lines[idx];
+  let line = lines[idx];
+  const noteEl = document.getElementById('editTickNote_'+idx);
+  const noteVal = noteEl ? noteEl.value.trim() : '';
   lines.splice(idx,1);
   ta.value = lines.join('\n');
-  doneTa.value = (doneTa.value.trim() ? doneTa.value.trim()+'\n' : '') + line;
+  if(noteVal){
+    // Có ghi chú "làm 1 phần" -> chưa tính là xong hẳn, chuyển sang "Đang làm" để theo dõi tiếp,
+    // không đẩy vào "Hoàn thành" (tránh tính nhầm vào số đếm "đã xong" của thẻ).
+    line = line + ' (Ghi chú: ' + noteVal + ')';
+    doingTa.value = (doingTa.value.trim() ? doingTa.value.trim()+'\n' : '') + line;
+    editRenderDoingTickList();
+  } else {
+    doneTa.value = (doneTa.value.trim() ? doneTa.value.trim()+'\n' : '') + line;
+  }
   editRenderTickList();
   editCheckAutoComplete(doneTa);
 }
@@ -12289,6 +12313,7 @@ function saveEditProgressFs(){
     if(src && dst) src.value = dst.value;
   });
   if(typeof editRenderTickList==='function') editRenderTickList();
+  if(typeof editRenderDoingTickList==='function') editRenderDoingTickList();
   closeEditProgressFs();
 }
 function closeEditProgressFs(){
@@ -12379,13 +12404,55 @@ function editRenderContentTickList(){
   if(lines.length<2){ wrap.style.display='none'; list.innerHTML=''; return; }
   wrap.style.display='block';
   list.innerHTML = lines.map((line,i)=>`
-    <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;color:#333;cursor:pointer">
-      <input type="checkbox" onclick="editTickContentDone(${i})" style="margin-top:3px;width:16px;height:16px;flex-shrink:0">
+    <div style="display:flex;flex-direction:column;gap:5px;font-weight:400;font-size:13px;color:#333;padding:6px 0;border-bottom:1px dashed #dbe8dc">
       <span style="white-space:pre-wrap">${escNl(line)}</span>
-    </label>`).join('');
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="editContentTickNote_${i}" placeholder="Ghi chú nếu chỉ làm 1 phần (không bắt buộc, để sau này truy vấn)..." style="flex:1;min-width:160px;padding:5px 8px;font-size:11.5px;border:1px solid #dcdcdc;border-radius:6px;font-family:inherit;box-sizing:border-box;color:#555">
+        <button type="button" onclick="editTickContentDone(${i})" style="flex-shrink:0;background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Đánh dấu xong</button>
+      </div>
+    </div>`).join('');
 }
 function editTickContentDone(idx){
   const ta = document.getElementById('editContent');
+  const doneTa = document.getElementById('editDone');
+  const doingTa = document.getElementById('editDoing');
+  if(!ta || !doneTa || !doingTa) return;
+  const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(idx<0 || idx>=lines.length) return;
+  let line = lines[idx];
+  const noteEl = document.getElementById('editContentTickNote_'+idx);
+  const noteVal = noteEl ? noteEl.value.trim() : '';
+  lines.splice(idx,1);
+  ta.value = lines.join('\n');
+  if(noteVal){
+    // Có ghi chú "làm 1 phần" -> chưa tính là xong hẳn, chuyển sang "Đang làm" thay vì "Hoàn thành".
+    line = line + ' (Ghi chú: ' + noteVal + ')';
+    doingTa.value = (doingTa.value.trim() ? doingTa.value.trim()+'\n' : '') + line;
+    editRenderDoingTickList();
+  } else {
+    doneTa.value = (doneTa.value.trim() ? doneTa.value.trim()+'\n' : '') + line;
+  }
+  editRenderContentTickList();
+  editCheckAutoComplete(doneTa);
+}
+// Tích nhanh từng dòng trong "Đang làm" khi đã xong hẳn -> chuyển sang "Hoàn thành".
+// Dùng cho các việc trước đó bị đưa vào "Đang làm" vì mới làm 1 phần, nay đã hoàn tất nốt.
+function editRenderDoingTickList(){
+  const wrap = document.getElementById('editDoingTickWrap');
+  const list = document.getElementById('editDoingTickList');
+  const ta = document.getElementById('editDoing');
+  if(!wrap || !list || !ta) return;
+  const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!lines.length){ wrap.style.display='none'; list.innerHTML=''; return; }
+  wrap.style.display='block';
+  list.innerHTML = lines.map((line,i)=>`
+    <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:13px;color:#333;cursor:pointer">
+      <input type="checkbox" onclick="editTickDoingDone(${i})" style="margin-top:3px;width:16px;height:16px;flex-shrink:0">
+      <span style="white-space:pre-wrap">${escNl(line)}</span>
+    </label>`).join('');
+}
+function editTickDoingDone(idx){
+  const ta = document.getElementById('editDoing');
   const doneTa = document.getElementById('editDone');
   if(!ta || !doneTa) return;
   const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
@@ -12394,7 +12461,7 @@ function editTickContentDone(idx){
   lines.splice(idx,1);
   ta.value = lines.join('\n');
   doneTa.value = (doneTa.value.trim() ? doneTa.value.trim()+'\n' : '') + line;
-  editRenderContentTickList();
+  editRenderDoingTickList();
   editCheckAutoComplete(doneTa);
 }
 function openEditModal(id){
@@ -12416,6 +12483,7 @@ function openEditModal(id){
   document.getElementById('editDone').value=c.done||'';
   editRenderTickList();
   editRenderContentTickList();
+  editRenderDoingTickList();
   editPendingImgs=(c.imgs&&c.imgs.length)?[...c.imgs]:[];
   editRefreshPrev();
   const locked=!editable&&cu.role!=='admin';
@@ -12580,12 +12648,33 @@ function deleteNote(id){
     .then(()=>{showAl('Đã xóa ghi chú.','warn');setSyncStatus('ok');})
     .catch(()=>setSyncStatus('err'));
 }
+// Admin bấm 1 nút ngay trên thẻ để Ẩn/Hiện nội dung thẻ đó với NV & Xem công khai —
+// không cần mở "Sửa". Chỉ Admin mới gọi được (nút chỉ hiện trong footer khi isA=true).
+function toggleCardHidePublic(id){
+  if(!(cu && cu.role==='admin')) return;
+  const c=cards.find(x=>x.id===id); if(!c) return;
+  const next=!c.hidePublic;
+  setSyncStatus('sync');
+  cardsRef.child(String(id)).update({hidePublic:next})
+    .then(()=>{
+      showAl(next?'Đã ẨN thẻ này với NV & Xem công khai.':'Đã HIỆN lại thẻ này cho NV & Xem công khai.');
+      setSyncStatus('ok');
+    })
+    .catch(err=>{showAl('Lỗi: '+err.message,'err');setSyncStatus('err');});
+}
 
 /* ── RENDER ── */
 function getFiltered(){
   let r=[...cards];
-  if(cu.role==='staff'){return r.filter(c=>c.person===cu.name);}
-  if(cu.role==='viewer'){return r;} // viewer sees all cards
+  // Ghi chú nhanh là nhật ký làm việc riêng của Admin — tuyệt đối không hiện ở bất kỳ trạng thái
+  // nào (Chưa xử lý/Đang xử lý/Đã xong) với Nhân viên hay Xem công khai. Admin không bị ảnh hưởng.
+  // Thẻ nào Admin đã bấm "Ẩn với NV" (c.hidePublic) cũng bị loại theo cách tương tự.
+  if(cu.role!=='admin'){ r=r.filter(c=>!c.quickNote && !c.hidePublic); }
+  if(cu.role==='staff'){ r=r.filter(c=>c.person===cu.name); }
+  // Lỗi có sẵn từ trước (không phải do lần sửa này): trước đây code "return" ngay ở đây cho
+  // Nhân viên/Xem công khai, khiến toàn bộ ô lọc bên dưới (Tên NV, Người phụ trách, Bộ phận,
+  // Trạng thái, Mức độ, Từ ngày, Đến ngày) không có tác dụng dù vẫn hiện trên giao diện.
+  // Nay để mọi vai trò đều chạy tiếp xuống phần lọc, ô lọc hoạt động đúng cho cả NV/Xem công khai.
   const nm=document.getElementById('fName').value||'';
   const asg=document.getElementById('fAssignee')?document.getElementById('fAssignee').value||'':'';
   const dp=document.getElementById('fDept')?document.getElementById('fDept').value:'';
@@ -12892,7 +12981,8 @@ function renderCard(c){
   if(isA){
     const noteBtn=c.status==='todo'
       ?`<button class="bnote" onclick="openNoteModal(${c.id})"><i class="ti ti-message-circle"></i>${c.adminNote?'Sửa lý do':'+ Ghi lý do'}</button>`:'';
-    footer=`<div class="cfooter">${mvMap[c.status]}${editBtn}${noteBtn}${assignBtn}${histBtn}
+    const hidePubBtn=`<button class="bedit" style="${c.hidePublic?'background:#fdecea;border-color:#f5c6c2;color:#b71c1c':'background:none'}" onclick="toggleCardHidePublic(${c.id})" title="Bấm để ${c.hidePublic?'HIỆN lại thẻ này cho NV & Xem công khai':'ẨN thẻ này khỏi NV & Xem công khai'}"><i class="ti ${c.hidePublic?'ti-lock':'ti-lock-open'}"></i> ${c.hidePublic?'Đang ẩn NV':'Ẩn với NV'}</button>`;
+    footer=`<div class="cfooter">${mvMap[c.status]}${editBtn}${noteBtn}${assignBtn}${histBtn}${hidePubBtn}
       <button class="bdl" onclick="deleteCard(${c.id})"><i class="ti ti-trash"></i> Xóa</button></div>`;
   } else if(isOwn){
     footer=`<div class="cfooter">${editBtn}${lockBadge}${histBtn}</div>`;
@@ -12901,7 +12991,7 @@ function renderCard(c){
   }
   return`<div class="card">
     <div class="ctop"><div class="cav">${ini(c.person)}</div>
-      <div style="flex:1"><div class="cname">${esc(c.person)} ${priTag(c.pri)}${c.dept?` <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#eef4fb;color:#185FA5;border:1px solid #c7ddf3;vertical-align:middle"><i class="ti ti-building" style="font-size:10px"></i> ${esc(c.dept)}</span>`:''}${assignBadge}</div></div>
+      <div style="flex:1"><div class="cname">${esc(c.person)} ${priTag(c.pri)}${c.dept?` <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#eef4fb;color:#185FA5;border:1px solid #c7ddf3;vertical-align:middle"><i class="ti ti-building" style="font-size:10px"></i> ${esc(c.dept)}</span>`:''}${assignBadge}${(isA&&c.hidePublic)?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#fdecea;color:#b71c1c;border:1px solid #f5c6c2;vertical-align:middle;margin-left:4px" title="Nhân viên & Xem công khai không thấy thẻ này"><i class="ti ti-lock" style="font-size:10px"></i> Ẩn với NV</span>`:''}</div></div>
     </div>
     <div class="cdate"><i class="ti ti-calendar" style="font-size:12px"></i> ${fmtD(c.date)}
       ${dtBadge(c)}
@@ -12954,14 +13044,20 @@ var SFV_FEATURES = [
   {module:'Nghỉ bù', key:'nb_tab2', id:'nbTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ bù', key:'nb_tab3', id:'nbTab3', label:'Tab "Thống kê"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ bù', key:'nb_tab4', id:'nbTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
-  {module:'Nghỉ bù', key:'nb_tab7', id:'nbTab7', label:'Tab "Kiểm sĩ số trực"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ phép', key:'np_tab2', id:'npTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }},
   {module:'Nghỉ phép', key:'np_tab4', id:'npTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }}
 ];
 var sfvConfig = {thanhtich:true}; // mặc định: ẩn "Thành tích" với NV, các nút khác giữ hiện như cũ
 var sfvListenerOn = false;
 function sfvIsAdmin(){
-  try{ return !!(typeof cu!=='undefined' && cu && cu.role==='admin'); }catch(e){ return false; }
+  // Kiểm tra theo cu.role trước (dùng chính trong Kanban); nếu không có/không khớp, kiểm tra thêm
+  // theo adminSession.active (biến mà chính màn "Phân quyền Nhân viên" dùng để cho vào trang) —
+  // tránh trường hợp vào Phân quyền bằng đường khác khiến "cu" chưa kịp gán đúng quyền admin.
+  try{
+    if(typeof cu!=='undefined' && cu && cu.role==='admin') return true;
+    if(typeof adminSession!=='undefined' && adminSession && adminSession.active) return true;
+    return false;
+  }catch(e){ return false; }
 }
 function sfvEnsureListener(){
   if(sfvListenerOn) return;
@@ -12992,27 +13088,10 @@ function sfvApply(){
     }
   });
 }
-function sfvOpenManage(){
-  if(!sfvIsAdmin()){ alert('⚠️ Chỉ Quản lý mới cấu hình được mục này.'); return; }
-  sfvEnsureListener();
-  var overlay = document.getElementById('sfvOverlay');
-  if(!overlay){
-    overlay = document.createElement('div');
-    overlay.id = 'sfvOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;';
-    overlay.innerHTML = '<div id="sfvBox" style="background:#fff;border-radius:14px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;padding:20px;font-family:inherit;">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-      + '<h3 style="margin:0;font-size:16px;color:#222;"><i class="ti ti-shield-lock"></i> Chức năng cho Nhân viên xem</h3>'
-      + '<button id="sfvCloseBtn" style="border:none;background:#eee;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">Đóng</button>'
-      + '</div>'
-      + '<div style="font-size:12px;color:#777;margin-bottom:14px;">Tick vào nút nào thì nút đó sẽ <b>ẩn khỏi màn hình Nhân viên thường</b> (Admin luôn thấy đủ mọi nút). Áp dụng ngay, không cần tải lại trang.</div>'
-      + '<div id="sfvRows" style="display:flex;flex-direction:column;gap:10px;"></div>'
-      + '</div>';
-    document.body.appendChild(overlay);
-    document.getElementById('sfvCloseBtn').onclick = function(){ overlay.remove(); };
-    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
-  }
-  var rowsBox = document.getElementById('sfvRows');
+// Dựng danh sách các dòng "Ẩn X với Nhân viên" vào 1 khung chứa bất kỳ (dùng chung cho cả
+// popup sfvOpenManage() và khung hiện ngay tại chỗ trong trang Phân quyền — sfvToggleInline()).
+function sfvRenderRowsInto(rowsBox){
+  if(!rowsBox) return;
   var byModule = {};
   SFV_FEATURES.forEach(function(f){ (byModule[f.module]=byModule[f.module]||[]).push(f); });
   rowsBox.innerHTML = Object.keys(byModule).map(function(mod){
@@ -13035,6 +13114,40 @@ function sfvOpenManage(){
       db.ref('sfvConfig').set(nd).catch(function(e){ alert('Lỗi lưu: '+e.message); });
     };
   });
+}
+function sfvOpenManage(){
+  if(!sfvIsAdmin()){ alert('⚠️ Chỉ Quản lý mới cấu hình được mục này.'); return; }
+  sfvEnsureListener();
+  var overlay = document.getElementById('sfvOverlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'sfvOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = '<div id="sfvBox" style="background:#fff;border-radius:14px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;padding:20px;font-family:inherit;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+      + '<h3 style="margin:0;font-size:16px;color:#222;"><i class="ti ti-shield-lock"></i> Chức năng cho Nhân viên xem</h3>'
+      + '<button id="sfvCloseBtn" style="border:none;background:#eee;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">Đóng</button>'
+      + '</div>'
+      + '<div style="font-size:12px;color:#777;margin-bottom:14px;">Tick vào nút nào thì nút đó sẽ <b>ẩn khỏi màn hình Nhân viên thường</b> (Admin luôn thấy đủ mọi nút). Áp dụng ngay, không cần tải lại trang.</div>'
+      + '<div id="sfvRows" style="display:flex;flex-direction:column;gap:10px;"></div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    document.getElementById('sfvCloseBtn').onclick = function(){ overlay.remove(); };
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+  }
+  sfvRenderRowsInto(document.getElementById('sfvRows'));
+}
+// Hiện/ẩn khung "Chức năng cho NV" NGAY TẠI CHỖ trong trang Phân quyền (không mở popup riêng),
+// theo đúng yêu cầu: bấm 1 nút là thấy luôn danh sách ngay dưới, tiện hơn khi đang phân quyền NV.
+function sfvToggleInline(){
+  if(!sfvIsAdmin()){ alert('⚠️ Chỉ Quản lý mới cấu hình được mục này.'); return; }
+  sfvEnsureListener();
+  var wrap = document.getElementById('sfvInlineWrap');
+  if(!wrap) return;
+  var showing = wrap.style.display !== 'none';
+  if(showing){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  sfvRenderRowsInto(document.getElementById('sfvRowsInline'));
 }
 function renderBoard(){
   if(typeof sfvEnsureListener==='function') sfvEnsureListener();
@@ -14607,6 +14720,7 @@ function authConfirm(){
       document.getElementById('tAv').textContent=ini(cu.name);
       document.getElementById('abanner').style.display='none';
       document.getElementById('filterSec').style.display=_vw?'flex':'none';
+      var fqnW1=document.getElementById('fQuickNoteWrap'); if(fqnW1) fqnW1.style.display='none';
       ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore',
        'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnGiaoBan','btnQuickNote']
         .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
@@ -14637,7 +14751,7 @@ function authConfirm(){
     var hasNbPQ = Object.keys(pqAll).length > 0 && pqAll[name] !== undefined;
     if(!hasNbPQ || p.nghibu || p.nghibu_view){
       var nbRole = p.nghibu_view && !p.nghibu ? 'viewer' : 'staff';
-      nbCurrentUser={name:name,role:nbRole,dsPass:p.dsPhieuPass||'',canHis:!!p.doichieu_his,canPttt:!!p.doichieu_pttt};enterNbScreen();
+      nbCurrentUser={name:name,role:nbRole,dsPass:p.dsPhieuPass||'',canHis:!!p.doichieu_his,canPttt:!!p.doichieu_pttt,canDuty:!!p.kiem_si_so_truc};enterNbScreen();
     } else {
       document.getElementById('homeScreen').style.display='flex';
       var e=document.getElementById('authErr');
@@ -14790,6 +14904,7 @@ function goKanbanViewPublic(){
   document.getElementById('tAv').textContent='👁';
   document.getElementById('abanner').style.display='none';
   document.getElementById('filterSec').style.display='flex';
+  var fqnW2=document.getElementById('fQuickNoteWrap'); if(fqnW2) fqnW2.style.display='none';
   ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore',
    'btnDowntime','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnClearTestData','btnGiaoBan','btnQuickNote']
     .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
@@ -14909,10 +15024,16 @@ function enterNbScreen(){
   document.getElementById('nbTab3').style.display='flex';
   var tab5Btn=document.getElementById('nbTab5');
   var tab6Btn=document.getElementById('nbTab6');
+  var tab7Btn=document.getElementById('nbTab7');
   var canHis = isA || !!nbCurrentUser.canHis;
   var canPttt = isA || !!nbCurrentUser.canPttt;
+  var canDuty = isA || !!nbCurrentUser.canDuty;
   if(tab5Btn) tab5Btn.style.display = canHis ? '' : 'none';
   if(tab6Btn) tab6Btn.style.display = canPttt ? '' : 'none';
+  // Tab "Kiểm sĩ số trực": mặc định ẨN với NV, chỉ hiện cho Admin hoặc người được Admin tích riêng
+  // ở màn Phân quyền (cột "Kiểm sĩ số trực"). Không phụ thuộc vào công tắc ẩn/hiện chung (SFV) nữa
+  // vì đây là quyền theo TỪNG NGƯỜI, cụ thể hơn.
+  if(tab7Btn) tab7Btn.style.display = canDuty ? '' : 'none';
   nbPopulatePersonSelect();
   nbUpdateTime();
   // Init form after brief delay to ensure DOM is painted
@@ -15091,6 +15212,7 @@ function switchNbTab(n){
   if(nbCurrentUser && nbCurrentUser.role!=='admin'){
     if(n===5 && !nbCurrentUser.canHis) return;
     if(n===6 && !nbCurrentUser.canPttt) return;
+    if(n===7 && !nbCurrentUser.canDuty) return;
   }
   // Nếu tab này đang bị Admin ẩn với Nhân viên (qua "Chức năng cho NV") thì chặn luôn, không cho vào.
   if(typeof sfvConfig!=='undefined' && !(nbCurrentUser && nbCurrentUser.role==='admin')){
@@ -19552,7 +19674,7 @@ function nbCancelEditMode(){
 
 /* ══ PHÂN QUYỀN ══ */
 var pqRef2=db.ref('phanQuyen'),pqData2={};
-var pqMods2=[{key:'is_admin',label:'Admin HT',color:'#b71c1c',icon:'ti-shield-check'},{key:'kanban',label:'Xem BC CV',color:'#2d6a1f',icon:'ti-layout-kanban'},{key:'nghibu',label:'ĐK Nghỉ Bù',color:'#1565C0',icon:'ti-calendar-off'},{key:'nghibu_view',label:'Xem Nghỉ Bù',color:'#0d47a1',icon:'ti-eye'},{key:'nghiphep',label:'ĐK Nghỉ Phép',color:'#00695c',icon:'ti-beach'},{key:'nghiphep_view',label:'Xem Nghỉ Phép',color:'#004d40',icon:'ti-eye'},{key:'doichieu_his',label:'Đối chiếu HIS',color:'#e65100',icon:'ti-clipboard-check'},{key:'doichieu_pttt',label:'Đối chiếu PTTT',color:'#c62828',icon:'ti-stethoscope'}];
+var pqMods2=[{key:'is_admin',label:'Admin HT',color:'#b71c1c',icon:'ti-shield-check'},{key:'kanban',label:'Xem BC CV',color:'#2d6a1f',icon:'ti-layout-kanban'},{key:'nghibu',label:'ĐK Nghỉ Bù',color:'#1565C0',icon:'ti-calendar-off'},{key:'nghibu_view',label:'Xem Nghỉ Bù',color:'#0d47a1',icon:'ti-eye'},{key:'nghiphep',label:'ĐK Nghỉ Phép',color:'#00695c',icon:'ti-beach'},{key:'nghiphep_view',label:'Xem Nghỉ Phép',color:'#004d40',icon:'ti-eye'},{key:'doichieu_his',label:'Đối chiếu HIS',color:'#e65100',icon:'ti-clipboard-check'},{key:'doichieu_pttt',label:'Đối chiếu PTTT',color:'#c62828',icon:'ti-stethoscope'},{key:'kiem_si_so_truc',label:'Kiểm sĩ số trực',color:'#6a1e7e',icon:'ti-users-group'}];
 function pqRender(){pqRef2.once('value').then(function(s){pqData2=s.val()||{};pqBuild2();}).catch(pqBuild2);}
 function pqBuild2(){var el=document.getElementById('pqTable');if(!el)return;var list=[...staffList].sort(function(a,b){return a.localeCompare(b,'vi');});if(!list.length){el.innerHTML='<p style="text-align:center;color:#aaa">Chưa có nhân viên</p>';return;}var h='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f3e5f5"><th style="padding:9px 10px;text-align:left;border-bottom:2px solid #ce93d8;color:#4a148c">Nhân viên</th>';pqMods2.forEach(function(m){h+='<th style="padding:9px 6px;text-align:center;border-bottom:2px solid #ce93d8;color:'+m.color+';min-width:80px"><i class="ti '+m.icon+'"></i><br><span style="font-size:10px">'+m.label+'</span></th>';});h+='<th style="padding:9px 6px;text-align:center;border-bottom:2px solid #ce93d8;color:#b71c1c;min-width:130px"><i class="ti ti-key"></i><br><span style="font-size:10px">Mật khẩu Admin</span></th>';h+='<th style="padding:9px 6px;text-align:center;border-bottom:2px solid #ce93d8;color:#0d47a1;min-width:150px"><i class="ti ti-lock"></i><br><span style="font-size:10px">Mật khẩu xem DS phiếu<br>(Nghỉ bù/Nghỉ phép)</span></th>';h+='</tr></thead><tbody>';list.forEach(function(name,i){var p=pqData2[name]||{},ev=i%2===1?'background:#faf5ff':'';h+='<tr style="'+ev+'"><td style="padding:8px 10px;font-weight:600;border-bottom:1px solid #f0e6ff">'+esc(name)+'</td>';pqMods2.forEach(function(m){h+='<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #f0e6ff"><input type="checkbox" data-name="'+esc(name)+'" data-mod="'+m.key+'"'+(p[m.key]?' checked':'')+' style="width:17px;height:17px;cursor:pointer;accent-color:'+m.color+'"></td>';});h+='<td style="text-align:center;padding:6px;border-bottom:1px solid #f0e6ff"><input type="password" data-name="'+esc(name)+'" data-passfor="is_admin" value="'+esc(p.adminPass||'')+'" placeholder="Để trống = không cần mật khẩu" style="width:120px;padding:4px 6px;font-size:11px;border:1.5px solid #e0b0e8;border-radius:6px;font-family:monospace"></td>';h+='<td style="text-align:center;padding:6px;border-bottom:1px solid #f0e6ff"><input type="password" data-name="'+esc(name)+'" data-passfor="ds_phieu" value="'+esc(p.dsPhieuPass||'')+'" placeholder="Để trống = không cần" style="width:120px;padding:4px 6px;font-size:11px;border:1.5px solid #90caf9;border-radius:6px;font-family:monospace"></td>';h+='</tr>';});h+='</tbody></table>';el.innerHTML=h;}
 function pqSaveAll(){
@@ -23662,16 +23784,25 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       </div>
     </div>
 
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <label style="font-size:12.5px;font-weight:700;color:#00473e">Lọc trạng thái:</label>
+      <select id="dctdStatusFilter" onchange="dctdRenderAll()" style="padding:6px 10px;border:1.5px solid #b2dfdb;border-radius:8px;font-size:12.5px;font-family:inherit;background:#fff;color:#00473e">
+        <option value="">Tất cả trạng thái</option>
+        <option value="todo">⏳ Chưa xử lý</option>
+        <option value="doing">⚙ Đang xử lý</option>
+        <option value="done">✅ Đã bồi hoàn / khắc phục</option>
+      </select>
+    </div>
     <div style="display:flex;gap:14px;flex-wrap:wrap">
-      <div style="flex:1;min-width:290px">
+      <div id="dctdColWrapTodo" style="flex:1;min-width:290px">
         <div style="background:#fef3e0;border:1.5px solid #f0d9a8;border-radius:10px 10px 0 0;padding:9px 14px;font-weight:700;font-size:13px;color:#8a6100">⏳ Chưa xử lý (<span id="dctdCountTodo">0</span>)</div>
         <div id="dctdColTodo" style="background:#fafafa;border:1.5px solid #eee;border-top:none;border-radius:0 0 10px 10px;padding:10px;min-height:80px;display:flex;flex-direction:column;gap:10px"></div>
       </div>
-      <div style="flex:1;min-width:290px">
+      <div id="dctdColWrapDoing" style="flex:1;min-width:290px">
         <div style="background:#e3f2fd;border:1.5px solid #bbdefb;border-radius:10px 10px 0 0;padding:9px 14px;font-weight:700;font-size:13px;color:#0d47a1">⚙ Đang xử lý (<span id="dctdCountDoing">0</span>)</div>
         <div id="dctdColDoing" style="background:#fafafa;border:1.5px solid #eee;border-top:none;border-radius:0 0 10px 10px;padding:10px;min-height:80px;display:flex;flex-direction:column;gap:10px"></div>
       </div>
-      <div style="flex:1;min-width:290px">
+      <div id="dctdColWrapDone" style="flex:1;min-width:290px">
         <div style="background:#e0f2ef;border:1.5px solid #b2dfdb;border-radius:10px 10px 0 0;padding:9px 14px;font-weight:700;font-size:13px;color:#00695c">✅ Đã bồi hoàn / khắc phục (<span id="dctdCountDone">0</span>)</div>
         <div id="dctdColDone" style="background:#fafafa;border:1.5px solid #eee;border-top:none;border-radius:0 0 10px 10px;padding:10px;min-height:80px;display:flex;flex-direction:column;gap:10px"></div>
       </div>
@@ -32189,6 +32320,13 @@ window.dctdMoveStatus=function(id,st){
     '</div>';
   }
   window.dctdRenderAll=function(){
+    var stFilter=document.getElementById('dctdStatusFilter')?document.getElementById('dctdStatusFilter').value:'';
+    var wrapTodo=document.getElementById('dctdColWrapTodo');
+    var wrapDoing=document.getElementById('dctdColWrapDoing');
+    var wrapDone=document.getElementById('dctdColWrapDone');
+    if(wrapTodo) wrapTodo.style.display=(!stFilter||stFilter==='todo')?'':'none';
+    if(wrapDoing) wrapDoing.style.display=(!stFilter||stFilter==='doing')?'':'none';
+    if(wrapDone) wrapDone.style.display=(!stFilter||stFilter==='done')?'':'none';
     var td=dctdRecords.filter(function(r){return r.status==='todo';}).sort(function(a,b){return dctdCalcDays(b)-dctdCalcDays(a);});
     var dg=dctdRecords.filter(function(r){return r.status==='doing';}).sort(function(a,b){return dctdCalcDays(b)-dctdCalcDays(a);});
     var dn=dctdRecords.filter(function(r){return r.status==='done';}).sort(function(a,b){return (b.doneAt||'').localeCompare(a.doneAt||'');});
