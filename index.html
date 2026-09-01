@@ -46600,12 +46600,14 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         <button class="tbtn" onclick="nvkOpenEdit(-1)" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-user-plus"></i> Thêm nhân viên</button>
         <button class="tbtn" onclick="document.getElementById('nvkImportFile').click()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-file-spreadsheet"></i> Nhập từ Excel</button>
         <button class="tbtn" onclick="nvkPullCCHNFromCme()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-certificate"></i> Lấy Số CCHN từ CNKT</button>
+        <button class="tbtn" onclick="nvkImportContact116()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-address-book"></i> Nhập SĐT/Email/CCCD (116 người)</button>
         <input type="file" id="nvkImportFile" accept=".xlsx,.xls" style="display:none" onchange="nvkImportExcel(this.files[0])">
         <a href="javascript:void(0)" onclick="nvkShowImportHelp()" style="color:#fff;font-size:11.5px;text-decoration:underline;align-self:center">định dạng file?</a>
         <button class="tbtn" onclick="nvkOpenGroupManage()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-tags"></i> Quản lý nhóm</button>
       </span>
       <button class="tbtn" onclick="nvkExportExcel()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
       <button class="tbtn" onclick="nvkExportWord()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-file-word"></i> Xuất Word</button>
+      <button class="tbtn" onclick="nvkPrintList()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-printer"></i> In danh sách</button>
       <button class="tbtn" id="nvkWideBtn" onclick="kpiToggleWideBox('nvkMainBox','nvkWideBtn')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
@@ -46623,12 +46625,16 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         <select id="nvkVanBangFilter" onchange="nvkRender()" style="padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="">Tất cả văn bằng</option>
         </select>
+        <select id="nvkSortMode" onchange="nvkRender()" style="padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
+          <option value="hoten">Sắp xếp: Họ và tên (A-Z)</option>
+          <option value="ten">Sắp xếp: Tên (A-Z)</option>
+        </select>
         <span id="nvkCount" style="font-size:12.5px;color:#555;white-space:nowrap"></span>
       </div>
       <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
         <table class="nvk-table">
-          <thead><tr><th>#</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Thao tác</th></tr></thead>
-          <tbody id="nvkTbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr></tbody>
+          <thead><tr><th>#</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th><th>Thao tác</th></tr></thead>
+          <tbody id="nvkTbody"><tr><td colspan="12" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -46647,6 +46653,9 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Chức vụ (để trống nếu không có)</label><input type="text" id="nvkEChucVu" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
     <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Văn bằng</label><input type="text" id="nvkEVanBang" placeholder="VD: CNĐD, BS CKI…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
     <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Số chứng chỉ hành nghề (CCHN)</label><input type="text" id="nvkESoCCHN" placeholder="Để trống nếu không có" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Số điện thoại</label><input type="text" id="nvkESdt" placeholder="VD: 0977020129" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Địa chỉ Email</label><input type="text" id="nvkEEmail" placeholder="VD: ten@gmail.com" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Số định danh cá nhân (CCCD)</label><input type="text" id="nvkESoDinhDanh" placeholder="Để trống nếu không có" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
       <button onclick="nvkCloseEdit()" style="background:#fff;color:#555;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">Hủy</button>
       <button onclick="nvkSaveEdit()" style="background:#283593;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu</button>
@@ -47542,11 +47551,18 @@ function nvkFmtD(iso){
   var p = String(iso).split('-');
   return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : iso;
 }
+// Lấy "Tên chính" (từ cuối cùng) trong Họ và tên đầy đủ — dùng để xếp danh sách theo Tên (A-Z)
+// đúng quy ước hành chính Việt Nam (VD "Nguyễn Văn An" xếp vào vần "A", không phải vần "N").
+function nvkTenChinh(hoTen){
+  var parts = String(hoTen||'').trim().split(/\s+/);
+  return parts.length ? parts[parts.length-1] : '';
+}
 function nvkGetFilteredList(){
   var q = nvkNoAccent((document.getElementById('nvkSearch')||{}).value || '');
   var donVi = (document.getElementById('nvkDonViFilter')||{}).value || '';
   var nhom = (document.getElementById('nvkNhomFilter')||{}).value || '';
   var vanBang = (document.getElementById('nvkVanBangFilter')||{}).value || '';
+  var sortMode = (document.getElementById('nvkSortMode')||{}).value || 'hoten';
   return nvkList.filter(function(e){
     if(donVi && e.donVi!==donVi) return false;
     if(nhom && e.nhom!==nhom) return false;
@@ -47554,7 +47570,13 @@ function nvkGetFilteredList(){
     if(!q) return true;
     var hay = nvkNoAccent((e.ten||'')+' '+(e.donVi||'')+' '+(e.nhom||'')+' '+(e.chucVu||'')+' '+(e.vanBang||''));
     return hay.indexOf(q) > -1;
-  }).sort(function(a,b){ return (a.ten||'').localeCompare(b.ten||'', 'vi'); });
+  }).sort(function(a,b){
+    if(sortMode==='ten'){
+      var r = nvkTenChinh(a.ten).localeCompare(nvkTenChinh(b.ten), 'vi');
+      return r!==0 ? r : (a.ten||'').localeCompare(b.ten||'', 'vi');
+    }
+    return (a.ten||'').localeCompare(b.ten||'', 'vi');
+  });
 }
 function nvkRender(){
   var tb = document.getElementById('nvkTbody');
@@ -47563,11 +47585,11 @@ function nvkRender(){
   var list = nvkGetFilteredList();
   if(cnt) cnt.textContent = list.length + ' / ' + nvkList.length + ' người';
   if(!nvkList.length){
-    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
+    tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
     return;
   }
   if(!list.length){
-    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
     return;
   }
   tb.innerHTML = list.map(function(e,i){
@@ -47581,6 +47603,9 @@ function nvkRender(){
       + '<td>'+(e.chucVu?'<span class="nvk-badge">'+nvkEsc(e.chucVu)+'</span>':'')+'</td>'
       + '<td>'+nvkEsc(e.vanBang||'')+'</td>'
       + '<td>'+nvkEsc(e.soCCHN||'')+'</td>'
+      + '<td>'+nvkEsc(e.sdt||'')+'</td>'
+      + '<td>'+nvkEsc(e.email||'')+'</td>'
+      + '<td>'+nvkEsc(e.soDinhDanh||'')+'</td>'
       + '<td style="white-space:nowrap">'
         + (nvkIsAdmin() ? (
           '<button onclick="nvkOpenEdit('+idx+')" style="background:#fff;color:#283593;border:1.5px solid #283593;border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> Sửa</button> '
@@ -47594,7 +47619,7 @@ var nvkEditingIdx = -1;
 function nvkOpenEdit(idx){
   if(!nvkIsAdmin()){ alert('⚠️ Chỉ Quản lý mới sửa/thêm được nhân viên ở đây. Anh vào Trang chủ đăng nhập Quản lý trước.'); return; }
   nvkEditingIdx = idx;
-  var e = (idx>=0) ? nvkList[idx] : {ten:'',ngaySinh:'',donVi:'',nhom:'',chucVu:'',vanBang:''};
+  var e = (idx>=0) ? nvkList[idx] : {ten:'',ngaySinh:'',donVi:'',nhom:'',chucVu:'',vanBang:'',sdt:'',email:'',soDinhDanh:''};
   var nhomSel = document.getElementById('nvkENhom');
   if(nhomSel) nhomSel.innerHTML = '<option value="">— Chưa xếp nhóm —</option>' + nvkNhomOptions.map(function(n){ return '<option value="'+nvkEsc(n)+'"'+(e.nhom===n?' selected':'')+'>'+nvkEsc(n)+'</option>'; }).join('');
   document.getElementById('nvkEditTitle').textContent = (idx>=0) ? 'Sửa thông tin nhân viên' : 'Thêm nhân viên mới';
@@ -47604,6 +47629,9 @@ function nvkOpenEdit(idx){
   document.getElementById('nvkEChucVu').value = e.chucVu||'';
   document.getElementById('nvkEVanBang').value = e.vanBang||'';
   document.getElementById('nvkESoCCHN').value = e.soCCHN||'';
+  document.getElementById('nvkESdt').value = e.sdt||'';
+  document.getElementById('nvkEEmail').value = e.email||'';
+  document.getElementById('nvkESoDinhDanh').value = e.soDinhDanh||'';
   document.getElementById('nvkEditModal').classList.add('on');
   setTimeout(function(){ document.getElementById('nvkEHoTen').focus(); }, 60);
 }
@@ -47621,7 +47649,10 @@ function nvkSaveEdit(){
     nhom: document.getElementById('nvkENhom').value || '',
     chucVu: document.getElementById('nvkEChucVu').value.trim(),
     vanBang: document.getElementById('nvkEVanBang').value.trim(),
-    soCCHN: document.getElementById('nvkESoCCHN').value.trim()
+    soCCHN: document.getElementById('nvkESoCCHN').value.trim(),
+    sdt: document.getElementById('nvkESdt').value.trim(),
+    email: document.getElementById('nvkEEmail').value.trim(),
+    soDinhDanh: document.getElementById('nvkESoDinhDanh').value.trim()
   };
   var newList = nvkList.slice();
   if(nvkEditingIdx>=0){ newList[nvkEditingIdx] = entry; } else { newList.push(entry); }
@@ -47681,6 +47712,35 @@ function nvkPullCCHNFromCme(){
   }).catch(function(err){
     alert('Không đọc được dữ liệu CNKT: '+err.message);
   });
+}
+// Danh sách 116 nhân viên khoa GMHS đã hoàn thành "Bình dân học vụ số" — kèm Số định danh cá nhân,
+// Số điện thoại, Email — trích từ file Danh sách gửi (chỉ dùng 1 lần để nhập nhanh, không tự ghi).
+var NVK_CONTACT_116 = [{"ten": "Cao Việt Thắng", "soDinhDanh": "052079034712", "sdt": "0977020129", "email": "Caovietthang24@gmail.com"}, {"ten": "Đặng Hồ Hồng Phi", "soDinhDanh": "052175011342", "sdt": "0905431311", "email": "danghohongphiqn2019@gmail.com"}, {"ten": "Đặng Thị Mỹ Lai", "soDinhDanh": "052190010474", "sdt": "0979035790", "email": "liartm39@gmail.com"}, {"ten": "Đặng Thu Hiền", "soDinhDanh": "052187014157", "sdt": "0935991107", "email": "Dangthuhien.giaphuoc@gmail.com"}, {"ten": "Đặng Văn Cảnh", "soDinhDanh": "052070022868", "sdt": "0989821195", "email": "dangcanh218@gmail.com"}, {"ten": "Đào Thị Phương Thúy", "soDinhDanh": "052198010944", "sdt": "0386565876", "email": "phuongthuyab4@gmail.com"}, {"ten": "Đinh Kim Vũ", "soDinhDanh": "052089007790", "sdt": "0977480119", "email": "mrdkv1989@gmail.com"}, {"ten": "Đinh Thị Thu Hoài", "soDinhDanh": "064190012861", "sdt": "0905547353", "email": "hoainghia192@gmail.com"}, {"ten": "Đỗ Hồ Mỹ Hạnh", "soDinhDanh": "052191013521", "sdt": "0912339456", "email": "Hanh.ruby187@gmail.com"}, {"ten": "Đỗ Kim Oanh", "soDinhDanh": "052180008821", "sdt": "0367015109", "email": "dokimoanh615@gmail.com"}, {"ten": "Đỗ Lê Thanh Ngọc", "soDinhDanh": "052192008846", "sdt": "0345593929", "email": "Dolethanhngoc@gmail.com"}, {"ten": "Đỗ Ngọc Vũ", "soDinhDanh": "052096009554", "sdt": "0934920290", "email": "vudn_bvt@syt.gialai.gov.vn"}, {"ten": "Đỗ Thành Khương", "soDinhDanh": "052089015756", "sdt": "0773577879", "email": "thanhkhuonggm89@gmail.com"}, {"ten": "Đỗ Thị Ngọc Diễm", "soDinhDanh": "052193017239", "sdt": "0386162895", "email": "Ngocdiem5393@gmail.com"}, {"ten": "Đỗ Thị Thúy Sinh", "soDinhDanh": "052189003678", "sdt": "0963383337", "email": "Sinh1989@gmail.com"}, {"ten": "Hồ Thái Nhiều", "soDinhDanh": "052083003744", "sdt": "0962061136", "email": "hothainhieu@gmail.com"}, {"ten": "Hồ Thị Chúng", "soDinhDanh": "052190010258", "sdt": "0976106386", "email": "hothichungqn@gmail.com"}, {"ten": "Hồ Thị Mỹ", "soDinhDanh": "052195015988", "sdt": "0388143615", "email": "mymyht95@gmail.com"}, {"ten": "Hoàng Minh Hải", "soDinhDanh": "052082013569", "sdt": "0977199070", "email": "hoangminhhai1980@gmail.com"}, {"ten": "Hoàng Thị Ngọc Lan", "soDinhDanh": "044182004924", "sdt": "0369527838", "email": "Hoangthingoclan2024.ng@mal.com"}, {"ten": "Hứa Hữu Tuấn", "soDinhDanh": "052089004269", "sdt": "0983394294", "email": "drhuutuan@gmail.com"}, {"ten": "Huỳnh Thị Kim Hồng", "soDinhDanh": "052198005785", "sdt": "0358201212", "email": "huynhhong121198@icloud.com"}, {"ten": "Huỳnh Thị Ngọc Thơ", "soDinhDanh": "052188009464", "sdt": "0367421877", "email": "Tho1988@gmail.com"}, {"ten": "Huỳnh Thị Sự", "soDinhDanh": "052182000392", "sdt": "0974856854", "email": "huynhthisu82@gmail.com"}, {"ten": "La Thị Thanh Trà", "soDinhDanh": "052191020010", "sdt": "0393556049", "email": "Lantea.t.la265@gmail.com"}, {"ten": "Lê Quốc Triều", "soDinhDanh": "052094001210", "sdt": "0354568078", "email": "quoctrieu081094@gmail.com"}, {"ten": "Lê Thị Ái Phương", "soDinhDanh": "052181016586", "sdt": "0705992903", "email": "lethiaiphuong26011981@gmail.com"}, {"ten": "Lê Thị Huệ", "soDinhDanh": "052190017539", "sdt": "0934824300", "email": "lehue05071990@gmail.com"}, {"ten": "Lê Thị Kim Sao", "soDinhDanh": "052191004187", "sdt": "0349568496", "email": "lekimsaoqn2025@gmail.com"}, {"ten": "Lê Thị Kim Thịnh", "soDinhDanh": "052189010229", "sdt": "0963218215", "email": "Lethikimthinh2711@gmail.com"}, {"ten": "Lê Thị Mạnh Quyền", "soDinhDanh": "052192011183", "sdt": "0333235850", "email": "manhquyenle91@gmail.com"}, {"ten": "Lê Thị Thanh Hương", "soDinhDanh": "052171009945", "sdt": "0368110196", "email": "Huongle1971@gmail.com"}, {"ten": "Lê Thị Thúy Vân", "soDinhDanh": "052173003083", "sdt": "0969910241", "email": "Thuyvan9373@gmail.com"}, {"ten": "Lê Văn Kha", "soDinhDanh": "052076004920", "sdt": "0945564999", "email": "lekhadieutri1976@gmail.com"}, {"ten": "Lê Văn Long", "soDinhDanh": "052092010421", "sdt": "0968932802", "email": "tieuhacklong2020@gmail.com"}, {"ten": "Lê Văn Thủy", "soDinhDanh": "052074016582", "sdt": "0914228517", "email": "bsthuy74@gmail.com"}, {"ten": "Lê Võ Thu", "soDinhDanh": "052089004814", "sdt": "0379631419", "email": "Vothu2112@gmail.com"}, {"ten": "Lương Phan Thu Hằng", "soDinhDanh": "052188015828", "sdt": "0336424617", "email": "Hang1988@gmail.com"}, {"ten": "Ngô Thị Hồng Diễm", "soDinhDanh": "052182013623", "sdt": "0382935649", "email": "Diem1982@gmail.com"}, {"ten": "Ngô Thị Lẹ", "soDinhDanh": "052190018635", "sdt": "0965188479", "email": "ngothile020290@gmail.com"}, {"ten": "Ngô Thị Nhựt", "soDinhDanh": "052187010108", "sdt": "0978630450", "email": "Ngothinhut2018@gmail.com"}, {"ten": "Nguyễn Cảnh Muộn", "soDinhDanh": "052076003252", "sdt": "0914076122", "email": "muonnguyencanh@gmail.com"}, {"ten": "Nguyễn Chí Bảo", "soDinhDanh": "052097012577", "sdt": "0985544719", "email": "baochinguyenydh@gmail.com"}, {"ten": "Nguyễn Đình Kim Loan", "soDinhDanh": "052172027105", "sdt": "0905528929", "email": "loankim.vn123@icloud.com"}, {"ten": "Nguyễn Đình Thắng", "soDinhDanh": "040089015186", "sdt": "0988810029", "email": "Thang22189@gmail.com"}, {"ten": "Nguyễn Duy Mỹ", "soDinhDanh": "052077002570", "sdt": "0914134270", "email": "duymy201175@gmail.com"}, {"ten": "Nguyễn Hà Tiến Dũng", "soDinhDanh": "052076019753", "sdt": "0913413196", "email": "luck8899doctor@gmail.com"}, {"ten": "Nguyễn Hoàng Sơn Nữ", "soDinhDanh": "052177012579", "sdt": "0794782768", "email": "Nguyenhoangsonnu1977@gmail.com"}, {"ten": "Nguyễn Hữu Phước", "soDinhDanh": "052095014478", "sdt": "039565908", "email": "nguyenhuuphuoc130595@gmail.com"}, {"ten": "Nguyễn Kim Sơn", "soDinhDanh": "052075019965", "sdt": "0906751166", "email": "sonnk_bvt@syt.gialai.gov.vn"}, {"ten": "Nguyễn Phan Anh Quân", "soDinhDanh": "027068011695", "sdt": "0914282986", "email": "Quannguyen593@gmail.com"}, {"ten": "Nguyễn Tài Thu", "soDinhDanh": "052088001485", "sdt": "0966990012", "email": "ngtaithu@gmail.com"}, {"ten": "Nguyễn Thành", "soDinhDanh": "040070004953", "sdt": "0914068550", "email": "nguyenthanhbs69@gmail.com"}, {"ten": "Nguyễn Thanh Hoàng", "soDinhDanh": "052081010125", "sdt": "0916467298", "email": "nguyenthanhhoanggmhs@gmail.com"}, {"ten": "Nguyễn Thị Bích Thủy", "soDinhDanh": "052194012073", "sdt": "0355661650", "email": "Nguyenbichthuy406@gmail.com"}, {"ten": "Nguyễn Thị Diệu My", "soDinhDanh": "052190008625", "sdt": "0395325504", "email": "dieumynguyen700@gmail.com"}, {"ten": "Nguyễn Thị Hảo", "soDinhDanh": "052187012003", "sdt": "0382034098", "email": "haonguyen261020@gmail.com"}, {"ten": "Nguyễn Thị Hồng Nhi", "soDinhDanh": "052189011433", "sdt": "0382202089", "email": "Nhigm00@gmail.com"}, {"ten": "Nguyễn Thị Minh Châu", "soDinhDanh": "052192021789", "sdt": "0966987837", "email": "ntmchau102@gmail.com"}, {"ten": "Nguyễn Thị Ngọc Mỹ", "soDinhDanh": "054184007118", "sdt": "0906542281", "email": "My1984@gmail.com"}, {"ten": "Nguyễn Thị Quỳnh Thoa", "soDinhDanh": "052192024463", "sdt": "0795507592", "email": "quynhthoa1992qn@gmail.com"}, {"ten": "Nguyễn Thị Thanh Nhi", "soDinhDanh": "051191004068", "sdt": "0375682542", "email": "Thanhnhi23121991@gmail.com"}, {"ten": "Nguyễn Thị Thúy Hằng", "soDinhDanh": "052191014839", "sdt": "0963475524", "email": "bonguyen16052018@gmail.com"}, {"ten": "Nguyễn Thị Út", "soDinhDanh": "052176014006", "sdt": "0399970054", "email": "nguyenthiut30081976@gmail.com"}, {"ten": "Nguyễn Thị Xuân Thảo", "soDinhDanh": "052190002724", "sdt": "0983598253", "email": "Nguyenthixuanthao904@gmail.com"}, {"ten": "Nguyễn Tiến Dũng", "soDinhDanh": "033066010188", "sdt": "0914123980", "email": "nguyentiendung241966@gmail.com"}, {"ten": "Nguyễn Trung Thành", "soDinhDanh": "052074011828", "sdt": "0905127333", "email": "trungthanhgmhs1974@gmail.com"}, {"ten": "Nguyễn Văn Chinh", "soDinhDanh": "052082015268", "sdt": "0979038630", "email": "Chinhgayme@gmail.com"}, {"ten": "Nguyễn Văn Chung", "soDinhDanh": "052079026508", "sdt": "0914012604", "email": "Vanchungquynhon2018@gmail.com"}, {"ten": "Nguyễn Văn Thương", "soDinhDanh": "042092003377", "sdt": "0982481345", "email": "drnvt1812@gmail.com"}, {"ten": "Nguyễn Văn Tuy", "soDinhDanh": "052076006183", "sdt": "0914123927", "email": "nvtuy2019@gmail.com"}, {"ten": "Nguyễn Vũ Cẩm Tú", "soDinhDanh": "052186003536", "sdt": "0778075099", "email": "vucamtu86@gmail.com"}, {"ten": "Nguyễn Xuân Hiền", "soDinhDanh": "052087016713", "sdt": "0377198903", "email": "Hienbvdkbd@.gmai.com"}, {"ten": "Nguyễn Xuân Hoài", "soDinhDanh": "052080018694", "sdt": "0905358927", "email": "xuanhoainguyen7980@gmail.com"}, {"ten": "Phạm Thị Chiến", "soDinhDanh": "052189007666", "sdt": "0369871826", "email": "ptchien.2709@gmail.com"}, {"ten": "Phạm Thị Hoàng Cúc", "soDinhDanh": "052193023211", "sdt": "0366484569", "email": "pthcuc.bvdk@gmail.com"}, {"ten": "Phạm Thị Kim Cúc", "soDinhDanh": "052172021665", "sdt": "0935772207", "email": "phamcucqn 2020@gmail.com"}, {"ten": "Phạm Thị Thu Thảo", "soDinhDanh": "052171016581", "sdt": "0398458115", "email": "Thao1971@gmail.com"}, {"ten": "Phan Quốc Sang", "soDinhDanh": "052073012468", "sdt": "0914232977", "email": "quocsang200473@gmail.com"}, {"ten": "Phan Thảo Vy", "soDinhDanh": "052302008964", "sdt": "0903530885", "email": "Vythao00111@gmail.com"}, {"ten": "Phan Thị Hòa", "soDinhDanh": "052172035211", "sdt": "0356149362", "email": "Thihoaphan1972@gmail.com"}, {"ten": "Phan Thị Mỹ Duyên", "soDinhDanh": "052196011890", "sdt": "0969247915", "email": "Congchuanho395@gmail.com"}, {"ten": "Phan Thị Thanh Nga", "soDinhDanh": "052181009441", "sdt": "0964162681", "email": "ngaptt.81@gmail.com"}, {"ten": "Thân Hoàng Khang", "soDinhDanh": "054076006368", "sdt": "0965220207", "email": "khanghoangpy78@gmail.com"}, {"ten": "Thân Thị Liễu", "soDinhDanh": "052191004067", "sdt": "0985291067", "email": "thanthilieu2025@gmail.com"}, {"ten": "Trần Bá Quyền", "soDinhDanh": "052091009625", "sdt": "0935201820", "email": "baquyenphumy@gmail.com"}, {"ten": "Trần Đăng Trung", "soDinhDanh": "025070014194", "sdt": "0903503330", "email": "dangtrungqn19@gmail.com"}, {"ten": "Trần Đình Bản", "soDinhDanh": "052095017259", "sdt": "0985984481", "email": "trandinhban995@gmail.com"}, {"ten": "Trần Đình Duy", "soDinhDanh": "052087010546", "sdt": "0974248059", "email": "dinhduybvdkbd@gmail.com"}, {"ten": "Trần Quốc Khang", "soDinhDanh": "052077015247", "sdt": "0914119891", "email": "khangtran270277@gmail.com"}, {"ten": "Trần Thị Bích Tuyền", "soDinhDanh": "052300011086", "sdt": "0326981953", "email": "tbtuyenmc@gmail.com"}, {"ten": "Trần Thị Cẩm Nhung", "soDinhDanh": "052188001810", "sdt": "0796478953", "email": "Tranthicamnhung.20011988@gmail.com"}, {"ten": "Trần Thị Dung", "soDinhDanh": "052179019779", "sdt": "0983417106", "email": "bstrandungqn@gmai.com"}, {"ten": "Trần Thị Lệ Tuyết", "soDinhDanh": "052172031882", "sdt": "0367387932", "email": "Tuyet1972@gmail.com"}, {"ten": "Trần Thị Mỹ Dung", "soDinhDanh": "052185005394", "sdt": "0905675605", "email": "trandung22101985@gmail.com"}, {"ten": "Trần Thị Ngâng", "soDinhDanh": "052183009786", "sdt": "0974805050", "email": "tranthingan061083@gmail.com"}, {"ten": "Trần Thị Thanh Huyền", "soDinhDanh": "046193005451", "sdt": "0969004299", "email": "huygoo@gmail.com"}, {"ten": "Trần Thị Thu Thảo", "soDinhDanh": "052189018092", "sdt": "0705873318", "email": "Thaohl1989@gmail.com"}, {"ten": "Trần Tiến Thành", "soDinhDanh": "052084018434", "sdt": "0935374310", "email": "tienthanh2411bvdk@gmail.com"}, {"ten": "Trần Văn Đại", "soDinhDanh": "052092011973", "sdt": "0969645699", "email": "tranvandai77qn@gmail.com"}, {"ten": "Trần Xuân Hùng", "soDinhDanh": "052078006159", "sdt": "0905412734", "email": "tranxuanhungg1203@gmail.cơm"}, {"ten": "Trương Đình Trí", "soDinhDanh": "052090007337", "sdt": "0906545009", "email": "truongdinhtri2211@gmail.com"}, {"ten": "Trương Ngọc Báu", "soDinhDanh": "044182004770", "sdt": "0399279699", "email": "truongngocbau09101982@gmail.com"}, {"ten": "Trương Thị Bích Liễu", "soDinhDanh": "052181015125", "sdt": "0942235554", "email": "tbichlieu@gmail.com"}, {"ten": "Trương Thị Gia Ly Ly", "soDinhDanh": "052178011794", "sdt": "0935056407", "email": "truonggialy6@gmail.com"}, {"ten": "Trương Thị Thu Hằng", "soDinhDanh": "052183014252", "sdt": "0818984898", "email": "thuhangtruong436@gmail.com"}, {"ten": "Trương Thị Tín", "soDinhDanh": "052193018992", "sdt": "0984173426", "email": "TrươngThiTin.2023@gmail.com"}, {"ten": "Trương Văn Pháp", "soDinhDanh": "052086005888", "sdt": "0974221552", "email": "Truongvanphap130286@gmail.com"}, {"ten": "Võ Đình Tây", "soDinhDanh": "052072008058", "sdt": "0775512450", "email": "tayvotrinh@gmail.com"}, {"ten": "Võ Đông Kinh", "soDinhDanh": "052094017970", "sdt": "0962855250", "email": "dr.kinh94@gmail.com"}, {"ten": "Võ Huy Cường", "soDinhDanh": "052069010366", "sdt": "0903584730", "email": "vohuycuongbsgm@gmail.com"}, {"ten": "Võ Ngọc Bình", "soDinhDanh": "052070011931", "sdt": "0914543699", "email": "Vongocbinh2017@gmail.com"}, {"ten": "Võ Ngọc Phước", "soDinhDanh": "052075009911", "sdt": "0903579678", "email": "vongocphuocqn@gmail.com"}, {"ten": "Võ Thị Tường Vi", "soDinhDanh": "052192001583", "sdt": "0982116739", "email": "Tuongvinguyenfptshop308ld@gmail.com"}, {"ten": "Võ Thị Xuân Việt", "soDinhDanh": "052192021100", "sdt": "0969232915", "email": "xuanviet.yte2@gmail.com"}, {"ten": "Vũ Thị Kim Lệ", "soDinhDanh": "052172003774", "sdt": "0983814935", "email": "Le1972@gmail.com"}];
+function nvkImportContact116(){
+  if(!nvkIsAdmin()){ alert("⚠️ Chỉ Quản lý mới nhập được dữ liệu hàng loạt ở đây."); return; }
+  var newList = nvkList.map(function(x){ return Object.assign({}, x); });
+  var soCapNhat = 0, danhSachThayDoi = [], khongKhopTen = [];
+  NVK_CONTACT_116.forEach(function(row){
+    var idxMatch = newList.findIndex(function(e){ return nvkNoAccent(e.ten)===nvkNoAccent(row.ten); });
+    if(idxMatch===-1){ khongKhopTen.push(row.ten); return; }
+    var e = newList[idxMatch], chiTiet = [], thayDoi = false;
+    if(row.sdt && row.sdt !== e.sdt){ chiTiet.push("SĐT: \"" + (e.sdt||"trống") + "\" → \"" + row.sdt + "\""); e.sdt = row.sdt; thayDoi = true; }
+    if(row.email && row.email !== e.email){ chiTiet.push("Email: \"" + (e.email||"trống") + "\" → \"" + row.email + "\""); e.email = row.email; thayDoi = true; }
+    if(row.soDinhDanh && row.soDinhDanh !== e.soDinhDanh){ chiTiet.push("Số định danh: \"" + (e.soDinhDanh||"trống") + "\" → \"" + row.soDinhDanh + "\""); e.soDinhDanh = row.soDinhDanh; thayDoi = true; }
+    if(thayDoi){ soCapNhat++; danhSachThayDoi.push(row.ten + ": " + chiTiet.join("; ")); }
+  });
+  if(!soCapNhat){
+    var msg = "Đã kiểm tra — không có gì mới để cập nhật (dữ liệu đang khớp sẵn, hoặc tên trong file không khớp ai trong danh sách hiện tại).";
+    if(khongKhopTen.length){ msg += "\n\n⚠️ " + khongKhopTen.length + " tên trong file KHÔNG khớp với ai trong danh sách hiện tại:\n" + khongKhopTen.slice(0,15).join(", ") + (khongKhopTen.length>15?"\n… và " + (khongKhopTen.length-15) + " tên khác":""); }
+    alert(msg);
+    return;
+  }
+  var thongBao = "✅ Sẽ cập nhật SĐT/Email/Số định danh cho " + soCapNhat + " người:\n\n" + danhSachThayDoi.slice(0,20).join("\n") + (danhSachThayDoi.length>20?"\n… và " + (danhSachThayDoi.length-20) + " người khác":"");
+  if(khongKhopTen.length){
+    thongBao += "\n\n⚠️ " + khongKhopTen.length + " tên trong file KHÔNG khớp với ai trong danh sách hiện tại (bị bỏ qua):\n" + khongKhopTen.slice(0,15).join(", ") + (khongKhopTen.length>15?"\n… và " + (khongKhopTen.length-15) + " tên khác":"");
+  }
+  if(!confirm(thongBao + "\n\nGhi thay đổi này lên hệ thống dùng chung ngay bây giờ?")) return;
+  nvkSaveArray(newList);
 }
 function nvkShowImportHelp(){
   alert('File Excel cần có các cột này (dòng đầu là tiêu đề, đúng tên cột, không phân biệt hoa/thường):\n\n'
@@ -47787,22 +47847,25 @@ function nvkExportExcel(){
     + '.org2{font-size:10pt;text-align:center;color:#222;font-weight:700} .th{background:#283593;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #1a237e;padding:5px}'
     + '.td{border:1px solid #c5cfe8;padding:4px 6px;font-size:10pt;vertical-align:top} .td-c{border:1px solid #c5cfe8;padding:4px 6px;text-align:center;font-size:10pt} .ev{background:#f0f2fa}</style>'
     + '</head><body><table>'
-    + '<tr><td colspan="8" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
-    + '<tr><td colspan="8" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
-    + '<tr><td colspan="8" class="title">DANH SÁCH NHÂN VIÊN</td></tr>'
-    + '<tr><td colspan="8" class="org">Xuất ngày: '+nowStr+' &nbsp;|&nbsp; Tổng số: '+list.length+' người</td></tr><tr></tr>'
-    + '<tr><td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Ngày sinh</td><td class="th">Đơn vị</td><td class="th">Nhóm</td><td class="th">Chức vụ</td><td class="th">Văn bằng</td><td class="th">Số CCHN</td></tr>';
+    + '<tr><td colspan="11" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
+    + '<tr><td colspan="11" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
+    + '<tr><td colspan="11" class="title">DANH SÁCH NHÂN VIÊN</td></tr>'
+    + '<tr><td colspan="11" class="org">Xuất ngày: '+nowStr+' &nbsp;|&nbsp; Tổng số: '+list.length+' người</td></tr><tr></tr>'
+    + '<tr><td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Ngày sinh</td><td class="th">Đơn vị</td><td class="th">Nhóm</td><td class="th">Chức vụ</td><td class="th">Văn bằng</td><td class="th">Số CCHN</td><td class="th">Số điện thoại</td><td class="th">Email</td><td class="th">Số định danh cá nhân</td></tr>';
   list.forEach(function(e,i){
     var ev = i%2===1 ? ' ev' : '';
     html += '<tr>'
       + '<td class="td-c'+ev+'">'+(i+1)+'</td>'
-      + '<td class="td'+ev+'" style="font-weight:bold">'+nvkEsc(e.ten)+'</td>'
+      + '<td class="td'+ev+'">'+nvkEsc(e.ten)+'</td>'
       + '<td class="td-c'+ev+'">'+nvkFmtD(e.ngaySinh)+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.donVi||'')+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.nhom||'')+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.chucVu||'')+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.vanBang||'')+'</td>'
-      + '<td class="td'+ev+'">'+nvkEsc(e.soCCHN||'')+'</td>'
+      + '<td class="td'+ev+'" style="mso-number-format:\'\\@\'">'+nvkEsc(e.soCCHN||'')+'</td>'
+      + '<td class="td'+ev+'" style="mso-number-format:\'\\@\'">'+nvkEsc(e.sdt||'')+'</td>'
+      + '<td class="td'+ev+'">'+nvkEsc(e.email||'')+'</td>'
+      + '<td class="td'+ev+'" style="mso-number-format:\'\\@\'">'+nvkEsc(e.soDinhDanh||'')+'</td>'
       + '</tr>';
   });
   html += '</table></body></html>';
@@ -47819,33 +47882,112 @@ function nvkExportWord(){
   var nowStr = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
   var rowsHtml = list.map(function(e,i){
     return '<tr>'
-      + '<td style="border:1px solid #000;padding:4px;text-align:center">'+(i+1)+'</td>'
-      + '<td style="border:1px solid #000;padding:4px;font-weight:bold">'+nvkEsc(e.ten)+'</td>'
-      + '<td style="border:1px solid #000;padding:4px;text-align:center">'+nvkFmtD(e.ngaySinh)+'</td>'
-      + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.donVi||'')+'</td>'
-      + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.nhom||'')+'</td>'
-      + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.chucVu||'')+'</td>'
-      + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.vanBang||'')+'</td>'
-      + '<td style="border:1px solid #000;padding:4px">'+nvkEsc(e.soCCHN||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px;text-align:center">'+(i+1)+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px;font-weight:bold">'+nvkEsc(e.ten)+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px;text-align:center">'+nvkFmtD(e.ngaySinh)+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.donVi||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.nhom||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.chucVu||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.vanBang||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.soCCHN||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.sdt||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.email||'')+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.soDinhDanh||'')+'</td>'
       + '</tr>';
   }).join('');
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
     + '<head><meta charset="UTF-8"><title>Danh sach nhan vien</title>'
     + '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->'
-    + '<style>@page Section1{size:595.0pt 842.0pt;mso-page-orientation:landscape;margin:40.0pt 30.0pt 40.0pt 30.0pt;} div.Section1{page:Section1;}'
+    + '<style>@page Section1{size:595.0pt 842.0pt;mso-page-orientation:landscape;margin:30.0pt 18.0pt 30.0pt 18.0pt;} div.Section1{page:Section1;}'
     + 'body{font-family:"Times New Roman",Times,serif;font-size:12pt;} .org{text-align:center;margin:1pt 0;font-weight:bold} h2{text-align:center;margin:8pt 0 4pt}'
-    + 'table{width:100%;border-collapse:collapse;margin-top:8pt} th{border:1px solid #000;padding:5px;background:#dbe5f1;font-size:11pt}</style>'
+    + 'table{border-collapse:collapse;margin-top:8pt} th{border:1px solid #000;padding:4px;background:#dbe5f1;font-size:8.5pt} td{font-size:8.5pt}</style>'
     + '</head><body><div class="Section1">'
     + '<p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p><p class="org">KHOA GÂY MÊ HỒI SỨC</p>'
     + '<h2>DANH SÁCH NHÂN VIÊN</h2>'
     + '<p style="text-align:center">Xuất ngày: '+nowStr+' — Tổng số: '+list.length+' người</p>'
-    + '<table><tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th></tr>'+rowsHtml+'</table>'
+    + '<table><tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th></tr>'+rowsHtml+'</table>'
     + '</div></body></html>';
   var blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'DanhSachNhanVien_GMHS_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.doc';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+// In danh sách — in đúng theo danh sách đang lọc ở ô tìm kiếm/bộ lọc hiện tại (tên, đơn vị, nhóm, văn bằng).
+// Mở cửa sổ xem trước, tự gọi lệnh in của trình duyệt; không ghi/sửa dữ liệu, không ảnh hưởng chức năng khác.
+function nvkPrintList(){
+  var list = nvkGetFilteredList();
+  if(!list.length){ alert('Không có ai trong danh sách đang lọc để in.'); return; }
+  var now = new Date();
+  var nowStr = String(now.getDate()).padStart(2,'0')+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+now.getFullYear();
+  var qEl = document.getElementById('nvkSearch');
+  var qVal = qEl ? qEl.value.trim() : '';
+  var curSort = (document.getElementById('nvkSortMode')||{}).value || 'hoten';
+  // Gửi nguyên dữ liệu (đã lọc) sang cửa sổ in dưới dạng JSON, kèm 2 nút chọn sắp xếp ngay tại đó —
+  // để đổi Họ và tên ⇄ Tên mà không cần quay lại màn hình chính.
+  var dataJson = JSON.stringify(list.map(function(e){
+    return {ten:e.ten||'', ngaySinh:e.ngaySinh||'', donVi:e.donVi||'', chucVu:e.chucVu||'', vanBang:e.vanBang||'', soCCHN:e.soCCHN||'', sdt:e.sdt||'', email:e.email||'', soDinhDanh:e.soDinhDanh||''};
+  }));
+  var w = window.open('', '_blank');
+  if(!w){ alert('Trình duyệt chặn cửa sổ mới. Vui lòng cho phép popup để in.'); return; }
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>In danh sách nhân viên</title>'
+    + '<style>@page{size:A4 landscape;margin:14mm 10mm}'
+    + 'body{font-family:"Times New Roman",Times,serif;font-size:12pt;color:#000}'
+    + '.org{text-align:center;margin:1pt 0;font-weight:bold}'
+    + 'h2{text-align:center;margin:8pt 0 4pt}'
+    + '.sub{text-align:center;margin:0 0 10pt;font-size:11pt}'
+    + 'table{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:6pt}'
+    + 'th{border:1px solid #000;padding:4px;background:#e3e6f0;font-size:10pt;word-wrap:break-word} td{font-size:10pt}'
+    + '.btns{text-align:center;margin-bottom:10pt}'
+    + '.btns button{font-family:inherit;font-size:12.5pt;padding:8px 18px;border-radius:6px;border:1.5px solid #283593;background:#283593;color:#fff;cursor:pointer;margin:0 4pt}'
+    + '.sortbar{text-align:center;margin-bottom:12pt;font-size:11.5pt}'
+    + '.sortbar button{font-family:inherit;font-size:11.5pt;padding:6px 14px;border-radius:6px;border:1.5px solid #283593;background:#fff;color:#283593;cursor:pointer;margin:0 3pt}'
+    + '.sortbar button.active{background:#283593;color:#fff}'
+    + '@media print{.btns{display:none}.sortbar{display:none}}</style></head><body>'
+    + '<div class="btns"><button onclick="window.print()">🖨️ In ngay</button><button onclick="window.close()" style="background:#fff;color:#283593">Đóng</button></div>'
+    + '<div class="sortbar">Sắp xếp: <button id="btnSortHoTen" onclick="nvkPrintSetSort(\'hoten\')">Họ và tên (A-Z)</button><button id="btnSortTen" onclick="nvkPrintSetSort(\'ten\')">Tên (A-Z)</button></div>'
+    + '<p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p><p class="org">KHOA GÂY MÊ HỒI SỨC</p>'
+    + '<h2>DANH SÁCH NHÂN VIÊN</h2>'
+    + (qVal ? '<p class="sub">Lọc theo tên/từ khóa: "'+nvkEsc(qVal)+'"</p>' : '')
+    + '<p class="sub" id="nvkPrintSubCount">In ngày: '+nowStr+' — Tổng số: '+list.length+' người</p>'
+    + '<table><colgroup>'
+    + '<col style="width:4%"><col style="width:13%"><col style="width:8%"><col style="width:9%"><col style="width:9%">'
+    + '<col style="width:12%"><col style="width:10%"><col style="width:9%"><col style="width:17%"><col style="width:9%">'
+    + '</colgroup>'
+    + '<tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th></tr>'
+    + '<tbody id="nvkPrintTbody"></tbody></table>'
+    + '<script>'
+    + 'var nvkPrintData = ' + dataJson + ';'
+    + 'function nvkPrintEsc(s){ s=(s===undefined||s===null)?"":String(s); return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }'
+    + 'function nvkPrintFmtD(iso){ if(!iso) return ""; var p=String(iso).split("-"); return p.length===3 ? (p[2]+"/"+p[1]+"/"+p[0]) : iso; }'
+    + 'function nvkPrintTenChinh(hoTen){ var parts=String(hoTen||"").trim().split(/\\s+/); return parts.length ? parts[parts.length-1] : ""; }'
+    + 'function nvkPrintSetSort(mode){'
+    + '  document.getElementById("btnSortHoTen").className = mode==="hoten" ? "active" : "";'
+    + '  document.getElementById("btnSortTen").className = mode==="ten" ? "active" : "";'
+    + '  var sorted = nvkPrintData.slice().sort(function(a,b){'
+    + '    if(mode==="ten"){ var r = nvkPrintTenChinh(a.ten).localeCompare(nvkPrintTenChinh(b.ten),"vi"); return r!==0 ? r : a.ten.localeCompare(b.ten,"vi"); }'
+    + '    return a.ten.localeCompare(b.ten,"vi");'
+    + '  });'
+    + '  document.getElementById("nvkPrintTbody").innerHTML = sorted.map(function(e,i){'
+    + '    return "<tr>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;text-align:center\\">"+(i+1)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;font-weight:bold\\">"+nvkPrintEsc(e.ten)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;text-align:center\\">"+nvkPrintFmtD(e.ngaySinh)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.donVi)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.chucVu)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.vanBang)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.soCCHN)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.sdt)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;font-size:9.5pt\\">"+nvkPrintEsc(e.email)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.soDinhDanh)+"</td>"'
+    + '      +"</tr>";'
+    + '  }).join("");'
+    + '}'
+    + 'nvkPrintSetSort(' + JSON.stringify(curSort) + ');'
+    + '</' + 'script>'
+    + '</body></html>';
+  w.document.write(html);
+  w.document.close();
 }
 </script>
 
