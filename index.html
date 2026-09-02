@@ -2833,6 +2833,9 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     <button class="tbtn" id="btnPrintWord" onclick="printWord()" style="display:none"><i class="ti ti-printer"></i> In Word</button>
     <button class="tbtn" id="btnBackup" onclick="backupData()" style="display:none"><i class="ti ti-cloud-download"></i> Sao lưu</button>
     <button class="tbtn" id="btnRestore" onclick="document.getElementById('restoreInp').click()" style="display:none"><i class="ti ti-cloud-upload"></i> Phục hồi</button>
+    <button class="tbtn" id="btnBackupAll" onclick="backupAllData()" style="display:none;background:#1b5e20;border-color:#0d3d13" title="Tải xuống 1 file JSON chứa TOÀN BỘ dữ liệu của mọi thẻ/chức năng trong ứng dụng"><i class="ti ti-database-export"></i> Sao lưu TOÀN BỘ ứng dụng</button>
+    <button class="tbtn" id="btnRestoreAll" onclick="document.getElementById('restoreAllInp').click()" style="display:none;background:#b71c1c;border-color:#7f0000" title="⚠️ GHI ĐÈ toàn bộ dữ liệu mọi thẻ/chức năng bằng file sao lưu đã chọn"><i class="ti ti-database-import"></i> Phục hồi TOÀN BỘ ứng dụng</button>
+    <input type="file" id="restoreAllInp" accept=".json" style="display:none" onchange="restoreAllData(event)">
     <button class="tbtn" id="btnClearTestData" onclick="adminClearNbNp()" style="display:none;background:#b71c1c;border-color:#b71c1c"><i class="ti ti-trash-x"></i> Xóa dữ liệu NB/NP</button>
     <input type="file" id="restoreInp" accept=".json" style="display:none" onchange="restoreData(event)">
     <button class="tbtn" id="btnDowntime" onclick="openDowntimePanel()" style="display:none"><i class="ti ti-clock-down"></i> Downtime</button>
@@ -10790,6 +10793,8 @@ var TOOLBAR_BTN_DEFS=[
   {id:'btnGoPhanQuyen',label:'Phân quyền',icon:'ti-shield-lock',group:'admin',def:true},
   {id:'btnBackup',label:'Sao lưu',icon:'ti-cloud-download',group:'admin',def:true},
   {id:'btnRestore',label:'Phục hồi',icon:'ti-cloud-upload',group:'admin',def:true},
+  {id:'btnBackupAll',label:'Sao lưu TOÀN BỘ ứng dụng',icon:'ti-database-export',group:'admin',def:true},
+  {id:'btnRestoreAll',label:'Phục hồi TOÀN BỘ ứng dụng',icon:'ti-database-import',group:'danger',def:false},
   {id:'btnClearTestData',label:'Xóa dữ liệu NB/NP',icon:'ti-trash-x',group:'danger',def:false}
 ];
 var TOOLBAR_GROUP_LABELS={
@@ -11104,7 +11109,7 @@ function enterApp(){
   document.getElementById('abanner').style.display=isA?'flex':'none';
   document.getElementById('filterSec').style.display=isA?'block':'none';
   var fqnW3=document.getElementById('fQuickNoteWrap'); if(fqnW3) fqnW3.style.display=isA?'flex':'none';
-  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','btnDeptCatalogEdit','deptStatsCatalogBtn','btnToolbarCfg','btnSfvManage','btnGiaoBan','btnQuickNote'].forEach(id=>{
+  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnBackupAll','btnRestoreAll','btnDeptStats','btnBanGiaoStats','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnDeptCatalog','btnDeptCatalogEdit','deptStatsCatalogBtn','btnToolbarCfg','btnSfvManage','btnGiaoBan','btnQuickNote'].forEach(id=>{
     var el=document.getElementById(id);if(el)el.style.display=isA?'flex':'none';});
   // Downtime: cho mọi người dùng đã đăng nhập XEM được (thao tác sửa bên trong panel vẫn chỉ dành cho admin)
   var btnDtEnterApp=document.getElementById('btnDowntime'); if(btnDtEnterApp) btnDtEnterApp.style.display='flex';
@@ -11135,7 +11140,7 @@ function enterApp(){
 function logout(){
   cu=null;pendingImgs=[];
   // Reset TẤT CẢ nút admin về ẩn khi đăng xuất
-  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime',
+  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnBackupAll','btnRestoreAll','btnDowntime',
    'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnGiaoBan','btnQuickNote']
     .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   document.getElementById('appScreen').style.display='none';
@@ -11262,6 +11267,53 @@ function restoreData(evt){
       }).catch(err=>{showAl('Lỗi phục hồi: '+err.message,'err');setSyncStatus('err');});
     }catch(err){showAl('File không hợp lệ!','err');}
   };
+  reader.readAsText(file);
+  evt.target.value='';
+}
+
+/* ── SAO LƯU / PHỤC HỒI TOÀN BỘ ỨNG DỤNG (mọi thẻ/chức năng — toàn bộ node Firebase gốc) ── */
+function backupAllData(){
+  showAl('Đang lấy toàn bộ dữ liệu, vui lòng chờ...');
+  db.ref('/').once('value').then(function(snap){
+    var root = snap.val() || {};
+    var staffLocal = [];
+    try{ staffLocal = JSON.parse(localStorage.getItem('gmhs_staff')||'[]'); }catch(e){}
+    var payload = { appBackupToanBo:true, root:root, staffLocal:staffLocal, exportedAt:new Date().toISOString() };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ToanBoUngDung_backup_' + today() + '.json';
+    a.click();
+    showAl('✅ Đã xuất file sao lưu TOÀN BỘ ứng dụng!');
+  }).catch(function(err){
+    showAl('❌ Lỗi khi sao lưu toàn bộ: ' + err.message, 'err');
+  });
+}
+function restoreAllData(evt){
+  var file = evt.target.files[0];
+  if(!file) return;
+  if(!confirm('⚠️⚠️⚠️ CẢNH BÁO: Thao tác này sẽ GHI ĐÈ TOÀN BỘ DỮ LIỆU của MỌI thẻ/chức năng trong ứng dụng (Kanban, Nghỉ bù, Nghỉ phép, Ghi chú Báo cáo, Bàn giao, Phân quyền...) bằng dữ liệu trong file đã chọn. Dữ liệu hiện tại sẽ MẤT VĨNH VIỄN nếu không có file sao lưu khác. Bạn có chắc chắn muốn tiếp tục?')){ evt.target.value=''; return; }
+  var typed = prompt('Để xác nhận, vui lòng gõ đúng chữ "PHUC HOI TOAN BO" (không dấu, viết hoa) rồi bấm OK:');
+  if(typed !== 'PHUC HOI TOAN BO'){ alert('Đã hủy — bạn gõ không đúng cụm từ xác nhận.'); evt.target.value=''; return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var obj = JSON.parse(e.target.result);
+      var rootData = obj.appBackupToanBo ? (obj.root || {}) : obj;
+      if(obj.staffLocal && Array.isArray(obj.staffLocal)){
+        localStorage.setItem('gmhs_staff', JSON.stringify(obj.staffLocal));
+      }
+      setSyncStatus('sync');
+      db.ref('/').set(rootData).then(function(){
+        showAl('✅ Phục hồi TOÀN BỘ ứng dụng thành công! Vui lòng tải lại trang (F5) để mọi chức năng cập nhật đầy đủ.');
+        setSyncStatus('ok');
+      }).catch(function(err){
+        showAl('❌ Lỗi khi phục hồi toàn bộ: ' + err.message, 'err');
+        setSyncStatus('err');
+      });
+    }catch(err){ showAl('File sao lưu không hợp lệ!', 'err'); }
+  };
+  reader.onerror = function(){ showAl('Không đọc được file sao lưu!', 'err'); };
   reader.readAsText(file);
   evt.target.value='';
 }
@@ -14721,7 +14773,7 @@ function authConfirm(){
       document.getElementById('abanner').style.display='none';
       document.getElementById('filterSec').style.display=_vw?'flex':'none';
       var fqnW1=document.getElementById('fQuickNoteWrap'); if(fqnW1) fqnW1.style.display='none';
-      ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore',
+      ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnBackupAll','btnRestoreAll',
        'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnGiaoBan','btnQuickNote']
         .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
       // Downtime: cho nhân viên (staff) và người xem (viewer) đều XEM được, chỉ thao tác sửa mới cần admin
@@ -14905,7 +14957,7 @@ function goKanbanViewPublic(){
   document.getElementById('abanner').style.display='none';
   document.getElementById('filterSec').style.display='flex';
   var fqnW2=document.getElementById('fQuickNoteWrap'); if(fqnW2) fqnW2.style.display='none';
-  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore',
+  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnBackupAll','btnRestoreAll',
    'btnDowntime','btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnClearTestData','btnGiaoBan','btnQuickNote']
     .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   document.getElementById('inPersonDisp').style.display='block';
@@ -14994,7 +15046,7 @@ function goHome(){
   document.getElementById('npScreen').style.display='none';
   document.getElementById('homeScreen').style.display='flex';
   // Reset TẤT CẢ nút admin về ẩn
-  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnDowntime',
+  ['btnStaff','btnPwd','btnExport','btnPrintWord','btnBackup','btnRestore','btnBackupAll','btnRestoreAll','btnDowntime',
    'btnClearTestData','btnGoNghiBu','btnGoNghiPhep','btnGoPhanQuyen','btnGiaoBan','btnQuickNote']
     .forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   nbStopAutoRefresh();
@@ -48004,6 +48056,9 @@ function nvkPrintList(){
       <button class="tbtn" onclick="gcbcOpenCatManage()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-tags"></i> Quản lý danh mục</button>
       <button class="tbtn" onclick="gcbcCopyText()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-copy"></i> Copy văn bản (đã lọc)</button>
       <button class="tbtn" onclick="gcbcExportWord()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-file-word"></i> Xuất Word (đã lọc)</button>
+      <button class="tbtn" onclick="gcbcBackup()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-cloud-download"></i> Sao lưu</button>
+      <button class="tbtn" onclick="document.getElementById('gcbcRestoreInp').click()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-cloud-upload"></i> Phục hồi</button>
+      <input type="file" id="gcbcRestoreInp" accept=".json" style="display:none" onchange="gcbcRestore(event)">
       <button class="tbtn" id="gcbcWideBtn" onclick="kpiToggleWideBox('gcbcMainBox','gcbcWideBtn')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
@@ -48198,6 +48253,49 @@ function gcbcClose(){
   document.getElementById('gcbcScreen').style.display='none';
   document.getElementById('homeScreen').style.display='block';
 }
+/* ── Sao lưu / Phục hồi toàn bộ Ghi chú Báo cáo (bao gồm cả danh mục) ── */
+function gcbcBackup(){
+  var d = gcbcGetDb();
+  if(!d){ alert('Không kết nối được Firebase.'); return; }
+  Promise.all([
+    d.ref('ghiChuBaoCao/danhSach').once('value'),
+    d.ref('ghiChuBaoCao/danhMuc').once('value')
+  ]).then(function(res){
+    var danhSach = res[0].val() || {};
+    var danhMuc = res[1].val() || GCBC_DEFAULT_CATS.slice();
+    var blob = new Blob([JSON.stringify({ ghiChuBaoCao:{ danhSach:danhSach, danhMuc:danhMuc }, exportedAt:new Date().toISOString() }, null, 2)], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'GhiChuBaoCao_backup_' + today() + '.json';
+    a.click();
+    alert('✅ Đã xuất file sao lưu Ghi chú Báo cáo!');
+  }).catch(function(err){ alert('❌ Lỗi khi sao lưu: ' + (err && err.message ? err.message : err)); });
+}
+function gcbcRestore(evt){
+  var file = evt.target.files[0];
+  if(!file) return;
+  if(!confirm('⚠️ PHỤC HỒI sẽ GHI ĐÈ toàn bộ Ghi chú Báo cáo (và danh mục) hiện tại bằng dữ liệu trong file sao lưu. Tiếp tục?')){ evt.target.value=''; return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var obj = JSON.parse(e.target.result);
+      var payload = obj.ghiChuBaoCao || obj;
+      var danhSach = payload.danhSach || {};
+      var danhMuc = payload.danhMuc || GCBC_DEFAULT_CATS.slice();
+      var d = gcbcGetDb();
+      if(!d){ alert('Không kết nối được Firebase.'); return; }
+      Promise.all([
+        d.ref('ghiChuBaoCao/danhSach').set(danhSach),
+        d.ref('ghiChuBaoCao/danhMuc').set(danhMuc)
+      ]).then(function(){
+        alert('✅ Phục hồi Ghi chú Báo cáo thành công!');
+      }).catch(function(err){ alert('❌ Lỗi khi phục hồi: ' + (err && err.message ? err.message : err)); });
+    }catch(err){ alert('⚠️ File sao lưu không hợp lệ!'); }
+  };
+  reader.onerror = function(){ alert('⚠️ Không đọc được file sao lưu.'); };
+  reader.readAsText(file);
+  evt.target.value='';
+}
 function gcbcFmtD(iso){
   if(!iso) return '';
   var p = String(iso).split('-');
@@ -48212,6 +48310,12 @@ function gcbcHandleFiles(evt, mode){
     if(kind==='image'){
       ttCompressImage(file, function(dataUrl){ gcbcStoreAttItem({type:'image', name:file.name, data:dataUrl}, mode); });
     } else {
+      // Tệp PDF/Word/Excel... không được nén nên lưu nguyên bản dạng base64 — giới hạn 4MB
+      // để tránh vượt quá giới hạn ghi của Firebase Realtime Database khiến việc lưu ghi chú bị lỗi âm thầm.
+      if(file.size > 4*1024*1024){
+        alert('⚠️ Tệp "'+file.name+'" có dung lượng '+(file.size/1024/1024).toFixed(1)+'MB, vượt quá 4MB cho phép. Vui lòng nén nhỏ lại hoặc dùng link (Drive/Zalo) thay vì tải trực tiếp.');
+        return;
+      }
       var reader = new FileReader();
       reader.onload = function(e){ gcbcStoreAttItem({type:kind, name:file.name, data:e.target.result}, mode); };
       reader.onerror = function(){ alert('⚠️ Không thể đọc tệp "'+file.name+'" — tệp có thể bị hỏng hoặc quá lớn.'); };
@@ -48276,6 +48380,8 @@ function gcbcSaveNote(){
     document.getElementById('gcbcSoLieu').value='';
     gcbcPendingAtt = [];
     gcbcRenderAttPrev('gcbcAttPrev', gcbcPendingAtt);
+  }).catch(function(err){
+    alert('❌ Không lưu được ghi chú (có thể do tệp đính kèm quá lớn hoặc mất kết nối mạng). Chi tiết lỗi: ' + (err && err.message ? err.message : err));
   });
 }
 function gcbcDeleteNote(id){
@@ -48320,6 +48426,8 @@ function gcbcSaveEdit(){
   if(!r){ alert('Không kết nối được Firebase.'); return; }
   r.child(gcbcEditingId).update({ ngay:ngay, danhMuc:danhMuc, soLieu:soLieu, noiDung:noiDung, dinhKem: gcbcEditAtt.slice() }).then(function(){
     gcbcCloseEdit();
+  }).catch(function(err){
+    alert('❌ Không lưu được thay đổi (có thể do tệp đính kèm quá lớn hoặc mất kết nối mạng). Chi tiết lỗi: ' + (err && err.message ? err.message : err));
   });
 }
 function gcbcGetFilteredList(){
