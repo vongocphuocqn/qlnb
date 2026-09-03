@@ -671,6 +671,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <div class="home-card" data-hc="25" onclick="gcbcRequireAdmin()" style="background:linear-gradient(135deg,#b8860b,#7a5a05);color:#fff;border-color:#5c4404"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-notes"></i><div class="home-card-title">Ghi chú<br>Báo cáo</div><div class="home-card-sub">Ghi nhanh số liệu/sự kiện quanh năm — lọc theo chủ đề để soạn sơ kết, tổng kết (chỉ Quản lý)</div></div>
       <div class="home-card" data-hc="26" onclick="mvbOpen()" style="background:linear-gradient(135deg,#455a64,#263238);color:#fff;border-color:#1c2529"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-files"></i><div class="home-card-title">Mẫu<br>văn bản</div><div class="home-card-sub">Xem/thay file mẫu Nghỉ phép, Nghỉ bù, Đổi trực... đang dùng trong hệ thống</div></div>
       <div class="home-card" data-hc="27" onclick="phepBvOpen()" style="background:linear-gradient(135deg,#c62828,#8e0000);color:#fff;border-color:#5c0000"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-building-hospital"></i><div class="home-card-title">Đăng ký phép<br>BV</div><div class="home-card-sub">Mẫu chính thức BM.01.TCCB — điền thông tin, in ra trình Trưởng khoa ký sống</div></div>
+      <div class="home-card" data-hc="28" onclick="dgvcOpen()" style="background:linear-gradient(135deg,#0e7490,#164e63);color:#fff;border-color:#0c3f4a"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-certificate"></i><div class="home-card-title">Đánh giá, Xếp loại<br>VC - Người lao động</div><div class="home-card-sub">Kết quả đánh giá, xếp loại viên chức - người lao động hằng năm — mỗi người tự xem kết quả của mình</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -25584,6 +25585,60 @@ function ddnlSetupCombo(inputId, getOptions, onPick){
   });
   input.addEventListener('blur', ()=>{ setTimeout(()=>{ const p=document.getElementById(inputId+'_panel'); if(p) p.remove(); delete ddnlComboLiveValues[inputId]; onPick(input.value); }, 150); });
 }
+// Ô "Họ và tên" trong bảng "1. Lý do đề nghị" (nhóm đang bận) và bảng "2. Nội dung đề nghị"
+// (điều động thêm): trước đây là <select> liệt kê toàn bộ nhân viên nên rất khó lọc/tìm khi
+// danh sách dài. Nay đổi thành ô nhập có gợi ý lọc dần theo chữ đang gõ (giống các ô "Tìm tên…"
+// khác trong ứng dụng), nhưng vẫn CHỈ chấp nhận đúng tên có trong danh sách nhân viên (không cho
+// gõ tự do tên không tồn tại) để không làm thay đổi hành vi lưu dữ liệu so với <select> cũ.
+// Khi chọn xong, bắn sự kiện 'change' để tái sử dụng nguyên logic xử lý đã có sẵn của
+// .ddnl-row-field / .ddnl-reason-field (kiểm tra trùng lịch, tính lại số giờ, v.v.).
+function ddnlHoTenComboSetup(){
+  document.querySelectorAll('.ddnl-hoten-combo').forEach(input=>{
+    if(input.dataset.hoTenComboBound) return;
+    input.dataset.hoTenComboBound = '1';
+    const getOptions = ()=> (config.employees||[]).map(e=>e.ten);
+    const closePanel = ()=>{ const p=document.getElementById(input.id+'_panel'); if(p) p.remove(); };
+    const build = (showAll)=>{
+      closePanel();
+      const q = showAll ? "" : input.value.trim().toLowerCase();
+      const filtered = getOptions().filter(o=>!q || o.toLowerCase().includes(q));
+      const panel = document.createElement('div');
+      panel.id = input.id+'_panel';
+      panel.className = 'ddnl-combo-panel';
+      panel.innerHTML = filtered.length
+        ? filtered.map(o=>`<div class="ddnl-combo-opt" data-val="${esc(o)}">${esc(o)}</div>`).join("")
+        : `<div class="ddnl-combo-empty">Không tìm thấy tên khớp — kiểm tra lại chính tả.</div>`;
+      input.parentElement.appendChild(panel);
+      panel.querySelectorAll('[data-val]').forEach(d=>{
+        d.onmousedown = (e)=>{
+          e.preventDefault();
+          input.value = d.dataset.val;
+          closePanel();
+          input.dispatchEvent(new Event('change', { bubbles:true }));
+        };
+      });
+    };
+    input.addEventListener('focus', ()=>build(!input.value.trim()));
+    input.addEventListener('click', ()=>build(!input.value.trim()));
+    input.addEventListener('input', ()=>build(false));
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closePanel(); });
+    input.addEventListener('blur', ()=>{
+      setTimeout(()=>{
+        closePanel();
+        const val = input.value.trim();
+        if(!val){ input.dispatchEvent(new Event('change', { bubbles:true })); return; }
+        const exact = getOptions().find(o=>o===val);
+        if(exact){
+          if(input.value!==exact) input.value = exact;
+          input.dispatchEvent(new Event('change', { bubbles:true }));
+        } else {
+          alert('Tên "'+val+'" không có trong danh sách nhân viên. Vui lòng chọn từ danh sách gợi ý.');
+          render();
+        }
+      }, 150);
+    });
+  });
+}
 /* ============================================================
    SEED DATA
    ============================================================ */
@@ -26423,10 +26478,9 @@ function renderNewForm(){
             ${draftLyDoChiTiet.map((rd,i)=>`
               <tr data-reason-idx="${i}">
                 <td>
-                  <select class="ddnl-reason-field" data-field="hoTen">
-                    <option value="">— chọn —</option>
-                    ${config.employees.map(e=>`<option value="${esc(e.ten)}" ${e.ten===rd.hoTen?"selected":""}>${esc(e.ten)}</option>`).join("")}
-                  </select>
+                  <span style="position:relative;display:inline-block;width:100%;">
+                    <input type="text" class="ddnl-reason-field ddnl-hoten-combo" data-field="hoTen" id="ddnlReasonHoTen_${i}" autocomplete="off" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(rd.hoTen)}">
+                  </span>
                 </td>
                 <td>
                   <select class="ddnl-reason-field" data-field="boPhan">
@@ -26469,10 +26523,9 @@ function renderNewForm(){
               <tr data-ddnl-idx="${i}">
                 <td>${i+1}</td>
                 <td>
-                  <select class="ddnl-row-field" data-field="hoTen">
-                    <option value="">— chọn —</option>
-                    ${config.employees.map(e=>`<option value="${esc(e.ten)}" ${e.ten===r.hoTen?"selected":""}>${esc(e.ten)}</option>`).join("")}
-                  </select>
+                  <span style="position:relative;display:inline-block;width:100%;">
+                    <input type="text" class="ddnl-row-field ddnl-hoten-combo" data-field="hoTen" id="ddnlRowHoTen_${i}" autocomplete="off" placeholder="Bấm để chọn hoặc gõ để tìm…" value="${esc(r.hoTen)}">
+                  </span>
                 </td>
                 <td>
                   <select class="ddnl-row-field" data-field="boPhanDieuDong">
@@ -26616,7 +26669,7 @@ function renderList(){
                 <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-view="${r.id}">Xem / In</button>
                 ${(isAdmin() || (ddnlLaChuPhieu(r.nguoiLap, currentUserName) && r.trangThai==="Chờ duyệt"))?`<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-edit-req="${r.id}">Sửa</button>`:""}
                 ${isAdmin() && r.trangThai==="Chờ duyệt"?`<button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" data-approve="${r.id}">Đã duyệt</button>`:""}
-                ${isAdmin() && r.trangThai!=="Đã hủy"?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-cancel="${r.id}">Hủy</button>`:""}
+                ${isAdmin() && r.trangThai!=="Đã hủy"?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-cancel="${r.id}">Hủy</button>`:(ddnlLaChuPhieu(r.nguoiLap, currentUserName) && r.trangThai==="Chờ duyệt"?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-cancel="${r.id}">Hủy</button>`:"")}
               </div>
             </td>
           </tr>`;
@@ -30356,7 +30409,7 @@ function scrollToSection2(){
   el.classList.add('ddnl-flash');
   setTimeout(()=>el.classList.remove('ddnl-flash'), 2800);
   setTimeout(()=>{
-    const emptySel = Array.from(document.querySelectorAll('#ddnlSection2Field select[data-field="hoTen"]')).find(s=>!s.value);
+    const emptySel = Array.from(document.querySelectorAll('#ddnlSection2Field [data-field="hoTen"]')).find(s=>!s.value);
     if(emptySel) emptySel.focus();
   }, 350);
 }
@@ -30461,6 +30514,7 @@ function bindNewFormEvents(){
       render();
     });
   });
+  ddnlHoTenComboSetup();
   const khacChk = document.getElementById('ddnlLy_khacChk');
   const khacText = document.getElementById('ddnlLy_khacText');
   if(khacText) khacText.oninput = ()=>{ draftLyDo.khac = khacText.value; };
@@ -30613,7 +30667,12 @@ function bindListEvents(){
     await updateRequest(b.dataset.approve, { trangThai: "Đã duyệt / Đã in", updatedAt: Date.now() });
   });
   document.querySelectorAll('[data-cancel]').forEach(b=>b.onclick= async ()=>{
-    if(!isAdmin()) return;
+    const r = requests.find(x=>x.id===b.dataset.cancel);
+    if(!r) return;
+    if(!(isAdmin() || (ddnlLaChuPhieu(r.nguoiLap, currentUserName) && r.trangThai==="Chờ duyệt"))){
+      alert('Bạn chỉ có thể hủy phiếu do chính mình lập và đang ở trạng thái "Chờ duyệt".');
+      return;
+    }
     if(!confirm("Xác nhận hủy phiếu này?")) return;
     await updateRequest(b.dataset.cancel, { trangThai: "Đã hủy", updatedAt: Date.now() });
   });
@@ -42982,7 +43041,8 @@ function clearFieldInvalid(id){
     ['sdbScreen','sodibuong'],
     ['nvkScreen','danhsachnv'],
     ['mvbScreen','mauvanban'],
-    ['phepBvScreen','phepbv']
+    ['phepBvScreen','phepbv'],
+    ['dgvcScreen','danhgia']
   ];
 
   function urlHashSync(){
@@ -43487,9 +43547,9 @@ function clearFieldInvalid(id){
           </select>
         </div>
         <div class="fg" style="grid-column:1/-1">
-          <label>Ảnh giấy tờ đính kèm (giấy giới thiệu/quyết định riêng, nếu có)</label>
-          <input type="file" id="svttMAttachFile" accept="image/*" onchange="svttHandleAttach(this,'member')">
-          <div id="svttMAttachPreview" style="margin-top:6px"></div>
+          <label>Văn bản/giấy tờ đính kèm (giấy giới thiệu, quyết định riêng, CMND/CCCD...) — có thể chọn nhiều file cùng lúc</label>
+          <input type="file" id="svttMAttachFile" accept="image/*,.pdf" multiple onchange="svttHandleMemberAttachMulti(this)">
+          <div id="svttMAttachPreview" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
         </div>
       </div>
       <div id="svttMemberModalAlert" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
@@ -43602,6 +43662,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
   var svttEditingMemberId = null;
   var svttReviewingMemberId = null;
   var svttPendingAttach = {}; // { dot: dataUrl, member: dataUrl } — ảnh vừa chọn, chờ lưu cùng form
+  var svttMemberAttachWorking = []; // [{ten, dataUrl}] — danh sách NHIỀU văn bản đính kèm của SV/HV đang thêm/sửa
 
   function svttEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
   function svttFmtD(iso){ if(!iso) return ''; var p=iso.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso; }
@@ -43646,6 +43707,53 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     }).catch(function(e){
       previewEl.innerHTML = '<span style="font-size:11.5px;color:#a02020">'+e.message+'</span>';
     });
+  };
+  // Đọc 1 file bất kỳ (PDF, ảnh...) thành base64 data URL, không nén (dùng cho văn bản không phải ảnh)
+  function svttReadFileAsDataUrl(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(e){ resolve(e.target.result); };
+      reader.onerror = function(){ reject(new Error('Lỗi đọc file "'+file.name+'".')); };
+      reader.readAsDataURL(file);
+    });
+  }
+  // Cho phép đính kèm NHIỀU văn bản/ảnh cho 1 SV/HV — mỗi lần chọn file sẽ cộng dồn vào danh sách,
+  // không thay thế các file đã có (kể cả các file đã lưu từ trước khi sửa hồ sơ).
+  window.svttHandleMemberAttachMulti = function(inputEl){
+    var files = inputEl.files ? Array.prototype.slice.call(inputEl.files) : [];
+    if(!files.length) return;
+    var jobs = files.map(function(file){
+      var isImage = file.type && file.type.indexOf('image/')===0;
+      var p = isImage ? svttCompressImage(file) : svttReadFileAsDataUrl(file);
+      return p.then(function(dataUrl){
+        svttMemberAttachWorking.push({ ten: file.name, dataUrl: dataUrl, isImage: isImage });
+      }).catch(function(e){
+        alert(e.message || ('Không đọc được file "'+file.name+'".'));
+      });
+    });
+    Promise.all(jobs).then(function(){
+      inputEl.value = '';
+      svttRenderMemberAttachList();
+    });
+  };
+  function svttRenderMemberAttachList(){
+    var el = document.getElementById('svttMAttachPreview');
+    if(!el) return;
+    if(!svttMemberAttachWorking.length){ el.innerHTML = '<span style="font-size:11.5px;color:#999;font-style:italic">Chưa có văn bản/ảnh nào đính kèm.</span>'; return; }
+    el.innerHTML = svttMemberAttachWorking.map(function(f, i){
+      var thumb = f.isImage
+        ? '<img src="'+f.dataUrl+'" style="height:34px;width:34px;object-fit:cover;border-radius:5px;border:1px solid #dbe3ee">'
+        : '<i class="ti ti-file-text" style="font-size:18px;color:#1e3a5f;width:34px;text-align:center"></i>';
+      return '<div style="display:flex;align-items:center;gap:8px;background:#f7f9fc;border:1px solid #dbe3ee;border-radius:8px;padding:5px 8px">'+
+        thumb+
+        '<a href="'+f.dataUrl+'" target="_blank" rel="noopener" style="flex:1;font-size:12px;color:#1e3a5f;text-decoration:underline;word-break:break-all">'+svttEsc(f.ten||('Tệp đính kèm '+(i+1)))+'</a>'+
+        '<button type="button" class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1.5px solid #c62828;color:#c62828" onclick="svttRemoveMemberAttach('+i+')"><i class="ti ti-trash"></i></button>'+
+      '</div>';
+    }).join('');
+  }
+  window.svttRemoveMemberAttach = function(idx){
+    svttMemberAttachWorking.splice(idx,1);
+    svttRenderMemberAttachList();
   };
   function svttTrangThaiHtml(t){
     if(t==='hoan_thanh') return '<span class="svtt-badge xong">✅ Hoàn thành</span>';
@@ -44085,7 +44193,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
               var m=svttMembers[mid];
               var cc=svttChamCongSummary(m);
               return '<tr>'+
-                '<td><b>'+svttEsc(m.hoTen)+'</b>'+(m.attachDataUrl?' <i class="ti ti-paperclip" style="color:#888" title="Có đính kèm ảnh giấy tờ"></i>':'')+'</td>'+
+                '<td><b>'+svttEsc(m.hoTen)+'</b>'+(function(){ var n=(Array.isArray(m.attachList)?m.attachList.length:0)||(m.attachDataUrl?1:0); return n?(' <i class="ti ti-paperclip" style="color:#888" title="Có '+n+' văn bản đính kèm"></i><span style="font-size:10.5px;color:#888">×'+n+'</span>'):''; })()+'</td>'+
                 '<td>'+svttLoaiLabel(m.loai)+'</td>'+
                 '<td>'+svttEsc(m.lopKhoa||'—')+'</td>'+
                 '<td>'+svttEsc(m.khuVuc||'—')+'</td>'+
@@ -44133,7 +44241,8 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     document.getElementById('svttMDenNgay').value='';
     document.getElementById('svttMKhuVuc').value='';
     document.getElementById('svttMAttachFile').value='';
-    document.getElementById('svttMAttachPreview').innerHTML='';
+    svttMemberAttachWorking = [];
+    svttRenderMemberAttachList();
     delete svttPendingAttach.member;
     document.getElementById('svttMemberOverlay').dataset.dotId = dotId;
     document.getElementById('svttMemberModalAlert').style.display='none';
@@ -44157,7 +44266,10 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     document.getElementById('svttMEmail').value=m.email||'';
     document.getElementById('svttMKhuVuc').value=m.khuVuc||'';
     document.getElementById('svttMAttachFile').value='';
-    document.getElementById('svttMAttachPreview').innerHTML = m.attachDataUrl ? ('<img src="'+m.attachDataUrl+'" style="max-height:80px;border-radius:6px;border:1px solid #dbe3ee">') : '';
+    svttMemberAttachWorking = Array.isArray(m.attachList) && m.attachList.length
+      ? m.attachList.map(function(f){ return {ten:f.ten, dataUrl:f.dataUrl, isImage:f.isImage}; })
+      : (m.attachDataUrl ? [{ten:'Tệp đính kèm (cũ)', dataUrl:m.attachDataUrl, isImage:true}] : []);
+    svttRenderMemberAttachList();
     delete svttPendingAttach.member;
     document.getElementById('svttMemberOverlay').dataset.dotId = m.dotId;
     document.getElementById('svttMemberModalAlert').style.display='none';
@@ -44183,7 +44295,8 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       sdt:(document.getElementById('svttMSdt').value||'').trim()||null,
       email:(document.getElementById('svttMEmail').value||'').trim()||null,
       khuVuc:document.getElementById('svttMKhuVuc').value||null,
-      attachDataUrl:(svttPendingAttach.member!==undefined?svttPendingAttach.member:(svttEditingMemberId?(svttMembers[svttEditingMemberId]||{}).attachDataUrl||null:null)),
+      attachList: svttMemberAttachWorking.map(function(f){ return {ten:f.ten||'', dataUrl:f.dataUrl, isImage:!!f.isImage}; }),
+      attachDataUrl:(svttMemberAttachWorking[0]?svttMemberAttachWorking[0].dataUrl:null), // giữ trường cũ để tương thích ngược
       updatedBy:(svttCu?svttCu.name:'—'), updatedAt:new Date().toISOString()
     };
     var p;
@@ -44199,7 +44312,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       rec.createdAt = new Date().toISOString();
       p = svttTvRef.push(rec);
     }
-    p.then(function(){ delete svttPendingAttach.member; window.svttCloseMemberModal(); }).catch(function(e){ showErr('Lỗi: '+e.message); });
+    p.then(function(){ delete svttPendingAttach.member; svttMemberAttachWorking=[]; window.svttCloseMemberModal(); }).catch(function(e){ showErr('Lỗi: '+e.message); });
   };
   window.svttDeleteMember = function(mid){
     var m=svttMembers[mid]; if(!m) return;
@@ -48652,6 +48765,377 @@ function gcbcExportWord(){
   a.download = 'GhiChuBaoCao_GMHS_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.doc';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
+</script>
+
+
+<!-- ============================================================
+     THẺ "Đánh giá, Xếp loại VC - Người lao động" — bản THIẾT KẾ ĐƠN GIẢN
+     (thiết kế lại theo mẫu "Ghi chú Báo cáo" đã dùng ổn định): mỗi năm khoa/viện
+     đã có sẵn file kết quả (PDF danh sách đã có tên từng người) — ở đây chỉ cần
+     ghi vài thông tin hành chính (Năm, Danh mục, Ghi chú) rồi đính kèm file/link,
+     KHÔNG cần nhập tay từng người. Ai cũng xem/tải được (không cần đăng nhập);
+     chỉ Thêm/Sửa/Xóa mới cần mật khẩu Quản lý riêng của thẻ này.
+     Module HOÀN TOÀN ĐỘC LẬP — lưu dữ liệu riêng ở Firebase node 'danhGiaXepLoai2',
+     không đụng tới bất kỳ node/biến/hàm nào của module khác trong file.
+     ============================================================ -->
+<div id="dgvcScreen" style="display:none;min-height:100vh;background:#fbf7ec;flex-direction:column">
+  <div style="background:linear-gradient(135deg,#b8860b,#7a5a05);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+    <button onclick="dgvcClose()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-home"></i> Trang chủ</button>
+    <i class="ti ti-certificate" style="font-size:22px;color:#fff"></i>
+    <div>
+      <div style="color:#fff;font-size:15px;font-weight:700">Đánh giá, Xếp loại Viên chức - Người lao động</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11.5px">Kết quả hằng năm — ai cũng xem/tải được, không cần đăng nhập</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center">
+      <span id="dgvcWhoBanner" style="color:#fff;font-size:12px"></span>
+      <button class="tbtn" id="dgvcLoginBtn" onclick="dgvcOpenLogin()" style="border-color:rgba(255,255,255,.45);background:#fff;color:#7a5a05;font-weight:700"><i class="ti ti-lock"></i> Đăng nhập Quản lý</button>
+      <button class="tbtn" id="dgvcLogoutBtn" onclick="dgvcLogout()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-logout"></i> Thoát chế độ Quản lý</button>
+    </div>
+  </div>
+
+  <div style="max-width:1000px;margin:0 auto;padding:18px 16px 60px;width:100%">
+
+    <!-- Đăng nhập Quản lý (ẩn/hiện) -->
+    <div id="dgvcLoginBox" style="display:none;background:#fff;border:1.5px solid #eee0bc;border-radius:12px;padding:16px 18px;margin-bottom:18px">
+      <div style="font-weight:700;color:#7a5a05;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-shield-lock"></i> Đăng nhập khu vực Quản lý (để thêm/sửa/xóa)</div>
+      <div class="mgrid">
+        <div class="mf"><label>Họ tên người đăng nhập</label><input type="text" id="dgvcLoginName" placeholder="Họ tên của anh/chị..."></div>
+        <div class="mf"><label>Mật khẩu module</label><input type="password" id="dgvcLoginPwd" placeholder="Mật khẩu dùng chung module này"></div>
+      </div>
+      <div id="dgvcLoginMsg" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
+      <button onclick="dgvcDoLogin()" style="margin-top:10px;background:#b8860b;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-login-2"></i> Đăng nhập</button>
+      <div style="font-size:11.5px;color:#a08a4a;margin-top:10px">Mật khẩu mặc định: <b>gmhs2026</b> — có thể đổi riêng cho thẻ này sau khi đăng nhập.</div>
+    </div>
+
+    <!-- Form thêm mới (chỉ Quản lý mới thấy) -->
+    <div id="dgvcAddBox" style="display:none;background:#fff;border:1.5px solid #eee0bc;border-radius:12px;padding:16px 18px;margin-bottom:18px">
+      <div style="font-weight:700;color:#7a5a05;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:6px">
+        <span><i class="ti ti-plus"></i> Thêm kết quả mới</span>
+        <a href="javascript:void(0)" onclick="dgvcChangePwd()" style="font-size:11.5px;color:#7a5a05;font-weight:400">Đổi mật khẩu module</a>
+      </div>
+      <div class="mgrid">
+        <div class="mf"><label>Năm</label><input type="number" id="dgvcNam" min="2000" max="2100"></div>
+        <div class="mf sp2"><label>Danh mục</label>
+          <select id="dgvcDanhMuc"></select>
+        </div>
+      </div>
+      <div class="mf" style="margin-top:8px"><label>Ghi chú (số quyết định, ngày ban hành, mô tả thêm...)</label><textarea id="dgvcGhiChu" placeholder="VD: Theo QĐ số 123/QĐ-BV ngày 20/12/2025..." style="min-height:64px;width:100%;box-sizing:border-box;border:1.5px solid #eee0bc;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit"></textarea></div>
+      <div style="margin-top:10px">
+        <label style="font-size:12.5px;font-weight:600;color:#7a5a05">Đính kèm kết quả (ảnh chụp / scan / tệp / link) — có thể thêm nhiều</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <label class="kpi-btn" style="background:#f5efe0;color:#7a5a05;border:1.5px solid #d9c48a;cursor:pointer"><i class="ti ti-camera"></i> Chụp ảnh<input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="dgvcHandleFiles(this)"></label>
+          <label class="kpi-btn" style="background:#f5efe0;color:#7a5a05;border:1.5px solid #d9c48a;cursor:pointer"><i class="ti ti-photo"></i> Chọn ảnh / scan<input type="file" accept="image/*" multiple style="display:none" onchange="dgvcHandleFiles(this)"></label>
+          <label class="kpi-btn" style="background:#f5efe0;color:#7a5a05;border:1.5px solid #d9c48a;cursor:pointer"><i class="ti ti-paperclip"></i> Chọn tệp<input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple style="display:none" onchange="dgvcHandleFiles(this)"></label>
+          <input type="url" id="dgvcLinkInput" placeholder="Dán link (Drive, Zalo...)" style="flex:1;min-width:180px;border:1.5px solid #eee0bc;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit">
+          <button type="button" onclick="dgvcAddLink()" style="background:#b8860b;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-link"></i> Thêm link</button>
+        </div>
+        <div id="dgvcAttPrev" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"></div>
+      </div>
+      <button onclick="dgvcSaveNote()" style="margin-top:14px;background:#b8860b;color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu kết quả</button>
+    </div>
+
+    <!-- Bộ lọc + danh sách -->
+    <div style="background:#fff;border:1.5px solid #eee0bc;border-radius:12px;padding:14px 16px">
+      <div class="mgrid" style="margin-bottom:10px">
+        <div class="mf"><label>Tìm từ khóa</label><input type="text" id="dgvcSearch" placeholder="Tìm trong ghi chú..." oninput="dgvcRender()"></div>
+        <div class="mf"><label>Năm</label><select id="dgvcFilterNam" onchange="dgvcRender()"><option value="">Tất cả các năm</option></select></div>
+        <div class="mf"><label>Danh mục</label><select id="dgvcFilterDanhMuc" onchange="dgvcRender()"><option value="">Tất cả danh mục</option></select></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <span id="dgvcCount" style="font-size:12px;color:#999"></span>
+        <button onclick="dgvcClearFilter()" style="background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit">Xóa lọc</button>
+      </div>
+      <div id="dgvcList"></div>
+    </div>
+
+  </div>
+
+  <!-- Xem ảnh phóng to -->
+  <div id="dgvcLbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:990;align-items:center;justify-content:center;padding:20px" onclick="this.style.display='none'">
+    <img id="dgvcLboxImg" style="max-width:92vw;max-height:92vh;border-radius:8px">
+  </div>
+</div>
+<!-- /dgvcScreen -->
+
+<script>
+(function(){
+  'use strict';
+  // Toàn bộ hàm/biến bắt đầu bằng "dgvc" — độc lập hoàn toàn, lưu riêng ở Firebase
+  // node 'danhGiaXepLoai2'. Không đọc/ghi bất kỳ node hay biến nào của module khác.
+  var DGVC_CATS = [
+    'Kết quả tổng hợp VCNLĐ toàn khoa',
+    'Danh sách viên chức không quản lý',
+    'Danh sách nhóm trưởng khoa/phòng',
+    'Danh sách nhóm phó trưởng khoa/phòng',
+    'Danh sách điều dưỡng trưởng',
+    'Danh sách tập thể khoa/phòng',
+    'Quyết định phê duyệt kết quả',
+    'Khác'
+  ];
+  var dgvcNotes = [];
+  var dgvcPendingAtt = [];
+  var dgvcListenerOn = false;
+  var dgvcCu = null;
+  var dgvcMatKhau = 'gmhs2026';
+  var dgvcPwdReady = false;
+
+  function dgvcEsc(s){ s=(s===undefined||s===null)?'':String(s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function dgvcGetDb(){ try{ if(typeof db!=='undefined' && db) return db; }catch(e){} return null; }
+  function dgvcNotesRef(){ var d=dgvcGetDb(); return d ? d.ref('danhGiaXepLoai2/danhSach') : null; }
+  function dgvcPwdRef(){ var d=dgvcGetDb(); return d ? d.ref('danhGiaXepLoai2/matKhau') : null; }
+
+  function dgvcFillCatSelect(id, withAll){
+    var el = document.getElementById(id);
+    if(!el) return;
+    var cur = el.value;
+    el.innerHTML = (withAll ? '<option value="">Tất cả danh mục</option>' : '') +
+      DGVC_CATS.map(function(c){ return '<option value="'+dgvcEsc(c)+'">'+dgvcEsc(c)+'</option>'; }).join('');
+    if(cur) el.value = cur;
+  }
+
+  function dgvcEnsurePwdListener(){
+    if(dgvcPwdReady) return; dgvcPwdReady = true;
+    var r = dgvcPwdRef();
+    if(!r) return;
+    r.on('value', function(snap){
+      var val = snap.val();
+      dgvcMatKhau = (val && typeof val==='string') ? val : 'gmhs2026';
+    });
+  }
+  function dgvcEnsureListener(){
+    if(dgvcListenerOn) return; dgvcListenerOn = true;
+    var r = dgvcNotesRef();
+    if(!r){ var l=document.getElementById('dgvcList'); if(l) l.innerHTML='<div style="text-align:center;padding:24px;color:#c62828">Không kết nối được dữ liệu — kiểm tra lại kết nối mạng.</div>'; return; }
+    r.on('value', function(snap){
+      var val = snap.val() || {};
+      dgvcNotes = Object.keys(val).map(function(k){ return Object.assign({id:k}, val[k]); });
+      var namSel = document.getElementById('dgvcFilterNam');
+      if(namSel){
+        var years = Array.from(new Set(dgvcNotes.map(function(n){return n.nam;}))).filter(Boolean).sort(function(a,b){return b-a;});
+        var curY = namSel.value;
+        namSel.innerHTML = '<option value="">Tất cả các năm</option>' + years.map(function(y){ return '<option value="'+y+'">'+y+'</option>'; }).join('');
+        namSel.value = curY;
+      }
+      dgvcRender();
+    });
+  }
+
+  window.dgvcOpen = function(){
+    try{
+      var scr = document.getElementById('dgvcScreen');
+      if(!scr){ alert('⚠️ Không tìm thấy màn hình "Đánh giá, Xếp loại" trong file này.\nCó thể đang mở nhầm 1 file cũ — vui lòng tải lại đúng file mới nhất rồi mở lại.'); return; }
+      scr.style.display='flex';
+      dgvcFillCatSelect('dgvcDanhMuc', false);
+      dgvcFillCatSelect('dgvcFilterDanhMuc', true);
+      var namInp = document.getElementById('dgvcNam'); if(namInp && !namInp.value) namInp.value = new Date().getFullYear();
+      dgvcRenderAttPrev();
+      dgvcEnsurePwdListener();
+      dgvcEnsureListener();
+      // Nếu đã đăng nhập Admin tổng của cả hệ thống (mật khẩu chung), tự động vào luôn khu vực
+      // Quản lý của thẻ này — khỏi phải đăng nhập lại mật khẩu riêng module.
+      try{
+        if(typeof adminSession!=='undefined' && adminSession && adminSession.active){ dgvcEnterManager('Quản lý', true); }
+      }catch(e2){}
+      dgvcRender();
+    }catch(err){
+      alert('⚠️ Lỗi khi mở "Đánh giá, Xếp loại": '+(err && err.message ? err.message : err)+'\n\nVui lòng chụp màn hình hộp thoại này gửi lại để được sửa nhanh.');
+      try{ console.error('[dgvcOpen] lỗi:', err); }catch(e3){}
+    }
+  };
+  window.dgvcClose = function(){ document.getElementById('dgvcScreen').style.display='none'; };
+
+  window.dgvcOpenLogin = function(){
+    var box = document.getElementById('dgvcLoginBox');
+    box.style.display = (box.style.display==='none') ? '' : 'none';
+    if(box.style.display!=='none') box.scrollIntoView({behavior:'smooth', block:'center'});
+  };
+  function dgvcEnterManager(name, isAuto){
+    dgvcCu = { name: name };
+    document.getElementById('dgvcLoginBox').style.display='none';
+    document.getElementById('dgvcLoginBtn').style.display='none';
+    document.getElementById('dgvcLogoutBtn').style.display='';
+    document.getElementById('dgvcAddBox').style.display='';
+    document.getElementById('dgvcWhoBanner').innerHTML = '<i class="ti ti-user-circle"></i> '+dgvcEsc(dgvcCu.name)+(isAuto?' (tự động)':'');
+    dgvcRender();
+  }
+  window.dgvcDoLogin = function(){
+    var name = (document.getElementById('dgvcLoginName').value||'').trim();
+    var pwd = document.getElementById('dgvcLoginPwd').value||'';
+    var msg = document.getElementById('dgvcLoginMsg');
+    if(!name){ msg.style.display='block'; msg.style.background='#fce4e4'; msg.style.color='#a02020'; msg.textContent='Vui lòng nhập họ tên.'; return; }
+    if(pwd !== dgvcMatKhau){ msg.style.display='block'; msg.style.background='#fce4e4'; msg.style.color='#a02020'; msg.textContent='Sai mật khẩu module. Thử lại.'; return; }
+    msg.style.display='none';
+    document.getElementById('dgvcLoginName').value='';
+    document.getElementById('dgvcLoginPwd').value='';
+    dgvcEnterManager(name, false);
+  };
+  window.dgvcLogout = function(){
+    dgvcCu = null;
+    document.getElementById('dgvcAddBox').style.display='none';
+    document.getElementById('dgvcLoginBtn').style.display='';
+    document.getElementById('dgvcLogoutBtn').style.display='none';
+    document.getElementById('dgvcWhoBanner').innerHTML='';
+    dgvcRender();
+  };
+  window.dgvcChangePwd = function(){
+    var cur = prompt('Nhập mật khẩu hiện tại của module này để xác nhận:');
+    if(cur===null) return;
+    if(cur !== dgvcMatKhau){ alert('Mật khẩu hiện tại không đúng.'); return; }
+    var nw = prompt('Nhập mật khẩu MỚI cho module "Đánh giá, Xếp loại" (từ 4 ký tự):');
+    if(nw===null) return;
+    if(!nw || nw.length<4){ alert('Mật khẩu mới quá ngắn.'); return; }
+    var r = dgvcPwdRef();
+    if(r) r.set(nw);
+    dgvcMatKhau = nw;
+    alert('✅ Đã đổi mật khẩu module này.');
+  };
+
+  // ---- Đính kèm: ảnh (nén nhẹ) / tệp (base64, giới hạn 4MB) / link ----
+  function dgvcCompressImage(file, cb){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        var maxW = 1000, w = img.width, h = img.height;
+        if(w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        cb(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = function(){ alert('Không đọc được ảnh "'+file.name+'".'); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function(){ alert('Lỗi đọc file "'+file.name+'".'); };
+    reader.readAsDataURL(file);
+  }
+  window.dgvcHandleFiles = function(inputEl){
+    var files = inputEl.files ? Array.prototype.slice.call(inputEl.files) : [];
+    files.forEach(function(file){
+      var isImage = file.type && file.type.indexOf('image/')===0;
+      if(isImage){
+        dgvcCompressImage(file, function(dataUrl){ dgvcPendingAtt.push({type:'image', name:file.name, data:dataUrl}); dgvcRenderAttPrev(); });
+      } else {
+        if(file.size > 4*1024*1024){ alert('⚠️ Tệp "'+file.name+'" vượt quá 4MB. Vui lòng nén nhỏ lại hoặc dùng link (Drive/Zalo) thay vì tải trực tiếp.'); return; }
+        var reader = new FileReader();
+        reader.onload = function(e){ dgvcPendingAtt.push({type:'file', name:file.name, data:e.target.result}); dgvcRenderAttPrev(); };
+        reader.onerror = function(){ alert('⚠️ Không đọc được tệp "'+file.name+'".'); };
+        reader.readAsDataURL(file);
+      }
+    });
+    inputEl.value = '';
+  };
+  window.dgvcAddLink = function(){
+    var inp = document.getElementById('dgvcLinkInput');
+    var url = (inp.value||'').trim();
+    if(!url){ alert('Vui lòng dán link trước khi bấm "Thêm link".'); return; }
+    if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    dgvcPendingAtt.push({type:'link', name:url, data:url});
+    inp.value = '';
+    dgvcRenderAttPrev();
+  };
+  window.dgvcRemoveAtt = function(i){ dgvcPendingAtt.splice(i,1); dgvcRenderAttPrev(); };
+  function dgvcRenderAttPrev(){
+    var wrap = document.getElementById('dgvcAttPrev');
+    if(!wrap) return;
+    if(!dgvcPendingAtt.length){ wrap.innerHTML = '<span style="font-size:12px;color:#aaa">Chưa có đính kèm nào</span>'; return; }
+    wrap.innerHTML = dgvcPendingAtt.map(function(a,i){
+      var thumb = a.type==='image'
+        ? '<img src="'+a.data+'" style="width:52px;height:52px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee0bc" onclick="dgvcViewImage(this.src)">'
+        : a.type==='link'
+        ? '<div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:#eef2ff;border-radius:6px;font-size:20px;color:#3949ab"><i class="ti ti-link"></i></div>'
+        : '<div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:#fff3e0;border-radius:6px;font-size:20px;color:#e65100"><i class="ti ti-file-description"></i></div>';
+      return '<div style="position:relative;text-align:center">'+thumb+
+        '<div style="font-size:9.5px;color:#888;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+dgvcEsc(a.name||'')+'</div>'+
+        '<button type="button" onclick="dgvcRemoveAtt('+i+')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#c62828;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;padding:0">×</button>'+
+      '</div>';
+    }).join('');
+  }
+  window.dgvcViewImage = function(src){
+    document.getElementById('dgvcLboxImg').src = src;
+    document.getElementById('dgvcLbox').style.display='flex';
+  };
+
+  // ---- Lưu / Xóa ----
+  window.dgvcSaveNote = function(){
+    var nam = parseInt(document.getElementById('dgvcNam').value,10);
+    var danhMuc = document.getElementById('dgvcDanhMuc').value;
+    var ghiChu = (document.getElementById('dgvcGhiChu').value||'').trim();
+    if(!nam){ alert('Vui lòng nhập Năm.'); return; }
+    var r = dgvcNotesRef();
+    if(!r){ alert('Không kết nối được Firebase.'); return; }
+    var nguoiGhi = dgvcCu ? dgvcCu.name : '';
+    var newRef = r.push();
+    newRef.set({ nam:nam, danhMuc:danhMuc, ghiChu:ghiChu, nguoiGhi:nguoiGhi, createdAt: Date.now(), dinhKem: dgvcPendingAtt.slice() }).then(function(){
+      document.getElementById('dgvcGhiChu').value='';
+      dgvcPendingAtt = [];
+      dgvcRenderAttPrev();
+    }).catch(function(err){
+      alert('❌ Không lưu được (có thể do tệp đính kèm quá lớn hoặc mất kết nối mạng). Chi tiết lỗi: ' + (err && err.message ? err.message : err));
+    });
+  };
+  window.dgvcDeleteNote = function(id){
+    if(!confirm('Xóa mục này? Không thể hoàn tác.')) return;
+    var r = dgvcNotesRef();
+    if(r) r.child(id).remove();
+  };
+
+  // ---- Danh sách + lọc ----
+  function dgvcGetFiltered(){
+    var q = (document.getElementById('dgvcSearch')||{}).value || '';
+    q = q.toLowerCase();
+    var nam = (document.getElementById('dgvcFilterNam')||{}).value || '';
+    var dm = (document.getElementById('dgvcFilterDanhMuc')||{}).value || '';
+    return dgvcNotes.filter(function(e){
+      if(nam && String(e.nam)!==nam) return false;
+      if(dm && e.danhMuc!==dm) return false;
+      if(q){
+        var hay = ((e.ghiChu||'')+' '+(e.danhMuc||'')).toLowerCase();
+        if(hay.indexOf(q)===-1) return false;
+      }
+      return true;
+    }).sort(function(a,b){ return (b.nam-a.nam) || (b.createdAt-a.createdAt); });
+  }
+  window.dgvcClearFilter = function(){
+    document.getElementById('dgvcSearch').value='';
+    document.getElementById('dgvcFilterNam').value='';
+    document.getElementById('dgvcFilterDanhMuc').value='';
+    dgvcRender();
+  };
+  window.dgvcRender = function(){
+    var wrap = document.getElementById('dgvcList');
+    var cnt = document.getElementById('dgvcCount');
+    if(!wrap) return;
+    var list = dgvcGetFiltered();
+    if(cnt) cnt.textContent = list.length + ' / ' + dgvcNotes.length + ' mục';
+    if(!list.length){ wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#999;background:#fff;border-radius:12px;border:1.5px solid #eee0bc">Chưa có dữ liệu phù hợp bộ lọc.</div>'; return; }
+    var isAdmin = !!dgvcCu;
+    wrap.innerHTML = list.map(function(e){
+      return '<div style="background:#fff;border:1.5px solid #eee0bc;border-radius:11px;padding:11px 14px;margin-bottom:9px">'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
+        + '<span style="font-size:12px;font-weight:700;color:#7a5a05;background:#fbf1d6;border-radius:6px;padding:2px 9px">Năm '+e.nam+'</span>'
+        + '<span style="font-size:11px;font-weight:700;color:#8a6d1f;background:#fbf1d6;border-radius:6px;padding:2px 8px">'+dgvcEsc(e.danhMuc||'Khác')+'</span>'
+        + (e.nguoiGhi ? '<span style="font-size:11.5px;color:#aaa">· '+dgvcEsc(e.nguoiGhi)+'</span>' : '')
+        + (isAdmin ? '<span style="margin-left:auto"><button onclick="dgvcDeleteNote(\''+e.id+'\')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;font-family:inherit">Xóa</button></span>' : '')
+        + '</div>'
+        + (e.ghiChu ? '<div style="font-size:13.5px;color:#222;line-height:1.5;white-space:pre-wrap">'+dgvcEsc(e.ghiChu)+'</div>' : '')
+        + dgvcRenderAttChips(e.dinhKem)
+        + '</div>';
+    }).join('');
+  };
+  function dgvcRenderAttChips(list){
+    if(!list || !list.length) return '';
+    return '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">' + list.map(function(a){
+      if(a.type==='image'){
+        return '<img src="'+a.data+'" alt="đính kèm" style="width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee0bc" onclick="dgvcViewImage(this.src)">';
+      }
+      if(a.type==='link'){
+        return '<a href="'+dgvcEsc(a.data)+'" target="_blank" rel="noopener" style="font-size:11px;background:#eef2ff;color:#3949ab;border-radius:6px;padding:6px 9px;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-link"></i> '+dgvcEsc((a.name||a.data).length>28?(a.name||a.data).slice(0,28)+'…':(a.name||a.data))+'</a>';
+      }
+      return '<a href="'+a.data+'" download="'+dgvcEsc(a.name||'tep-dinh-kem')+'" style="font-size:11px;background:#fff3e0;color:#e65100;border-radius:6px;padding:6px 9px;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-file-description"></i> '+dgvcEsc((a.name||'').length>24?a.name.slice(0,24)+'…':a.name)+'</a>';
+    }).join('') + '</div>';
+  }
+})();
 </script>
 
 </body>
