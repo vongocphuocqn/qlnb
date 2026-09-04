@@ -25605,10 +25605,18 @@ function ddnlHoTenComboSetup(){
       const panel = document.createElement('div');
       panel.id = input.id+'_panel';
       panel.className = 'ddnl-combo-panel';
+      // Dùng position:fixed + tọa độ tính từ input, rồi gắn vào <body> — để khung gợi ý
+      // KHÔNG bị bảng cha (.ddnl-rows-wrap{overflow-x:auto}) cắt mất theo chiều dọc.
+      const rect = input.getBoundingClientRect();
+      panel.style.position = 'fixed';
+      panel.style.top = (rect.bottom + 2) + 'px';
+      panel.style.left = rect.left + 'px';
+      panel.style.width = Math.max(rect.width, 220) + 'px';
+      panel.style.zIndex = '9999';
       panel.innerHTML = filtered.length
         ? filtered.map(o=>`<div class="ddnl-combo-opt" data-val="${esc(o)}">${esc(o)}</div>`).join("")
         : `<div class="ddnl-combo-empty">Không tìm thấy tên khớp — kiểm tra lại chính tả.</div>`;
-      input.parentElement.appendChild(panel);
+      document.body.appendChild(panel);
       panel.querySelectorAll('[data-val]').forEach(d=>{
         d.onmousedown = (e)=>{
           e.preventDefault();
@@ -48854,6 +48862,33 @@ function gcbcExportWord(){
   <div id="dgvcLbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:990;align-items:center;justify-content:center;padding:20px" onclick="this.style.display='none'">
     <img id="dgvcLboxImg" style="max-width:92vw;max-height:92vh;border-radius:8px">
   </div>
+
+  <!-- Overlay Sửa kết quả -->
+  <div id="dgvcEditBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:995;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)dgvcCloseEdit()">
+    <div style="background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px 20px;max-height:90vh;overflow-y:auto">
+      <div style="font-weight:700;color:#7a5a05;margin-bottom:12px;display:flex;align-items:center;gap:6px"><i class="ti ti-edit"></i> Sửa kết quả</div>
+      <div class="mgrid">
+        <div class="mf"><label>Năm</label><input type="number" id="dgvcENam" min="2000" max="2100"></div>
+        <div class="mf sp2"><label>Danh mục</label><select id="dgvcEDanhMuc"></select></div>
+      </div>
+      <div class="mf" style="margin-top:8px"><label>Ghi chú</label><textarea id="dgvcEGhiChu" style="min-height:64px;width:100%;box-sizing:border-box;border:1.5px solid #eee0bc;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit"></textarea></div>
+      <div style="margin-top:10px">
+        <label style="font-size:12.5px;font-weight:600;color:#7a5a05">Đính kèm — có thể thêm/bớt</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <label class="kpi-btn" style="background:#f5efe0;color:#7a5a05;border:1.5px solid #d9c48a;cursor:pointer"><i class="ti ti-camera"></i> Chụp ảnh<input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="dgvcHandleFiles(this,'edit')"></label>
+          <label class="kpi-btn" style="background:#f5efe0;color:#7a5a05;border:1.5px solid #d9c48a;cursor:pointer"><i class="ti ti-photo"></i> Chọn ảnh / scan<input type="file" accept="image/*" multiple style="display:none" onchange="dgvcHandleFiles(this,'edit')"></label>
+          <label class="kpi-btn" style="background:#f5efe0;color:#7a5a05;border:1.5px solid #d9c48a;cursor:pointer"><i class="ti ti-paperclip"></i> Chọn tệp<input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple style="display:none" onchange="dgvcHandleFiles(this,'edit')"></label>
+          <input type="url" id="dgvcELinkInput" placeholder="Dán link (Drive, Zalo...)" style="flex:1;min-width:180px;border:1.5px solid #eee0bc;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit">
+          <button type="button" onclick="dgvcAddLink('edit')" style="background:#b8860b;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit"><i class="ti ti-link"></i> Thêm link</button>
+        </div>
+        <div id="dgvcEAttPrev" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:16px">
+        <button onclick="dgvcSaveEdit()" style="flex:1;background:#b8860b;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu thay đổi</button>
+        <button onclick="dgvcCloseEdit()" style="background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:9px;padding:11px 18px;font-size:13.5px;cursor:pointer;font-family:inherit">Hủy</button>
+      </div>
+    </div>
+  </div>
 </div>
 <!-- /dgvcScreen -->
 
@@ -48874,6 +48909,8 @@ function gcbcExportWord(){
   ];
   var dgvcNotes = [];
   var dgvcPendingAtt = [];
+  var dgvcEditAtt = [];
+  var dgvcEditingId = null;
   var dgvcListenerOn = false;
   var dgvcCu = null;
   var dgvcMatKhau = 'gmhs2026';
@@ -48928,7 +48965,7 @@ function gcbcExportWord(){
       dgvcFillCatSelect('dgvcDanhMuc', false);
       dgvcFillCatSelect('dgvcFilterDanhMuc', true);
       var namInp = document.getElementById('dgvcNam'); if(namInp && !namInp.value) namInp.value = new Date().getFullYear();
-      dgvcRenderAttPrev();
+      dgvcRenderAttPrev('add');
       dgvcEnsurePwdListener();
       dgvcEnsureListener();
       // Nếu đã đăng nhập Admin tổng của cả hệ thống (mật khẩu chung), tự động vào luôn khu vực
@@ -49009,37 +49046,44 @@ function gcbcExportWord(){
     reader.onerror = function(){ alert('Lỗi đọc file "'+file.name+'".'); };
     reader.readAsDataURL(file);
   }
-  window.dgvcHandleFiles = function(inputEl){
+  window.dgvcHandleFiles = function(inputEl, mode){
     var files = inputEl.files ? Array.prototype.slice.call(inputEl.files) : [];
     files.forEach(function(file){
       var isImage = file.type && file.type.indexOf('image/')===0;
       if(isImage){
-        dgvcCompressImage(file, function(dataUrl){ dgvcPendingAtt.push({type:'image', name:file.name, data:dataUrl}); dgvcRenderAttPrev(); });
+        dgvcCompressImage(file, function(dataUrl){ dgvcStoreAtt({type:'image', name:file.name, data:dataUrl}, mode); });
       } else {
         if(file.size > 4*1024*1024){ alert('⚠️ Tệp "'+file.name+'" vượt quá 4MB. Vui lòng nén nhỏ lại hoặc dùng link (Drive/Zalo) thay vì tải trực tiếp.'); return; }
         var reader = new FileReader();
-        reader.onload = function(e){ dgvcPendingAtt.push({type:'file', name:file.name, data:e.target.result}); dgvcRenderAttPrev(); };
+        reader.onload = function(e){ dgvcStoreAtt({type:'file', name:file.name, data:e.target.result}, mode); };
         reader.onerror = function(){ alert('⚠️ Không đọc được tệp "'+file.name+'".'); };
         reader.readAsDataURL(file);
       }
     });
     inputEl.value = '';
   };
-  window.dgvcAddLink = function(){
-    var inp = document.getElementById('dgvcLinkInput');
+  window.dgvcAddLink = function(mode){
+    var inp = document.getElementById(mode==='edit' ? 'dgvcELinkInput' : 'dgvcLinkInput');
     var url = (inp.value||'').trim();
     if(!url){ alert('Vui lòng dán link trước khi bấm "Thêm link".'); return; }
     if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    dgvcPendingAtt.push({type:'link', name:url, data:url});
+    dgvcStoreAtt({type:'link', name:url, data:url}, mode);
     inp.value = '';
-    dgvcRenderAttPrev();
   };
-  window.dgvcRemoveAtt = function(i){ dgvcPendingAtt.splice(i,1); dgvcRenderAttPrev(); };
-  function dgvcRenderAttPrev(){
-    var wrap = document.getElementById('dgvcAttPrev');
+  function dgvcStoreAtt(item, mode){
+    if(mode==='edit'){ dgvcEditAtt.push(item); dgvcRenderAttPrev('edit'); }
+    else { dgvcPendingAtt.push(item); dgvcRenderAttPrev('add'); }
+  }
+  window.dgvcRemoveAtt = function(i, mode){
+    if(mode==='edit'){ dgvcEditAtt.splice(i,1); dgvcRenderAttPrev('edit'); }
+    else { dgvcPendingAtt.splice(i,1); dgvcRenderAttPrev('add'); }
+  };
+  function dgvcRenderAttPrev(mode){
+    var wrap = document.getElementById(mode==='edit' ? 'dgvcEAttPrev' : 'dgvcAttPrev');
+    var arr = mode==='edit' ? dgvcEditAtt : dgvcPendingAtt;
     if(!wrap) return;
-    if(!dgvcPendingAtt.length){ wrap.innerHTML = '<span style="font-size:12px;color:#aaa">Chưa có đính kèm nào</span>'; return; }
-    wrap.innerHTML = dgvcPendingAtt.map(function(a,i){
+    if(!arr.length){ wrap.innerHTML = '<span style="font-size:12px;color:#aaa">Chưa có đính kèm nào</span>'; return; }
+    wrap.innerHTML = arr.map(function(a,i){
       var thumb = a.type==='image'
         ? '<img src="'+a.data+'" style="width:52px;height:52px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee0bc" onclick="dgvcViewImage(this.src)">'
         : a.type==='link'
@@ -49047,7 +49091,7 @@ function gcbcExportWord(){
         : '<div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:#fff3e0;border-radius:6px;font-size:20px;color:#e65100"><i class="ti ti-file-description"></i></div>';
       return '<div style="position:relative;text-align:center">'+thumb+
         '<div style="font-size:9.5px;color:#888;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+dgvcEsc(a.name||'')+'</div>'+
-        '<button type="button" onclick="dgvcRemoveAtt('+i+')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#c62828;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;padding:0">×</button>'+
+        '<button type="button" onclick="dgvcRemoveAtt('+i+',\''+(mode||'add')+'\')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#c62828;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;padding:0">×</button>'+
       '</div>';
     }).join('');
   }
@@ -49069,9 +49113,41 @@ function gcbcExportWord(){
     newRef.set({ nam:nam, danhMuc:danhMuc, ghiChu:ghiChu, nguoiGhi:nguoiGhi, createdAt: Date.now(), dinhKem: dgvcPendingAtt.slice() }).then(function(){
       document.getElementById('dgvcGhiChu').value='';
       dgvcPendingAtt = [];
-      dgvcRenderAttPrev();
+      dgvcRenderAttPrev('add');
     }).catch(function(err){
       alert('❌ Không lưu được (có thể do tệp đính kèm quá lớn hoặc mất kết nối mạng). Chi tiết lỗi: ' + (err && err.message ? err.message : err));
+    });
+  };
+  window.dgvcOpenEdit = function(id){
+    var e = dgvcNotes.filter(function(x){ return x.id===id; })[0];
+    if(!e) return;
+    dgvcEditingId = id;
+    dgvcFillCatSelect('dgvcEDanhMuc', false);
+    document.getElementById('dgvcENam').value = e.nam || '';
+    var selE = document.getElementById('dgvcEDanhMuc');
+    if(e.danhMuc && DGVC_CATS.indexOf(e.danhMuc)===-1){ selE.innerHTML += '<option value="'+dgvcEsc(e.danhMuc)+'">'+dgvcEsc(e.danhMuc)+'</option>'; }
+    selE.value = e.danhMuc || '';
+    document.getElementById('dgvcEGhiChu').value = e.ghiChu || '';
+    dgvcEditAtt = (e.dinhKem || []).slice();
+    dgvcRenderAttPrev('edit');
+    document.getElementById('dgvcEditBg').style.display='flex';
+  };
+  window.dgvcCloseEdit = function(){
+    dgvcEditingId = null;
+    document.getElementById('dgvcEditBg').style.display='none';
+  };
+  window.dgvcSaveEdit = function(){
+    if(!dgvcEditingId) return;
+    var nam = parseInt(document.getElementById('dgvcENam').value,10);
+    var danhMuc = document.getElementById('dgvcEDanhMuc').value;
+    var ghiChu = (document.getElementById('dgvcEGhiChu').value||'').trim();
+    if(!nam){ alert('Vui lòng nhập Năm.'); return; }
+    var r = dgvcNotesRef();
+    if(!r){ alert('Không kết nối được Firebase.'); return; }
+    r.child(dgvcEditingId).update({ nam:nam, danhMuc:danhMuc, ghiChu:ghiChu, dinhKem: dgvcEditAtt.slice() }).then(function(){
+      dgvcCloseEdit();
+    }).catch(function(err){
+      alert('❌ Không lưu được thay đổi (có thể do tệp đính kèm quá lớn hoặc mất kết nối mạng). Chi tiết lỗi: ' + (err && err.message ? err.message : err));
     });
   };
   window.dgvcDeleteNote = function(id){
@@ -49116,7 +49192,7 @@ function gcbcExportWord(){
         + '<span style="font-size:12px;font-weight:700;color:#7a5a05;background:#fbf1d6;border-radius:6px;padding:2px 9px">Năm '+e.nam+'</span>'
         + '<span style="font-size:11px;font-weight:700;color:#8a6d1f;background:#fbf1d6;border-radius:6px;padding:2px 8px">'+dgvcEsc(e.danhMuc||'Khác')+'</span>'
         + (e.nguoiGhi ? '<span style="font-size:11.5px;color:#aaa">· '+dgvcEsc(e.nguoiGhi)+'</span>' : '')
-        + (isAdmin ? '<span style="margin-left:auto"><button onclick="dgvcDeleteNote(\''+e.id+'\')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;font-family:inherit">Xóa</button></span>' : '')
+        + (isAdmin ? '<span style="margin-left:auto;display:flex;gap:6px"><button onclick="dgvcOpenEdit(\''+e.id+'\')" style="background:#fff;color:#7a5a05;border:1.5px solid #d9c48a;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;font-family:inherit">Sửa</button><button onclick="dgvcDeleteNote(\''+e.id+'\')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;font-family:inherit">Xóa</button></span>' : '')
         + '</div>'
         + (e.ghiChu ? '<div style="font-size:13.5px;color:#222;line-height:1.5;white-space:pre-wrap">'+dgvcEsc(e.ghiChu)+'</div>' : '')
         + dgvcRenderAttChips(e.dinhKem)
