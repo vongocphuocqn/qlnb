@@ -46068,7 +46068,8 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     <div style="background:#fff;border:1.5px solid #eee;border-radius:12px;padding:14px 16px">
       <div style="font-weight:700;color:#c62828;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <i class="ti ti-history"></i> Phiếu đã tạo gần đây <span style="font-weight:400;font-size:11px;color:#999">(lưu để in lại khi cần, không có bước duyệt)</span>
-        <button type="button" id="pbvAdminModeBtn" onclick="pbvToggleAdminMode()" style="margin-left:auto;background:#f5f5f5;border:1px solid #ddd;color:#666;border-radius:14px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-lock"></i> Chế độ Quản lý (xóa mọi phiếu)</button>
+        <button type="button" onclick="pbvOpenTrackingList()" style="margin-left:auto;background:#fdecea;border:1px solid #f5c2c0;color:#c62828;border-radius:14px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-clipboard-list"></i> Danh sách theo dõi</button>
+        <button type="button" id="pbvAdminModeBtn" onclick="pbvToggleAdminMode()" style="background:#f5f5f5;border:1px solid #ddd;color:#666;border-radius:14px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-lock"></i> Chế độ Quản lý (xóa mọi phiếu)</button>
       </div>
       <input type="text" id="pbvSearchMine" placeholder="🔍 Gõ tên để tìm phiếu đã tạo..." oninput="pbvRenderList()" style="width:100%;box-sizing:border-box;border:1.5px solid #eee;border-radius:8px;padding:8px 11px;font-size:13px;font-family:inherit;margin-bottom:10px">
       <div id="pbvList"></div>
@@ -46092,6 +46093,25 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         <button onclick="pbvAddSigner()" style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit">Thêm</button>
       </div>
       <button onclick="pbvCloseSignerConfig()" style="width:100%;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;padding:9px;font-size:13px;cursor:pointer;font-family:inherit">Đóng</button>
+    </div>
+  </div>
+  <!-- Khung nổi (modal) — Danh sách theo dõi (tổng hợp theo nhân viên) toàn bộ phiếu "Đăng ký phép BV" -->
+  <div id="pbvTrackBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)pbvCloseTrackingList()">
+    <div id="pbvTrackBox" style="background:#fff;border-radius:12px;max-width:960px;width:100%;padding:18px 20px;max-height:88vh;overflow-y:auto;transition:max-width .18s,max-height .18s">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+        <div style="font-weight:700;color:#c62828;display:flex;align-items:center;gap:6px"><i class="ti ti-clipboard-list"></i> Danh sách theo dõi — Nhân viên đã lập phép BV</div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button type="button" onclick="pbvExportTrackingExcel()" style="background:#1B5E20;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11.5px;cursor:pointer;font-family:inherit"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+          <button type="button" id="pbvTrackMaxBtn" onclick="kpiToggleMaximizeBox('pbvTrackBox','pbvTrackMaxBtn')" style="background:#f5f5f5;border:1px solid #ddd;color:#666;border-radius:8px;padding:5px 10px;font-size:11.5px;cursor:pointer;font-family:inherit"><i class="ti ti-arrows-maximize"></i> Phóng to</button>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:#888;margin-bottom:10px">Mỗi phiếu "Đăng ký phép BV" khi lập sẽ tự sinh 1 phiếu "Chờ duyệt" bên Kanban/Nghỉ phép của Khoa — bảng dưới đây tổng hợp theo từng nhân viên để tiện theo dõi, đối chiếu và nhắc duyệt.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <input type="text" id="pbvTrackSearch" placeholder="🔍 Gõ tên để lọc..." oninput="pbvRenderTrackingList()" style="flex:1;min-width:180px;border:1.5px solid #eee;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit">
+        <span id="pbvTrackSummary" style="font-size:11.5px;color:#999;white-space:nowrap"></span>
+      </div>
+      <div id="pbvTrackList" style="overflow-x:auto"></div>
+      <button onclick="pbvCloseTrackingList()" style="width:100%;margin-top:14px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;padding:9px;font-size:13px;cursor:pointer;font-family:inherit">Đóng</button>
     </div>
   </div>
 </div>
@@ -48640,6 +48660,8 @@ function pbvEnsureListener(){
     var data = snap.val() || {};
     pbvRecords = Object.values(data).sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
     pbvRenderList();
+    var trackBg = document.getElementById('pbvTrackBg');
+    if(trackBg && trackBg.style.display==='flex') pbvRenderTrackingList();
   });
   // Lắng nghe RIÊNG (không đụng gì tới listener của bản thân module Khoa) chỉ để biết trạng thái
   // duyệt của các phiếu đã tự sinh sang Khoa — hiện huy hiệu "Khoa: Chờ duyệt/Đã duyệt/Từ chối"
@@ -48651,6 +48673,8 @@ function pbvEnsureListener(){
       pbvNpStatusCache = {};
       Object.values(data).forEach(function(r){ pbvNpStatusCache[r.id] = r.status; });
       pbvRenderList();
+      var trackBg = document.getElementById('pbvTrackBg');
+      if(trackBg && trackBg.style.display==='flex') pbvRenderTrackingList();
     });
   }
 }
@@ -48709,7 +48733,10 @@ function pbvSubmit(){
   };
   var savePromise = pbvRef.child(String(rec.id)).set(rec);
   savePromise.then(function(){
-    pbvAddMyId(rec.id);
+    // Chỉ tự nhận "phiếu của máy này" khi lập MỚI, hoặc khi sửa đúng phiếu vốn đã là của máy này.
+    // Tránh trường hợp Quản lý dùng "Chế độ Quản lý" sửa giúp phiếu của người khác thì máy đang
+    // dùng lại mặc nhiên có quyền Sửa/Xóa phiếu đó về sau (kể cả khi đã tắt Chế độ Quản lý).
+    if(!isEdit || pbvGetMyIds().indexOf(String(rec.id))>-1) pbvAddMyId(rec.id);
     if(isEdit && rec.npRecordId && typeof npRef!=='undefined' && npRef){
       // Cập nhật lại đúng các trường nội dung của phiếu bên Khoa đang "Chờ duyệt" cho khớp với
       // phiếu BV vừa sửa — KHÔNG đụng tới status/approvedBy/approvedAt (giữ nguyên tiến trình duyệt).
@@ -48739,6 +48766,12 @@ function pbvSubmit(){
 function pbvStartEdit(id){
   var r = pbvRecords.find(function(x){ return String(x.id)===String(id); });
   if(!r) return;
+  var stKhoa = r.npRecordId ? pbvNpStatusCache[r.npRecordId] : null;
+  if(stKhoa==='approved'){
+    var laAdmin = pbvIsAdminMode || (typeof cu!=='undefined' && cu && cu.role==='admin');
+    if(!laAdmin) return; // an toàn: nút Sửa chỉ hiện cho Quản lý ở phiếu đã duyệt, nhưng vẫn chặn cứng ở đây
+    if(!confirm('Phiếu này ĐÃ ĐƯỢC KHOA DUYỆT (đã trừ quỹ Phép năm theo Số ngày cũ).\n\nSửa xong, nội dung (kể cả Từ ngày/Đến ngày/Số ngày) sẽ được cập nhật khớp sang phiếu bên Kanban Nghỉ phép của Khoa, nhưng KHÔNG tự động điều chỉnh lại quỹ phép đã trừ trước đó.\n\nNếu có đổi Số ngày, cần vào màn hình "Đăng ký Nghỉ Phép" của Khoa để tự chỉnh lại quỹ cho khớp.\n\nTiếp tục sửa?')) return;
+  }
   pbvEditingId = id;
   document.getElementById('pbvHoTen').value = r.hoTen||'';
   document.getElementById('pbvChucDanh').value = r.chucDanh||'';
@@ -48818,6 +48851,114 @@ function pbvSyncToKhoa(pbvRec){
     console.error('Lỗi đồng bộ sang Nghỉ phép Khoa (phiếu BV vẫn được lưu bình thường, chỉ là chưa tự lên danh sách Khoa duyệt):', err);
   });
 }
+// ── DANH SÁCH THEO DÕI (tổng hợp theo từng nhân viên) — vì đây là góc nhìn QUẢN LÝ, thấy được TÊN
+// và số liệu của TẤT CẢ nhân viên (khác với "Phiếu đã tạo gần đây" ở trên vốn chỉ cho user thường
+// thấy đúng phiếu của mình) nên bắt buộc phải bật "Chế độ Quản lý" (đúng mật khẩu Quản lý chung của
+// hệ thống) trước khi mở, tránh lộ thông tin nghỉ phép của người khác cho nhân viên thường.
+function pbvOpenTrackingList(){
+  var laAdmin = pbvIsAdminMode || (typeof cu!=='undefined' && cu && cu.role==='admin');
+  if(!laAdmin){
+    var pwd = prompt('Nhập mật khẩu Quản lý để xem "Danh sách theo dõi" (tổng hợp của TẤT CẢ nhân viên):');
+    if(pwd===null) return;
+    var real = (typeof adminPwd!=='undefined' && adminPwd) ? adminPwd : null;
+    if(real===null){ alert('Chưa tải được mật khẩu Quản lý (kiểm tra lại kết nối mạng) — thử lại sau vài giây.'); return; }
+    if(pwd!==real){ alert('Sai mật khẩu!'); return; }
+    pbvIsAdminMode = true;
+    var btn = document.getElementById('pbvAdminModeBtn');
+    if(btn){ btn.innerHTML = '<i class="ti ti-lock-open"></i> Đang bật Chế độ Quản lý'; btn.style.background='#c62828'; btn.style.color='#fff'; btn.style.borderColor='#c62828'; }
+    pbvRenderList();
+  }
+  document.getElementById('pbvTrackBg').style.display = 'flex';
+  pbvRenderTrackingList();
+}
+function pbvCloseTrackingList(){
+  document.getElementById('pbvTrackBg').style.display = 'none';
+  var box = document.getElementById('pbvTrackBox');
+  if(box) box.classList.remove('kpi-box-maximized');
+  var btn = document.getElementById('pbvTrackMaxBtn');
+  if(btn) btn.innerHTML = '<i class="ti ti-arrows-maximize"></i> Phóng to';
+}
+// Gom toàn bộ pbvRecords (đã có sẵn trong bộ nhớ, đồng bộ theo thời gian thực từ Firebase) theo
+// đúng Họ và tên -> ra 1 dòng/nhân viên, kèm số phiếu, tổng số ngày và trạng thái duyệt bên Khoa.
+function pbvBuildTrackingData(){
+  var map = {};
+  pbvRecords.forEach(function(r){
+    var key = (r.hoTen||'').trim();
+    if(!key) return;
+    if(!map[key]){
+      map[key] = { hoTen:r.hoTen, chucDanh:r.chucDanh||'', khoaPhong:r.khoaPhong||'', soPhieu:0, tongNgay:0,
+        lanGanNhat:'', choDuyet:0, daDuyet:0, tuChoi:0, chuaGui:0 };
+    }
+    var g = map[key];
+    g.soPhieu++;
+    g.tongNgay += Number(r.tongNgay)||0;
+    if(!g.lanGanNhat || (r.createdAt||'') > g.lanGanNhat) g.lanGanNhat = r.createdAt||'';
+    var st = r.npRecordId ? pbvNpStatusCache[r.npRecordId] : null;
+    if(!r.npRecordId) g.chuaGui++;
+    else if(st==='approved') g.daDuyet++;
+    else if(st==='denied') g.tuChoi++;
+    else g.choDuyet++;
+  });
+  return Object.values(map).sort(function(a,b){
+    return (b.soPhieu-a.soPhieu) || (a.hoTen||'').localeCompare(b.hoTen||'','vi');
+  });
+}
+function pbvRenderTrackingList(){
+  var wrap = document.getElementById('pbvTrackList');
+  if(!wrap) return;
+  var data = pbvBuildTrackingData();
+  var q = ((document.getElementById('pbvTrackSearch')||{}).value||'').trim().toLowerCase();
+  if(q) data = data.filter(function(g){ return (g.hoTen||'').toLowerCase().indexOf(q)>-1; });
+  var sumEl = document.getElementById('pbvTrackSummary');
+  if(sumEl){
+    var tongPhieu = data.reduce(function(s,g){ return s+g.soPhieu; },0);
+    var tongNgay = data.reduce(function(s,g){ return s+g.tongNgay; },0);
+    sumEl.textContent = data.length+' nhân viên · '+tongPhieu+' phiếu · '+tongNgay+' ngày';
+  }
+  if(!data.length){ wrap.innerHTML='<div style="text-align:center;color:#aaa;padding:16px;font-size:12.5px">Chưa có dữ liệu'+(q?' khớp tìm kiếm':'')+'.</div>'; return; }
+  wrap.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px">'
+    + '<thead><tr style="background:#fdecea;text-align:left">'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0">Họ và tên</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0">Chức danh</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0;text-align:center">Số phiếu</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0;text-align:center">Tổng ngày</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0;text-align:center">Chờ duyệt</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0;text-align:center">Đã duyệt</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0;text-align:center">Từ chối</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0;text-align:center">Chưa gửi Khoa</th>'
+    + '<th style="padding:7px 8px;border-bottom:2px solid #f5c2c0">Lập gần nhất</th>'
+    + '</tr></thead><tbody>'
+    + data.map(function(g){
+        return '<tr style="border-bottom:1px solid #f5f5f5">'
+          + '<td style="padding:7px 8px;font-weight:600">'+esc(g.hoTen)+'</td>'
+          + '<td style="padding:7px 8px;color:#666">'+esc(g.chucDanh)+'</td>'
+          + '<td style="padding:7px 8px;text-align:center">'+g.soPhieu+'</td>'
+          + '<td style="padding:7px 8px;text-align:center;font-weight:700;color:#c62828">'+g.tongNgay+'</td>'
+          + '<td style="padding:7px 8px;text-align:center'+(g.choDuyet?';color:#e65100;font-weight:600':'')+'">'+g.choDuyet+'</td>'
+          + '<td style="padding:7px 8px;text-align:center'+(g.daDuyet?';color:#1b5e20;font-weight:600':'')+'">'+g.daDuyet+'</td>'
+          + '<td style="padding:7px 8px;text-align:center'+(g.tuChoi?';color:#c0392b;font-weight:600':'')+'">'+g.tuChoi+'</td>'
+          + '<td style="padding:7px 8px;text-align:center;color:#999">'+g.chuaGui+'</td>'
+          + '<td style="padding:7px 8px;color:#999">'+(g.lanGanNhat ? new Date(g.lanGanNhat).toLocaleDateString('vi-VN') : '')+'</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>';
+}
+function pbvExportTrackingExcel(){
+  if(typeof XLSX==='undefined'){ alert('Không tải được thư viện xử lý Excel (XLSX). Kiểm tra kết nối mạng rồi thử lại.'); return; }
+  var data = pbvBuildTrackingData();
+  var q = ((document.getElementById('pbvTrackSearch')||{}).value||'').trim().toLowerCase();
+  if(q) data = data.filter(function(g){ return (g.hoTen||'').toLowerCase().indexOf(q)>-1; });
+  var rows = [['Họ và tên','Chức danh','Khoa/Phòng','Số phiếu đã lập','Tổng số ngày','Chờ duyệt','Đã duyệt','Từ chối','Chưa gửi Khoa','Lập gần nhất']];
+  data.forEach(function(g){
+    rows.push([g.hoTen, g.chucDanh, g.khoaPhong, g.soPhieu, g.tongNgay, g.choDuyet, g.daDuyet, g.tuChoi, g.chuaGui,
+      g.lanGanNhat ? new Date(g.lanGanNhat).toLocaleDateString('vi-VN') : '']);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:24},{wch:18},{wch:22},{wch:13},{wch:11},{wch:10},{wch:10},{wch:9},{wch:13},{wch:13}];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Theo doi phep BV');
+  XLSX.writeFile(wb, 'DanhSachTheoDoi_PhepBV_'+today()+'.xlsx');
+}
 function pbvRenderList(){
   var wrap = document.getElementById('pbvList');
   if(!wrap) return;
@@ -48849,16 +48990,26 @@ function pbvRenderList(){
       : (r.npRecordId ? '' : '<span style="font-size:10.5px;color:#bbb;margin-left:6px">(chưa gửi sang Khoa)</span>');
     // "Ai nấy xem/sửa": chỉ phiếu tự tạo trên CHÍNH máy/trình duyệt này (lưu trong localStorage) mới
     // được hiện nút Sửa/Xóa — phiếu của người khác chỉ Xem/In/Xuất Word/Chia sẻ (không sửa/xóa được).
-    // Kể cả phiếu của mình, nếu Khoa ĐÃ DUYỆT rồi thì cũng khóa Sửa/Xóa (tránh làm lệch quỹ phép).
-    // RIÊNG Quản lý (đăng nhập admin ở Trang chủ) được XÓA mọi phiếu — để dọn phiếu rác/phiếu thử,
-    // kể cả phiếu không phải do máy này tạo ra (chỉ Xóa, KHÔNG cho Sửa nội dung của người khác).
+    // Kể cả phiếu của mình, nếu Khoa ĐÃ DUYỆT rồi thì nhân viên thường không còn sửa/xóa được nữa
+    // (tránh làm lệch quỹ phép). RIÊNG Quản lý (bật "Chế độ Quản lý" hoặc đăng nhập admin ở Trang
+    // chủ) được TOÀN QUYỀN SỬA mọi phiếu — kể cả phiếu không phải do máy này lập, kể cả phiếu đã
+    // được Khoa duyệt (có xác nhận cảnh báo riêng ở pbvStartEdit) — để tiện chỉnh sửa sai sót giúp
+    // nhân viên. Riêng XÓA vẫn luôn khóa cứng khi đã duyệt cho mọi vai trò (kể cả Quản lý), vì xóa
+    // sẽ làm mất dấu vết quỹ phép đã trừ — muốn hủy phiếu đã duyệt phải xử lý qua đúng màn hình
+    // "Đăng ký Nghỉ Phép" của Khoa.
     var laCuaToi = myIds.indexOf(String(r.id))>-1;
     var laAdmin = pbvIsAdminMode || (typeof cu!=='undefined' && cu && cu.role==='admin');
     var daDuyet = stKhoa==='approved';
     var suaXoaHtml = '';
-    if(!daDuyet){
-      if(laCuaToi) suaXoaHtml += '<button onclick="pbvStartEdit(\''+r.id+'\')" style="background:#6a1b9a;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> Sửa</button>';
-      if(laCuaToi || laAdmin) suaXoaHtml += '<button onclick="pbvDeleteRecord(\''+r.id+'\')" style="background:#fff;color:#c62828;border:1px solid #ef9a9a;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa</button>';
+    if(laAdmin){
+      suaXoaHtml += '<button onclick="pbvStartEdit(\''+r.id+'\')" style="background:#6a1b9a;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> Sửa</button>';
+      if(!daDuyet) suaXoaHtml += '<button onclick="pbvDeleteRecord(\''+r.id+'\')" style="background:#fff;color:#c62828;border:1px solid #ef9a9a;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa</button>';
+      else suaXoaHtml += '<span style="font-size:10.5px;color:#aaa;align-self:center">Đã duyệt — không xóa được (vẫn sửa được)</span>';
+    } else if(!daDuyet){
+      if(laCuaToi){
+        suaXoaHtml += '<button onclick="pbvStartEdit(\''+r.id+'\')" style="background:#6a1b9a;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-edit"></i> Sửa</button>';
+        suaXoaHtml += '<button onclick="pbvDeleteRecord(\''+r.id+'\')" style="background:#fff;color:#c62828;border:1px solid #ef9a9a;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Xóa</button>';
+      }
     } else if(laCuaToi){
       suaXoaHtml = '<span style="font-size:10.5px;color:#aaa;align-self:center">Đã duyệt — không sửa/xóa được nữa</span>';
     }
