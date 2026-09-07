@@ -24391,13 +24391,19 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
     <div style="padding:16px 18px;max-height:75vh;overflow-y:auto">
       <div class="sub" style="margin-bottom:10px">So sánh tổng quan lịch sử bàn giao giữa các phòng — giúp phát hiện phòng nào hay thiếu/hư hỏng, phòng nào ít lập biên bản.</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;background:#fdecd2;border:1px solid #f0d9a8;border-radius:8px;padding:10px 12px">
+        <div class="fg" style="margin:0"><label style="font-size:11.5px">Từ ngày</label><input type="date" id="bgStatsFrom" onchange="bgOpenRoomsStats(true)"></div>
+        <div class="fg" style="margin:0"><label style="font-size:11.5px">Đến ngày</label><input type="date" id="bgStatsTo" onchange="bgOpenRoomsStats(true)"></div>
+        <button type="button" class="kpi-btn" style="border:1.5px solid #b45309;color:#b45309" onclick="document.getElementById('bgStatsFrom').value='';document.getElementById('bgStatsTo').value='';bgOpenRoomsStats(true)"><i class="ti ti-x"></i> Bỏ lọc (xem toàn bộ)</button>
+        <div id="bgStatsRangeNote" style="font-size:11.5px;color:#888;align-self:center"></div>
+      </div>
       <div id="bgRoomsStatsBody">Đang tải...</div>
     </div>
   </div>
 </div>
 
 <div id="bgScreen" style="display:none;min-height:100vh;background:#fdf6ec">
-  <div style="background:linear-gradient(135deg,#b45309,#7c2d12);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+  <div style="position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#b45309,#7c2d12);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.15)">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="bgBackToRooms()"><i class="ti ti-arrow-left"></i> Đổi phòng</button>
       <button class="kpi-btn" id="bgBackToBriefBtn" style="display:none;background:#fff;color:#bf360c" onclick="backToBriefModal()"><i class="ti ti-sunrise"></i> Về Giao ban sáng</button>
@@ -35420,14 +35426,20 @@ window.dctdMoveStatus=function(id,st){
   };
 
   var bgRoomsStatsCache=[];
-  window.bgOpenRoomsStats=function(){
+  window.bgOpenRoomsStats=function(keepOpen){
     if(!bgCu||bgCu.role!=='admin'){alert('Chỉ Quản lý mới xem được!');return;}
-    document.getElementById('bgRoomsStatsBg').style.display='flex';
+    if(!keepOpen) document.getElementById('bgRoomsStatsBg').style.display='flex';
     document.getElementById('bgRoomsStatsBody').innerHTML='Đang tải...';
+    var fr=(document.getElementById('bgStatsFrom')||{}).value||'';
+    var to=(document.getElementById('bgStatsTo')||{}).value||'';
+    var noteEl=document.getElementById('bgStatsRangeNote');
+    if(noteEl) noteEl.textContent = (fr||to) ? ('Đang lọc: '+(fr?bgFmtD(fr):'—')+' → '+(to?bgFmtD(to):'—')) : 'Đang xem: toàn bộ lịch sử';
     db.ref('bgRecords').once('value').then(function(snap){
       var d=snap.val()||{};
       var rows=BG_ROOMS.map(function(room){
         var recs=Object.values(d[bgSafeKey(room)]||d[room]||{});
+        if(fr) recs=recs.filter(function(r){return (r.ngay||'')>=fr;});
+        if(to) recs=recs.filter(function(r){return (r.ngay||'')<=to;});
         var tong=recs.length;
         var hoanThanh=recs.filter(function(r){return r.trangThai==='hoanthanh';}).length;
         var choHT=recs.filter(function(r){return r.trangThai==='choduyet';}).length;
@@ -35447,6 +35459,17 @@ window.dctdMoveStatus=function(id,st){
     if(e && e.target!==e.currentTarget) return;
     document.getElementById('bgRoomsStatsBg').style.display='none';
   };
+  // Từ bảng thống kê tổng hợp, bấm 1 dòng phòng để vào THẲNG "Danh sách công khai" của đúng phòng đó
+  // — tiện kiểm tra chi tiết ngay, không cần chọn phòng lại từ đầu.
+  window.bgGotoRoomDetail=function(roomId){
+    bgCloseRoomsStats();
+    bgSelectRoom(roomId);
+    if(bgRecordsRef){
+      bgRecordsRef.once('value').then(function(){ bgToggleList(); }).catch(function(){ bgToggleList(); });
+    } else {
+      setTimeout(function(){ bgToggleList(); }, 300);
+    }
+  };
   function bgRenderRoomsStats(rows){
     var body=document.getElementById('bgRoomsStatsBody');
     if(!body) return;
@@ -35460,19 +35483,27 @@ window.dctdMoveStatus=function(id,st){
         '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Chờ hoàn thành</th>'+
         '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Có thiếu/hư hỏng</th>'+
         '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Ngày gần nhất</th>'+
+        '<th style="padding:6px 8px;border:1px solid #f0d9a8;text-align:center">Xem</th>'+
       '</tr></thead><tbody>'+
       rows.map(function(r,i){
-        return '<tr style="'+(i%2?'background:#fffaf3':'')+'">'+
-          '<td style="padding:5px 8px;border:1px solid #f0e2c4;font-weight:600">'+bgEsc(r.room)+'</td>'+
+        return '<tr onclick="bgGotoRoomDetail(\''+r.room+'\')" style="cursor:pointer;'+(i%2?'background:#fffaf3':'')+'" onmouseover="this.style.background=\'#fdecd2\'" onmouseout="this.style.background=\''+(i%2?'#fffaf3':'#fff')+'\'">'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;font-weight:600;color:#0d47a1;text-decoration:underline">'+bgEsc(r.room)+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center">'+r.tong+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center;color:#1a7a4a">'+r.hoanThanh+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center;color:#c66a00">'+r.choHT+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center;'+(r.coSuCo>0?'color:#c62828;font-weight:700':'')+'">'+r.coSuCo+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center">'+bgFmtD(r.ngayGanNhat)+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #f0e2c4;text-align:center;color:#b45309"><i class="ti ti-eye"></i> Chi tiết</td>'+
         '</tr>';
       }).join('')+
-      '<tr style="background:#fdecd2;font-weight:700"><td style="padding:5px 8px;border:1px solid #f0d9a8">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #f0d9a8;text-align:center">'+totalTong+'</td><td colspan="4" style="padding:5px 8px;border:1px solid #f0d9a8"></td></tr>'+
-      '</tbody></table>';
+      '<tr style="background:#fdecd2;font-weight:700"><td style="padding:5px 8px;border:1px solid #f0d9a8">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #f0d9a8;text-align:center">'+totalTong+'</td><td colspan="5" style="padding:5px 8px;border:1px solid #f0d9a8"></td></tr>'+
+      '</tbody></table>'+
+      '<div style="font-size:11px;color:#888;margin-top:8px"><i class="ti ti-info-circle"></i> Bấm vào 1 dòng để vào thẳng "Danh sách công khai" của phòng đó.</div>';
+  }
+  function bgStatsRangeLabel(){
+    var fr=(document.getElementById('bgStatsFrom')||{}).value||'';
+    var to=(document.getElementById('bgStatsTo')||{}).value||'';
+    return (fr||to) ? ('Khoảng thời gian: '+(fr?bgFmtD(fr):'—')+' → '+(to?bgFmtD(to):'—')) : 'Khoảng thời gian: Toàn bộ lịch sử';
   }
   window.bgPrintRoomsStats=function(){
     if(!bgRoomsStatsCache.length){alert('Chưa có dữ liệu để in!');return;}
@@ -35489,6 +35520,7 @@ window.dctdMoveStatus=function(id,st){
       '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
       '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
       '<h2 style="text-align:center">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — HỒI SỨC</h2>'+
+      '<div style="margin-bottom:4px">'+bgStatsRangeLabel()+'</div>'+
       '<div style="text-align:right;margin-bottom:8px">Ngày in: '+bgFmtD(bgToday())+'</div>'+
       '<table><thead><tr><th>Phòng</th><th>Tổng biên bản</th><th>Đã hoàn thành</th><th>Chờ hoàn thành</th><th>Có thiếu/hư hỏng</th><th>Ngày gần nhất</th></tr></thead>'+
       '<tbody>'+rows+'</tbody></table></body></html>';
@@ -35507,7 +35539,8 @@ window.dctdMoveStatus=function(id,st){
       '.td-c{border:1px solid #f0d9a8;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #f0d9a8;padding:4px 6px;font-size:10pt}'+
       '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
       '<table><tr><td colspan="6" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
-      '<tr><td colspan="6" class="title">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — HỒI SỨC</td></tr><tr></tr>'+
+      '<tr><td colspan="6" class="title">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — HỒI SỨC</td></tr>'+
+      '<tr><td colspan="6" style="font-size:10pt;text-align:center;color:#444">'+bgStatsRangeLabel()+'</td></tr><tr></tr>'+
       '<tr><td class="th">Phòng</td><td class="th">Tổng biên bản</td><td class="th">Đã hoàn thành</td><td class="th">Chờ hoàn thành</td><td class="th">Có thiếu/hư hỏng</td><td class="th">Ngày gần nhất</td></tr>'+
       rows+'</table></body></html>';
     var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
