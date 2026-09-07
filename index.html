@@ -25158,9 +25158,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div id="pmMasterCount" style="font-size:11.5px;color:#888;margin-bottom:6px"></div>
       <div id="pmMasterList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-height:320px;overflow-y:auto"></div>
       <div style="font-weight:700;font-size:12.5px;color:#0d6e6e;margin-bottom:6px">Thêm tài sản mới vào danh mục chung</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input id="pmMasterNewTen" type="text" placeholder="Tên tài sản mới..." style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit">
+        <button type="button" class="kpi-btn" id="pmMasterNewPhotoBtn" style="border:1.5px solid #0d6e6e;color:#0d6e6e" onclick="pmPickPhotoFor('new')"><i class="ti ti-camera"></i> Ảnh</button>
         <button class="kpi-btn" style="background:#0d6e6e;color:#fff" onclick="pmMasterAdd()"><i class="ti ti-plus"></i> Thêm</button>
+      </div>
+      <div id="pmMasterNewPhotoPrev" style="display:none;margin-top:8px;align-items:center;gap:8px">
+        <img id="pmMasterNewPhotoImg" src="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1.5px solid #a8d9d0">
+        <button type="button" onclick="pmClearNewPhoto()" style="background:none;border:1px solid #ccc;color:#c62828;border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer">Bỏ ảnh này</button>
       </div>
     </div>
   </div>
@@ -25239,6 +25244,17 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <input id="pmCfgSearch" type="text" placeholder="🔍 Tìm tài sản..." oninput="pmRenderRoomConfigList()" style="width:100%;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px">
       <div id="pmRoomConfigList" style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto"></div>
     </div>
+  </div>
+</div>
+
+<!-- Ảnh minh họa tài sản: input file ẩn dùng chung (nén ảnh rồi lưu base64 thẳng vào danh mục chung,
+     không cần Firebase Storage) + khung xem ảnh phóng to (lightbox) dùng chung cho cả 3 nơi hiển thị
+     ảnh tài sản: Danh mục chung, Cấu hình tài sản theo phòng, và Checklist lúc bàn giao. -->
+<input type="file" id="pmPhotoFileInput" accept="image/*" capture="environment" style="display:none" onchange="pmHandlePhotoFileChosen(this)">
+<div id="pmImgLightboxBg" onclick="pmCloseImgLightbox(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:3000;align-items:center;justify-content:center;padding:20px">
+  <div style="position:relative;max-width:92vw;max-height:92vh" onclick="event.stopPropagation()">
+    <img id="pmImgLightboxImg" src="" style="max-width:92vw;max-height:92vh;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:block">
+    <button onclick="pmCloseImgLightbox()" style="position:absolute;top:-14px;right:-14px;width:32px;height:32px;border-radius:50%;background:#fff;border:none;color:#333;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)"><i class="ti ti-x"></i></button>
   </div>
 </div>
 
@@ -37877,7 +37893,7 @@ window.dctdMoveStatus=function(id,st){
     return Object.keys(cfg).map(function(itemId){
       var master=pmMasterCatalog[itemId];
       var coSo=cfg[itemId] && typeof cfg[itemId].coSo==='number' ? cfg[itemId].coSo : 1;
-      return {_id:itemId, ten:(master?master.ten:'(Tài sản đã bị xóa khỏi danh mục chung)'), coSo:coSo};
+      return {_id:itemId, ten:(master?master.ten:'(Tài sản đã bị xóa khỏi danh mục chung)'), coSo:coSo, anh:(master?master.anh:null)};
     });
   }
 
@@ -37962,10 +37978,16 @@ window.dctdMoveStatus=function(id,st){
       var isTextOnly = (it.coSo===0);
       var notReviewed = !st.reviewed;
       var borderStyle = notReviewed ? '2px dashed #e65100' : ('1.5px solid '+color+'33');
+      var thumb = it.anh
+        ? '<img src="'+it.anh+'" onclick="pmShowImgLightbox(\''+it.anh+'\')" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1.5px solid '+color+'55;cursor:zoom-in;flex-shrink:0" title="Bấm để xem ảnh to">'
+        : '';
       return '<div class="pm-item-row" data-item-id="'+it._id+'" style="border:'+borderStyle+';background:'+(notReviewed?'#fff9f2':bgc)+';border-radius:8px;padding:9px 12px">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+          '<div style="display:flex;align-items:center;gap:9px;flex:1;min-width:220px">'+
+          thumb+
           '<div style="font-size:13px;font-weight:600;color:#333"><span style="color:#0d6e6e;font-weight:700">'+(idx+1)+'.</span> '+pmEsc(it.ten)+(isTextOnly?'':' <span style="color:#0a6b5e;font-weight:400;font-size:11px">— Cơ số: '+it.coSo+'</span>')+
             (notReviewed?' <span style="color:#e65100;font-weight:700;font-size:10.5px">⚠ CHƯA KIỂM TRA — bấm 1 nút bên phải</span>':' <span style="color:#2e7d32;font-weight:700;font-size:10.5px">✓ đã kiểm tra</span>')+
+          '</div>'+
           '</div>'+
           '<div style="display:flex;gap:4px;align-items:center">'+
             (isTextOnly?'':'<input type="number" min="0" value="'+(st.soLuong!=null?st.soLuong:it.coSo)+'" oninput="pmSetSoLuong(\''+it._id+'\',this.value)" title="Số lượng giao thực tế" style="width:55px;padding:2px 5px;border:1.5px solid #ccc;border-radius:5px;font-size:11.5px;margin-right:4px">')+
@@ -39226,8 +39248,14 @@ window.dctdMoveStatus=function(id,st){
           '<button onclick="pmMasterCancelEdit()" style="background:none;border:1px solid #999;color:#666;border-radius:5px;padding:4px 10px;font-size:11.5px;cursor:pointer">Hủy</button>'+
           '</div>';
       }
-      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f3fbfa;border:1px solid #a8d9d0;border-radius:7px;gap:8px">'+
+      var thumb = it.anh
+        ? '<img src="'+it.anh+'" onclick="pmShowImgLightbox(\''+it.anh+'\')" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1.5px solid #a8d9d0;cursor:zoom-in;flex-shrink:0" title="Bấm để xem ảnh to">'
+        : '<span style="width:40px;height:40px;border-radius:6px;border:1.5px dashed #ccc;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:15px;flex-shrink:0"><i class="ti ti-photo"></i></span>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f3fbfa;border:1px solid #a8d9d0;border-radius:7px;gap:8px;flex-wrap:wrap">'+
+        thumb+
         '<span style="font-size:12.5px;color:#333;flex:1">'+pmEsc(it.ten)+'</span>'+
+        '<button onclick="pmPickPhotoFor(\''+it._id+'\')" title="'+(it.anh?'Đổi ảnh':'Thêm ảnh minh họa')+'" style="background:none;border:none;cursor:pointer;color:#0d6e6e;font-size:14px"><i class="ti ti-camera"></i></button>'+
+        (it.anh?('<button onclick="pmRemoveMasterPhoto(\''+it._id+'\')" title="Bỏ ảnh" style="background:none;border:none;cursor:pointer;color:#b45309;font-size:14px"><i class="ti ti-photo-off"></i></button>'):'')+
         '<button onclick="pmMasterEditStart(\''+it._id+'\')" title="Sửa" style="background:none;border:none;cursor:pointer;color:#0d47a1;font-size:14px"><i class="ti ti-pencil"></i></button>'+
         '<button onclick="pmMasterDelete(\''+it._id+'\')" title="Xóa" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:14px"><i class="ti ti-trash"></i></button>'+
         '</div>';
@@ -39246,12 +39274,75 @@ window.dctdMoveStatus=function(id,st){
     if(!confirm('Xóa tài sản này khỏi danh mục chung? (Không ảnh hưởng biên bản đã lập trước đó, nhưng sẽ mất khỏi cấu hình các phòng đang dùng)')) return;
     pmMasterCatalogRef.child(id).remove().catch(function(err){alert('Lỗi: '+err.message);});
   };
+  // ── Ảnh minh họa tài sản (nén nhẹ, lưu base64 thẳng trong danh mục chung — không cần Firebase
+  // Storage) — dùng chung cho: Danh mục chung, Cấu hình tài sản theo phòng, và Checklist bàn giao. ──
+  var pmMasterNewPhotoData=null; // ảnh đang chờ đính kèm khi thêm tài sản MỚI (chưa lưu)
+  var pmPhotoPickTarget=null;    // 'new' = đang thêm tài sản mới | id = đang đổi ảnh của tài sản đã có
+  function pmCompressImage(file, cb){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var maxW=700, w=img.width, h=img.height;
+        if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+        var canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        cb(canvas.toDataURL('image/jpeg',0.72));
+      };
+      img.onerror=function(){ alert('Không đọc được ảnh "'+file.name+'".'); };
+      img.src=e.target.result;
+    };
+    reader.onerror=function(){ alert('Lỗi đọc file ảnh.'); };
+    reader.readAsDataURL(file);
+  }
+  window.pmPickPhotoFor=function(target){
+    pmPhotoPickTarget=target;
+    document.getElementById('pmPhotoFileInput').click();
+  };
+  window.pmHandlePhotoFileChosen=function(inputEl){
+    var file=inputEl.files&&inputEl.files[0];
+    inputEl.value='';
+    if(!file||!pmPhotoPickTarget) return;
+    pmCompressImage(file, function(dataUrl){
+      if(pmPhotoPickTarget==='new'){
+        pmMasterNewPhotoData=dataUrl;
+        var img=document.getElementById('pmMasterNewPhotoImg'); if(img) img.src=dataUrl;
+        var prev=document.getElementById('pmMasterNewPhotoPrev'); if(prev) prev.style.display='flex';
+      } else {
+        pmMasterCatalogRef.child(pmPhotoPickTarget).update({anh:dataUrl}).catch(function(err){ alert('Lỗi lưu ảnh: '+err.message); });
+      }
+      pmPhotoPickTarget=null;
+    });
+  };
+  window.pmClearNewPhoto=function(){
+    pmMasterNewPhotoData=null;
+    var prev=document.getElementById('pmMasterNewPhotoPrev'); if(prev) prev.style.display='none';
+  };
+  window.pmRemoveMasterPhoto=function(id){
+    if(!confirm('Bỏ ảnh minh họa của tài sản này?')) return;
+    pmMasterCatalogRef.child(id).update({anh:null}).catch(function(err){ alert('Lỗi: '+err.message); });
+  };
+  window.pmShowImgLightbox=function(src){
+    if(!src) return;
+    document.getElementById('pmImgLightboxImg').src=src;
+    document.getElementById('pmImgLightboxBg').style.display='flex';
+  };
+  window.pmCloseImgLightbox=function(e){
+    if(e && e.target!==e.currentTarget) return;
+    document.getElementById('pmImgLightboxBg').style.display='none';
+  };
   window.pmMasterAdd=function(){
     var ten=document.getElementById('pmMasterNewTen').value.trim();
     if(!ten){alert('Vui lòng nhập tên tài sản.');return;}
     var trung=pmMasterItems().some(function(i){ return i.ten.trim().toLowerCase()===ten.toLowerCase(); });
     if(trung){ alert('⚠️ Tài sản "'+ten+'" đã có sẵn trong danh mục chung — không thêm trùng nữa.'); return; }
-    pmMasterCatalogRef.push({ten:ten}).then(function(){ document.getElementById('pmMasterNewTen').value=''; }).catch(function(err){alert('Lỗi: '+err.message);});
+    var payload={ten:ten};
+    if(pmMasterNewPhotoData) payload.anh=pmMasterNewPhotoData;
+    pmMasterCatalogRef.push(payload).then(function(){
+      document.getElementById('pmMasterNewTen').value='';
+      pmClearNewPhoto();
+    }).catch(function(err){alert('Lỗi: '+err.message);});
   };
   window.pmImportMasterSeed=function(){
     if(!pmCu||pmCu.role!=='admin') return;
@@ -39297,7 +39388,11 @@ window.dctdMoveStatus=function(id,st){
       var inGayme=!!gaymeCfg[it._id], inDungcu=!!dungcuCfg[it._id];
       var coSoGayme=inGayme && typeof gaymeCfg[it._id].coSo==='number' ? gaymeCfg[it._id].coSo : 1;
       var coSoDungcu=inDungcu && typeof dungcuCfg[it._id].coSo==='number' ? dungcuCfg[it._id].coSo : 1;
+      var thumb = it.anh
+        ? '<img src="'+it.anh+'" onclick="pmShowImgLightbox(\''+it.anh+'\')" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1.5px solid #a8d9d0;cursor:zoom-in;flex-shrink:0">'
+        : '<span style="width:36px;height:36px;border-radius:6px;border:1.5px dashed #ccc;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:14px;flex-shrink:0"><i class="ti ti-photo"></i></span>';
       return '<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:#f3fbfa;border:1px solid #a8d9d0;border-radius:7px;flex-wrap:wrap">'+
+        thumb+
         '<span style="font-size:12.5px;color:#333;flex:1;min-width:160px">'+pmEsc(it.ten)+'</span>'+
         '<label style="display:flex;align-items:center;gap:4px;font-size:11.5px;cursor:pointer"><input type="checkbox" '+(inGayme?'checked':'')+' onchange="pmToggleRoomItem(\''+it._id+'\',\'gayme\',this.checked)" style="width:auto">Gây mê</label>'+
         '<input type="number" min="0" id="pmCoSoGayme_'+it._id+'" value="'+coSoGayme+'" onchange="pmSetRoomItemCoSo(\''+it._id+'\',\'gayme\',this.value)" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid #ccc;border-radius:4px" title="Số lượng (cơ số) — Gây mê">'+
