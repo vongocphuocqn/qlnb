@@ -37682,11 +37682,33 @@ window.dctdMoveStatus=function(id,st){
   window.pmRenderRoomGrid=function(){
     var box=document.getElementById('pmRoomGrid');
     if(!box) return;
+    var isA=pmCu&&pmCu.role==='admin';
     box.innerHTML=PM_ROOMS.map(function(r){
       var pend=(typeof notifPmRoomsPending!=='undefined' && notifPmRoomsPending[r]) ? notifPmRoomsPending[r] : 0;
       var badge=pend>0 ? '<span style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:999px;min-width:20px;height:20px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 5px rgba(0,0,0,.25)">'+pend+'</span>' : '';
-      return '<button class="kpi-btn" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;border:1.5px solid #a8d9d0;color:#0a4a4a" onclick="pmRoomGridClick(\''+r+'\')"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>Phòng '+r+badge+'</button>';
+      // Chỉ Quản lý mới thấy nút ⚙ nhỏ này — bấm vào để vào THẲNG "Cấu hình phòng này" (chọn tài
+      // sản áp dụng + số lượng), KHÔNG đi qua bước bàn giao/không bị popup "Bàn giao theo nhóm hay
+      // giao riêng" chặn lại như khi bấm vào ô phòng chính — hữu ích nhất với các phòng thuộc nhóm
+      // cùng kíp, vì bấm ô phòng chính với các phòng đó luôn hiện popup hỏi trước khi vào được.
+      var cfgBtn=isA ? '<button type="button" onclick="event.stopPropagation();pmQuickConfigRoom(\''+r+'\')" title="Cấu hình tài sản riêng cho phòng này" style="position:absolute;top:-6px;left:-6px;width:24px;height:24px;border-radius:50%;background:#0d6e6e;color:#fff;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;padding:0"><i class="ti ti-adjustments"></i></button>' : '';
+      return '<div class="kpi-btn" role="button" tabindex="0" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;border:1.5px solid #a8d9d0;color:#0a4a4a;text-align:center" onclick="pmRoomGridClick(\''+r+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pmRoomGridClick(\''+r+'\');}"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>Phòng '+r+badge+cfgBtn+'</div>';
     }).join('');
+  };
+  // Vào thẳng "Cấu hình phòng này" (chọn tài sản áp dụng + số lượng) cho ĐÚNG 1 phòng bất kỳ ngay từ
+  // lưới chọn phòng — không cần vào hẳn màn hình bàn giao của phòng đó trước (đặc biệt tiện với các
+  // phòng thuộc nhóm cùng kíp, vì bấm thẳng vào ô phòng sẽ bị popup "Bàn giao theo nhóm hay giao
+  // riêng" chặn lại trước khi vào được). Nếu đang có 1 phòng khác đang bàn giao dở (pmCurrentRoom cũ,
+  // VD giữa chừng 1 phiên nhóm), lưu tạm lại để khi đóng modal Cấu hình sẽ tự trả về đúng phòng đó
+  // (xem pmCloseRoomConfig), tránh làm lệch phòng đang thao tác chính trên màn hình bàn giao.
+  var pmQuickConfigPrevRoom=undefined; // undefined = không đang ở chế độ "xem nhanh"
+  window.pmQuickConfigRoom=function(roomId){
+    if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới thao tác được!'); return; }
+    if(pmQuickConfigPrevRoom===undefined) pmQuickConfigPrevRoom=pmCurrentRoom;
+    pmCurrentRoom=roomId;
+    var cfgTitleEl=document.getElementById('pmCfgRoomTitle'); if(cfgTitleEl) cfgTitleEl.textContent='Phòng Mổ '+roomId;
+    document.getElementById('pmCfgSearch').value='';
+    pmRenderRoomConfigList();
+    document.getElementById('pmRoomConfigBg').style.display='flex';
   };
   window.pmGoHome=function(){
     document.getElementById('pmRoomPickerScreen').style.display='none';
@@ -39216,6 +39238,8 @@ window.dctdMoveStatus=function(id,st){
   window.pmMasterSaveEdit=function(id){
     var ten=document.getElementById('pmMasterEditTen_'+id).value.trim();
     if(!ten){ alert('Tên không được để trống.'); return; }
+    var trung=pmMasterItems().some(function(i){ return i._id!==id && i.ten.trim().toLowerCase()===ten.toLowerCase(); });
+    if(trung){ alert('⚠️ Tài sản "'+ten+'" đã có sẵn trong danh mục chung — không thể sửa thành tên trùng.'); return; }
     pmMasterCatalogRef.child(id).update({ten:ten}).then(function(){ pmMasterEditingId=null; pmRenderMasterList(); }).catch(function(err){alert('Lỗi: '+err.message);});
   };
   window.pmMasterDelete=function(id){
@@ -39225,6 +39249,8 @@ window.dctdMoveStatus=function(id,st){
   window.pmMasterAdd=function(){
     var ten=document.getElementById('pmMasterNewTen').value.trim();
     if(!ten){alert('Vui lòng nhập tên tài sản.');return;}
+    var trung=pmMasterItems().some(function(i){ return i.ten.trim().toLowerCase()===ten.toLowerCase(); });
+    if(trung){ alert('⚠️ Tài sản "'+ten+'" đã có sẵn trong danh mục chung — không thêm trùng nữa.'); return; }
     pmMasterCatalogRef.push({ten:ten}).then(function(){ document.getElementById('pmMasterNewTen').value=''; }).catch(function(err){alert('Lỗi: '+err.message);});
   };
   window.pmImportMasterSeed=function(){
@@ -39254,6 +39280,10 @@ window.dctdMoveStatus=function(id,st){
   window.pmCloseRoomConfig=function(e){
     if(e && e.target!==e.currentTarget) return;
     document.getElementById('pmRoomConfigBg').style.display='none';
+    // Nếu vừa vào bằng đường tắt ⚙ từ lưới chọn phòng (pmQuickConfigRoom) thay vì từ màn hình bàn
+    // giao đang mở, trả lại đúng phòng đang thao tác chính trước đó (có thể là null nếu chưa vào
+    // phòng nào) — tránh làm lệch phòng đang bàn giao dở khi chỉ định "xem nhanh" cấu hình 1 phòng khác.
+    if(pmQuickConfigPrevRoom!==undefined){ pmCurrentRoom=pmQuickConfigPrevRoom; pmQuickConfigPrevRoom=undefined; }
   };
   window.pmRenderRoomConfigList=function(){
     var box=document.getElementById('pmRoomConfigList');
