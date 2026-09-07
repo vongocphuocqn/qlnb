@@ -24859,7 +24859,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 </div>
 
 <div id="pmScreen" style="display:none;min-height:100vh;background:#effafa">
-  <div style="background:linear-gradient(135deg,#0d6e6e,#0a4a4a);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+  <div style="position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#0d6e6e,#0a4a4a);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.15)">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmBackToRooms()"><i class="ti ti-arrow-left"></i> Đổi phòng</button>
       <button class="kpi-btn" id="pmBackToBtdBtn" style="display:none;background:#fff;color:#0d6e6e" onclick="pmBackToBtd()"><i class="ti ti-arrow-back-up"></i> Về Theo dõi Giao nhận trực</button>
@@ -24884,7 +24884,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 
   <div style="max-width:960px;margin:0 auto;padding:16px" id="pmRoomMainBox">
     <div id="pmWhoBanner2" class="kpi-section" style="margin-bottom:14px;font-size:13px;color:#333"></div>
-    <div id="pmGroupProgressBanner" style="display:none;position:sticky;top:0;z-index:80;margin:0 0 14px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;padding:10px 14px;font-size:13px;color:#8a5300;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+    <div id="pmGroupProgressBanner" style="display:none;margin:0 0 14px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;padding:10px 14px;font-size:13px;color:#8a5300;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
 
     <div class="kpi-section" style="margin-bottom:14px">
       <h3 style="margin:0 0 12px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmFormWrap','pmFormChevron')"><span><i class="ti ti-square-plus"></i> Lập biên bản bàn giao</span><span id="pmFormChevron" style="font-size:13px">▾</span></h3>
@@ -24919,6 +24919,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <button class="kpi-btn" id="pmTabDungcuBtn" style="border:1.5px solid #ddd;color:#666;border-radius:8px 8px 0 0" onclick="pmSwitchTab('dungcu')"><i class="ti ti-tools"></i> Dụng cụ (<span id="pmCountDungcu">0</span>)</button>
       </div>
       <div style="font-size:11.5px;color:#b45309;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:5px 10px;margin-bottom:10px"><i class="ti ti-info-circle"></i> Mỗi lần <b>Lưu biên bản</b> chỉ nộp cho <b>đúng 1 nhóm đang mở</b> (tab đang bật). Muốn bàn giao cả 2 nhóm, hãy nộp riêng từng tab.</div>
+      <div id="pmPendingSameGroupWarn" style="display:none;font-size:12px;color:#c62828;background:#fdecea;border:1.5px solid #f5c2c0;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-weight:600"></div>
       <input id="pmItemSearch" type="text" placeholder="🔍 Tìm nhanh theo tên tài sản..." oninput="pmRenderItemList()" style="width:100%;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px">
       <div id="pmItemList" style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto;padding-right:4px"></div>
 
@@ -25223,6 +25224,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
     <div style="padding:16px 18px;max-height:75vh;overflow-y:auto">
       <div class="sub" style="margin-bottom:10px">So sánh tổng quan lịch sử bàn giao giữa các phòng mổ — giúp phát hiện phòng nào hay thiếu/hư hỏng, phòng nào ít lập biên bản.</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;background:#f3fbfa;border:1px solid #a8d9d0;border-radius:8px;padding:10px 12px">
+        <div class="fg" style="margin:0"><label style="font-size:11.5px">Từ ngày</label><input type="date" id="pmStatsFrom" onchange="pmOpenRoomsStats(true)"></div>
+        <div class="fg" style="margin:0"><label style="font-size:11.5px">Đến ngày</label><input type="date" id="pmStatsTo" onchange="pmOpenRoomsStats(true)"></div>
+        <button type="button" class="kpi-btn" style="border:1.5px solid #0d6e6e;color:#0d6e6e" onclick="document.getElementById('pmStatsFrom').value='';document.getElementById('pmStatsTo').value='';pmOpenRoomsStats(true)"><i class="ti ti-x"></i> Bỏ lọc (xem toàn bộ)</button>
+        <div id="pmStatsRangeNote" style="font-size:11.5px;color:#888;align-self:center"></div>
+      </div>
       <div id="pmRoomsStatsBody">Đang tải...</div>
     </div>
   </div>
@@ -37539,15 +37546,22 @@ window.dctdMoveStatus=function(id,st){
   };
 
   var pmRoomsStatsCache=[];
-  window.pmOpenRoomsStats=function(){
+  window.pmOpenRoomsStats=function(keepOpen){
     var savedCu = (typeof pmCu!=='undefined') ? pmCu : null;
     if(!savedCu||savedCu.role!=='admin'){alert('Chỉ Quản lý mới xem được!');return;}
-    document.getElementById('pmRoomsStatsBg').style.display='flex';
+    if(!keepOpen) document.getElementById('pmRoomsStatsBg').style.display='flex';
     document.getElementById('pmRoomsStatsBody').innerHTML='Đang tải...';
+    var fr=(document.getElementById('pmStatsFrom')||{}).value||'';
+    var to=(document.getElementById('pmStatsTo')||{}).value||'';
+    var noteEl=document.getElementById('pmStatsRangeNote');
+    if(noteEl) noteEl.textContent = (fr||to) ? ('Đang lọc: '+(fr?pmFmtD(fr):'—')+' → '+(to?pmFmtD(to):'—')) : 'Đang xem: toàn bộ lịch sử';
     db.ref('pmRecords').once('value').then(function(snap){
       var d=snap.val()||{};
       var rows=PM_ROOMS.map(function(room){
         var recs=Object.values(d[room]||{});
+        // Lọc theo khoảng ngày (nếu có chọn) — dựa vào trường "ngày bàn giao" (r.ngay) của từng biên bản.
+        if(fr) recs=recs.filter(function(r){return (r.ngay||'')>=fr;});
+        if(to) recs=recs.filter(function(r){return (r.ngay||'')<=to;});
         var tong=recs.length;
         var hoanThanh=recs.filter(function(r){return r.trangThai==='hoanthanh';}).length;
         var choHT=recs.filter(function(r){return r.trangThai==='choduyet';}).length;
@@ -37581,19 +37595,42 @@ window.dctdMoveStatus=function(id,st){
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Chờ hoàn thành</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Có thiếu/hư hỏng</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Ngày gần nhất</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Xem</th>'+
       '</tr></thead><tbody>'+
       rows.map(function(r,i){
-        return '<tr style="'+(i%2?'background:#f2fbfa':'')+'">'+
-          '<td style="padding:5px 8px;border:1px solid #cdeae4;font-weight:600">Phòng '+pmEsc(r.room)+'</td>'+
+        return '<tr onclick="pmGotoRoomDetail(\''+r.room+'\')" style="cursor:pointer;'+(i%2?'background:#f2fbfa':'')+'" onmouseover="this.style.background=\'#daf1ec\'" onmouseout="this.style.background=\''+(i%2?'#f2fbfa':'#fff')+'\'">'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;font-weight:600;color:#0d47a1;text-decoration:underline">Phòng '+pmEsc(r.room)+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+r.tong+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#0a6b5e">'+r.hoanThanh+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#8a6100">'+r.choHT+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;'+(r.coSuCo>0?'color:#c62828;font-weight:700':'')+'">'+r.coSuCo+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+pmFmtD(r.ngayGanNhat)+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#0d6e6e"><i class="ti ti-eye"></i> Chi tiết</td>'+
         '</tr>';
       }).join('')+
-      '<tr style="background:#daf1ec;font-weight:700"><td style="padding:5px 8px;border:1px solid #a8d9d0">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #a8d9d0;text-align:center">'+totalTong+'</td><td colspan="4" style="padding:5px 8px;border:1px solid #a8d9d0"></td></tr>'+
-      '</tbody></table>';
+      '<tr style="background:#daf1ec;font-weight:700"><td style="padding:5px 8px;border:1px solid #a8d9d0">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #a8d9d0;text-align:center">'+totalTong+'</td><td colspan="5" style="padding:5px 8px;border:1px solid #a8d9d0"></td></tr>'+
+      '</tbody></table>'+
+      '<div style="font-size:11px;color:#888;margin-top:8px"><i class="ti ti-info-circle"></i> Bấm vào 1 dòng để vào thẳng "Danh sách công khai" của phòng đó — xem chi tiết từng biên bản, lọc theo ngày, chuyển qua lại 2 nhóm Gây mê / Dụng cụ ngay trong màn hình phòng.</div>';
+  }
+  // Từ bảng thống kê tổng hợp, bấm 1 dòng phòng để vào THẲNG "Danh sách công khai" của đúng phòng đó
+  // (bỏ qua hẳn bước chọn phòng/nhóm) — tiện kiểm tra chi tiết ngay, không cần thao tác lại từ đầu.
+  // "Danh sách công khai" tự hiển thị chung cả 2 nhóm Gây mê + Dụng cụ (có nhãn màu phân biệt từng
+  // biên bản), nên không cần chọn riêng từng nhóm nữa.
+  window.pmGotoRoomDetail=function(roomId){
+    pmCloseRoomsStats();
+    pmSelectRoom(roomId);
+    // Đợi dữ liệu biên bản của đúng phòng vừa chọn tải xong (Firebase) rồi mới mở "Danh sách công
+    // khai", tránh mở quá nhanh lúc dữ liệu chưa kịp về (danh sách trống hoặc còn sót dữ liệu phòng cũ).
+    if(pmRecordsRef){
+      pmRecordsRef.once('value').then(function(){ pmToggleList(); }).catch(function(){ pmToggleList(); });
+    } else {
+      setTimeout(function(){ pmToggleList(); }, 300);
+    }
+  };
+  function pmStatsRangeLabel(){
+    var fr=(document.getElementById('pmStatsFrom')||{}).value||'';
+    var to=(document.getElementById('pmStatsTo')||{}).value||'';
+    return (fr||to) ? ('Khoảng thời gian: '+(fr?pmFmtD(fr):'—')+' → '+(to?pmFmtD(to):'—')) : 'Khoảng thời gian: Toàn bộ lịch sử';
   }
   window.pmPrintRoomsStats=function(){
     if(!pmRoomsStatsCache.length){alert('Chưa có dữ liệu để in!');return;}
@@ -37610,6 +37647,7 @@ window.dctdMoveStatus=function(id,st){
       '<div style="text-align:center;font-weight:bold">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI</div>'+
       '<div style="text-align:center">KHOA GÂY MÊ HỒI SỨC</div>'+
       '<h2 style="text-align:center">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — PHÒNG MỔ</h2>'+
+      '<div style="margin-bottom:4px">'+pmStatsRangeLabel()+'</div>'+
       '<div style="text-align:right;margin-bottom:8px">Ngày in: '+pmFmtD(pmToday())+'</div>'+
       '<table><thead><tr><th>Phòng</th><th>Tổng biên bản</th><th>Đã hoàn thành</th><th>Chờ hoàn thành</th><th>Có thiếu/hư hỏng</th><th>Ngày gần nhất</th></tr></thead>'+
       '<tbody>'+rows+'</tbody></table></body></html>';
@@ -37628,7 +37666,8 @@ window.dctdMoveStatus=function(id,st){
       '.td-c{border:1px solid #a8d9d0;padding:4px 6px;text-align:center;font-size:10pt}.td{border:1px solid #a8d9d0;padding:4px 6px;font-size:10pt}'+
       '.title{font-size:14pt;font-weight:bold;text-align:center}.org{font-size:10pt;text-align:center;color:#444}</style></head><body>'+
       '<table><tr><td colspan="6" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC</td></tr>'+
-      '<tr><td colspan="6" class="title">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — PHÒNG MỔ</td></tr><tr></tr>'+
+      '<tr><td colspan="6" class="title">THỐNG KÊ LỊCH SỬ BÀN GIAO THEO PHÒNG — PHÒNG MỔ</td></tr>'+
+      '<tr><td colspan="6" style="font-size:10pt;text-align:center;color:#444">'+pmStatsRangeLabel()+'</td></tr><tr></tr>'+
       '<tr><td class="th">Phòng</td><td class="th">Tổng biên bản</td><td class="th">Đã hoàn thành</td><td class="th">Chờ hoàn thành</td><td class="th">Có thiếu/hư hỏng</td><td class="th">Ngày gần nhất</td></tr>'+
       rows+'</table></body></html>';
     var blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
@@ -37845,6 +37884,19 @@ window.dctdMoveStatus=function(id,st){
     var lbl=document.getElementById('pmOtherGroupLabel'); if(lbl) lbl.textContent=tab==='gayme'?'Gây mê':'Dụng cụ';
     pmRenderItemList();
     pmRenderOtherItems();
+    pmRenderPendingSameGroupWarn();
+  };
+  // Cảnh báo SỚM ngay trên form (trước khi mất công điền cả checklist) nếu đúng phòng+nhóm đang mở
+  // còn tồn 1 biên bản "Chờ hoàn thành" chưa đủ chữ ký — nhắc hoàn tất ký biên bản cũ trước.
+  window.pmRenderPendingSameGroupWarn=function(){
+    var el=document.getElementById('pmPendingSameGroupWarn');
+    if(!el||!pmCurrentRoom) return;
+    var pending=pmAllRecords().filter(function(r){return r.trangThai==='choduyet' && r.nhomPM===pmCurTab;});
+    if(!pending.length){ el.style.display='none'; el.innerHTML=''; return; }
+    var groupLabel = pmCurTab==='gayme' ? 'Gây mê' : 'Dụng cụ';
+    el.style.display='block';
+    el.innerHTML='<i class="ti ti-alert-triangle"></i> Nhóm <b>'+groupLabel+'</b> của phòng này đang có <b>'+pending.length+' biên bản CHỜ HOÀN THÀNH</b> (chưa đủ 2 chữ ký) — cần hoàn tất ký biên bản cũ thì mới lưu được biên bản mới cho nhóm này. '+
+      '<button type="button" onclick="pmShowRemoteQR(\''+pending[0]._id+'\')" style="margin-left:6px;background:#c62828;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer"><i class="ti ti-qrcode"></i> Mở mã QR để hoàn tất ngay</button>';
   };
 
   function pmMasterItems(){
@@ -37906,6 +37958,7 @@ window.dctdMoveStatus=function(id,st){
     pmRenderItemList();
     pmRenderPendingList();
     pmRenderHistory();
+    pmRenderPendingSameGroupWarn();
   };
 
   window.pmFilterNhanDrop=function(){
@@ -38136,6 +38189,32 @@ window.dctdMoveStatus=function(id,st){
     return Object.keys(pmRecords).map(function(k){var r=pmRecords[k];r=Object.assign({},r);r._id=k;return r;});
   }
 
+  // Kiểm tra: đúng phòng + đúng nhóm (Gây mê/Dụng cụ) hiện tại có đang tồn đọng biên bản "CHỜ HOÀN
+  // THÀNH" (mới có 1 bên ký, bên kia chưa ký) hay không — nếu có, CHẶN không cho lập biên bản MỚI
+  // cho đúng phòng+nhóm đó nữa, để tránh dồn ứ hàng loạt phiếu chưa ký chồng chất (đúng theo yêu cầu:
+  // phải hoàn tất ký biên bản cũ trước thì mới lập được biên bản mới). Quản lý (đăng nhập admin) được
+  // phép CỐ TÌNH bỏ qua cảnh báo này khi thật sự cần (có xác nhận lại rõ ràng); nhân viên thường thì
+  // không — buộc phải hoàn tất ký (hoặc nhờ Quản lý xử lý) trước khi tiếp tục.
+  function pmCheckNoPendingSameGroup(group){
+    var pending=pmAllRecords().filter(function(r){return r.trangThai==='choduyet' && r.nhomPM===group;})
+      .sort(function(a,b){return (b.createdAt||'').localeCompare(a.createdAt||'');});
+    if(!pending.length) return true;
+    var p=pending[0];
+    var groupLabel = group==='gayme' ? 'Gây mê' : 'Dụng cụ';
+    var msg='⛔ Phòng PM'+pmCurrentRoom+' (nhóm '+groupLabel+') đang có '+pending.length+' biên bản CHỜ HOÀN THÀNH (mới 1 bên ký, bên kia chưa ký):\n\n'
+      +'📋 Mã: '+(p.soHieu||'—')+'\n📅 '+pmFmtD(p.ngay)+(p.gio?(' '+p.gio):'')+' — Ca '+(p.ca||'')+'\n'
+      +'Bàn giao: '+p.nguoiGiao+' (đã ký) → Nhận: '+p.nguoiNhan+' (CHƯA ký)\n\n'
+      +'Vui lòng hoàn tất ký biên bản cũ này trước (gửi mã/QR cho người nhận tự ký, hoặc ký trực tiếp nếu đang có mặt), rồi mới lập biên bản mới cho nhóm '+groupLabel+' của phòng này.\n\n(Hệ thống sẽ tự mở mã QR của biên bản cũ để anh/chị gửi hoàn tất ngay.)';
+    if(pmCu && pmCu.role==='admin'){
+      if(confirm(msg+'\n\n(Quản lý) Vẫn CỐ TÌNH lập biên bản mới, bỏ qua cảnh báo này?')) return true;
+      pmShowRemoteQR(p._id);
+      return false;
+    }
+    alert(msg);
+    pmShowRemoteQR(p._id);
+    return false;
+  }
+
   window.pmSubmitRecord=function(){
     if(pmEditingId){ return pmSaveEditedRecord(); }
     if(pmGroupActive){
@@ -38155,6 +38234,7 @@ window.dctdMoveStatus=function(id,st){
   // requireSig=true thì bắt buộc có chữ ký (chỉ áp dụng cho phòng CUỐI của nhóm).
   function pmValidateRoomForGroup(requireSig){
     if(!pmCu||!pmCurrentRoom){pmShowFormAlert('Vui lòng đăng nhập lại.','err');return null;}
+    if(!pmCheckNoPendingSameGroup(pmCurTab)) return null;
     var date=document.getElementById('pmInDate').value;
     var gio=document.getElementById('pmInGio').value;
     var ca=document.getElementById('pmInCa').value;
@@ -38355,6 +38435,7 @@ window.dctdMoveStatus=function(id,st){
   window.pmSubmitRecordSingle=function(){
    try{
     if(!pmCu||!pmCurrentRoom){pmShowFormAlert('Vui lòng đăng nhập lại.','err');return;}
+    if(!pmCheckNoPendingSameGroup(pmCurTab)) return;
     var date=document.getElementById('pmInDate').value;
     var gio=document.getElementById('pmInGio').value;
     var ca=document.getElementById('pmInCa').value;
