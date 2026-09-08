@@ -24868,6 +24868,10 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   <div style="position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#0d6e6e,#0a4a4a);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.15)">
     <div style="display:flex;align-items:center;gap:10px">
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmBackToRooms()"><i class="ti ti-arrow-left"></i> Đổi phòng</button>
+      <div id="pmQuickRoomSwitchWrap" style="position:relative">
+        <button type="button" onclick="pmToggleQuickRoomDropdown(event)" title="Chuyển nhanh sang phòng khác — không cần quay lại danh sách chọn phòng" style="padding:7px 10px;border-radius:8px;border:1.5px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;font-size:12.5px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ti ti-door" style="font-size:13px"></i> <span id="pmQuickRoomSwitchLabel">Phòng</span> <i class="ti ti-chevron-down" style="font-size:11px"></i></button>
+        <div id="pmQuickRoomSwitchPanel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);max-height:340px;overflow-y:auto;min-width:170px;z-index:500"></div>
+      </div>
       <button class="kpi-btn" id="pmBackToBtdBtn" style="display:none;background:#fff;color:#0d6e6e" onclick="pmBackToBtd()"><i class="ti ti-arrow-back-up"></i> Về Theo dõi Giao nhận trực</button>
       <button class="kpi-btn" id="pmBackToBriefBtn" style="display:none;background:#fff;color:#bf360c" onclick="backToBriefModal()"><i class="ti ti-sunrise"></i> Về Giao ban sáng</button>
       <div>
@@ -25018,7 +25022,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
 
     <div class="kpi-section" style="margin-bottom:14px;background:#eaf7f5;border:1.5px solid #8fd0c4">
-      <h3 style="margin:0 0 4px;font-size:15px;color:#0a6b5e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmPendingWrap','pmPendingChevron')"><span><i class="ti ti-clock-exclamation"></i> Biên bản CHỜ HOÀN THÀNH (<span id="pmPendingCount">0</span>)</span><span id="pmPendingChevron" style="font-size:13px">▾</span></h3>
+      <h3 style="margin:0 0 4px;font-size:15px;color:#0a6b5e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmPendingWrap','pmPendingChevron')"><span><i class="ti ti-clock-exclamation"></i> Biên bản CHỜ HOÀN THÀNH — <span id="pmPendingRoomTitle">phòng hiện tại</span> (<span id="pmPendingCount">0</span>)</span><span id="pmPendingChevron" style="font-size:13px">▾</span></h3>
       <div id="pmPendingWrap">
       <div class="sub" style="margin:8px 0">Các biên bản mới có 1 bên ký — cần bên còn lại tự ký (qua QR/mã) hoặc ký trực tiếp nếu có mặt để hoàn thành.</div>
       <div id="pmPendingList" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -25026,7 +25030,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
 
     <div class="kpi-section">
-      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmHistWrap','pmHistChevron')"><span><i class="ti ti-history"></i> Lịch sử biên bản đã lập (<span id="pmHistCount">0</span>)</span><span id="pmHistChevron" style="font-size:13px">▾</span></h3>
+      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmHistWrap','pmHistChevron')"><span><i class="ti ti-history"></i> Lịch sử biên bản đã lập — <span id="pmHistRoomTitle">phòng hiện tại</span> (<span id="pmHistCount">0</span>)</span><span id="pmHistChevron" style="font-size:13px">▾</span></h3>
       <div id="pmHistWrap">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:10px 0">
         <div class="fg" style="margin:0"><label>Từ ngày</label><input type="date" id="pmHistFrom" onchange="pmRenderHistory()"></div>
@@ -25058,17 +25062,23 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
 
     <div class="kpi-section" id="pmListBox" style="display:none">
-      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;display:flex;align-items:center;gap:7px"><i class="ti ti-list"></i> Danh sách công khai — <span id="pmListRoomTitle">phòng hiện tại</span></h3>
+      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmListWrap','pmListChevron')"><span><i class="ti ti-list"></i> Danh sách công khai — <span id="pmListRoomTitle">phòng hiện tại</span></span><span id="pmListChevron" style="font-size:13px">▾</span></h3>
+      <div id="pmListWrap">
       <div class="sub" style="margin-bottom:10px">Xem được bởi cả Nhân viên và Quản lý, gồm mọi trạng thái (Chờ hoàn thành / Hoàn thành).</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
         <div class="fg" style="margin:0"><label>Từ ngày</label><input type="date" id="pmListFrom" onchange="pmRenderList()"></div>
         <div class="fg" style="margin:0"><label>Đến ngày</label><input type="date" id="pmListTo" onchange="pmRenderList()"></div>
+        <select id="pmListGroupFilter" onchange="pmRenderList()" style="padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit">
+          <option value="">Tất cả nhóm</option>
+          <option value="gayme">Gây mê</option>
+          <option value="dungcu">Dụng cụ</option>
+        </select>
         <select id="pmListStatusFilter" onchange="pmRenderList()" style="padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="">Tất cả trạng thái</option>
           <option value="choduyet">Chờ hoàn thành</option>
           <option value="hoanthanh">Hoàn thành</option>
         </select>
-        <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('pmListFrom').value='';document.getElementById('pmListTo').value='';document.getElementById('pmListStatusFilter').value='';document.getElementById('pmListSearch').value='';pmRenderList()"><i class="ti ti-refresh"></i> Xóa lọc</button>
+        <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('pmListFrom').value='';document.getElementById('pmListTo').value='';document.getElementById('pmListGroupFilter').value='';document.getElementById('pmListStatusFilter').value='';document.getElementById('pmListSearch').value='';pmRenderList()"><i class="ti ti-refresh"></i> Xóa lọc</button>
       </div>
       <div style="margin-bottom:10px">
         <input id="pmListSearch" type="text" placeholder="🔍 Tìm theo người bàn giao, người nhận, số hiệu..." oninput="pmRenderList()" style="width:100%;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box">
@@ -25088,6 +25098,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           </tr></thead>
           <tbody id="pmListTbody"></tbody>
         </table>
+      </div>
       </div>
     </div>
   </div>
@@ -37150,9 +37161,46 @@ window.dctdMoveStatus=function(id,st){
         try{ pmRoomsListRef.set(PM_ROOMS); }catch(e){}
       }
       try{ if(document.getElementById('pmRoomGrid')) pmRenderRoomGrid(); }catch(e){}
+      // Danh sách phòng có thể tải xong SAU khi đã vào thẳng 1 phòng cụ thể (vào bằng link trực
+      // tiếp, không qua màn "Chọn phòng" trước) — nên mỗi khi danh sách phòng cập nhật, luôn đồng
+      // bộ lại ngay ô "chuyển nhanh phòng khác", để không bị kẹt chỉ hiện đúng 1 phòng đang xem.
+      pmSyncQuickRoomSwitch();
     });
   }
   pmLoadRoomsList();
+  // Dựng lại đầy đủ danh sách phòng cho ô "chuyển nhanh phòng khác" ở thanh nút trên cùng, từ đúng
+  // PM_ROOMS mới nhất hiện có — gọi lại được nhiều lần (không chỉ 1 lần) vì PM_ROOMS có thể vẫn đang
+  // tải hoặc được Quản lý thêm/bớt phòng bất cứ lúc nào.
+  // Dựng lại nhãn "Phòng X" trên nút bấm ở thanh trên cùng, đúng theo phòng đang xem — KHÔNG dùng
+  // thẻ <select> mặc định của trình duyệt nữa (từng bị lỗi vẽ thiếu phòng trên 1 số máy dù dữ liệu
+  // trong DOM vẫn đủ) — chuyển sang tự vẽ khung xổ (pmToggleQuickRoomDropdown) để tránh hẳn lỗi đó.
+  window.pmSyncQuickRoomSwitch=function(){
+    var lbl=document.getElementById('pmQuickRoomSwitchLabel');
+    if(lbl) lbl.textContent='Phòng '+(pmCurrentRoom||'');
+  };
+  // Mở/đóng khung xổ tự vẽ để chuyển nhanh phòng khác. Danh sách phòng được dựng LẠI MỚI HOÀN TOÀN
+  // mỗi lần bấm mở (không tái sử dụng nội dung cũ), luôn gộp đủ 12 phòng chuẩn + phòng tùy chỉnh.
+  window.pmToggleQuickRoomDropdown=function(e){
+    if(e) e.stopPropagation();
+    var panel=document.getElementById('pmQuickRoomSwitchPanel');
+    if(!panel) return;
+    var show=panel.style.display==='none';
+    if(show){
+      var merged=PM_ROOMS_DEFAULT.concat(PM_ROOMS).filter(function(r,i,arr){return arr.indexOf(r)===i;});
+      panel.innerHTML=merged.map(function(r){
+        var active=(String(r)===String(pmCurrentRoom));
+        return '<div onclick="pmQuickSwitchRoom(\''+r+'\');pmCloseQuickRoomDropdown();" style="padding:8px 14px;font-size:13px;cursor:pointer;white-space:nowrap;'+(active?'background:#0d6e6e;color:#fff;font-weight:700':'color:#333;background:#fff')+'" onmouseover="if(!'+active+')this.style.background=\'#e8f5f3\'" onmouseout="if(!'+active+')this.style.background=\'#fff\'">Phòng '+pmEsc(r)+'</div>';
+      }).join('');
+      panel.style.display='block';
+      setTimeout(function(){ document.addEventListener('click', pmCloseQuickRoomDropdown, {once:true}); }, 0);
+    } else {
+      panel.style.display='none';
+    }
+  };
+  window.pmCloseQuickRoomDropdown=function(){
+    var panel=document.getElementById('pmQuickRoomSwitchPanel');
+    if(panel) panel.style.display='none';
+  };
 
   /* ══ TỔNG VỆ SINH KHỬ KHUẨN CUỐI TUẦN (bắt buộc khai báo trong biên bản bàn giao) ══
      Quy định: các phòng dưới đây phải tổng vệ sinh/khử khuẩn vào cuối tuần (Thứ 6 – Chủ nhật).
@@ -37830,6 +37878,10 @@ window.dctdMoveStatus=function(id,st){
     document.getElementById('pmScreen').style.display='block';
     document.getElementById('pmRoomTitle').textContent='Phòng Mổ '+roomId;
     document.getElementById('pmCfgRoomTitle').textContent='Phòng Mổ '+roomId;
+    // Đồng bộ ô "chuyển nhanh phòng khác" ở thanh nút trên cùng — dựng lại đầy đủ danh sách phòng
+    // mới nhất mỗi lần vào phòng (kể cả khi vào bằng ô này, bằng lưới chọn phòng, hay bằng "Chi
+    // tiết" từ bảng thống kê), để lúc nào ô cũng hiện đúng phòng đang xem và đủ mọi phòng hiện có.
+    pmSyncQuickRoomSwitch();
     var isA=pmCu.role==='admin';
     document.getElementById('pmRoomConfigBtn').style.display=isA?'':'none';
     var whoHtml = isA
@@ -37891,6 +37943,23 @@ window.dctdMoveStatus=function(id,st){
      alert('⚠️ LỖI khi vào phòng mổ: '+(errPm&&errPm.message)+'\n\n'+((errPm&&errPm.stack)||'').slice(0,300));
      console.error('pmSelectRoom error:', errPm);
    }
+  };
+  // Chuyển nhanh sang phòng khác ngay từ ô chọn ở thanh nút trên cùng — không cần bấm "Đổi phòng"
+  // quay lại lưới chọn phòng rồi chọn lại từ đầu. Nếu đang mở sẵn "Danh sách công khai" hoặc
+  // "Thống kê" thì giữ nguyên đang mở và tự tải lại đúng dữ liệu của phòng mới sau khi vào phòng.
+  window.pmQuickSwitchRoom=function(newRoomId){
+    if(!newRoomId || newRoomId===pmCurrentRoom) return;
+    var wasListOpen = document.getElementById('pmListBox') && document.getElementById('pmListBox').style.display!=='none';
+    var wasStatsOpen = document.getElementById('pmStatsBox') && document.getElementById('pmStatsBox').style.display!=='none';
+    pmSelectRoom(newRoomId);
+    if(wasListOpen || wasStatsOpen){
+      var afterLoad=function(){
+        if(wasListOpen){ var t=document.getElementById('pmListRoomTitle'); if(t) t.textContent=pmRoomLabel(); pmRenderList(); }
+        if(wasStatsOpen){ var t2=document.getElementById('pmStatsRoomTitle'); if(t2) t2.textContent=pmRoomLabel(); pmRenderStats(); }
+      };
+      if(pmRecordsRef) pmRecordsRef.once('value').then(afterLoad).catch(afterLoad);
+      else setTimeout(afterLoad,300);
+    }
   };
   // Vẽ lại 1 chữ ký đã ký từ trước (dạng dataURL) lên canvas mới và khóa lại — dùng khi bàn giao gộp nhóm nhiều phòng chỉ ký 1 lần
   function pmRestoreSig(who, dataUrl){
@@ -38768,6 +38837,7 @@ window.dctdMoveStatus=function(id,st){
     var list=pmAllRecords().filter(function(r){return r.trangThai==='choduyet';})
       .sort(function(a,b){return (b.createdAt||'').localeCompare(a.createdAt||'');});
     var cnt=document.getElementById('pmPendingCount'); if(cnt) cnt.textContent=list.length;
+    var rt=document.getElementById('pmPendingRoomTitle'); if(rt) rt.textContent=pmRoomLabel();
     box.innerHTML = list.length ? list.map(function(r){
       return '<div style="border:1.5px solid #8fd0c4;background:#f6fffd;border-radius:8px;padding:10px 12px">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
@@ -38795,6 +38865,7 @@ window.dctdMoveStatus=function(id,st){
     if(fr) list=list.filter(function(r){return (r.ngay||'')>=fr;});
     if(to) list=list.filter(function(r){return (r.ngay||'')<=to;});
     var cnt=document.getElementById('pmHistCount'); if(cnt) cnt.textContent=list.length;
+    var rt=document.getElementById('pmHistRoomTitle'); if(rt) rt.textContent=pmRoomLabel();
     box.innerHTML = list.length ? list.map(function(r){
       var itemsArr=Object.values(r.itemsGayme||{}).concat(Object.values(r.itemsDungcu||{}));
       var thieuCount=itemsArr.filter(function(i){return i.status==='thieu';}).length;
@@ -38891,10 +38962,12 @@ window.dctdMoveStatus=function(id,st){
     function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
     var qN=norm(q);
     var stFil=(document.getElementById('pmListStatusFilter')||{}).value||'';
+    var groupFil=(document.getElementById('pmListGroupFilter')||{}).value||'';
     var fr=(document.getElementById('pmListFrom')||{}).value||'';
     var to=(document.getElementById('pmListTo')||{}).value||'';
     var list=pmAllRecords().sort(function(a,b){return (b.ngay||'').localeCompare(a.ngay||'')||(b.createdAt||'').localeCompare(a.createdAt||'');});
     if(stFil) list=list.filter(function(r){return r.trangThai===stFil;});
+    if(groupFil) list=list.filter(function(r){return r.nhomPM===groupFil;});
     if(fr) list=list.filter(function(r){return (r.ngay||'')>=fr;});
     if(to) list=list.filter(function(r){return (r.ngay||'')<=to;});
     if(q){
