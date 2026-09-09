@@ -24887,6 +24887,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmPrintWord()"><i class="ti ti-file-word"></i> In Word</button>
       <button class="kpi-btn" onclick="pmOpenCodeSign()"><i class="ti ti-key"></i> Nhập mã biên bản để ký</button>
       <button class="kpi-btn" id="pmRoomConfigBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomConfig()"><i class="ti ti-adjustments"></i> Cấu hình phòng này</button>
+      <button class="kpi-btn" id="pmTuaUnlockBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmUnlockTuaForRoom()" title="Mở khóa cho phòng+nhóm đang xem nếu đang bị khóa do bỏ tua"><i class="ti ti-lock-open"></i> Mở khóa bỏ tua</button>
+      <button class="kpi-btn" id="pmTuaCfgBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenTuaConfig()" title="Chỉnh số giờ tối đa cho phép giữa 2 lần bàn giao / bật-tắt khóa bỏ tua"><i class="ti ti-clock-exclamation"></i> Cấu hình khóa bỏ tua</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
       <button class="kpi-btn" id="pmRoomWideBtn" onclick="kpiToggleWideBox('pmRoomMainBox','pmRoomWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
@@ -37226,6 +37228,96 @@ window.dctdMoveStatus=function(id,st){
   }
   pmLoadVeSinhRooms();
 
+  /* ══ KHÓA "BỎ TUA" (ngắt quãng không bàn giao) ══
+     Quy tắc: với mỗi phòng + nhóm (Gây mê / Dụng cụ), nếu biên bản HOÀN THÀNH (đủ 2 chữ ký)
+     gần nhất đã cách hiện tại quá pmBoTuaConfig.maxGio giờ mà VẪN CHƯA có biên bản mới nào kế
+     tiếp, hệ thống coi là có khả năng đã bỏ qua 1 tua trực không bàn giao — KHÓA không cho lập
+     biên bản mới nữa. Nhân viên thường không tự mở khóa được, phải nhờ Quản lý (đăng nhập admin)
+     xác nhận mở khóa (qua nút "Mở khóa bỏ tua" hoặc xác nhận ngay khi Quản lý tự lập biên bản).
+     Phòng/nhóm CHƯA từng có biên bản HOÀN THÀNH nào (mới thêm/mới triển khai) sẽ KHÔNG bị áp luật
+     này (không có gì để đối chiếu) — nên phòng mới triển khai vẫn lập phiếu bình thường ngay từ đầu.
+     Áp dụng mặc định cho TẤT CẢ phòng — không ảnh hưởng tới các luồng/khu vực khác của hệ thống. */
+  var PM_BOTUA_DEFAULT={enabled:true, maxGio:13};
+  var pmBoTuaConfig=Object.assign({}, PM_BOTUA_DEFAULT);
+  var pmBoTuaConfigRef=null;
+  try{ pmBoTuaConfigRef=db.ref('pmBoTuaConfig'); }catch(e){ console.warn('Không khởi tạo được Firebase cho cấu hình khóa bỏ tua.',e); }
+  function pmLoadBoTuaConfig(){
+    if(!pmBoTuaConfigRef) return;
+    pmBoTuaConfigRef.on('value', function(snap){
+      var d=snap.val();
+      if(d && typeof d==='object'){
+        pmBoTuaConfig={enabled: d.enabled!==false, maxGio:(typeof d.maxGio==='number'&&d.maxGio>0)?d.maxGio:PM_BOTUA_DEFAULT.maxGio};
+      } else {
+        pmBoTuaConfig=Object.assign({}, PM_BOTUA_DEFAULT);
+        try{ pmBoTuaConfigRef.set(pmBoTuaConfig); }catch(e){}
+      }
+    });
+  }
+  pmLoadBoTuaConfig();
+  // Cờ "mở khóa tạm" — key dạng "<phong>_<nhomPM>" — Quản lý cấp, dùng 1 LẦN cho biên bản kế tiếp rồi tự xóa.
+  var pmBoTuaUnlocks={};
+  var pmBoTuaUnlockRef=null;
+  try{ pmBoTuaUnlockRef=db.ref('pmBoTuaUnlock'); }catch(e){ console.warn('Không khởi tạo được Firebase cho mở khóa bỏ tua.',e); }
+  function pmLoadBoTuaUnlocks(){
+    if(!pmBoTuaUnlockRef) return;
+    pmBoTuaUnlockRef.on('value', function(snap){ pmBoTuaUnlocks=snap.val()||{}; });
+  }
+  pmLoadBoTuaUnlocks();
+  // Quản lý bấm để chỉnh số giờ tối đa cho phép giữa 2 lần bàn giao, hoặc TẮT hẳn tính năng khóa bỏ tua.
+  window.pmOpenTuaConfig=function(){
+    if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
+    var cur=pmBoTuaConfig.maxGio;
+    var trangThaiHt = pmBoTuaConfig.enabled ? '(đang BẬT, khóa nếu quá '+cur+' giờ)' : '(đang TẮT)';
+    var input=prompt('CẤU HÌNH KHÓA BỎ TUA\n\nNhập số GIỜ tối đa cho phép giữa 2 lần bàn giao của cùng 1 phòng+nhóm — quá số giờ này mà chưa có biên bản mới sẽ tự động bị KHÓA, phải Quản lý mở khóa mới lập tiếp được.\n\nNhập 0 để TẮT hẳn tính năng khóa bỏ tua (không khóa phòng nào nữa).\n\nHiện tại: '+trangThaiHt, String(cur));
+    if(input===null) return;
+    var v=parseFloat(input);
+    if(isNaN(v) || v<0){ alert('Giá trị không hợp lệ — vui lòng nhập 1 số giờ >= 0.'); return; }
+    var newCfg = v===0 ? {enabled:false, maxGio:pmBoTuaConfig.maxGio} : {enabled:true, maxGio:v};
+    if(!pmBoTuaConfigRef){ alert('Không kết nối được máy chủ.'); return; }
+    pmBoTuaConfigRef.set(newCfg).then(function(){ alert(v===0 ? 'Đã TẮT khóa bỏ tua cho toàn bộ hệ thống.' : 'Đã cập nhật: sẽ khóa nếu quá '+v+' giờ chưa phát sinh bàn giao mới.'); }).catch(function(e){ alert('Lỗi lưu cấu hình: '+e.message); });
+  };
+  // Quản lý bấm để mở khóa NGAY cho đúng phòng+nhóm đang xem, dùng 1 lần cho biên bản kế tiếp (không cần chính Quản lý là người lập biên bản đó).
+  window.pmUnlockTuaForRoom=function(){
+    if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được mở khóa.'); return; }
+    if(!pmCurrentRoom){ alert('Vui lòng vào đúng 1 phòng cụ thể trước.'); return; }
+    var groupLabel = pmCurTab==='gayme' ? 'Gây mê' : 'Dụng cụ';
+    if(!confirm('Xác nhận MỞ KHÓA "bỏ tua" cho Phòng PM'+pmCurrentRoom+' — nhóm '+groupLabel+'?\n\nSau khi mở, có thể lập 1 biên bản bàn giao mới bình thường (không cần đúng người trước đó). Khóa sẽ tự bật lại nếu sau đó tiếp tục để quá hạn giờ quy định.')) return;
+    if(!pmBoTuaUnlockRef){ alert('Không kết nối được máy chủ.'); return; }
+    var key=pmSafeKey(pmCurrentRoom)+'_'+pmCurTab;
+    pmBoTuaUnlockRef.child(key).set({by:pmCu.name, at:new Date().toISOString()}).then(function(){
+      alert('✅ Đã mở khóa Phòng PM'+pmCurrentRoom+' ('+groupLabel+'). Có thể lập biên bản mới ngay bây giờ.');
+    }).catch(function(e){ alert('Lỗi: '+e.message); });
+  };
+  // Kiểm tra khóa bỏ tua cho đúng phòng đang xem + nhóm truyền vào. true = được phép tiếp tục lập biên bản.
+  function pmCheckNoTuaGap(group){
+    if(!pmBoTuaConfig || pmBoTuaConfig.enabled===false) return true;
+    var key=pmSafeKey(pmCurrentRoom)+'_'+group;
+    if(pmBoTuaUnlocks && pmBoTuaUnlocks[key]){
+      try{ pmBoTuaUnlockRef.child(key).remove(); }catch(e){} // tiêu thụ 1 lần
+      return true;
+    }
+    var same=pmAllRecords().filter(function(r){return String(r.phong)===String(pmCurrentRoom) && r.nhomPM===group;});
+    if(!same.length) return true; // phòng/nhóm chưa từng có biên bản nào — chưa có gì để đối chiếu, cho lập bình thường
+    var lastDone=same.filter(function(r){return r.trangThai==='hoanthanh';})
+      .sort(function(a,b){var ka=String(a.ngay||'')+String(a.gio||''), kb=String(b.ngay||'')+String(b.gio||''); return kb>ka?1:(kb<ka?-1:0);})[0];
+    if(!lastDone) return true; // đang có biên bản "chờ hoàn thành" — đã được pmCheckNoPendingSameGroup chặn riêng
+    var lastDt = lastDone.ngay ? new Date(lastDone.ngay+'T'+(lastDone.gio||'00:00')+':00') : (lastDone.createdAt?new Date(lastDone.createdAt):null);
+    if(!lastDt || isNaN(lastDt.getTime())) return true;
+    var elapsedH=(Date.now()-lastDt.getTime())/3600000;
+    if(elapsedH <= pmBoTuaConfig.maxGio) return true;
+    var groupLabel = group==='gayme' ? 'Gây mê' : 'Dụng cụ';
+    var msg='🔒 Phòng PM'+pmCurrentRoom+' (nhóm '+groupLabel+') đang bị KHÓA do có dấu hiệu BỎ TUA:\n\n'
+      +'Biên bản HOÀN THÀNH gần nhất: '+pmFmtD(lastDone.ngay)+(lastDone.gio?(' '+lastDone.gio):'')+' — Ca '+(lastDone.ca||'')+'\n'
+      +'Đã quá '+elapsedH.toFixed(1)+' giờ (giới hạn: '+pmBoTuaConfig.maxGio+' giờ) mà chưa phát sinh biên bản bàn giao mới nào.\n\n'
+      +'Vui lòng liên hệ QUẢN LÝ KHOA để xác nhận mở khóa trước khi lập biên bản mới cho phòng này.';
+    if(pmCu && pmCu.role==='admin'){
+      if(confirm(msg+'\n\n(Quản lý) Xác nhận MỞ KHÓA và tiếp tục lập biên bản mới ngay bây giờ?')) return true;
+      return false;
+    }
+    alert(msg);
+    return false;
+  }
+
   /* ══ NHÓM PHÒNG CÙNG KÍP — cho phép bàn giao gộp nhiều phòng trong 1 lượt, chỉ ký 1 lần ══
      Không thay thế cách bàn giao từng phòng lẻ cũ (vẫn giữ song song) — chỉ là thêm 1 lựa chọn
      để khóa trách nhiệm: 1 kíp phụ trách nhiều phòng thì phải bàn giao đủ hết các phòng đó. */
@@ -37884,6 +37976,8 @@ window.dctdMoveStatus=function(id,st){
     pmSyncQuickRoomSwitch();
     var isA=pmCu.role==='admin';
     document.getElementById('pmRoomConfigBtn').style.display=isA?'':'none';
+    var pmTuaUB=document.getElementById('pmTuaUnlockBtn'); if(pmTuaUB) pmTuaUB.style.display=isA?'':'none';
+    var pmTuaCB=document.getElementById('pmTuaCfgBtn'); if(pmTuaCB) pmTuaCB.style.display=isA?'':'none';
     var whoHtml = isA
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b> — Quyền Quản lý'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b>';
@@ -38337,6 +38431,7 @@ window.dctdMoveStatus=function(id,st){
   function pmValidateRoomForGroup(requireSig){
     if(!pmCu||!pmCurrentRoom){pmShowFormAlert('Vui lòng đăng nhập lại.','err');return null;}
     if(!pmCheckNoPendingSameGroup(pmCurTab)) return null;
+    if(!pmCheckNoTuaGap(pmCurTab)) return null;
     var date=document.getElementById('pmInDate').value;
     var gio=document.getElementById('pmInGio').value;
     var ca=document.getElementById('pmInCa').value;
@@ -38538,6 +38633,7 @@ window.dctdMoveStatus=function(id,st){
    try{
     if(!pmCu||!pmCurrentRoom){pmShowFormAlert('Vui lòng đăng nhập lại.','err');return;}
     if(!pmCheckNoPendingSameGroup(pmCurTab)) return;
+    if(!pmCheckNoTuaGap(pmCurTab)) return;
     var date=document.getElementById('pmInDate').value;
     var gio=document.getElementById('pmInGio').value;
     var ca=document.getElementById('pmInCa').value;
