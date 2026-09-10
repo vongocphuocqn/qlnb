@@ -37280,12 +37280,26 @@ window.dctdMoveStatus=function(id,st){
   window.pmUnlockTuaForRoom=function(){
     if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được mở khóa.'); return; }
     if(!pmCurrentRoom){ alert('Vui lòng vào đúng 1 phòng cụ thể trước.'); return; }
-    var groupLabel = pmCurTab==='gayme' ? 'Gây mê' : 'Dụng cụ';
-    if(!confirm('Xác nhận MỞ KHÓA "bỏ tua" cho Phòng PM'+pmCurrentRoom+' — nhóm '+groupLabel+'?\n\nSau khi mở, có thể lập 1 biên bản bàn giao mới bình thường (không cần đúng người trước đó). Khóa sẽ tự bật lại nếu sau đó tiếp tục để quá hạn giờ quy định.')) return;
+    // Luôn HỎI RÕ nhóm cần mở khóa — không dựa ngầm vào pmCurTab, vì ở một số màn hình (vd "Danh sách
+    // công khai") không có tab Gây mê/Dụng cụ để chọn, dẫn tới mở nhầm nhóm (luôn ra "Gây mê" mặc định).
+    var goiY = pmCurTab==='dungcu' ? '2' : '1';
+    var input = prompt('MỞ KHÓA "BỎ TUA" — Phòng PM'+pmCurrentRoom+'\n\nChọn nhóm cần mở khóa:\n1 = Gây mê\n2 = Dụng cụ\n3 = Cả 2 nhóm (Gây mê + Dụng cụ)\n\nNhập số (1/2/3):', goiY);
+    if(input===null) return;
+    input=String(input).trim();
+    var groups;
+    if(input==='1') groups=['gayme'];
+    else if(input==='2') groups=['dungcu'];
+    else if(input==='3') groups=['gayme','dungcu'];
+    else { alert('Vui lòng nhập đúng 1, 2 hoặc 3.'); return; }
+    var groupLabels=groups.map(function(g){return g==='gayme'?'Gây mê':'Dụng cụ';}).join(' + ');
+    if(!confirm('Xác nhận MỞ KHÓA "bỏ tua" cho Phòng PM'+pmCurrentRoom+' — nhóm '+groupLabels+'?\n\nSau khi mở, có thể lập 1 biên bản bàn giao mới bình thường (không cần đúng người trước đó) cho (các) nhóm đã chọn. Khóa sẽ tự bật lại nếu sau đó tiếp tục để quá hạn giờ quy định.')) return;
     if(!pmBoTuaUnlockRef){ alert('Không kết nối được máy chủ.'); return; }
-    var key=pmSafeKey(pmCurrentRoom)+'_'+pmCurTab;
-    pmBoTuaUnlockRef.child(key).set({by:pmCu.name, at:new Date().toISOString()}).then(function(){
-      alert('✅ Đã mở khóa Phòng PM'+pmCurrentRoom+' ('+groupLabel+'). Có thể lập biên bản mới ngay bây giờ.');
+    var writes=groups.map(function(g){
+      var key=pmSafeKey(pmCurrentRoom)+'_'+g;
+      return pmBoTuaUnlockRef.child(key).set({by:pmCu.name, at:new Date().toISOString()});
+    });
+    Promise.all(writes).then(function(){
+      alert('✅ Đã mở khóa Phòng PM'+pmCurrentRoom+' ('+groupLabels+'). Có thể lập biên bản mới ngay bây giờ.');
     }).catch(function(e){ alert('Lỗi: '+e.message); });
   };
   // Kiểm tra khóa bỏ tua cho đúng phòng đang xem + nhóm truyền vào. true = được phép tiếp tục lập biên bản.
