@@ -19031,7 +19031,7 @@ function npRenderList(){
     <td style="min-width:100px">${npAttachBadges(r)}</td>
     <td><span class="nb-badge ${statusClass[r.status]||''}">${statusLabel[r.status]||r.status}</span></td>
     <td style="text-align:center;">${chuKyThumbHtml(r)}</td>
-    <td style="font-size:12px">${esc(r.replacer||'—')}</td>
+    <td style="font-size:12px">${npReplacerDisplay(r)}</td>
     <td style="font-size:12px;color:#7a5800;max-width:150px;word-break:break-word">${r.adminNote?'<span style="background:#fffde7;border:1px solid #ffe082;border-radius:5px;padding:2px 6px;display:inline-block">'+plainQTNote(r.adminNote)+'</span>':'<span style="color:#bbb">—</span>'}</td>
     <td>
       ${(!isStaff&&r.status==='pending')?`<button class="nb-btn nb-btn-sm" style="background:#00695c" onclick="openNpApprove('${r.id}')">
@@ -19086,12 +19086,14 @@ function openNpApprove(id){
 
   var gridHTML = '<div style="font-size:11px;font-weight:700;color:#00695c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px"><i class="ti ti-users"></i> Phân người thay thế theo từng ngày</div>';
   for(var i=0;i<dates.length;i++){
-    gridHTML += '<div style="display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;margin-bottom:8px;padding:8px 10px;background:#f0faf8;border:1.5px solid #a7d4ce;border-radius:9px">'
+    var parsedRepl = npParseReplCa(existingRepls[i]||'');
+    gridHTML += '<div style="display:grid;grid-template-columns:120px 1fr 110px;gap:8px;align-items:center;margin-bottom:8px;padding:8px 10px;background:#f0faf8;border:1.5px solid #a7d4ce;border-radius:9px">'
       +'<div style="font-size:12px;font-weight:700;color:#00695c">'+fmtD(dates[i])+'</div>'
-      +'<div>'+npBuildReplSelect(i, existingRepls[i]||'')+'</div>'
+      +'<div>'+npBuildReplSelect(i, parsedRepl.name)+'</div>'
+      +'<div>'+npBuildCaSelect(i, parsedRepl.ca)+'</div>'
       +'</div>';
   }
-  gridHTML += '<div style="font-size:11px;color:#888;margin-top:2px"><i class="ti ti-info-circle"></i> Để trống nếu ngày đó không cần người thay</div>';
+  gridHTML += '<div style="font-size:11px;color:#888;margin-top:2px"><i class="ti ti-info-circle"></i> Để trống nếu ngày đó không cần người thay. Không chọn Ca = áp dụng cả ngày.</div>';
   document.getElementById('npReplGrid').innerHTML = gridHTML;
 
   document.getElementById('npApproveNote').value=r.adminNote||'';
@@ -19099,6 +19101,21 @@ function openNpApprove(id){
 }
 function closeNpApprove(){document.getElementById('npApproveModal').classList.remove('on');npApproveTarget=null;}
 
+// Tách chuỗi người-thay-thế cũ dạng "Nguyễn Văn A (Ca Đêm)" thành {name:'Nguyễn Văn A', ca:'dem'} để
+// hiển thị đúng lại vào 2 ô riêng (tên + ca) khi mở lại phiếu đã từng chọn ca. Nếu không có hậu tố
+// (Ca ...) thì coi như áp dụng CẢ NGÀY (ca rỗng), giữ đúng hành vi cũ cho dữ liệu đã lưu trước đây.
+function npParseReplCa(str){
+  var s=String(str||'');
+  var m=s.match(/^(.*?)\s*\(Ca\s+(Ngày|Đêm)\)\s*$/);
+  if(m) return {name:m[1], ca:(m[2]==='Đêm'?'dem':'ngay')};
+  return {name:s, ca:''};
+}
+function npBuildCaSelect(idx, currentCa){
+  var opts=[['','Cả ngày'],['ngay','Ca Ngày'],['dem','Ca Đêm']];
+  return '<select id="npReplCa_'+idx+'" style="width:100%;border:1.5px solid #a7d4ce;border-radius:8px;padding:7px 6px;font-size:12.5px;font-family:inherit;color:#00695c;background:#fff;box-sizing:border-box">'
+    +opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===currentCa?' selected':'')+'>'+o[1]+'</option>';}).join('')
+    +'</select>';
+}
 function npBuildReplSelect(idx, currentVal){
   var val=(currentVal||'').replace(/"/g,'&quot;');
   return '<div style="position:relative">'
@@ -19194,11 +19211,15 @@ function npDoApprove(status){
       if(!confirm('CẢNH BÁO: '+rec.person+' đã có phiếu ĐÃ DUYỆT khác trùng ngày:\n- '+npConflicts.join('\n- ')+'\n\n1 ngày chỉ nên có 1 loại nghỉ (Phép hoặc Nghỉ bù), tránh lệch khi đối chiếu HIS. Vẫn muốn duyệt phiếu này?')) return;
     }
   }
-  // Collect per-day replacers
+  // Collect per-day replacers (kèm Ca Ngày/Đêm nếu Quản lý có chọn)
   var replacers=[];
   var i=0;
   while(document.getElementById('npRepl_'+i)){
-    replacers.push(document.getElementById('npRepl_'+i).value||'');
+    var _name=(document.getElementById('npRepl_'+i).value||'').trim();
+    var _caEl=document.getElementById('npReplCa_'+i);
+    var _ca=_caEl?_caEl.value:'';
+    var _val = (_name && _ca) ? (_name+' (Ca '+(_ca==='dem'?'Đêm':'Ngày')+')') : _name;
+    replacers.push(_val);
     i++;
   }
   var replacer=replacers.filter(Boolean).join(', ')||'';
