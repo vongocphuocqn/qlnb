@@ -37379,6 +37379,9 @@ window.dctdMoveStatus=function(id,st){
     var validGroups=pmRoomGroups.filter(function(g){ return g.every(function(r){return PM_ROOMS.indexOf(r)!==-1;}); });
     var rooms=validGroups[idx];
     if(!rooms) return;
+    var nhomChon=prompt('Bàn giao nhóm phòng: '+rooms.map(function(r){return 'PM '+r;}).join(' + ')+'\n\nBàn giao cho NHÓM nào?\n1 = Gây mê\n2 = Dụng cụ','1');
+    if(nhomChon===null) return;
+    pmCurTab = String(nhomChon).trim()==='2' ? 'dungcu' : 'gayme';
     pmGroupActive={rooms:rooms.slice(), idx:0, data:{}};
     pmGroupShowPicker(null);
   };
@@ -37403,6 +37406,9 @@ window.dctdMoveStatus=function(id,st){
     var g=_pmPendingGroupForRoom, clicked=_pmPendingRoomClick;
     document.getElementById('pmRoomChoiceBg').style.display='none';
     if(!g) return;
+    var nhomChon=prompt('Bàn giao nhóm phòng: '+g.map(function(r){return 'PM '+r;}).join(' + ')+'\n\nBàn giao cho NHÓM nào?\n1 = Gây mê\n2 = Dụng cụ','1');
+    if(nhomChon===null){ _pmPendingRoomClick=null; _pmPendingGroupForRoom=null; return; }
+    pmCurTab = String(nhomChon).trim()==='2' ? 'dungcu' : 'gayme';
     pmGroupActive={rooms:g.slice(), idx:0, data:{}};
     pmGroupShowPicker(null);
     _pmPendingRoomClick=null; _pmPendingGroupForRoom=null;
@@ -38014,7 +38020,9 @@ window.dctdMoveStatus=function(id,st){
     document.getElementById('pmConfirmGiaoName').textContent=pmCu.name;
     document.getElementById('pmConfirmNhanName').textContent='— chưa chọn —';
     var al=document.getElementById('pmFormAlert'); if(al) al.style.display='none';
-    pmSwitchTab('gayme');
+    // Nếu đang GIỮA 1 phiên bàn giao NHÓM nhiều phòng, giữ nguyên đúng nhóm (Gây mê/Dụng cụ) đã
+    // chọn từ phòng trước đó — KHÔNG ép về 'gayme' mỗi lần chuyển phòng, tránh lệch nhóm/bị khóa sai.
+    pmSwitchTab((pmGroupActive && pmGroupActive.rooms.indexOf(roomId)!==-1) ? pmCurTab : 'gayme');
     pmRenderOtherItems();
     pmVeSinhChoice=null; pmVeSinhHinhThucChon=[];
     if(pmVeSinhDataRef){
