@@ -25016,6 +25016,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div>
             <div style="font-size:12.5px;font-weight:600;color:#555;margin-bottom:4px">Người bàn giao: <b id="pmConfirmGiaoName">—</b> <span id="pmSigOkGiao" style="display:none;color:#0d6e6e;font-weight:700">✅ Đã ký</span></div>
+            <div id="pmSigMauGiao" style="display:none;font-size:10.5px;color:#8a5300;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:3px 6px;margin-bottom:4px"></div>
             <div style="border:1.5px dashed #7fc2b8;border-radius:8px;background:#fff;touch-action:none">
               <canvas id="pmSigGiao" width="300" height="120" style="width:100%;height:120px;display:block;cursor:crosshair"></canvas>
             </div>
@@ -25026,6 +25027,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           </div>
           <div id="pmNhanSigBox">
             <div style="font-size:12.5px;font-weight:600;color:#555;margin-bottom:4px">Người nhận: <b id="pmConfirmNhanName">— chưa chọn —</b> <span id="pmSigOkNhan" style="display:none;color:#0d6e6e;font-weight:700">✅ Đã ký</span></div>
+            <div id="pmSigMauNhan" style="display:none;font-size:10.5px;color:#8a5300;background:#fff8e1;border:1px solid #f0dfa0;border-radius:6px;padding:3px 6px;margin-bottom:4px"></div>
             <div style="border:1.5px dashed #7fc2b8;border-radius:8px;background:#fff;touch-action:none">
               <canvas id="pmSigNhan" width="300" height="120" style="width:100%;height:120px;display:block;cursor:crosshair"></canvas>
             </div>
@@ -38038,8 +38040,29 @@ window.dctdMoveStatus=function(id,st){
     pmSigHasDrawn={giao:false, nhan:false};
     window.pmClearSig('giao'); window.pmClearSig('nhan');
     pmInitSigPad('pmSigGiao','giao'); pmInitSigPad('pmSigNhan','nhan');
+    // Hiển thị ảnh chữ ký MẪU đã đăng ký (nếu có) ngay trên khung ký thật, để người ký tự đối
+    // chiếu ký cho giống — giảm tình trạng nhờ người khác ký hộ mà không ai phát hiện lúc ký.
+    window.pmUpdateSigRefMau=function(){
+      var giaoName=(document.getElementById('pmConfirmGiaoName')||{}).textContent||'';
+      var nhanName=(document.getElementById('pmConfirmNhanName')||{}).textContent||'';
+      var giaoBox=document.getElementById('pmSigMauGiao');
+      var nhanBox=document.getElementById('pmSigMauNhan');
+      var tim=(typeof timChuKyMauTheoTen==='function')?timChuKyMauTheoTen:function(){return null;};
+      if(giaoBox){
+        var mg=tim(giaoName);
+        if(mg){ giaoBox.style.display='block'; giaoBox.innerHTML='Chữ ký mẫu đã lưu — vui lòng ký giống chữ ký thường dùng:<br><img src="'+mg+'" style="max-height:34px;max-width:140px;margin-top:2px">'; }
+        else{ giaoBox.style.display='none'; giaoBox.innerHTML=''; }
+      }
+      if(nhanBox){
+        var mn=(nhanName&&nhanName!=='— chưa chọn —')?tim(nhanName):null;
+        if(mn){ nhanBox.style.display='block'; nhanBox.innerHTML='Chữ ký mẫu đã lưu — vui lòng ký giống chữ ký thường dùng:<br><img src="'+mn+'" style="max-height:34px;max-width:140px;margin-top:2px">'; }
+        else{ nhanBox.style.display='none'; nhanBox.innerHTML=''; }
+      }
+    };
     document.getElementById('pmConfirmGiaoName').textContent=pmCu.name;
+    pmUpdateSigRefMau();
     document.getElementById('pmConfirmNhanName').textContent='— chưa chọn —';
+    pmUpdateSigRefMau();
     var al=document.getElementById('pmFormAlert'); if(al) al.style.display='none';
     // Nếu đang GIỮA 1 phiên bàn giao NHÓM nhiều phòng, giữ nguyên đúng nhóm (Gây mê/Dụng cụ) đã
     // chọn từ phòng trước đó — KHÔNG ép về 'gayme' mỗi lần chuyển phòng, tránh lệch nhóm/bị khóa sai.
@@ -38071,6 +38094,7 @@ window.dctdMoveStatus=function(id,st){
         document.getElementById('pmInNhan').value=prevRoomData.nguoiNhan;
         pmSelectedNhan=prevRoomData.nguoiNhan;
         document.getElementById('pmConfirmNhanName').textContent=prevRoomData.nguoiNhan;
+        pmUpdateSigRefMau();
       }
       pmUpdateGroupBanner();
     } else if(!pmGroupActive){
@@ -38226,6 +38250,7 @@ window.dctdMoveStatus=function(id,st){
     pmSelectedNhan=name;
     document.getElementById('pmInNhan').value=name;
     var nn=document.getElementById('pmConfirmNhanName'); if(nn) nn.textContent=name;
+    if(typeof pmUpdateSigRefMau==='function') pmUpdateSigRefMau();
     var b=document.getElementById('pmNhanDrop'); if(b) b.style.display='none';
   };
 
@@ -38829,6 +38854,7 @@ window.dctdMoveStatus=function(id,st){
         window.pmToggleTuKiemTra();
         pmRenderOtherItems();
         document.getElementById('pmConfirmNhanName').textContent='— chưa chọn —';
+        pmUpdateSigRefMau();
         window.pmClearSig('giao'); window.pmClearSig('nhan');
         pmRenderItemList();
       } else {
@@ -38868,6 +38894,7 @@ window.dctdMoveStatus=function(id,st){
     document.getElementById('pmInGhiChuChung').value=r.ghiChuChung||'';
     document.getElementById('pmInBaoCaoKhan').value=(r.baoCaoKhan||[]).join('\n');
     document.getElementById('pmConfirmNhanName').textContent=r.nguoiNhan||'— chưa chọn —';
+    pmUpdateSigRefMau();
     pmItemStates={};
     pmOtherItemsTemp=[];
     function loadGroup(items,groupName){
@@ -38903,6 +38930,7 @@ window.dctdMoveStatus=function(id,st){
     document.getElementById('pmInGhiChuChung').value='';
     document.getElementById('pmInBaoCaoKhan').value='';
     document.getElementById('pmConfirmNhanName').textContent='— chưa chọn —';
+    pmUpdateSigRefMau();
     var btn=document.getElementById('pmSubmitBtn'); if(btn) btn.innerHTML='<i class="ti ti-send"></i> Lưu biên bản bàn giao';
     var cancelBtn=document.getElementById('pmCancelEditBtn'); if(cancelBtn) cancelBtn.style.display='none';
     var banner=document.getElementById('pmEditBanner'); if(banner) banner.style.display='none';
