@@ -25103,7 +25103,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <option value="choduyet">Chờ hoàn thành</option>
           <option value="hoanthanh">Hoàn thành</option>
         </select>
-        <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('pmListFrom').value='';document.getElementById('pmListTo').value='';document.getElementById('pmListGroupFilter').value='';document.getElementById('pmListStatusFilter').value='';document.getElementById('pmListSearch').value='';pmRenderList()"><i class="ti ti-refresh"></i> Xóa lọc</button>
+        <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('pmListFrom').value='';document.getElementById('pmListTo').value='';document.getElementById('pmListGroupFilter').value='';document.getElementById('pmListStatusFilter').value='';document.getElementById('pmListSearch').value='';document.getElementById('pmListOnlyFlagged').checked=false;pmRenderList()"><i class="ti ti-refresh"></i> Xóa lọc</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:#c62828;font-weight:600;cursor:pointer;padding:0 4px"><input type="checkbox" id="pmListOnlyFlagged" onchange="pmRenderList()" style="width:16px;height:16px;cursor:pointer">⚠️ Chỉ thiếu/hư hỏng</label>
       </div>
       <div style="margin-bottom:10px">
         <input id="pmListSearch" type="text" placeholder="🔍 Tìm theo người bàn giao, người nhận, số hiệu..." oninput="pmRenderList()" style="width:100%;padding:8px 10px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box">
@@ -37410,6 +37411,22 @@ window.dctdMoveStatus=function(id,st){
   };
   // Bấm vào 1 phòng trong lưới chọn phòng: nếu phòng thuộc 1 nhóm cùng kíp, hỏi trước "giao nhóm hay giao lẻ"
   var _pmPendingRoomClick=null, _pmPendingGroupForRoom=null;
+  window.pmRoomBadgeClick=function(roomId){
+    pmSelectRoom(roomId);
+    var tryOpen=function(attempt){
+      var pending=pmAllRecords().filter(function(r){return r.trangThai==='choduyet';})
+        .sort(function(a,b){return (a.ngay||'').localeCompare(b.ngay||'');});
+      if(pending.length){
+        var rec=pending[0];
+        var openIt=function(){ try{ pmOpenView(rec._id); }catch(e){ console.warn('Không mở được biên bản',e); } };
+        if(rec.nhomPM && rec.nhomPM!==pmCurTab){ pmSwitchTab(rec.nhomPM); setTimeout(openIt,150); }
+        else { openIt(); }
+      } else if(attempt<15){
+        setTimeout(function(){ tryOpen(attempt+1); },200);
+      }
+    };
+    setTimeout(function(){ tryOpen(0); }, 300);
+  };
   window.pmRoomGridClick=function(roomId){
     var validGroups=pmRoomGroups.filter(function(g){ return g.every(function(r){return PM_ROOMS.indexOf(r)!==-1;}); });
     var foundGroup=null;
@@ -37814,7 +37831,7 @@ window.dctdMoveStatus=function(id,st){
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Xem</th>'+
       '</tr></thead><tbody>'+
       rows.map(function(r,i){
-        return '<tr onclick="pmGotoRoomDetail(\''+r.room+'\')" style="cursor:pointer;'+(i%2?'background:#f2fbfa':'')+'" onmouseover="this.style.background=\'#daf1ec\'" onmouseout="this.style.background=\''+(i%2?'#f2fbfa':'#fff')+'\'">'+
+        return '<tr onclick="pmGotoRoomDetail(\''+r.room+'\','+(r.coSuCo>0?'true':'false')+')" style="cursor:pointer;'+(i%2?'background:#f2fbfa':'')+'" onmouseover="this.style.background=\'#daf1ec\'" onmouseout="this.style.background=\''+(i%2?'#f2fbfa':'#fff')+'\'">'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;font-weight:600;color:#0d47a1;text-decoration:underline">Phòng '+pmEsc(r.room)+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+r.tong+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#0a6b5e">'+r.hoanThanh+'</td>'+
@@ -37832,15 +37849,22 @@ window.dctdMoveStatus=function(id,st){
   // (bỏ qua hẳn bước chọn phòng/nhóm) — tiện kiểm tra chi tiết ngay, không cần thao tác lại từ đầu.
   // "Danh sách công khai" tự hiển thị chung cả 2 nhóm Gây mê + Dụng cụ (có nhãn màu phân biệt từng
   // biên bản), nên không cần chọn riêng từng nhóm nữa.
-  window.pmGotoRoomDetail=function(roomId){
+  window.pmGotoRoomDetail=function(roomId, onlyFlagged){
     pmCloseRoomsStats();
     pmSelectRoom(roomId);
     // Đợi dữ liệu biên bản của đúng phòng vừa chọn tải xong (Firebase) rồi mới mở "Danh sách công
     // khai", tránh mở quá nhanh lúc dữ liệu chưa kịp về (danh sách trống hoặc còn sót dữ liệu phòng cũ).
+    var openList=function(){
+      pmToggleList();
+      if(onlyFlagged){
+        var cb=document.getElementById('pmListOnlyFlagged');
+        if(cb){ cb.checked=true; pmRenderList(); }
+      }
+    };
     if(pmRecordsRef){
-      pmRecordsRef.once('value').then(function(){ pmToggleList(); }).catch(function(){ pmToggleList(); });
+      pmRecordsRef.once('value').then(openList).catch(openList);
     } else {
-      setTimeout(function(){ pmToggleList(); }, 300);
+      setTimeout(openList, 300);
     }
   };
   function pmStatsRangeLabel(){
@@ -37949,6 +37973,18 @@ window.dctdMoveStatus=function(id,st){
     if(pmOtherCatalogRef){
       pmOtherCatalogRef.on('value',function(snap){ pmOtherCatalog=snap.val()||{}; pmRenderOtherDatalist(); });
     }
+    if(btdPendingPmRoom){
+      var _btdRoom=btdPendingPmRoom, _btdRec=btdPendingPmVesinhRec;
+      btdPendingPmRoom=null; btdPendingPmVesinhRec=null;
+      setTimeout(function(){
+        try{
+          pmSelectRoom(_btdRoom);
+          if(_btdRec){
+            setTimeout(function(){ try{ pmOpenView(_btdRec); }catch(e){ console.warn('Không mở được biên bản '+_btdRec,e); } }, 400);
+          }
+        }catch(e){ console.warn('Không tự chọn được phòng '+_btdRoom+' sau khi đăng nhập:', e); }
+      }, 350);
+    }
   };
   window.pmRenderRoomGrid=function(){
     var box=document.getElementById('pmRoomGrid');
@@ -37956,7 +37992,7 @@ window.dctdMoveStatus=function(id,st){
     var isA=pmCu&&pmCu.role==='admin';
     box.innerHTML=PM_ROOMS.map(function(r){
       var pend=(typeof notifPmRoomsPending!=='undefined' && notifPmRoomsPending[r]) ? notifPmRoomsPending[r] : 0;
-      var badge=pend>0 ? '<span style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:999px;min-width:20px;height:20px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 5px rgba(0,0,0,.25)">'+pend+'</span>' : '';
+      var badge=pend>0 ? '<span onclick="event.stopPropagation();pmRoomBadgeClick(\''+r+'\')" title="Bấm để vào thẳng biên bản đang chờ hoàn thành" style="cursor:pointer;position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:999px;min-width:20px;height:20px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 5px rgba(0,0,0,.25)">'+pend+'</span>' : '';
       // Chỉ Quản lý mới thấy nút ⚙ nhỏ này — bấm vào để vào THẲNG "Cấu hình phòng này" (chọn tài
       // sản áp dụng + số lượng), KHÔNG đi qua bước bàn giao/không bị popup "Bàn giao theo nhóm hay
       // giao riêng" chặn lại như khi bấm vào ô phòng chính — hữu ích nhất với các phòng thuộc nhóm
@@ -39146,6 +39182,8 @@ window.dctdMoveStatus=function(id,st){
     if(groupFil) list=list.filter(function(r){return r.nhomPM===groupFil;});
     if(fr) list=list.filter(function(r){return (r.ngay||'')>=fr;});
     if(to) list=list.filter(function(r){return (r.ngay||'')<=to;});
+    var onlyFlagged=(document.getElementById('pmListOnlyFlagged')||{}).checked;
+    if(onlyFlagged) list=list.filter(function(r){var f=pmItemFlags(r); return f.thieu||f.hong;});
     if(q){
       list=list.filter(function(r){
         var hay=[r.nguoiGiao,r.nguoiNhan,r.soHieu].join(' ');
@@ -40863,6 +40901,8 @@ let _btdDpGid = null;
 let btdCollapsed = {}; // {groupId: true/false} — chỉ nhớ trong phiên đang mở, không lưu Firebase
 let btdActiveFilter = 'all'; // 'all' | 'ok' | 'over' | 'pend' — lọc theo thẻ tổng quan đang bấm
 let btdReturnPending = false; // true khi vào Phòng Mổ TỪ màn hình "Theo dõi Giao nhận trực" — để hiện nút quay lại đúng chỗ
+let btdPendingPmRoom = null; // phòng đang chờ tự động chọn sau khi ĐĂNG NHẬP XONG (dành cho nhân viên thường, không có phiên Admin)
+let btdPendingPmVesinhRec = null; // biên bản vệ sinh cuối tuần cần tự mở sau khi chọn phòng xong (nếu bấm "Xem biên bản đã nộp")
 var briefReturnPending = false; // true khi vào Phòng Mổ/Hồi sức TỪ modal "Giao ban sáng" — để hiện nút quay lại đúng chỗ
 function btdToggleGroup(gid){ btdCollapsed[gid] = !btdCollapsed[gid]; btdRender(); }
 function btdToggleAllGroups(){
@@ -41136,9 +41176,9 @@ function btdRenderVesinh(){
       if(hist.length) who='<span class="btd-who" style="color:#7a9a50">Bàn giao gần nhất: '+btdEsc(hist[hist.length-1].denNguoi||'')+'</span>';
     } else if(isDueNow){
       overCount++;
-      badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn — chưa thực hiện tuần này</span>';
+      badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn — chưa thực hiện (hạn Thứ 6, '+btdEsc(thisWeek.split('-').reverse().join('/'))+')</span>';
     } else {
-      badge='<span class="btd-badge btd-badge-pend"><i class="ti ti-hourglass"></i> Chưa thực hiện (chưa tới hạn — hạn Thứ 6)</span>';
+      badge='<span class="btd-badge btd-badge-pend"><i class="ti ti-hourglass"></i> Chưa thực hiện (chưa tới hạn — hạn Thứ 6 '+btdEsc(thisWeek.split('-').reverse().join('/'))+')</span>';
     }
     const canViewRec = rec && rec.weekKey===thisWeek && rec.trangThai==='da_lam' && rec.recId;
     const btnHtml = canViewRec
@@ -41163,7 +41203,11 @@ function btdRenderVesinh(){
 // để biết chính xác giờ giao nhận và nội dung biên bản gốc đã ghi.
 function btdGoToPmVesinhRecord(roomId, recId){
   if(!(window.adminSession && adminSession.active)){
-    alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" (hoặc "Bàn giao Phòng Mổ") ở trang chủ trước, rồi quay lại bấm "Xem biên bản đã nộp" cho phòng "'+roomId+'".');
+    btdPendingPmRoom = roomId;
+    btdPendingPmVesinhRec = recId;
+    btdReturnPending = true;
+    closeBtdScreen();
+    openStaffAuthModalUser('phongmo');
     return;
   }
   try{
@@ -41193,7 +41237,12 @@ function btdGoToPmVesinhRecord(roomId, recId){
 }
 function btdGoToPmRoom(roomId){
   if(!(window.adminSession && adminSession.active)){
-    alert('Vui lòng đăng nhập ở thẻ "Quản lý Admin" (hoặc "Bàn giao Phòng Mổ") ở trang chủ trước, rồi quay lại bấm "Vào xem" cho phòng "'+roomId+'".');
+    // KHÔNG chặn nhân viên thường nữa — cho họ tự đăng nhập bằng chính tên của mình (giống hệt bấm
+    // thẳng thẻ "Bàn giao Phòng Mổ" ở Trang chủ), rồi tự động chọn đúng phòng sau khi đăng nhập xong.
+    btdPendingPmRoom = roomId;
+    btdReturnPending = true;
+    closeBtdScreen();
+    openStaffAuthModalUser('phongmo');
     return;
   }
   try{
@@ -41471,7 +41520,7 @@ function btdRender(){
           } else if(p.status==='over'){
             cOver++; gOver++; rowStatus='over'; overNames.push(g.name+' – '+d.name+(p.label?' ('+p.label+')':''));
             const bl = p.backlog;
-            const blTxt = (bl && bl.count>1) ? (' <span style="font-weight:700">(nợ '+bl.count+' ngày, từ '+btdDMY(bl.since)+')</span>') : (bl && bl.since ? (' (từ '+btdDMY(bl.since)+')') : '');
+            const blTxt = (bl && bl.count>1) ? (' <span style="font-weight:700">(nợ '+bl.count+' ngày, từ '+btdDMY(bl.since)+' đến '+btdDMY(new Date())+')</span>') : (bl && bl.since ? (' (từ '+btdDMY(bl.since)+')') : '');
             badge='<span class="btd-badge btd-badge-over"><i class="ti ti-alert-triangle"></i> Trễ hạn – chưa giao'+blTxt+'</span>';
             actBtn='<button class="btd-act-btn btd-act-confirm" onclick="btdGoToRoom(\''+btdEsc(d.name).replace(/'/g,"\\'")+'\')"><i class="ti ti-pencil"></i> Đi bàn giao ngay</button>';
             // Đối chiếu với "Đăng ký phụ trách bàn giao" để gợi ý ai là người phụ trách đúng ngày/ca bị trễ
