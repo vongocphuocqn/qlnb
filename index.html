@@ -38130,12 +38130,21 @@ window.dctdMoveStatus=function(id,st){
   window.pmRenderPendingSameGroupWarn=function(){
     var el=document.getElementById('pmPendingSameGroupWarn');
     if(!el||!pmCurrentRoom) return;
-    var pending=pmAllRecords().filter(function(r){return r.trangThai==='choduyet' && r.nhomPM===pmCurTab;});
+    var pending=pmAllRecords().filter(function(r){return r.trangThai==='choduyet' && r.nhomPM===pmCurTab;})
+      .sort(function(a,b){return (a.ngay||'').localeCompare(b.ngay||'')||(a.createdAt||'').localeCompare(b.createdAt||'');});
     if(!pending.length){ el.style.display='none'; el.innerHTML=''; return; }
     var groupLabel = pmCurTab==='gayme' ? 'Gây mê' : 'Dụng cụ';
+    var rowsHtml = pending.map(function(r){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:4px 0;border-top:1px dashed #f5c2c0">'
+        +'<span><i class="ti ti-calendar-event"></i> <b>'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+'</b> ('+pmEsc(r.ca||'')+') — '+pmEsc(r.nguoiGiao||'')+' → chờ <b>'+pmEsc(r.nguoiNhan||'')+'</b> ký'
+        +'</span>'
+        +'<span style="display:flex;gap:6px">'
+        +'<button type="button" onclick="pmOpenView(\''+r._id+'\')" style="background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer">Xem</button>'
+        +'<button type="button" onclick="pmShowRemoteQR(\''+r._id+'\')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer"><i class="ti ti-qrcode"></i> QR hoàn tất</button>'
+        +'</span></div>';
+    }).join('');
     el.style.display='block';
-    el.innerHTML='<i class="ti ti-alert-triangle"></i> Nhóm <b>'+groupLabel+'</b> của phòng này đang có <b>'+pending.length+' biên bản CHỜ HOÀN THÀNH</b> (chưa đủ 2 chữ ký) — cần hoàn tất ký biên bản cũ thì mới lưu được biên bản mới cho nhóm này. '+
-      '<button type="button" onclick="pmShowRemoteQR(\''+pending[0]._id+'\')" style="margin-left:6px;background:#c62828;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer"><i class="ti ti-qrcode"></i> Mở mã QR để hoàn tất ngay</button>';
+    el.innerHTML='<div><i class="ti ti-alert-triangle"></i> Nhóm <b>'+groupLabel+'</b> của phòng này đang có <b>'+pending.length+' biên bản CHỜ HOÀN THÀNH</b> (chưa đủ 2 chữ ký) — chưa hoàn tất (các) ngày dưới đây thì không lập được biên bản mới cho nhóm này:</div>'+rowsHtml;
   };
 
   function pmMasterItems(){
