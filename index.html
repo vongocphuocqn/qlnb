@@ -24881,6 +24881,11 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div id="pmGroupBtnsBox" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
     <div class="sub" style="margin-bottom:12px">Chọn đúng phòng mổ để lập/xem biên bản bàn giao (Gây mê + Dụng cụ) của phòng đó.</div>
+    <div style="font-size:11.5px;color:#888;margin:-6px 0 12px;display:flex;gap:14px;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:11px;height:11px;border:2px solid #f9a825;border-radius:3px;vertical-align:middle"></span> Trễ 1 nhóm</span>
+      <span><span style="display:inline-block;width:11px;height:11px;border:2px solid #c62828;border-radius:3px;vertical-align:middle"></span> Trễ cả 2 nhóm</span>
+      <span><span style="display:inline-block;width:16px;height:16px;background:#c62828;border-radius:999px;vertical-align:middle;color:#fff;font-size:9px;text-align:center;line-height:16px">n</span> Số biên bản đang chờ hoàn thành</span>
+    </div>
     <div id="pmRoomGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
   </div>
 </div>
@@ -37964,6 +37969,7 @@ window.dctdMoveStatus=function(id,st){
     var pmBriefBtn2=document.getElementById('pmBackToBriefBtn2'); if(pmBriefBtn2) pmBriefBtn2.style.display=briefReturnPending?'inline-flex':'none';
     pmRenderRoomGrid();
     pmRenderGroupBtns();
+    pmLoadAllRoomsTuaStatus();
     if(pmMasterCatalogRef){
       pmMasterCatalogRef.on('value',function(snap){ pmMasterCatalog=snap.val()||{}; });
     }
@@ -37986,6 +37992,32 @@ window.dctdMoveStatus=function(id,st){
       }, 350);
     }
   };
+  var pmRoomTuaStatus={}; // {roomId: {gayme:true/false trễ, dungcu:true/false trễ}}
+  window.pmLoadAllRoomsTuaStatus=function(){
+    if(!pmBoTuaConfig || pmBoTuaConfig.enabled===false){ pmRoomTuaStatus={}; pmRenderRoomGrid(); return; }
+    var rooms=PM_ROOMS.slice();
+    var pending=rooms.length;
+    if(!pending) return;
+    rooms.forEach(function(roomId){
+      db.ref('pmRecords').child(roomId).orderByKey().limitToLast(20).once('value').then(function(snap){
+        var d=snap.val()||{};
+        var latest={gayme:null, dungcu:null};
+        Object.values(d).forEach(function(r){
+          var g=r.nhomPM==='dungcu'?'dungcu':'gayme';
+          var ts=(r.ngay||'')+' '+(r.gio||'00:00');
+          if(!latest[g] || ts>latest[g]) latest[g]=ts;
+        });
+        var st={gayme:false, dungcu:false};
+        ['gayme','dungcu'].forEach(function(g){
+          if(!latest[g]){ st[g]=false; return; } // chưa từng có biên bản nào -> không đủ căn cứ báo trễ ở đây (khác cơ chế trong phòng)
+          var elapsedH=(new Date() - new Date(latest[g].replace(' ','T')))/3600000;
+          st[g]=elapsedH>pmBoTuaConfig.maxGio;
+        });
+        pmRoomTuaStatus[roomId]=st;
+      }).catch(function(){ pmRoomTuaStatus[roomId]={gayme:false,dungcu:false}; })
+      .then(function(){ pending--; if(pending<=0) pmRenderRoomGrid(); });
+    });
+  };
   window.pmRenderRoomGrid=function(){
     var box=document.getElementById('pmRoomGrid');
     if(!box) return;
@@ -37998,7 +38030,11 @@ window.dctdMoveStatus=function(id,st){
       // giao riêng" chặn lại như khi bấm vào ô phòng chính — hữu ích nhất với các phòng thuộc nhóm
       // cùng kíp, vì bấm ô phòng chính với các phòng đó luôn hiện popup hỏi trước khi vào được.
       var cfgBtn=isA ? '<button type="button" onclick="event.stopPropagation();pmQuickConfigRoom(\''+r+'\')" title="Cấu hình tài sản riêng cho phòng này" style="position:absolute;top:-6px;left:-6px;width:24px;height:24px;border-radius:50%;background:#0d6e6e;color:#fff;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;padding:0"><i class="ti ti-adjustments"></i></button>' : '';
-      return '<div class="kpi-btn" role="button" tabindex="0" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;border:1.5px solid #a8d9d0;color:#0a4a4a;text-align:center" onclick="pmRoomGridClick(\''+r+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pmRoomGridClick(\''+r+'\');}"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>Phòng '+r+badge+cfgBtn+'</div>';
+      var tua=pmRoomTuaStatus[r]||{};
+      var treList=[]; if(tua.gayme) treList.push('Gây mê'); if(tua.dungcu) treList.push('Dụng cụ');
+      var treHtml = treList.length ? '<div style="margin-top:3px;font-size:10px;font-weight:800;color:#c62828"><i class="ti ti-clock-exclamation"></i> Trễ: '+treList.join(', ')+'</div>' : '';
+      var borderStyle = treList.length===2 ? 'border:2px solid #c62828' : (treList.length===1 ? 'border:2px solid #f9a825' : 'border:1.5px solid #a8d9d0');
+      return '<div class="kpi-btn" role="button" tabindex="0" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;'+borderStyle+';color:#0a4a4a;text-align:center" onclick="pmRoomGridClick(\''+r+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pmRoomGridClick(\''+r+'\');}"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>Phòng '+r+badge+cfgBtn+treHtml+'</div>';
     }).join('');
   };
   // Vào thẳng "Cấu hình phòng này" (chọn tài sản áp dụng + số lượng) cho ĐÚNG 1 phòng bất kỳ ngay từ
