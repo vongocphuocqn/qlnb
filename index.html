@@ -38267,6 +38267,11 @@ window.dctdMoveStatus=function(id,st){
     pmRenderPendingList();
     pmRenderHistory();
     pmRenderPendingSameGroupWarn();
+    // Nếu khung "Danh sách công khai" đang mở sẵn, tự làm mới lại theo dữ liệu mới nhất — tránh bị
+    // kẹt ở trạng thái "0 biên bản" khi mở đúng lúc dữ liệu Firebase chưa kịp tải xong (hay gặp ở
+    // các phòng nhiều dữ liệu như 201/203/204, đặc biệt lúc đang thao tác nhanh trong Bàn giao nhóm).
+    var pmListBoxEl=document.getElementById('pmListBox');
+    if(pmListBoxEl && pmListBoxEl.style.display!=='none'){ pmRenderList(); }
   };
 
   window.pmFilterNhanDrop=function(){
@@ -38721,12 +38726,22 @@ window.dctdMoveStatus=function(id,st){
     });
     Promise.all(writes).then(function(){
       if(submitBtn){ submitBtn.disabled=false; submitBtn.innerHTML='<i class="ti ti-send"></i> Lưu biên bản bàn giao'; }
+      var doneNhom=pmCurTab;
+      var doneNhomLabel = doneNhom==='gayme' ? 'Gây mê' : 'Dụng cụ';
+      var otherNhom = doneNhom==='gayme' ? 'dungcu' : 'gayme';
+      var otherNhomLabel = otherNhom==='gayme' ? 'Gây mê' : 'Dụng cụ';
+      var groupRooms=g.rooms.slice();
       pmGroupActive=null;
       pmUpdateGroupBanner();
       window.scrollTo({top:0, behavior:'smooth'});
       pmToast('🎉 Đã hoàn tất bàn giao cả '+g.rooms.length+' phòng!');
       setTimeout(function(){
-        alert('🎉 Đã hoàn tất bàn giao CẢ NHÓM ('+g.rooms.length+' phòng): '+g.rooms.map(function(r){return 'PM '+r;}).join(', ')+'.\nCùng 1 chữ ký, đã lưu đủ '+g.rooms.length+' biên bản riêng biệt.');
+        var lamTiep=confirm('🎉 Đã hoàn tất bàn giao CẢ NHÓM ('+g.rooms.length+' phòng): '+groupRooms.map(function(r){return 'PM '+r;}).join(', ')+' — nhóm '+doneNhomLabel+'.\nCùng 1 chữ ký, đã lưu đủ '+g.rooms.length+' biên bản riêng biệt.\n\n👉 Bạn có muốn LÀM LUÔN nhóm '+otherNhomLabel+' cho cùng '+g.rooms.length+' phòng này không? (Nên làm luôn để tránh quên, khỏi bị khóa bỏ tua sau này)');
+        if(lamTiep){
+          pmCurTab=otherNhom;
+          pmGroupActive={rooms:groupRooms, idx:0, data:{}};
+          pmGroupShowPicker(null);
+        }
       }, 200);
     }).catch(function(err){
       if(submitBtn){ submitBtn.disabled=false; submitBtn.innerHTML='<i class="ti ti-send"></i> Lưu biên bản bàn giao'; }
@@ -39121,7 +39136,13 @@ window.dctdMoveStatus=function(id,st){
     box.style.display=show?'':'none';
     var btn=document.getElementById('pmListBtn'); if(btn) btn.style.cssText='padding:8px 14px;'+(show?pmOnStyle:pmOffStyle);
     var t=document.getElementById('pmListRoomTitle'); if(t) t.textContent=pmRoomLabel();
-    if(show){ pmCloseOtherBoxes('pmListBox'); pmRenderList(); setTimeout(function(){box.scrollIntoView({behavior:'smooth',block:'start'});},50); }
+    if(show){
+      // Luôn RESET bộ lọc "Chỉ thiếu/hư hỏng" mỗi lần mở lại danh sách theo cách thông thường, tránh
+      // bị "dính" trạng thái đã bật từ lần mở trước đó (ở phòng khác) làm ẩn mất các biên bản bình
+      // thường. pmGotoRoomDetail sẽ tự bật lại đúng lúc cần (ngay sau khi gọi hàm này) nên không ảnh hưởng.
+      var ofEl=document.getElementById('pmListOnlyFlagged'); if(ofEl) ofEl.checked=false;
+      pmCloseOtherBoxes('pmListBox'); pmRenderList(); setTimeout(function(){box.scrollIntoView({behavior:'smooth',block:'start'});},50);
+    }
   };
   function pmItemFlags(r){
     var arr=Object.values(r.itemsGayme||{}).concat(Object.values(r.itemsDungcu||{}));
