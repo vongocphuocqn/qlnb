@@ -10490,6 +10490,17 @@ function loadPmCuoiThangRooms(){
   });
 }
 loadPmCuoiThangRooms();
+// Việc "kiểm tra/bàn giao cuối tháng" là công việc HÀNH CHÍNH theo NGÀY LÀM VIỆC (khác hẳn tua 12h/
+// 24h vốn tính theo GIỜ liên tục 24/7) — nên nếu ngày cuối tháng rơi đúng Thứ 7/Chủ nhật, hạn chót
+// thực tế cần LÙI về ngày làm việc gần nhất trước đó (Thứ 6), tránh đòi hỏi phải hoàn thành đúng
+// vào ngày nghỉ. Nhắc trước hạn chót 6 ngày (tương đương mốc "ngày 25" cũ cho tháng 31 ngày).
+function pmIsNgayNghiThuong(d){ var wd=d.getDay(); return wd===0 || wd===6; } // Chủ nhật=0, Thứ 7=6
+function pmCuoiThangHanChot(nam, thangIdx){ // thangIdx: 0=Tháng 1 ... 11=Tháng 12
+  var d=new Date(nam, thangIdx+1, 0); // ngày cuối cùng của tháng
+  while(pmIsNgayNghiThuong(d)){ d.setDate(d.getDate()-1); } // lùi về ngày làm việc gần nhất
+  return d;
+}
+function pmDateOnlyStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 var notifBgHoanThanhCount=0, notifPmHoanThanhCount=0;
 var notifBgHoanThanhItems=[], notifPmHoanThanhItems=[];
 var notifBgTreHanItems=[];
@@ -10593,10 +10604,14 @@ function notifInit(){
         });
         if(c>0) roomsMap[roomSnap.key]=c;
       });
-      var ngayHomNay=new Date().getDate();
-      if(ngayHomNay>=25){
+      var now=new Date();
+      var hanChot=pmCuoiThangHanChot(now.getFullYear(), now.getMonth());
+      var hanChotBaoTre=new Date(hanChot); hanChotBaoTre.setDate(hanChotBaoTre.getDate()+3); // ân hạn 3 ngày trước khi CHÍNH THỨC báo trễ
+      var ngayBatDauNhac=new Date(hanChot); ngayBatDauNhac.setDate(ngayBatDauNhac.getDate()-6);
+      window.pmCuoiThangHanChotHienTai=hanChot; // để phần hiển thị (briefing) dùng lại, không tính lại
+      if(pmDateOnlyStr(now)>=pmDateOnlyStr(ngayBatDauNhac)){
         notifCuoiThangItems = pmCuoiThangRooms.filter(function(room){ return !roomsCoBienBanThangNay[room]; })
-          .map(function(room){ return {room:room}; });
+          .map(function(room){ return {room:room, hanChot:hanChot, hanChotBaoTre:hanChotBaoTre, quaHan: pmDateOnlyStr(now)>pmDateOnlyStr(hanChotBaoTre)}; });
       } else {
         notifCuoiThangItems = [];
       }
@@ -13941,10 +13956,22 @@ function briefLoadExtra(){
     if(cuoiThangCountEl) cuoiThangCountEl.textContent=ctRows.length;
     if(ctRows.length){
       cuoiThangSection.style.display='block';
-      cuoiThangBody.innerHTML='<div style="font-size:11.5px;color:#555;margin-bottom:6px">Đã qua ngày 25 hàng tháng mà các phòng sau vẫn chưa có biên bản bàn giao nào trong tháng này — theo quy định kiểm bàn giao cuối tháng (bắt buộc):</div>'+
+      var hc=ctRows[0].hanChot;
+      var hcbt=ctRows[0].hanChotBaoTre;
+      var ngayCuoiThangThat=new Date(hc.getFullYear(), hc.getMonth()+1, 0);
+      var biLui = hc.getDate()!==ngayCuoiThangThat.getDate();
+      var hanChotTxt=String(hc.getDate()).padStart(2,'0')+'/'+String(hc.getMonth()+1).padStart(2,'0')+'/'+hc.getFullYear();
+      var hanBaoTreTxt=String(hcbt.getDate()).padStart(2,'0')+'/'+String(hcbt.getMonth()+1).padStart(2,'0')+'/'+hcbt.getFullYear();
+      cuoiThangBody.innerHTML='<div style="font-size:11.5px;color:#555;margin-bottom:6px">Hạn chót kiểm tra/bàn giao cuối tháng: <b>'+hanChotTxt+'</b>'+(biLui?' <i>(đã lùi về ngày làm việc gần nhất vì cuối tháng trùng Thứ 7/Chủ nhật)</i>':'')+' — có <b>3 ngày ân hạn</b>, chính thức báo TRỄ từ sau ngày <b>'+hanBaoTreTxt+'</b>. Các phòng sau vẫn <b>chưa có biên bản bàn giao nào trong tháng này</b>:</div>'+
         ctRows.map(function(x){
-          return '<div onclick="enterPmScreen(\'admin\',\'Quản lý\')" style="background:#fff;border:1.5px solid #90caf9;border-radius:7px;padding:7px 10px;margin-bottom:6px;cursor:pointer;font-size:12.5px" onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'#fff\'">'+
-            '<b style="color:#0d47a1">Phòng Mổ '+esc(x.room)+'</b> — chưa có biên bản bàn giao tháng này'+
+          var dnow=pmDateOnlyStr(new Date());
+          var dhan=pmDateOnlyStr(x.hanChot);
+          var mau;
+          if(x.quaHan) mau={bg:'#ffebee', border:'#ef9a9a', txt:'#c62828', nhan:'ĐÃ QUÁ HẠN'};
+          else if(dnow>dhan) mau={bg:'#fff8e1', border:'#f9a825', txt:'#8a5300', nhan:'Trong 3 ngày ân hạn'};
+          else mau={bg:'#fff', border:'#90caf9', txt:'#0d47a1', nhan:'Sắp tới hạn'};
+          return '<div onclick="enterPmScreen(\'admin\',\'Quản lý\')" style="background:'+mau.bg+';border:1.5px solid '+mau.border+';border-radius:7px;padding:7px 10px;margin-bottom:6px;cursor:pointer;font-size:12.5px" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">'+
+            '<b style="color:'+mau.txt+'">Phòng Mổ '+esc(x.room)+'</b> — '+mau.nhan+' — chưa có biên bản bàn giao tháng này'+
           '</div>';
         }).join('');
     } else {
