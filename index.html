@@ -24914,10 +24914,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" onclick="pmOpenCodeSign()"><i class="ti ti-key"></i> Nhập mã biên bản để ký</button>
       <button class="kpi-btn" id="pmRoomConfigBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomConfig()"><i class="ti ti-adjustments"></i> Cấu hình phòng này</button>
       <button class="kpi-btn" id="pmTuaUnlockBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmUnlockTuaForRoom()" title="Mở khóa cho phòng+nhóm đang xem nếu đang bị khóa do bỏ tua"><i class="ti ti-lock-open"></i> Mở khóa bỏ tua</button>
-      <button class="kpi-btn" id="pmTuaCfgBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenTuaConfig()" title="Chỉnh số giờ tối đa cho phép giữa 2 lần bàn giao / bật-tắt khóa bỏ tua"><i class="ti ti-clock-exclamation"></i> Cấu hình khóa bỏ tua</button>
+      <button class="kpi-btn" id="pmTuaCfgBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenTuaConfig()" title="Chỉnh số giờ tối đa cho phép giữa 2 lần bàn giao (áp dụng chung mọi phòng) / bật-tắt khóa bỏ tua"><i class="ti ti-clock-exclamation"></i> Cấu hình khóa bỏ tua</button>
+      <button class="kpi-btn" id="pmTuaRoomCfgBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmSetRoomTuaOverride()" title="Đặt riêng số giờ cho ĐÚNG phòng đang xem — dùng cho phòng có nhịp bàn giao khác mức chung (VD chỉ bàn giao 1 lần/ngày)"><i class="ti ti-adjustments-alt"></i> Giờ riêng cho phòng này</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
       <button class="kpi-btn" id="pmRoomWideBtn" onclick="kpiToggleWideBox('pmRoomMainBox','pmRoomWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
+    <div id="pmTuaStatusRow" style="display:none;width:100%;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);gap:10px;flex-wrap:wrap"></div>
   </div>
 
   <div style="max-width:960px;margin:0 auto;padding:16px" id="pmRoomMainBox">
@@ -37266,7 +37268,7 @@ window.dctdMoveStatus=function(id,st){
      Phòng/nhóm CHƯA từng có biên bản HOÀN THÀNH nào (mới thêm/mới triển khai) sẽ KHÔNG bị áp luật
      này (không có gì để đối chiếu) — nên phòng mới triển khai vẫn lập phiếu bình thường ngay từ đầu.
      Áp dụng mặc định cho TẤT CẢ phòng — không ảnh hưởng tới các luồng/khu vực khác của hệ thống. */
-  var PM_BOTUA_DEFAULT={enabled:true, maxGio:13};
+  var PM_BOTUA_DEFAULT={enabled:true, maxGio:13, overrides:{}};
   var pmBoTuaConfig=Object.assign({}, PM_BOTUA_DEFAULT);
   var pmBoTuaConfigRef=null;
   try{ pmBoTuaConfigRef=db.ref('pmBoTuaConfig'); }catch(e){ console.warn('Không khởi tạo được Firebase cho cấu hình khóa bỏ tua.',e); }
@@ -37275,14 +37277,32 @@ window.dctdMoveStatus=function(id,st){
     pmBoTuaConfigRef.on('value', function(snap){
       var d=snap.val();
       if(d && typeof d==='object'){
-        pmBoTuaConfig={enabled: d.enabled!==false, maxGio:(typeof d.maxGio==='number'&&d.maxGio>0)?d.maxGio:PM_BOTUA_DEFAULT.maxGio};
+        pmBoTuaConfig={enabled: d.enabled!==false, maxGio:(typeof d.maxGio==='number'&&d.maxGio>0)?d.maxGio:PM_BOTUA_DEFAULT.maxGio, overrides:(d.overrides&&typeof d.overrides==='object')?d.overrides:{}};
       } else {
         pmBoTuaConfig=Object.assign({}, PM_BOTUA_DEFAULT);
         try{ pmBoTuaConfigRef.set(pmBoTuaConfig); }catch(e){}
       }
+      if(document.getElementById('pmRoomGrid')) pmLoadAllRoomsTuaStatus();
+      if(pmCurrentRoom) pmRenderTuaStatusRow();
     });
   }
   pmLoadBoTuaConfig();
+  // Trả về số GIỜ tối đa áp dụng cho 1 phòng+nhóm cụ thể, theo thứ tự ưu tiên:
+  // 1) Mức RIÊNG đã đặt tay cho phòng đó (pmSetRoomTuaOverride) — luôn được ưu tiên cao nhất, để
+  //    Quản lý chủ động điều chỉnh linh hoạt bất cứ khi nào thấy cần, ghi đè lên mọi tính toán tự động.
+  // 2) TỰ NHẬN DIỆN chu kỳ thật của phòng+nhóm dựa trên lịch sử gần đây: nếu có cả Ca Đêm lẫn Ca
+  //    Ngày -> chu kỳ ~12 giờ -> ngưỡng = 12*1.5 = 18 giờ. Nếu chỉ toàn Ca Ngày (không có Ca Đêm)
+  //    -> chu kỳ ~24 giờ -> ngưỡng = 24*1.5 = 36 giờ. (Công thức chung: ngưỡng = chu kỳ × 1.5)
+  // 3) Nếu chưa đủ dữ liệu để nhận diện (phòng mới, chưa có ca nào) -> dùng mức CHUNG mặc định.
+  function pmMaxGioFor(roomId, sameGroupRecs){
+    if(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[roomId]==='number') return pmBoTuaConfig.overrides[roomId];
+    if(sameGroupRecs && sameGroupRecs.length){
+      var hasDem=sameGroupRecs.some(function(r){ return String(r.ca||'').indexOf('Đêm')!==-1 || String(r.ca||'').toLowerCase().indexOf('dem')!==-1; });
+      var chuKy = hasDem ? 12 : 24;
+      return chuKy*1.5;
+    }
+    return pmBoTuaConfig.maxGio;
+  }
   // Cờ "mở khóa tạm" — key dạng "<phong>_<nhomPM>" — Quản lý cấp, dùng 1 LẦN cho biên bản kế tiếp rồi tự xóa.
   var pmBoTuaUnlocks={};
   var pmBoTuaUnlockRef=null;
@@ -37293,6 +37313,26 @@ window.dctdMoveStatus=function(id,st){
   }
   pmLoadBoTuaUnlocks();
   // Quản lý bấm để chỉnh số giờ tối đa cho phép giữa 2 lần bàn giao, hoặc TẮT hẳn tính năng khóa bỏ tua.
+  window.pmSetRoomTuaOverride=function(){
+    if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
+    if(!pmCurrentRoom){ alert('Vui lòng vào đúng 1 phòng cụ thể trước.'); return; }
+    var curOverride=(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[pmCurrentRoom]==='number') ? pmBoTuaConfig.overrides[pmCurrentRoom] : null;
+    var trangThaiHt = curOverride!=null ? ('đang đặt RIÊNG: '+curOverride+' giờ') : ('đang dùng mức CHUNG: '+pmBoTuaConfig.maxGio+' giờ');
+    var input=prompt('GIỜ TỐI ĐA RIÊNG cho Phòng PM'+pmCurrentRoom+'\n\nDùng cho phòng có nhịp bàn giao khác mức chung — VD phòng chỉ bàn giao 1 lần/ngày (không có Ca Đêm) nên đặt khoảng 25 giờ, thay vì dùng mức chung (thường đặt cho phòng có cả Ca Ngày + Ca Đêm).\n\nNhập số giờ riêng cho phòng này, hoặc để TRỐNG rồi bấm OK để XÓA (quay về dùng mức chung).\n\nHiện tại: '+trangThaiHt, curOverride!=null?String(curOverride):'');
+    if(input===null) return;
+    input=String(input).trim();
+    if(!pmBoTuaConfigRef){ alert('Không kết nối được máy chủ.'); return; }
+    var newOverrides=Object.assign({}, pmBoTuaConfig.overrides||{});
+    if(input===''){
+      delete newOverrides[pmCurrentRoom];
+      pmBoTuaConfigRef.child('overrides').set(newOverrides).then(function(){ alert('Đã xóa mức riêng — Phòng PM'+pmCurrentRoom+' quay về dùng mức chung ('+pmBoTuaConfig.maxGio+' giờ).'); }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
+      return;
+    }
+    var v=parseFloat(input);
+    if(isNaN(v) || v<=0){ alert('Giá trị không hợp lệ — vui lòng nhập 1 số giờ > 0, hoặc để trống để xóa.'); return; }
+    newOverrides[pmCurrentRoom]=v;
+    pmBoTuaConfigRef.child('overrides').set(newOverrides).then(function(){ alert('Đã đặt riêng cho Phòng PM'+pmCurrentRoom+': khóa nếu quá '+v+' giờ chưa có bàn giao mới.'); }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
+  };
   window.pmOpenTuaConfig=function(){
     if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
     var cur=pmBoTuaConfig.maxGio;
@@ -37347,11 +37387,12 @@ window.dctdMoveStatus=function(id,st){
     var lastDt = lastDone.ngay ? new Date(lastDone.ngay+'T'+(lastDone.gio||'00:00')+':00') : (lastDone.createdAt?new Date(lastDone.createdAt):null);
     if(!lastDt || isNaN(lastDt.getTime())) return true;
     var elapsedH=(Date.now()-lastDt.getTime())/3600000;
-    if(elapsedH <= pmBoTuaConfig.maxGio) return true;
+    var maxGio=pmMaxGioFor(pmCurrentRoom, same);
+    if(elapsedH <= maxGio) return true;
     var groupLabel = group==='gayme' ? 'Gây mê' : 'Dụng cụ';
     var msg='🔒 Phòng PM'+pmCurrentRoom+' (nhóm '+groupLabel+') đang bị KHÓA do có dấu hiệu BỎ TUA:\n\n'
       +'Biên bản HOÀN THÀNH gần nhất: '+pmFmtD(lastDone.ngay)+(lastDone.gio?(' '+lastDone.gio):'')+' — Ca '+(lastDone.ca||'')+'\n'
-      +'Đã quá '+elapsedH.toFixed(1)+' giờ (giới hạn: '+pmBoTuaConfig.maxGio+' giờ) mà chưa phát sinh biên bản bàn giao mới nào.\n\n'
+      +'Đã quá '+elapsedH.toFixed(1)+' giờ (giới hạn của phòng này: '+maxGio+' giờ) mà chưa phát sinh biên bản bàn giao mới nào.\n\n'
       +'Vui lòng liên hệ QUẢN LÝ KHOA để xác nhận mở khóa trước khi lập biên bản mới cho phòng này.';
     if(pmCu && pmCu.role==='admin'){
       if(confirm(msg+'\n\n(Quản lý) Xác nhận MỞ KHÓA và tiếp tục lập biên bản mới ngay bây giờ?')) return true;
@@ -37784,6 +37825,29 @@ window.dctdMoveStatus=function(id,st){
   };
 
   var pmRoomsStatsCache=[];
+  function pmTuaStateForRoom(roomId, recsAll, group){
+    if(!pmBoTuaConfig || pmBoTuaConfig.enabled===false) return 'off';
+    var key=pmSafeKey(roomId)+'_'+group;
+    if(pmBoTuaUnlocks && pmBoTuaUnlocks[key]) return 'unlocked';
+    var same=recsAll.filter(function(r){return r.nhomPM===group;});
+    if(!same.length) return 'nodata';
+    var lastDone=same.filter(function(r){return r.trangThai==='hoanthanh';})
+      .sort(function(a,b){var ka=String(a.ngay||'')+String(a.gio||''), kb=String(b.ngay||'')+String(b.gio||''); return kb>ka?1:(kb<ka?-1:0);})[0];
+    if(!lastDone) return 'pending';
+    var lastDt = lastDone.ngay ? new Date(lastDone.ngay+'T'+(lastDone.gio||'00:00')+':00') : (lastDone.createdAt?new Date(lastDone.createdAt):null);
+    if(!lastDt || isNaN(lastDt.getTime())) return 'ok';
+    var elapsedH=(Date.now()-lastDt.getTime())/3600000;
+    return elapsedH>pmMaxGioFor(roomId, same) ? 'locked' : 'ok';
+  }
+  var PM_TUA_STATE_MAP={
+    off:{txt:'Tắt', bg:'#9e9e9e'}, nodata:{txt:'Chưa có DL', bg:'#9e9e9e'},
+    pending:{txt:'Chờ ký', bg:'#f9a825'}, unlocked:{txt:'Đã mở', bg:'#2e7d32'},
+    ok:{txt:'OK', bg:'#2e7d32'}, locked:{txt:'KHÓA', bg:'#c62828'}
+  };
+  function pmTuaBadgeHtml(state, label){
+    var m=PM_TUA_STATE_MAP[state]||PM_TUA_STATE_MAP.off;
+    return '<span style="display:inline-block;background:'+m.bg+';color:#fff;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;margin:1px">'+label+': '+m.txt+'</span>';
+  }
   window.pmOpenRoomsStats=function(keepOpen){
     var savedCu = (typeof pmCu!=='undefined') ? pmCu : null;
     if(!savedCu||savedCu.role!=='admin'){alert('Chỉ Quản lý mới xem được!');return;}
@@ -37796,7 +37860,8 @@ window.dctdMoveStatus=function(id,st){
     db.ref('pmRecords').once('value').then(function(snap){
       var d=snap.val()||{};
       var rows=PM_ROOMS.map(function(room){
-        var recs=Object.values(d[room]||{});
+        var recsAll=Object.values(d[room]||{});
+        var recs=recsAll;
         // Lọc theo khoảng ngày (nếu có chọn) — dựa vào trường "ngày bàn giao" (r.ngay) của từng biên bản.
         if(fr) recs=recs.filter(function(r){return (r.ngay||'')>=fr;});
         if(to) recs=recs.filter(function(r){return (r.ngay||'')<=to;});
@@ -37808,7 +37873,10 @@ window.dctdMoveStatus=function(id,st){
           return items.some(function(it){return it.status==='thieu'||it.status==='hong';});
         }).length;
         var ngayGanNhat=recs.map(function(r){return r.ngay;}).filter(Boolean).sort().slice(-1)[0]||'—';
-        return {room:room, tong:tong, hoanThanh:hoanThanh, choHT:choHT, coSuCo:coSuCo, ngayGanNhat:ngayGanNhat};
+        // Trạng thái khóa bỏ tua tính trên TOÀN BỘ lịch sử của phòng (không theo bộ lọc ngày ở trên).
+        var tuaGayme=pmTuaStateForRoom(room, recsAll, 'gayme');
+        var tuaDungcu=pmTuaStateForRoom(room, recsAll, 'dungcu');
+        return {room:room, tong:tong, hoanThanh:hoanThanh, choHT:choHT, coSuCo:coSuCo, ngayGanNhat:ngayGanNhat, tuaGayme:tuaGayme, tuaDungcu:tuaDungcu};
       });
       pmRoomsStatsCache=rows;
       pmRenderRoomsStats(rows);
@@ -37832,6 +37900,7 @@ window.dctdMoveStatus=function(id,st){
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Đã hoàn thành</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Chờ hoàn thành</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Có thiếu/hư hỏng</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Khóa bỏ tua</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Ngày gần nhất</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Xem</th>'+
       '</tr></thead><tbody>'+
@@ -37842,11 +37911,12 @@ window.dctdMoveStatus=function(id,st){
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#0a6b5e">'+r.hoanThanh+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#8a6100">'+r.choHT+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;'+(r.coSuCo>0?'color:#c62828;font-weight:700':'')+'">'+r.coSuCo+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;white-space:nowrap">'+pmTuaBadgeHtml(r.tuaGayme,'GM')+pmTuaBadgeHtml(r.tuaDungcu,'DC')+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+pmFmtD(r.ngayGanNhat)+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#0d6e6e"><i class="ti ti-eye"></i> Chi tiết</td>'+
         '</tr>';
       }).join('')+
-      '<tr style="background:#daf1ec;font-weight:700"><td style="padding:5px 8px;border:1px solid #a8d9d0">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #a8d9d0;text-align:center">'+totalTong+'</td><td colspan="5" style="padding:5px 8px;border:1px solid #a8d9d0"></td></tr>'+
+      '<tr style="background:#daf1ec;font-weight:700"><td style="padding:5px 8px;border:1px solid #a8d9d0">TỔNG CỘNG</td><td style="padding:5px 8px;border:1px solid #a8d9d0;text-align:center">'+totalTong+'</td><td colspan="6" style="padding:5px 8px;border:1px solid #a8d9d0"></td></tr>'+
       '</tbody></table>'+
       '<div style="font-size:11px;color:#888;margin-top:8px"><i class="ti ti-info-circle"></i> Bấm vào 1 dòng để vào thẳng "Danh sách công khai" của phòng đó — xem chi tiết từng biên bản, lọc theo ngày, chuyển qua lại 2 nhóm Gây mê / Dụng cụ ngay trong màn hình phòng.</div>';
   }
@@ -38002,8 +38072,10 @@ window.dctdMoveStatus=function(id,st){
       db.ref('pmRecords').child(roomId).orderByKey().limitToLast(20).once('value').then(function(snap){
         var d=snap.val()||{};
         var latest={gayme:null, dungcu:null};
+        var byGroup={gayme:[], dungcu:[]};
         Object.values(d).forEach(function(r){
           var g=r.nhomPM==='dungcu'?'dungcu':'gayme';
+          byGroup[g].push(r);
           var ts=(r.ngay||'')+' '+(r.gio||'00:00');
           if(!latest[g] || ts>latest[g]) latest[g]=ts;
         });
@@ -38011,13 +38083,51 @@ window.dctdMoveStatus=function(id,st){
         ['gayme','dungcu'].forEach(function(g){
           if(!latest[g]){ st[g]=false; return; } // chưa từng có biên bản nào -> không đủ căn cứ báo trễ ở đây (khác cơ chế trong phòng)
           var elapsedH=(new Date() - new Date(latest[g].replace(' ','T')))/3600000;
-          st[g]=elapsedH>pmBoTuaConfig.maxGio;
+          st[g]=elapsedH>pmMaxGioFor(roomId, byGroup[g]);
         });
         pmRoomTuaStatus[roomId]=st;
       }).catch(function(){ pmRoomTuaStatus[roomId]={gayme:false,dungcu:false}; })
       .then(function(){ pending--; if(pending<=0) pmRenderRoomGrid(); });
     });
   };
+  // Tính trạng thái khóa bỏ tua để HIỂN THỊ (không tiêu thụ mã mở khóa, không có tác dụng phụ) —
+  // dùng để cho Quản lý biết ngay tình trạng hiện tại thay vì phải bấm "Mở khóa" một cách "mù".
+  function pmPeekTuaStatus(group){
+    if(!pmBoTuaConfig || pmBoTuaConfig.enabled===false) return {state:'off'};
+    var key=pmSafeKey(pmCurrentRoom)+'_'+group;
+    if(pmBoTuaUnlocks && pmBoTuaUnlocks[key]) return {state:'unlocked'}; // đã có mã mở, sẵn sàng dùng ngay lần lập tới
+    var same=pmAllRecords().filter(function(r){return String(r.phong)===String(pmCurrentRoom) && r.nhomPM===group;});
+    if(!same.length) return {state:'nodata'};
+    var lastDone=same.filter(function(r){return r.trangThai==='hoanthanh';})
+      .sort(function(a,b){var ka=String(a.ngay||'')+String(a.gio||''), kb=String(b.ngay||'')+String(b.gio||''); return kb>ka?1:(kb<ka?-1:0);})[0];
+    if(!lastDone) return {state:'pending'}; // đang có biên bản chờ hoàn thành, chưa xét bỏ tua ở đây
+    var lastDt = lastDone.ngay ? new Date(lastDone.ngay+'T'+(lastDone.gio||'00:00')+':00') : (lastDone.createdAt?new Date(lastDone.createdAt):null);
+    if(!lastDt || isNaN(lastDt.getTime())) return {state:'ok'};
+    var elapsedH=(Date.now()-lastDt.getTime())/3600000;
+    var maxGio=pmMaxGioFor(pmCurrentRoom, same);
+    return elapsedH>maxGio ? {state:'locked', elapsedH:elapsedH, maxGio:maxGio, lastDone:lastDone} : {state:'ok', elapsedH:elapsedH, maxGio:maxGio};
+  }
+  function pmRenderTuaStatusRow(){
+    var row=document.getElementById('pmTuaStatusRow');
+    if(!row) return;
+    if(!pmCu || pmCu.role!=='admin' || !pmCurrentRoom){ row.style.display='none'; return; }
+    var labels={gayme:'Gây mê', dungcu:'Dụng cụ'};
+    var pills=['gayme','dungcu'].map(function(g){
+      var st=pmPeekTuaStatus(g);
+      var map={
+        off:{txt:'Tắt tính năng khóa', bg:'rgba(255,255,255,.15)'},
+        nodata:{txt:'Chưa có biên bản', bg:'rgba(255,255,255,.15)'},
+        pending:{txt:'Có phiếu chờ ký', bg:'#f9a825'},
+        unlocked:{txt:'Đã mở khóa — sẵn sàng lập', bg:'#2e7d32'},
+        ok:{txt:'Bình thường'+(st.elapsedH!=null?(' ('+(st.elapsedH||0).toFixed(0)+'h/hạn '+(st.maxGio||0)+'h)'):''), bg:'#2e7d32'},
+        locked:{txt:'ĐANG KHÓA — trễ '+(st.elapsedH||0).toFixed(0)+'h (hạn '+(st.maxGio||0)+'h)', bg:'#c62828'}
+      };
+      var m=map[st.state];
+      return '<span style="display:inline-flex;align-items:center;gap:5px;background:'+m.bg+';color:#fff;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700"><i class="ti ti-'+(st.state==='locked'?'lock':(st.state==='unlocked'?'lock-open':'circle-check'))+'"></i> '+labels[g]+': '+m.txt+'</span>';
+    }).join('');
+    row.innerHTML='<span style="font-size:11.5px;opacity:.85;align-self:center">Tình trạng khóa bỏ tua — Phòng PM'+pmEsc(pmCurrentRoom)+':</span>'+pills;
+    row.style.display='flex';
+  }
   window.pmRenderRoomGrid=function(){
     var box=document.getElementById('pmRoomGrid');
     if(!box) return;
@@ -38093,6 +38203,7 @@ window.dctdMoveStatus=function(id,st){
     document.getElementById('pmRoomConfigBtn').style.display=isA?'':'none';
     var pmTuaUB=document.getElementById('pmTuaUnlockBtn'); if(pmTuaUB) pmTuaUB.style.display=isA?'':'none';
     var pmTuaCB=document.getElementById('pmTuaCfgBtn'); if(pmTuaCB) pmTuaCB.style.display=isA?'':'none';
+    var pmTuaRB=document.getElementById('pmTuaRoomCfgBtn'); if(pmTuaRB) pmTuaRB.style.display=isA?'':'none';
     var whoHtml = isA
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b> — Quyền Quản lý'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b>';
@@ -38303,6 +38414,7 @@ window.dctdMoveStatus=function(id,st){
     pmRenderPendingList();
     pmRenderHistory();
     pmRenderPendingSameGroupWarn();
+    pmRenderTuaStatusRow();
     // Nếu khung "Danh sách công khai" đang mở sẵn, tự làm mới lại theo dữ liệu mới nhất — tránh bị
     // kẹt ở trạng thái "0 biên bản" khi mở đúng lúc dữ liệu Firebase chưa kịp tải xong (hay gặp ở
     // các phòng nhiều dữ liệu như 201/203/204, đặc biệt lúc đang thao tác nhanh trong Bàn giao nhóm).
