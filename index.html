@@ -37359,7 +37359,16 @@ window.dctdMoveStatus=function(id,st){
     if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
     if(!pmCurrentRoom){ alert('Vui lòng vào đúng 1 phòng cụ thể trước.'); return; }
     if(pmIsMonthlyRoom(pmCurrentRoom)){
-      alert('⚠️ Phòng PM'+pmCurrentRoom+' đang thuộc danh sách "Phòng giao theo tháng" — phòng này LUÔN dùng công thức riêng (Cuối tháng + 3 ngày ân hạn = 72 giờ), KHÔNG dùng số giờ ở đây. Dù có đặt số giờ riêng ở đây cũng sẽ KHÔNG có tác dụng gì với phòng này.\n\nNếu phòng PM'+pmCurrentRoom+' thực ra KHÔNG phải giao theo tháng nữa (mà giao theo ca hằng ngày), anh cần vào Trang chủ → khối "Kiểm cuối tháng" → gỡ phòng này khỏi danh sách trước, rồi mới đặt giờ riêng ở đây được.');
+      var curOverrideM=(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[pmCurrentRoom]==='number') ? pmBoTuaConfig.overrides[pmCurrentRoom] : null;
+      if(curOverrideM==null){
+        alert('ℹ️ Phòng PM'+pmCurrentRoom+' đang thuộc danh sách "Phòng giao theo tháng" — phòng này LUÔN dùng công thức riêng (Cuối tháng + 3 ngày ân hạn = 72 giờ), KHÔNG dùng số giờ ở đây nên không cần đặt.');
+        return;
+      }
+      if(!confirm('⚠️ Phòng PM'+pmCurrentRoom+' đang thuộc danh sách "Phòng giao theo tháng" — mức giờ riêng ('+curOverrideM+'h) còn sót lại từ trước KHÔNG còn tác dụng gì nữa (phòng tháng luôn ưu tiên tính theo Cuối tháng + 3 ngày = 72h, bỏ qua mức giờ này).\n\nBấm OK để XÓA mức giờ cũ này cho gọn (không thể đặt số giờ mới cho phòng loại này).')) return;
+      var clearedOverrides=Object.assign({}, pmBoTuaConfig.overrides||{});
+      delete clearedOverrides[pmCurrentRoom];
+      if(!pmBoTuaConfigRef){ alert('Không kết nối được máy chủ.'); return; }
+      pmBoTuaConfigRef.child('overrides').set(clearedOverrides).then(function(){ alert('Đã xóa mức giờ riêng cũ của Phòng PM'+pmCurrentRoom+'.'); }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
       return;
     }
     var curOverride=(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[pmCurrentRoom]==='number') ? pmBoTuaConfig.overrides[pmCurrentRoom] : null;
