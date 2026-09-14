@@ -1804,6 +1804,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <div style="color:#fff;font-size:15px;font-weight:700">Theo dõi Giao nhận trực — Khoa Gây mê Hồi sức</div>
       <div style="color:rgba(255,255,255,.75);font-size:11px">Đồng bộ realtime với Kanban khoa (Firebase) · <span id="btdClock" style="color:#ffe082;font-weight:700">--:--:--</span></div>
     </div>
+    <button class="tbtn" id="btdTuaCfgBtn" onclick="pmOpenTuaConfigTable()" style="display:none;border-color:rgba(255,255,255,.45)"><i class="ti ti-clock-exclamation"></i> Khai báo giờ khóa bỏ tua</button>
     <button class="tbtn" onclick="btdOpenStatsModal()" style="margin-left:auto;border-color:rgba(255,255,255,.45)"><i class="ti ti-chart-bar"></i> Thống kê trễ hạn</button>
     <button class="tbtn" id="btdToggleAllBtn" onclick="btdToggleAllGroups()" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-arrows-minimize" id="btdToggleAllIcon"></i> <span id="btdToggleAllTxt">Thu gọn tất cả</span></button>
     <button class="tbtn" onclick="btdExportWord()" style="border-color:rgba(255,255,255,.45)"><i class="ti ti-file-text"></i> Xuất báo cáo</button>
@@ -24897,6 +24898,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" id="pmCatalogBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenMasterCatalog()"><i class="ti ti-list-details"></i> Danh mục chung</button>
       <button class="kpi-btn" id="pmRoomsManageBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomsManage()"><i class="ti ti-door"></i> Quản lý danh sách phòng</button>
       <button class="kpi-btn" id="pmRoomsStatsBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomsStats()"><i class="ti ti-chart-bar"></i> Thống kê theo phòng</button>
+      <button class="kpi-btn" id="pmRoomsTuaTableBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenTuaConfigTable()"><i class="ti ti-clock-exclamation"></i> Khai báo giờ khóa bỏ tua</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
       <button class="kpi-btn" id="pmPickerWideBtn" onclick="kpiToggleWideBox('pmPickerMainBox','pmPickerWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
@@ -24941,8 +24943,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <button class="kpi-btn" onclick="pmOpenCodeSign()"><i class="ti ti-key"></i> Nhập mã biên bản để ký</button>
       <button class="kpi-btn" id="pmRoomConfigBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenRoomConfig()"><i class="ti ti-adjustments"></i> Cấu hình phòng này</button>
       <button class="kpi-btn" id="pmTuaUnlockBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmUnlockTuaForRoom()" title="Mở khóa cho phòng+nhóm đang xem nếu đang bị khóa do bỏ tua"><i class="ti ti-lock-open"></i> Mở khóa bỏ tua</button>
-      <button class="kpi-btn" id="pmTuaCfgBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenTuaConfig()" title="Chỉnh số giờ tối đa cho phép giữa 2 lần bàn giao (áp dụng chung mọi phòng) / bật-tắt khóa bỏ tua"><i class="ti ti-clock-exclamation"></i> Cấu hình khóa bỏ tua</button>
       <button class="kpi-btn" id="pmTuaRoomCfgBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmSetRoomTuaOverride()" title="Đặt riêng số giờ cho ĐÚNG phòng đang xem — dùng cho phòng có nhịp bàn giao khác mức chung (VD chỉ bàn giao 1 lần/ngày)"><i class="ti ti-adjustments-alt"></i> Giờ riêng cho phòng này</button>
+      <button class="kpi-btn" id="pmTuaTableBtn" style="display:none;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="pmOpenTuaConfigTable()" title="Xem và chỉnh số giờ khóa bỏ tua của TẤT CẢ các phòng trong 1 màn hình duy nhất"><i class="ti ti-table"></i> Khai báo giờ tất cả phòng</button>
       <button class="kpi-btn" style="background:#fff;color:#0d6e6e" onclick="pmLogout()"><i class="ti ti-logout"></i> Đăng xuất</button>
       <button class="kpi-btn" id="pmRoomWideBtn" onclick="kpiToggleWideBox('pmRoomMainBox','pmRoomWideBtn')" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
@@ -37336,8 +37338,10 @@ window.dctdMoveStatus=function(id,st){
     var hanChotBaoTre=new Date(hanChot); hanChotBaoTre.setDate(hanChotBaoTre.getDate()+3);
     return {locked: pmDateOnlyStr(now)>pmDateOnlyStr(hanChotBaoTre), hanChot:hanChot, hanChotBaoTre:hanChotBaoTre};
   }
-  function pmMaxGioFor(roomId, sameGroupRecs){
-    if(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[roomId]==='number') return pmBoTuaConfig.overrides[roomId];
+  function pmMaxGioFor(roomId, group, sameGroupRecs){
+    var ov=pmBoTuaConfig.overrides && pmBoTuaConfig.overrides[roomId];
+    if(ov && typeof ov==='object' && typeof ov[group]==='number') return ov[group];
+    if(typeof ov==='number') return ov; // dữ liệu cũ (trước khi tách riêng GM/DC) — áp dụng chung cho cả 2 nhóm
     if(sameGroupRecs && sameGroupRecs.length){
       var hasDem=sameGroupRecs.some(function(r){ return String(r.ca||'').indexOf('Đêm')!==-1 || String(r.ca||'').toLowerCase().indexOf('dem')!==-1; });
       var chuKy = hasDem ? 12 : 24;
@@ -37355,38 +37359,138 @@ window.dctdMoveStatus=function(id,st){
   }
   pmLoadBoTuaUnlocks();
   // Quản lý bấm để chỉnh số giờ tối đa cho phép giữa 2 lần bàn giao, hoặc TẮT hẳn tính năng khóa bỏ tua.
-  window.pmSetRoomTuaOverride=function(){
-    if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
-    if(!pmCurrentRoom){ alert('Vui lòng vào đúng 1 phòng cụ thể trước.'); return; }
-    if(pmIsMonthlyRoom(pmCurrentRoom)){
-      var curOverrideM=(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[pmCurrentRoom]==='number') ? pmBoTuaConfig.overrides[pmCurrentRoom] : null;
-      if(curOverrideM==null){
-        alert('ℹ️ Phòng PM'+pmCurrentRoom+' đang thuộc danh sách "Phòng giao theo tháng" — phòng này LUÔN dùng công thức riêng (Cuối tháng + 3 ngày ân hạn = 72 giờ), KHÔNG dùng số giờ ở đây nên không cần đặt.');
-        return;
+  window.pmToggleTuaCfgTableZoom=function(){
+    var box=document.getElementById('pmTuaCfgTableBox');
+    if(!box) return;
+    var isZoomed=box.getAttribute('data-zoomed')==='1';
+    if(isZoomed){
+      box.style.maxWidth='920px'; box.style.width='100%';
+      box.setAttribute('data-zoomed','0');
+    } else {
+      box.style.maxWidth='98vw'; box.style.width='98vw';
+      box.setAttribute('data-zoomed','1');
+    }
+    var scrollWrap=box.querySelector('#pmTuaCfgTableBody > div');
+    if(scrollWrap) scrollWrap.style.maxHeight = isZoomed ? '50vh' : '72vh';
+  };
+  window.pmOpenTuaConfigTable=function(scrollToRoom){
+    var isAdmin = (pmCu && pmCu.role==='admin') || (window.adminSession && adminSession.active);
+    if(!isAdmin){ alert('Chỉ Quản lý mới được xem/chỉnh màn hình này.'); return; }
+    var old=document.getElementById('pmTuaCfgTableModal'); if(old) old.remove();
+    var overlay=document.createElement('div');
+    overlay.id='pmTuaCfgTableModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto';
+    overlay.innerHTML='<div id="pmTuaCfgTableBox" style="background:#fff;border-radius:12px;max-width:920px;width:100%;padding:20px;font-family:inherit;transition:max-width .2s,max-height .2s">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0;color:#0a4a4a"><i class="ti ti-table"></i> Khai báo giờ khóa bỏ tua — Tất cả các phòng</h3>'
+      +'<div style="display:flex;gap:6px"><button id="pmTuaCfgTableZoomBtn" onclick="pmToggleTuaCfgTableZoom()" title="Phóng to / Thu nhỏ" style="border:1.5px solid #a8d9d0;background:#f0faf8;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:14px"><i class="ti ti-arrows-maximize"></i></button>'
+      +'<button onclick="document.getElementById(\'pmTuaCfgTableModal\').remove()" style="border:none;background:#eee;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:16px">✕</button></div></div>'
+      +'<div style="font-size:12px;color:#666;margin-bottom:14px">Mỗi dòng là 1 phòng. Cột "Đang áp dụng" hiện đúng số giờ THẬT đang dùng để khóa (ưu tiên số đã đặt riêng, nếu bỏ trống thì dùng số tự nhận diện). Chỉ điền ô "Giờ riêng" khi phòng đó cần khác đi. Phòng "Giao theo tháng" luôn dùng Cuối tháng+3 ngày (72h), không có ô Giờ riêng.</div>'
+      +'<div style="background:#f0faf8;border:1px solid #a8d9d0;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<b style="font-size:13px">Mức DỰ PHÒNG chung:</b> <span style="font-size:12px;color:#666">(chỉ dùng cho phòng mới, chưa có lịch sử để tự nhận diện)</span>'
+      +'<input type="number" id="pmTuaCfgTableDefault" value="'+(pmBoTuaConfig.maxGio||13)+'" min="0" step="1" style="width:80px;padding:5px 8px;border:1.5px solid #a8d9d0;border-radius:6px"> giờ'
+      +'</div>'
+      +'<div id="pmTuaCfgTableBody" style="text-align:center;padding:30px;color:#888">⏳ Đang tải dữ liệu tất cả các phòng...</div>'
+      +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
+      +'<button onclick="document.getElementById(\'pmTuaCfgTableModal\').remove()" style="padding:8px 16px;border:1.5px solid #999;background:#fff;border-radius:8px;cursor:pointer">Đóng</button>'
+      +'<button onclick="pmSaveTuaConfigTable()" style="padding:8px 20px;border:none;background:#0d6e6e;color:#fff;border-radius:8px;cursor:pointer;font-weight:700"><i class="ti ti-device-floppy"></i> Lưu tất cả</button>'
+      +'</div></div>';
+    document.body.appendChild(overlay);
+    var rooms=PM_ROOMS.slice();
+    var results={};
+    var pending=rooms.length;
+    if(!pending){ document.getElementById('pmTuaCfgTableBody').innerHTML='Chưa có phòng nào.'; return; }
+    rooms.forEach(function(roomId){
+      db.ref('pmRecords').child(roomId).orderByKey().limitToLast(20).once('value').then(function(snap){
+        var d=snap.val()||{};
+        var byGroup={gayme:[], dungcu:[]};
+        Object.values(d).forEach(function(r){ byGroup[r.nhomPM==='dungcu'?'dungcu':'gayme'].push(r); });
+        results[roomId]=byGroup;
+      }).catch(function(){ results[roomId]={gayme:[],dungcu:[]}; })
+      .then(function(){ pending--; if(pending<=0){ pmRenderTuaConfigTableBody(rooms, results); pmScrollToTuaRoomRow(scrollToRoom); } });
+    });
+  };
+  function pmScrollToTuaRoomRow(roomId){
+    if(!roomId) return;
+    setTimeout(function(){
+      var row=document.getElementById('pmTuaRow_'+roomId);
+      if(row){ row.scrollIntoView({behavior:'smooth', block:'center'}); row.style.background='#fff8e1'; setTimeout(function(){ row.style.background=''; }, 2500); }
+    }, 150);
+  }
+  function pmAutoDetectLabel(recs){
+    if(!recs || !recs.length) return 'Chưa đủ dữ liệu';
+    var hasDem=recs.some(function(r){ return String(r.ca||'').indexOf('Đêm')!==-1 || String(r.ca||'').toLowerCase().indexOf('dem')!==-1; });
+    return hasDem ? '18h (có Ca Đêm)' : '36h (chỉ Ca Ngày)';
+  }
+  // Đọc override hiện tại của 1 phòng theo từng nhóm — hỗ trợ cả dữ liệu CŨ (số đơn, áp dụng chung 2
+  // nhóm, từ trước khi tách riêng GM/DC) lẫn dữ liệu MỚI (object {gayme,dungcu}).
+  function pmOverrideOf(roomId, group){
+    var ov=pmBoTuaConfig.overrides && pmBoTuaConfig.overrides[roomId];
+    if(ov && typeof ov==='object') return (typeof ov[group]==='number') ? ov[group] : null;
+    if(typeof ov==='number') return ov;
+    return null;
+  }
+  function pmRenderTuaConfigTableBody(rooms, results){
+    var body=document.getElementById('pmTuaCfgTableBody');
+    if(!body) return;
+    var rowsHtml=rooms.map(function(roomId){
+      var isM=pmIsMonthlyRoom(roomId);
+      var ovGM=pmOverrideOf(roomId,'gayme'), ovDC=pmOverrideOf(roomId,'dungcu');
+      var effGM = ovGM!=null ? ovGM : null, effDC = ovDC!=null ? ovDC : null;
+      var autoLabelGM = pmAutoDetectLabel(results[roomId].gayme), autoLabelDC = pmAutoDetectLabel(results[roomId].dungcu);
+      var autoTxt;
+      if(isM){
+        autoTxt = '<b>Đang áp dụng: Cuối tháng+3 ngày = 72h</b>';
+      } else {
+        var apDungGM = ovGM!=null ? (ovGM+'h (đã đặt riêng)') : autoLabelGM;
+        var apDungDC = ovDC!=null ? (ovDC+'h (đã đặt riêng)') : autoLabelDC;
+        autoTxt = '<b>Đang áp dụng: GM '+apDungGM+' — DC '+apDungDC+'</b>';
+        if(ovGM!=null || ovDC!=null){
+          autoTxt += '<br><span style="font-size:10.5px;color:#999">(Tự nhận diện gốc nếu bỏ trống: GM '+autoLabelGM+' — DC '+autoLabelDC+')</span>';
+        }
       }
-      if(!confirm('⚠️ Phòng PM'+pmCurrentRoom+' đang thuộc danh sách "Phòng giao theo tháng" — mức giờ riêng ('+curOverrideM+'h) còn sót lại từ trước KHÔNG còn tác dụng gì nữa (phòng tháng luôn ưu tiên tính theo Cuối tháng + 3 ngày = 72h, bỏ qua mức giờ này).\n\nBấm OK để XÓA mức giờ cũ này cho gọn (không thể đặt số giờ mới cho phòng loại này).')) return;
-      var clearedOverrides=Object.assign({}, pmBoTuaConfig.overrides||{});
-      delete clearedOverrides[pmCurrentRoom];
-      if(!pmBoTuaConfigRef){ alert('Không kết nối được máy chủ.'); return; }
-      pmBoTuaConfigRef.child('overrides').set(clearedOverrides).then(function(){ alert('Đã xóa mức giờ riêng cũ của Phòng PM'+pmCurrentRoom+'.'); }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
-      return;
-    }
-    var curOverride=(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[pmCurrentRoom]==='number') ? pmBoTuaConfig.overrides[pmCurrentRoom] : null;
-    var trangThaiHt = curOverride!=null ? ('đang đặt RIÊNG: '+curOverride+' giờ') : ('đang dùng mức CHUNG: '+pmBoTuaConfig.maxGio+' giờ');
-    var input=prompt('GIỜ TỐI ĐA RIÊNG cho Phòng PM'+pmCurrentRoom+'\n\nDùng cho phòng có nhịp bàn giao khác mức chung — VD phòng chỉ bàn giao 1 lần/ngày (không có Ca Đêm) nên đặt khoảng 25 giờ, thay vì dùng mức chung (thường đặt cho phòng có cả Ca Ngày + Ca Đêm).\n\nNhập số giờ riêng cho phòng này, hoặc để TRỐNG rồi bấm OK để XÓA (quay về dùng mức chung).\n\nHiện tại: '+trangThaiHt+'\n\n👉 NHẬP SỐ GIỜ (đơn vị: GIỜ, không phải ngày):', curOverride!=null?String(curOverride):'');
-    if(input===null) return;
-    input=String(input).trim();
+      var inputGM = isM ? '<span style="color:#999;font-size:12px">—</span>'
+        : '<input type="number" min="0" step="1" placeholder="Mặc định" value="'+(ovGM!=null?ovGM:'')+'" data-room="'+roomId+'" data-group="gayme" class="pm-tua-override-input" style="width:80px;padding:5px 8px;border:1.5px solid #a8d9d0;border-radius:6px">';
+      var inputDC = isM ? '<span style="color:#999;font-size:12px">—</span>'
+        : '<input type="number" min="0" step="1" placeholder="Mặc định" value="'+(ovDC!=null?ovDC:'')+'" data-room="'+roomId+'" data-group="dungcu" class="pm-tua-override-input" style="width:80px;padding:5px 8px;border:1.5px solid #a8d9d0;border-radius:6px">';
+      return '<tr id="pmTuaRow_'+roomId+'" style="border-bottom:1px solid #eee;transition:background .4s">'
+        +'<td style="padding:7px 8px;font-weight:700;color:#0a4a4a;white-space:nowrap">PM'+pmEsc(roomId)+(isM?' <span style="background:#7e57c2;color:#fff;font-size:9px;padding:1px 6px;border-radius:999px;margin-left:4px">THÁNG</span>':'')+'</td>'
+        +'<td style="padding:7px 8px;font-size:12px;color:#555">'+autoTxt+'</td>'
+        +'<td style="padding:7px 8px;text-align:center">'+inputGM+'</td>'
+        +'<td style="padding:7px 8px;text-align:center">'+inputDC+'</td>'
+      +'</tr>';
+    }).join('');
+    body.innerHTML='<div style="max-height:50vh;overflow:auto;border:1px solid #ddd;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +'<thead style="position:sticky;top:0;background:#0d6e6e;color:#fff"><tr>'
+      +'<th style="padding:8px;text-align:left">Phòng</th><th style="padding:8px;text-align:left">Đang áp dụng</th><th style="padding:8px">Giờ riêng<br>Gây mê</th><th style="padding:8px">Giờ riêng<br>Dụng cụ</th>'
+      +'</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'
+      +'<div style="font-size:11px;color:#888;margin-top:6px">Để trống ô nào = nhóm đó dùng mức tự nhận diện, không cần điền giống nhau cho cả 2 cột.</div>';
+  }
+  window.pmSaveTuaConfigTable=function(){
+    var defEl=document.getElementById('pmTuaCfgTableDefault');
+    var defV=parseFloat(defEl?defEl.value:pmBoTuaConfig.maxGio);
+    if(isNaN(defV) || defV<0){ alert('Mức dự phòng chung không hợp lệ.'); return; }
+    var newOverrides={};
+    var invalid=false;
+    document.querySelectorAll('.pm-tua-override-input').forEach(function(inp){
+      var room=inp.getAttribute('data-room');
+      var group=inp.getAttribute('data-group');
+      var val=inp.value.trim();
+      if(val===''){ return; } // để trống = không đặt riêng, dùng tự nhận diện
+      var v=parseFloat(val);
+      if(isNaN(v) || v<0){ invalid=true; return; }
+      if(!newOverrides[room]) newOverrides[room]={};
+      newOverrides[room][group]=v;
+    });
+    if(invalid){ alert('Có ô "Giờ riêng" nhập sai (phải là số >= 0, hoặc để trống). Vui lòng kiểm tra lại.'); return; }
     if(!pmBoTuaConfigRef){ alert('Không kết nối được máy chủ.'); return; }
-    var newOverrides=Object.assign({}, pmBoTuaConfig.overrides||{});
-    if(input===''){
-      delete newOverrides[pmCurrentRoom];
-      pmBoTuaConfigRef.child('overrides').set(newOverrides).then(function(){ alert('Đã xóa mức riêng — Phòng PM'+pmCurrentRoom+' quay về dùng mức chung ('+pmBoTuaConfig.maxGio+' giờ).'); }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
-      return;
-    }
-    var v=parseFloat(input);
-    if(isNaN(v) || v<=0){ alert('Giá trị không hợp lệ — vui lòng nhập 1 số giờ > 0, hoặc để trống để xóa.'); return; }
-    newOverrides[pmCurrentRoom]=v;
-    pmBoTuaConfigRef.child('overrides').set(newOverrides).then(function(){ alert('Đã đặt riêng cho Phòng PM'+pmCurrentRoom+': khóa nếu quá '+v+' giờ chưa có bàn giao mới.'); }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
+    pmBoTuaConfigRef.set({enabled:pmBoTuaConfig.enabled, maxGio:defV, overrides:newOverrides}).then(function(){
+      alert('✅ Đã lưu toàn bộ cấu hình khóa bỏ tua cho tất cả các phòng.');
+      var m=document.getElementById('pmTuaCfgTableModal'); if(m) m.remove();
+    }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
+  };
+  window.pmSetRoomTuaOverride=function(){
+    if(!pmCurrentRoom){ alert('Vui lòng vào đúng 1 phòng cụ thể trước.'); return; }
+    pmOpenTuaConfigTable(pmCurrentRoom);
   };
   window.pmOpenTuaConfig=function(){
     if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
@@ -37459,7 +37563,7 @@ window.dctdMoveStatus=function(id,st){
     var lastDt = lastDone.ngay ? new Date(lastDone.ngay+'T'+(lastDone.gio||'00:00')+':00') : (lastDone.createdAt?new Date(lastDone.createdAt):null);
     if(!lastDt || isNaN(lastDt.getTime())) return true;
     var elapsedH=(Date.now()-lastDt.getTime())/3600000;
-    var maxGio=pmMaxGioFor(pmCurrentRoom, same);
+    var maxGio=pmMaxGioFor(pmCurrentRoom, group, same);
     if(elapsedH <= maxGio) return true;
     var groupLabel = group==='gayme' ? 'Gây mê' : 'Dụng cụ';
     var msg='🔒 Phòng PM'+pmCurrentRoom+' (nhóm '+groupLabel+') đang bị KHÓA do có dấu hiệu BỎ TUA:\n\n'
@@ -37912,7 +38016,7 @@ window.dctdMoveStatus=function(id,st){
     var lastDt = lastDone.ngay ? new Date(lastDone.ngay+'T'+(lastDone.gio||'00:00')+':00') : (lastDone.createdAt?new Date(lastDone.createdAt):null);
     if(!lastDt || isNaN(lastDt.getTime())) return 'ok';
     var elapsedH=(Date.now()-lastDt.getTime())/3600000;
-    return elapsedH>pmMaxGioFor(roomId, same) ? 'locked' : 'ok';
+    return elapsedH>pmMaxGioFor(roomId, group, same) ? 'locked' : 'ok';
   }
   var PM_TUA_STATE_MAP={
     off:{txt:'Tắt', bg:'#9e9e9e'}, nodata:{txt:'Chưa có DL', bg:'#9e9e9e'},
@@ -38106,6 +38210,7 @@ window.dctdMoveStatus=function(id,st){
     document.getElementById('pmCatalogBtn').style.display=isA?'':'none';
     var pmRmBtn=document.getElementById('pmRoomsManageBtn'); if(pmRmBtn) pmRmBtn.style.display=isA?'':'none';
     var pmRsBtn=document.getElementById('pmRoomsStatsBtn'); if(pmRsBtn) pmRsBtn.style.display=isA?'':'none';
+    var pmRtBtn=document.getElementById('pmRoomsTuaTableBtn'); if(pmRtBtn) pmRtBtn.style.display=isA?'':'none';
     var whoHtml = isA
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b> — Quyền Quản lý (cấu hình danh mục, xem mọi biên bản mọi phòng)'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(name)+'</b>';
@@ -38159,7 +38264,7 @@ window.dctdMoveStatus=function(id,st){
           if(pmIsMonthlyRoom(roomId)){ st[g]=pmMonthlyLockState(roomId, byGroup[g]).locked; return; }
           if(!latest[g]){ st[g]=false; return; } // chưa từng có biên bản nào -> không đủ căn cứ báo trễ ở đây (khác cơ chế trong phòng)
           var elapsedH=(new Date() - new Date(latest[g].replace(' ','T')))/3600000;
-          st[g]=elapsedH>pmMaxGioFor(roomId, byGroup[g]);
+          st[g]=elapsedH>pmMaxGioFor(roomId, g, byGroup[g]);
         });
         pmRoomTuaStatus[roomId]=st;
       }).catch(function(){ pmRoomTuaStatus[roomId]={gayme:false,dungcu:false}; })
@@ -38184,7 +38289,7 @@ window.dctdMoveStatus=function(id,st){
     var lastDt = lastDone.ngay ? new Date(lastDone.ngay+'T'+(lastDone.gio||'00:00')+':00') : (lastDone.createdAt?new Date(lastDone.createdAt):null);
     if(!lastDt || isNaN(lastDt.getTime())) return {state:'ok'};
     var elapsedH=(Date.now()-lastDt.getTime())/3600000;
-    var maxGio=pmMaxGioFor(pmCurrentRoom, same);
+    var maxGio=pmMaxGioFor(pmCurrentRoom, group, same);
     return elapsedH>maxGio ? {state:'locked', elapsedH:elapsedH, maxGio:maxGio, lastDone:lastDone} : {state:'ok', elapsedH:elapsedH, maxGio:maxGio};
   }
   function pmRenderTuaStatusRow(){
@@ -38282,8 +38387,8 @@ window.dctdMoveStatus=function(id,st){
     var isA=pmCu.role==='admin';
     document.getElementById('pmRoomConfigBtn').style.display=isA?'':'none';
     var pmTuaUB=document.getElementById('pmTuaUnlockBtn'); if(pmTuaUB) pmTuaUB.style.display=isA?'':'none';
-    var pmTuaCB=document.getElementById('pmTuaCfgBtn'); if(pmTuaCB) pmTuaCB.style.display=isA?'':'none';
     var pmTuaRB=document.getElementById('pmTuaRoomCfgBtn'); if(pmTuaRB) pmTuaRB.style.display=isA?'':'none';
+    var pmTuaTB=document.getElementById('pmTuaTableBtn'); if(pmTuaTB) pmTuaTB.style.display=isA?'':'none';
     var whoHtml = isA
       ? '<i class="ti ti-shield-check" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b> — Quyền Quản lý'
       : '<i class="ti ti-user" style="color:#0d6e6e"></i> Đăng nhập: <b>'+pmEsc(pmCu.name)+'</b>';
@@ -41348,6 +41453,8 @@ function notifComputeBtd(){
 function openBtdScreen(){
   document.getElementById('homeScreen').style.display='none';
   document.getElementById('btdScreen').style.display='flex';
+  var btdTuaBtn=document.getElementById('btdTuaCfgBtn');
+  if(btdTuaBtn) btdTuaBtn.style.display=(window.adminSession && adminSession.active)?'':'none';
   btdEnsureListeners();
   btdEnsureVesinhListeners();
   if(!btdGroupsLoaded){
