@@ -24963,7 +24963,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <div class="fg"><label>Giờ bàn giao *</label><input type="time" id="pmInGio"></div>
         <div class="fg">
           <label>Ca trực *</label>
-          <select id="pmInCa" onchange="pmRenderVeSinh()"><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option></select>
+          <select id="pmInCa" onchange="pmRenderVeSinh()"><option value="">-- Chọn Ca --</option><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option></select>
         </div>
         <div class="fg"><label>Người bàn giao (ca đi) *</label><input type="text" id="pmInGiao" readonly style="background:#f2f7f6;color:#555;cursor:not-allowed"></div>
         <div class="fg" style="grid-column:1/-1">
@@ -25109,11 +25109,24 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <div class="fg" style="margin:0"><label>Đến ngày</label><input type="date" id="pmStatTo" onchange="pmRenderStats()"></div>
         <button class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('pmStatFrom').value='';document.getElementById('pmStatTo').value='';pmRenderStats()"><i class="ti ti-refresh"></i> Xóa lọc</button>
       </div>
-      <div id="pmStatOv" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px"></div>
+      <div id="pmStatOv" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px"></div>
+      <div style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:13px;color:#0d6e6e;margin-bottom:8px"><i class="ti ti-sun-moon"></i> Số biên bản theo Ca — từng nhóm</div>
+        <div id="pmStatCaByGroup"></div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div>
           <div style="font-weight:700;font-size:13px;color:#0d6e6e;margin-bottom:8px"><i class="ti ti-user-check"></i> Người bàn giao nhiều nhất</div>
-          <div id="pmStatGiao"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:11.5px;font-weight:700;color:#0d6e6e;margin-bottom:5px">🔵 Nhóm Gây mê</div>
+              <div id="pmStatGiaoGM"></div>
+            </div>
+            <div>
+              <div style="font-size:11.5px;font-weight:700;color:#7e57c2;margin-bottom:5px">🟣 Nhóm Dụng cụ</div>
+              <div id="pmStatGiaoDC"></div>
+            </div>
+          </div>
         </div>
         <div>
           <div style="font-weight:700;font-size:13px;color:#0d6e6e;margin-bottom:8px"><i class="ti ti-alert-triangle"></i> Tài sản hay thiếu/hư hỏng nhất</div>
@@ -37441,12 +37454,9 @@ window.dctdMoveStatus=function(id,st){
       if(isM){
         autoTxt = '<b>Đang áp dụng: Cuối tháng+3 ngày = 72h</b>';
       } else {
-        var apDungGM = ovGM!=null ? (ovGM+'h (đã đặt riêng)') : autoLabelGM;
-        var apDungDC = ovDC!=null ? (ovDC+'h (đã đặt riêng)') : autoLabelDC;
+        var apDungGM = ovGM!=null ? (ovGM+'h') : autoLabelGM;
+        var apDungDC = ovDC!=null ? (ovDC+'h') : autoLabelDC;
         autoTxt = '<b>Đang áp dụng: GM '+apDungGM+' — DC '+apDungDC+'</b>';
-        if(ovGM!=null || ovDC!=null){
-          autoTxt += '<br><span style="font-size:10.5px;color:#999">(Tự nhận diện gốc nếu bỏ trống: GM '+autoLabelGM+' — DC '+autoLabelDC+')</span>';
-        }
       }
       var inputGM = isM ? '<span style="color:#999;font-size:12px">—</span>'
         : '<input type="number" min="0" step="1" placeholder="Mặc định" value="'+(ovGM!=null?ovGM:'')+'" data-room="'+roomId+'" data-group="gayme" class="pm-tua-override-input" style="width:80px;padding:5px 8px;border:1.5px solid #a8d9d0;border-radius:6px">';
@@ -38397,7 +38407,7 @@ window.dctdMoveStatus=function(id,st){
     var pmBriefBtn=document.getElementById('pmBackToBriefBtn'); if(pmBriefBtn) pmBriefBtn.style.display=briefReturnPending?'inline-flex':'none';
     document.getElementById('pmInDate').value=pmToday();
     document.getElementById('pmInGio').value=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
-    document.getElementById('pmInCa').value='Ngày';
+    document.getElementById('pmInCa').value='';
     document.getElementById('pmInGiao').value=pmCu.name;
     document.getElementById('pmInNhan').value='';
     document.getElementById('pmInGhiChuChung').value='';
@@ -38890,6 +38900,7 @@ window.dctdMoveStatus=function(id,st){
     var nguoiNhan=pmSelectedNhan||document.getElementById('pmInNhan').value.trim();
     if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');flagFieldInvalid('pmInDate','Vui lòng chọn ngày bàn giao');return null;}
     if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');flagFieldInvalid('pmInGio','Vui lòng chọn giờ bàn giao');return null;}
+    if(!ca){pmShowFormAlert('Vui lòng <b>chọn Ca trực</b> (Ngày hoặc Đêm) — không được để trống.','err');flagFieldInvalid('pmInCa','Vui lòng chọn Ca trực');return null;}
     if(!nguoiNhan){pmShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b>.','err');flagFieldInvalid('pmInNhan','Vui lòng chọn tên người nhận');return null;}
     if(nguoiNhan===nguoiGiao){pmShowFormAlert('Người nhận phải khác người bàn giao.','err');return null;}
     var sigGiao=null, sigNhan=null, hasNhanSig=false;
@@ -39103,6 +39114,7 @@ window.dctdMoveStatus=function(id,st){
     var nguoiNhan = pmTuKiemTra ? nguoiGiao : (pmSelectedNhan||document.getElementById('pmInNhan').value.trim());
     if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');flagFieldInvalid('pmInDate','Vui lòng chọn ngày bàn giao');return;}
     if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');flagFieldInvalid('pmInGio','Vui lòng chọn giờ bàn giao');return;}
+    if(!ca){pmShowFormAlert('Vui lòng <b>chọn Ca trực</b> (Ngày hoặc Đêm) — không được để trống.','err');flagFieldInvalid('pmInCa','Vui lòng chọn Ca trực');return;}
     if(!pmTuKiemTra){
       if(!nguoiNhan){pmShowFormAlert('Vui lòng gõ và <b>chọn tên người nhận</b>. (Nếu tháng này không đổi người phụ trách, tích chọn ô "Không đổi người phụ trách" ở trên thay vì điền ô này.)','err');flagFieldInvalid('pmInNhan','Vui lòng chọn tên người nhận');return;}
       if(nguoiNhan===nguoiGiao){pmShowFormAlert('Người nhận phải khác người bàn giao. (Nếu không đổi người phụ trách, tích chọn ô "Không đổi người phụ trách" ở trên.)','err');return;}
@@ -39331,6 +39343,7 @@ window.dctdMoveStatus=function(id,st){
       var pmTuKiemTraEdit = !!(document.getElementById('pmInTuKiemTra')||{}).checked;
       var nguoiNhan = pmTuKiemTraEdit ? (orig.nguoiGiao||pmCu.name) : (pmSelectedNhan||document.getElementById('pmInNhan').value.trim());
       if(!date){pmShowFormAlert('Vui lòng chọn <b>ngày bàn giao</b>.','err');return;}
+      if(!ca){pmShowFormAlert('Vui lòng <b>chọn Ca trực</b> (Ngày hoặc Đêm) — không được để trống.','err');return;}
       if(!gio){pmShowFormAlert('Vui lòng chọn <b>giờ bàn giao</b>.','err');return;}
       if(!pmTuKiemTraEdit && !nguoiNhan){pmShowFormAlert('Vui lòng chọn <b>tên người nhận</b>.','err');return;}
       var activeGroup = orig.nhomPM || pmCurTab;
@@ -39491,11 +39504,15 @@ window.dctdMoveStatus=function(id,st){
     var choduyet=list.filter(function(r){return r.trangThai==='choduyet';}).length;
     var hoanthanh=list.filter(function(r){return r.trangThai==='hoanthanh';}).length;
     var coSuCo=list.filter(function(r){var f=pmItemFlags(r); return f.thieu||f.hong;}).length;
+    var caNgayCount=list.filter(function(r){return String(r.ca||'').indexOf('Đêm')===-1;}).length;
+    var caDemCount=list.filter(function(r){return String(r.ca||'').indexOf('Đêm')!==-1;}).length;
     var duPct=total?Math.round((total-coSuCo)/total*100):0;
     var ov=document.getElementById('pmStatOv');
     if(ov){
       var cards=[
         {val:total,lbl:'Tổng số biên bản',color:'#0d6e6e'},
+        {val:caNgayCount,lbl:'☀️ Ca Ngày',color:'#e65100'},
+        {val:caDemCount,lbl:'🌙 Ca Đêm',color:'#283593'},
         {val:choduyet,lbl:'Chờ hoàn thành',color:'#8a6100'},
         {val:hoanthanh,lbl:'Đã hoàn thành',color:'#0a6b5e'},
         {val:coSuCo,lbl:'Biên bản có thiếu/hư hỏng',color:'#c62828'},
@@ -39503,13 +39520,26 @@ window.dctdMoveStatus=function(id,st){
       ];
       ov.innerHTML=cards.map(function(c){return '<div style="background:#effafa;border:1.5px solid #a8d9d0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:'+c.color+'">'+c.val+'</div><div style="font-size:11px;color:#666;margin-top:2px">'+c.lbl+'</div></div>';}).join('');
     }
-    var giaoCount={};
-    list.forEach(function(r){ if(r.nguoiGiao) giaoCount[r.nguoiGiao]=(giaoCount[r.nguoiGiao]||0)+1; });
-    var giaoRank=Object.keys(giaoCount).map(function(n){return {name:n,count:giaoCount[n]};}).sort(function(a,b){return b.count-a.count;}).slice(0,8);
-    var gBox=document.getElementById('pmStatGiao');
-    if(gBox){
-      gBox.innerHTML = giaoRank.length ? giaoRank.map(function(p,i){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:'+(i%2?'#fff':'#effafa')+';border-radius:6px;font-size:12.5px"><span>'+(i+1)+'. '+pmEsc(p.name)+'</span><b style="color:#0d6e6e">'+p.count+' lần</b></div>';}).join('') : '<div style="color:#aaa;font-size:12.5px;padding:8px">Chưa có dữ liệu</div>';
+    // Tính riêng biệt theo từng nhóm (Gây mê / Dụng cụ) — mỗi nhóm 1 bảng xếp hạng độc lập, kèm số
+    // Ngày/Đêm để phát hiện nhanh trường hợp giao nhầm tua trong đúng nhóm đó.
+    function pmBuildGiaoRank(groupFilter){
+      var cnt={};
+      list.forEach(function(r){
+        if(!r.nguoiGiao) return;
+        if(groupFilter && r.nhomPM!==groupFilter) return;
+        if(!cnt[r.nguoiGiao]) cnt[r.nguoiGiao]={total:0, ngay:0, dem:0};
+        cnt[r.nguoiGiao].total++;
+        if(String(r.ca||'').indexOf('Đêm')!==-1) cnt[r.nguoiGiao].dem++; else cnt[r.nguoiGiao].ngay++;
+      });
+      return Object.keys(cnt).map(function(n){return Object.assign({name:n}, cnt[n]);}).sort(function(a,b){return b.total-a.total;}).slice(0,8);
     }
+    function pmRenderGiaoRankBox(elId, rank){
+      var box=document.getElementById(elId);
+      if(!box) return;
+      box.innerHTML = rank.length ? rank.map(function(p,i){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:'+(i%2?'#fff':'#effafa')+';border-radius:6px;font-size:12px;margin-bottom:4px"><span>'+(i+1)+'. '+pmEsc(p.name)+'</span><span style="text-align:right"><b style="color:#0d6e6e">'+p.total+' lần</b><br><span style="font-size:10px;color:#888">☀️'+p.ngay+' 🌙'+p.dem+'</span></span></div>';}).join('') : '<div style="color:#aaa;font-size:12px;padding:8px">Chưa có dữ liệu</div>';
+    }
+    pmRenderGiaoRankBox('pmStatGiaoGM', pmBuildGiaoRank('gayme'));
+    pmRenderGiaoRankBox('pmStatGiaoDC', pmBuildGiaoRank('dungcu'));
     var itemCount={};
     list.forEach(function(r){
       Object.values(r.itemsGayme||{}).concat(Object.values(r.itemsDungcu||{})).forEach(function(it){
@@ -39520,6 +39550,24 @@ window.dctdMoveStatus=function(id,st){
     var iBox=document.getElementById('pmStatItems');
     if(iBox){
       iBox.innerHTML = itemRank.length ? itemRank.map(function(s,i){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:'+(i%2?'#fff':'#effafa')+';border-radius:6px;font-size:12.5px"><span>'+(i+1)+'. '+pmEsc(s.name)+'</span><b style="color:#c62828">'+s.count+' lần</b></div>';}).join('') : '<div style="color:#aaa;font-size:12.5px;padding:8px">Chưa có dữ liệu</div>';
+    }
+    var caBox=document.getElementById('pmStatCaByGroup');
+    if(caBox){
+      var byGroupCa={gayme:{ngay:0,dem:0}, dungcu:{ngay:0,dem:0}};
+      list.forEach(function(r){
+        var g=r.nhomPM==='dungcu'?'dungcu':'gayme';
+        var isDem=String(r.ca||'').indexOf('Đêm')!==-1;
+        byGroupCa[g][isDem?'dem':'ngay']++;
+      });
+      var rowsCa=[['gayme','Gây mê','#0d6e6e'],['dungcu','Dụng cụ','#7e57c2']].map(function(x){
+        var d=byGroupCa[x[0]];
+        var t=d.ngay+d.dem;
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#fff;border:1px solid #eee;border-radius:6px;font-size:12.5px;margin-bottom:6px">'
+          +'<b style="color:'+x[2]+'">'+x[1]+'</b>'
+          +'<span>\u2600\ufe0f Ngày: <b>'+d.ngay+'</b> &nbsp; \ud83c\udf19 Đêm: <b>'+d.dem+'</b> &nbsp; (tổng '+t+')</span>'
+        +'</div>';
+      }).join('');
+      caBox.innerHTML=rowsCa;
     }
   };
   window.pmRenderList=function(){
