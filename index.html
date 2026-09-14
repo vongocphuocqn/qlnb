@@ -13962,13 +13962,13 @@ function briefLoadExtra(){
       var biLui = hc.getDate()!==ngayCuoiThangThat.getDate();
       var hanChotTxt=String(hc.getDate()).padStart(2,'0')+'/'+String(hc.getMonth()+1).padStart(2,'0')+'/'+hc.getFullYear();
       var hanBaoTreTxt=String(hcbt.getDate()).padStart(2,'0')+'/'+String(hcbt.getMonth()+1).padStart(2,'0')+'/'+hcbt.getFullYear();
-      cuoiThangBody.innerHTML='<div style="font-size:11.5px;color:#555;margin-bottom:6px">Hạn chót kiểm tra/bàn giao cuối tháng: <b>'+hanChotTxt+'</b>'+(biLui?' <i>(đã lùi về ngày làm việc gần nhất vì cuối tháng trùng Thứ 7/Chủ nhật)</i>':'')+' — có <b>3 ngày ân hạn</b>, chính thức báo TRỄ từ sau ngày <b>'+hanBaoTreTxt+'</b>. Các phòng sau vẫn <b>chưa có biên bản bàn giao nào trong tháng này</b>:</div>'+
+      cuoiThangBody.innerHTML='<div style="font-size:11.5px;color:#555;margin-bottom:6px">Hạn chót kiểm tra/bàn giao cuối tháng: <b>'+hanChotTxt+'</b>'+(biLui?' <i>(đã lùi về ngày làm việc gần nhất vì cuối tháng trùng Thứ 7/Chủ nhật)</i>':'')+' — có <b>3 ngày ân hạn (=72 giờ)</b>, chính thức báo TRỄ từ sau ngày <b>'+hanBaoTreTxt+'</b>. Các phòng sau vẫn <b>chưa có biên bản bàn giao nào trong tháng này</b>:</div>'+
         ctRows.map(function(x){
           var dnow=pmDateOnlyStr(new Date());
           var dhan=pmDateOnlyStr(x.hanChot);
           var mau;
           if(x.quaHan) mau={bg:'#ffebee', border:'#ef9a9a', txt:'#c62828', nhan:'ĐÃ QUÁ HẠN'};
-          else if(dnow>dhan) mau={bg:'#fff8e1', border:'#f9a825', txt:'#8a5300', nhan:'Trong 3 ngày ân hạn'};
+          else if(dnow>dhan) mau={bg:'#fff8e1', border:'#f9a825', txt:'#8a5300', nhan:'Trong 3 ngày ân hạn (72h)'};
           else mau={bg:'#fff', border:'#90caf9', txt:'#0d47a1', nhan:'Sắp tới hạn'};
           return '<div onclick="enterPmScreen(\'admin\',\'Quản lý\')" style="background:'+mau.bg+';border:1.5px solid '+mau.border+';border-radius:7px;padding:7px 10px;margin-bottom:6px;cursor:pointer;font-size:12.5px" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">'+
             '<b style="color:'+mau.txt+'">Phòng Mổ '+esc(x.room)+'</b> — '+mau.nhan+' — chưa có biên bản bàn giao tháng này'+
@@ -37321,6 +37321,21 @@ window.dctdMoveStatus=function(id,st){
   //    Ngày -> chu kỳ ~12 giờ -> ngưỡng = 12*1.5 = 18 giờ. Nếu chỉ toàn Ca Ngày (không có Ca Đêm)
   //    -> chu kỳ ~24 giờ -> ngưỡng = 24*1.5 = 36 giờ. (Công thức chung: ngưỡng = chu kỳ × 1.5)
   // 3) Nếu chưa đủ dữ liệu để nhận diện (phòng mới, chưa có ca nào) -> dùng mức CHUNG mặc định.
+  // Phòng "giao theo tháng" (danh sách lấy từ pmCuoiThangRooms — biến toàn cục đã có sẵn ở màn
+  // "Giao ban sáng") dùng công thức KHÁC HẲN 12h/24h: hạn = ngày cuối tháng (lùi về ngày làm việc
+  // nếu trúng T7/CN) + 3 ngày ân hạn, so sánh theo NGÀY chứ không theo giờ.
+  function pmIsMonthlyRoom(roomId){
+    return typeof pmCuoiThangRooms!=='undefined' && pmCuoiThangRooms && pmCuoiThangRooms.indexOf(String(roomId))!==-1;
+  }
+  function pmMonthlyLockState(roomId, sameGroupRecs){
+    var now=new Date();
+    var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var hasThisMonth=(sameGroupRecs||[]).some(function(r){return r.trangThai==='hoanthanh' && String(r.ngay||'').slice(0,7)===ym;});
+    if(hasThisMonth) return {locked:false};
+    var hanChot=pmCuoiThangHanChot(now.getFullYear(), now.getMonth());
+    var hanChotBaoTre=new Date(hanChot); hanChotBaoTre.setDate(hanChotBaoTre.getDate()+3);
+    return {locked: pmDateOnlyStr(now)>pmDateOnlyStr(hanChotBaoTre), hanChot:hanChot, hanChotBaoTre:hanChotBaoTre};
+  }
   function pmMaxGioFor(roomId, sameGroupRecs){
     if(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[roomId]==='number') return pmBoTuaConfig.overrides[roomId];
     if(sameGroupRecs && sameGroupRecs.length){
@@ -37343,9 +37358,13 @@ window.dctdMoveStatus=function(id,st){
   window.pmSetRoomTuaOverride=function(){
     if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
     if(!pmCurrentRoom){ alert('Vui lòng vào đúng 1 phòng cụ thể trước.'); return; }
+    if(pmIsMonthlyRoom(pmCurrentRoom)){
+      alert('⚠️ Phòng PM'+pmCurrentRoom+' đang thuộc danh sách "Phòng giao theo tháng" — phòng này LUÔN dùng công thức riêng (Cuối tháng + 3 ngày ân hạn = 72 giờ), KHÔNG dùng số giờ ở đây. Dù có đặt số giờ riêng ở đây cũng sẽ KHÔNG có tác dụng gì với phòng này.\n\nNếu phòng PM'+pmCurrentRoom+' thực ra KHÔNG phải giao theo tháng nữa (mà giao theo ca hằng ngày), anh cần vào Trang chủ → khối "Kiểm cuối tháng" → gỡ phòng này khỏi danh sách trước, rồi mới đặt giờ riêng ở đây được.');
+      return;
+    }
     var curOverride=(pmBoTuaConfig.overrides && typeof pmBoTuaConfig.overrides[pmCurrentRoom]==='number') ? pmBoTuaConfig.overrides[pmCurrentRoom] : null;
     var trangThaiHt = curOverride!=null ? ('đang đặt RIÊNG: '+curOverride+' giờ') : ('đang dùng mức CHUNG: '+pmBoTuaConfig.maxGio+' giờ');
-    var input=prompt('GIỜ TỐI ĐA RIÊNG cho Phòng PM'+pmCurrentRoom+'\n\nDùng cho phòng có nhịp bàn giao khác mức chung — VD phòng chỉ bàn giao 1 lần/ngày (không có Ca Đêm) nên đặt khoảng 25 giờ, thay vì dùng mức chung (thường đặt cho phòng có cả Ca Ngày + Ca Đêm).\n\nNhập số giờ riêng cho phòng này, hoặc để TRỐNG rồi bấm OK để XÓA (quay về dùng mức chung).\n\nHiện tại: '+trangThaiHt, curOverride!=null?String(curOverride):'');
+    var input=prompt('GIỜ TỐI ĐA RIÊNG cho Phòng PM'+pmCurrentRoom+'\n\nDùng cho phòng có nhịp bàn giao khác mức chung — VD phòng chỉ bàn giao 1 lần/ngày (không có Ca Đêm) nên đặt khoảng 25 giờ, thay vì dùng mức chung (thường đặt cho phòng có cả Ca Ngày + Ca Đêm).\n\nNhập số giờ riêng cho phòng này, hoặc để TRỐNG rồi bấm OK để XÓA (quay về dùng mức chung).\n\nHiện tại: '+trangThaiHt+'\n\n👉 NHẬP SỐ GIỜ (đơn vị: GIỜ, không phải ngày):', curOverride!=null?String(curOverride):'');
     if(input===null) return;
     input=String(input).trim();
     if(!pmBoTuaConfigRef){ alert('Không kết nối được máy chủ.'); return; }
@@ -37362,15 +37381,18 @@ window.dctdMoveStatus=function(id,st){
   };
   window.pmOpenTuaConfig=function(){
     if(!pmCu||pmCu.role!=='admin'){ alert('Chỉ Quản lý mới được chỉnh cấu hình này.'); return; }
+    if(pmCurrentRoom && pmIsMonthlyRoom(pmCurrentRoom)){
+      alert('ℹ️ Phòng PM'+pmCurrentRoom+' đang thuộc danh sách "Phòng giao theo tháng" — phòng này KHÔNG dùng mức giờ ở đây, mà tự tính theo công thức riêng: Cuối tháng (lùi ngày nghỉ) + 3 ngày ân hạn (=72 giờ).\n\nCấu hình bạn sắp chỉnh dưới đây CHỈ áp dụng cho các phòng giao theo ca (12h/24h), sẽ không ảnh hưởng gì đến phòng PM'+pmCurrentRoom+' cả.\n\nNếu muốn đổi/gỡ phòng này khỏi danh sách "giao theo tháng", vào Trang chủ → khối "Kiểm cuối tháng" hoặc mục cấu hình danh sách phòng giao tháng.');
+    }
     var cur=pmBoTuaConfig.maxGio;
     var trangThaiHt = pmBoTuaConfig.enabled ? '(đang BẬT, khóa nếu quá '+cur+' giờ)' : '(đang TẮT)';
-    var input=prompt('CẤU HÌNH KHÓA BỎ TUA\n\nNhập số GIỜ tối đa cho phép giữa 2 lần bàn giao của cùng 1 phòng+nhóm — quá số giờ này mà chưa có biên bản mới sẽ tự động bị KHÓA, phải Quản lý mở khóa mới lập tiếp được.\n\nNhập 0 để TẮT hẳn tính năng khóa bỏ tua (không khóa phòng nào nữa).\n\nHiện tại: '+trangThaiHt, String(cur));
+    var input=prompt('CẤU HÌNH KHÓA BỎ TUA (áp dụng cho các phòng giao theo CA — 12h/24h)\n\nNhập số GIỜ tối đa cho phép giữa 2 lần bàn giao của cùng 1 phòng+nhóm — quá số giờ này mà chưa có biên bản mới sẽ tự động bị KHÓA, phải Quản lý mở khóa mới lập tiếp được.\n\nLưu ý: hầu hết các phòng đã TỰ NHẬN DIỆN đúng mức 18h (có Ca Đêm) hoặc 36h (chỉ Ca Ngày) rồi, không cần đổi ở đây. Mức này chỉ dùng làm DỰ PHÒNG cho phòng mới chưa có đủ lịch sử để tự nhận diện. Không áp dụng cho phòng giao theo tháng.\n\nNhập 0 để TẮT hẳn tính năng khóa bỏ tua (không khóa phòng nào nữa, kể cả phòng giao theo tháng).\n\nHiện tại: '+trangThaiHt+'\n\n👉 NHẬP SỐ GIỜ (đơn vị: GIỜ, không phải ngày):', String(cur));
     if(input===null) return;
     var v=parseFloat(input);
     if(isNaN(v) || v<0){ alert('Giá trị không hợp lệ — vui lòng nhập 1 số giờ >= 0.'); return; }
-    var newCfg = v===0 ? {enabled:false, maxGio:pmBoTuaConfig.maxGio} : {enabled:true, maxGio:v};
+    var newCfg = v===0 ? {enabled:false, maxGio:pmBoTuaConfig.maxGio, overrides:pmBoTuaConfig.overrides||{}} : {enabled:true, maxGio:v, overrides:pmBoTuaConfig.overrides||{}};
     if(!pmBoTuaConfigRef){ alert('Không kết nối được máy chủ.'); return; }
-    pmBoTuaConfigRef.set(newCfg).then(function(){ alert(v===0 ? 'Đã TẮT khóa bỏ tua cho toàn bộ hệ thống.' : 'Đã cập nhật: sẽ khóa nếu quá '+v+' giờ chưa phát sinh bàn giao mới.'); }).catch(function(e){ alert('Lỗi lưu cấu hình: '+e.message); });
+    pmBoTuaConfigRef.set(newCfg).then(function(){ alert(v===0 ? 'Đã TẮT khóa bỏ tua cho toàn bộ hệ thống.' : 'Đã cập nhật: sẽ khóa nếu quá '+v+' giờ chưa phát sinh bàn giao mới (cho các phòng không tự nhận diện được và không có mức riêng).'); }).catch(function(e){ alert('Lỗi lưu cấu hình: '+e.message); });
   };
   // Quản lý bấm để mở khóa NGAY cho đúng phòng+nhóm đang xem, dùng 1 lần cho biên bản kế tiếp (không cần chính Quản lý là người lập biên bản đó).
   window.pmUnlockTuaForRoom=function(){
@@ -37407,6 +37429,20 @@ window.dctdMoveStatus=function(id,st){
       return true;
     }
     var same=pmAllRecords().filter(function(r){return String(r.phong)===String(pmCurrentRoom) && r.nhomPM===group;});
+    if(pmIsMonthlyRoom(pmCurrentRoom)){
+      var ms=pmMonthlyLockState(pmCurrentRoom, same);
+      if(!ms.locked) return true;
+      var groupLabelM = group==='gayme' ? 'Gây mê' : 'Dụng cụ';
+      var hcTxt=String(ms.hanChot.getDate()).padStart(2,'0')+'/'+String(ms.hanChot.getMonth()+1).padStart(2,'0');
+      var msgM='🔒 Phòng PM'+pmCurrentRoom+' (nhóm '+groupLabelM+') — PHÒNG GIAO THEO THÁNG — đang bị KHÓA:\n\n'
+        +'Chưa có biên bản HOÀN THÀNH nào cho tháng này. Hạn chót tháng: '+hcTxt+' (+3 ngày ân hạn = 72 giờ) đã qua.\n\n'
+        +'Vui lòng liên hệ QUẢN LÝ KHOA để xác nhận mở khóa trước khi lập biên bản mới cho phòng này.';
+      if(pmCu && pmCu.role==='admin'){
+        return confirm(msgM+'\n\n[QUẢN LÝ] Xác nhận MỞ KHÓA và tiếp tục lập biên bản này ngay bây giờ?');
+      }
+      alert(msgM);
+      return false;
+    }
     if(!same.length) return true; // phòng/nhóm chưa từng có biên bản nào — chưa có gì để đối chiếu, cho lập bình thường
     var lastDone=same.filter(function(r){return r.trangThai==='hoanthanh';})
       .sort(function(a,b){var ka=String(a.ngay||'')+String(a.gio||''), kb=String(b.ngay||'')+String(b.gio||''); return kb>ka?1:(kb<ka?-1:0);})[0];
@@ -37857,6 +37893,9 @@ window.dctdMoveStatus=function(id,st){
     var key=pmSafeKey(roomId)+'_'+group;
     if(pmBoTuaUnlocks && pmBoTuaUnlocks[key]) return 'unlocked';
     var same=recsAll.filter(function(r){return r.nhomPM===group;});
+    if(pmIsMonthlyRoom(roomId)){
+      return pmMonthlyLockState(roomId, same).locked ? 'locked' : 'ok';
+    }
     if(!same.length) return 'nodata';
     var lastDone=same.filter(function(r){return r.trangThai==='hoanthanh';})
       .sort(function(a,b){var ka=String(a.ngay||'')+String(a.gio||''), kb=String(b.ngay||'')+String(b.gio||''); return kb>ka?1:(kb<ka?-1:0);})[0];
@@ -38108,6 +38147,7 @@ window.dctdMoveStatus=function(id,st){
         });
         var st={gayme:false, dungcu:false};
         ['gayme','dungcu'].forEach(function(g){
+          if(pmIsMonthlyRoom(roomId)){ st[g]=pmMonthlyLockState(roomId, byGroup[g]).locked; return; }
           if(!latest[g]){ st[g]=false; return; } // chưa từng có biên bản nào -> không đủ căn cứ báo trễ ở đây (khác cơ chế trong phòng)
           var elapsedH=(new Date() - new Date(latest[g].replace(' ','T')))/3600000;
           st[g]=elapsedH>pmMaxGioFor(roomId, byGroup[g]);
@@ -38124,6 +38164,10 @@ window.dctdMoveStatus=function(id,st){
     var key=pmSafeKey(pmCurrentRoom)+'_'+group;
     if(pmBoTuaUnlocks && pmBoTuaUnlocks[key]) return {state:'unlocked'}; // đã có mã mở, sẵn sàng dùng ngay lần lập tới
     var same=pmAllRecords().filter(function(r){return String(r.phong)===String(pmCurrentRoom) && r.nhomPM===group;});
+    if(pmIsMonthlyRoom(pmCurrentRoom)){
+      var ms=pmMonthlyLockState(pmCurrentRoom, same);
+      return ms.locked ? {state:'locked', monthly:true, hanChotBaoTre:ms.hanChotBaoTre} : {state:'ok', monthly:true};
+    }
     if(!same.length) return {state:'nodata'};
     var lastDone=same.filter(function(r){return r.trangThai==='hoanthanh';})
       .sort(function(a,b){var ka=String(a.ngay||'')+String(a.gio||''), kb=String(b.ngay||'')+String(b.gio||''); return kb>ka?1:(kb<ka?-1:0);})[0];
@@ -38146,8 +38190,8 @@ window.dctdMoveStatus=function(id,st){
         nodata:{txt:'Chưa có biên bản', bg:'rgba(255,255,255,.15)'},
         pending:{txt:'Có phiếu chờ ký', bg:'#f9a825'},
         unlocked:{txt:'Đã mở khóa — sẵn sàng lập', bg:'#2e7d32'},
-        ok:{txt:'Bình thường'+(st.elapsedH!=null?(' ('+(st.elapsedH||0).toFixed(0)+'h/hạn '+(st.maxGio||0)+'h)'):''), bg:'#2e7d32'},
-        locked:{txt:'ĐANG KHÓA — trễ '+(st.elapsedH||0).toFixed(0)+'h (hạn '+(st.maxGio||0)+'h)', bg:'#c62828'}
+        ok:{txt: st.monthly ? 'Bình thường (đã có biên bản tháng này)' : ('Bình thường'+(st.elapsedH!=null?(' ('+(st.elapsedH||0).toFixed(0)+'h/hạn '+(st.maxGio||0)+'h)'):'')), bg:'#2e7d32'},
+        locked:{txt: st.monthly ? ('ĐANG KHÓA — chưa có biên bản tháng này (đã quá hạn+3 ngày)') : ('ĐANG KHÓA — trễ '+(st.elapsedH||0).toFixed(0)+'h (hạn '+(st.maxGio||0)+'h)'), bg:'#c62828'}
       };
       var m=map[st.state];
       return '<span style="display:inline-flex;align-items:center;gap:5px;background:'+m.bg+';color:#fff;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700"><i class="ti ti-'+(st.state==='locked'?'lock':(st.state==='unlocked'?'lock-open':'circle-check'))+'"></i> '+labels[g]+': '+m.txt+'</span>';
