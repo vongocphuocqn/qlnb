@@ -38892,7 +38892,6 @@ window.dctdMoveStatus=function(id,st){
   function pmValidateRoomForGroup(requireSig){
     if(!pmCu||!pmCurrentRoom){pmShowFormAlert('Vui lòng đăng nhập lại.','err');return null;}
     if(!pmCheckNoPendingSameGroup(pmCurTab)) return null;
-    if(!pmCheckNoTuaGap(pmCurTab)) return null;
     var date=document.getElementById('pmInDate').value;
     var gio=document.getElementById('pmInGio').value;
     var ca=document.getElementById('pmInCa').value;
@@ -38923,6 +38922,9 @@ window.dctdMoveStatus=function(id,st){
     }
     var missingNote=activeItems.find(function(it){ var st=pmItemStates[it._id]; return st && st.status!=='du' && !st.ghiChu.trim(); });
     if(missingNote){ pmShowFormAlert('Vui lòng ghi chú lý do cho tài sản "<b>'+pmEsc(missingNote.ten)+'</b>" (đang đánh dấu Thiếu/Hư hỏng).','err'); return null; }
+    // Kiểm tra khóa bỏ tua Ở BƯỚC CUỐI CÙNG (sau khi mọi validation khác — ngày/giờ/Ca/người nhận/chữ
+    // ký/kiểm tra tài sản — đều đã hợp lệ) để không đốt oan lượt "Mở khóa bỏ tua" (chỉ dùng 1 lần).
+    if(!pmCheckNoTuaGap(pmCurTab)) return null;
     var pmVeSinhWrapEl=document.getElementById('pmVeSinhWrap');
     var pmVeSinhMandatory = pmVeSinhWrapEl && pmVeSinhWrapEl.style.display!=='none' && pmVeSinhWrapEl.dataset.mandatory==='1';
     if(pmVeSinhMandatory){
@@ -39105,7 +39107,6 @@ window.dctdMoveStatus=function(id,st){
    try{
     if(!pmCu||!pmCurrentRoom){pmShowFormAlert('Vui lòng đăng nhập lại.','err');return;}
     if(!pmCheckNoPendingSameGroup(pmCurTab)) return;
-    if(!pmCheckNoTuaGap(pmCurTab)) return;
     var date=document.getElementById('pmInDate').value;
     var gio=document.getElementById('pmInGio').value;
     var ca=document.getElementById('pmInCa').value;
@@ -39158,6 +39159,10 @@ window.dctdMoveStatus=function(id,st){
       if(pmVeSinhChoice==='da_lam' && pmVeSinhHinhThucChon.length===0){ pmShowFormAlert('Vui lòng chọn ít nhất 1 <b>hình thức</b> đã thực hiện cho Tổng vệ sinh khử khuẩn cuối tuần.','err'); pmVeSinhWrapEl.scrollIntoView({behavior:'smooth',block:'center'}); return; }
     }
 
+    // Kiểm tra khóa bỏ tua ở BƯỚC CUỐI CÙNG (sau khi mọi validation khác đã qua) — tránh trường hợp
+    // lượt "Mở khóa bỏ tua" (chỉ dùng được 1 lần) bị tiêu thụ oan ngay từ 1 lần bấm còn thiếu dữ liệu
+    // (VD chưa chọn Ca, chưa ký...), khiến lần bấm lại sau đó dù đã điền đủ vẫn bị báo khóa lại.
+    if(!pmCheckNoTuaGap(pmCurTab)) return;
 
     function snap(items,groupName){
       var out={};
