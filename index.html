@@ -1340,10 +1340,11 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
               placeholder="Tự tính...">
           </div>
           <div class="nb-field" id="npFormRemainWrap" style="display:none">
-            <label style="color:#00695c">Số ngày phép năm còn lại</label>
+            <label style="color:#00695c">Quỹ phép năm của bạn</label>
             <input type="text" id="npFormRemain" readonly
               style="background:#fff8e1;font-weight:700;color:#e65100;border-color:#ffe082;border-radius:8px;padding:8px 11px;font-size:13px;width:100%;font-family:inherit;border:1.5px solid #ffe082"
               placeholder="—">
+            <div id="npFormRemainDetail" style="font-size:11px;color:#888;margin-top:3px"></div>
           </div>
           <div class="nb-field">
             <label style="color:#00695c">Loại nghỉ phép <span style="color:red">*</span></label>
@@ -16723,7 +16724,8 @@ function buildPhieuNghiHtml(loai, r, mucDich){
     const _q = npGetQlpQuota(r.person);
     if(_q){
       const _remain = _q.total - _q.daNghi;
-      dongPhepConLai = `<div class="pn-line">Số ngày phép năm còn lại: <b>${_remain}</b> ngày (tổng được cấp ${_q.total} ngày, đã nghỉ ${_q.daNghi} ngày)</div>`;
+      dongPhepConLai = `<div class="pn-line">Số ngày phép năm còn lại: <b>${_remain}</b> ngày (tổng được cấp ${_q.total} ngày, đã nghỉ ${_q.daNghi} ngày)</div>`
+        + `<div class="pn-line" style="font-size:0.92em;font-style:italic">Trong đó ${_q.total} ngày được cấp gồm: Phép năm cơ bản ${_q.base} ngày + Thâm niên ${_q.tham} ngày + Khác ${_q.khac} ngày + Phép năm trước còn lại ${_q.carryover} ngày</div>`;
     }
   }
   const ngayLap = r.createdAt ? new Date(r.createdAt) : new Date();
@@ -18559,34 +18561,39 @@ function npCalcDays(){
 function npUpdateRemainDisplay(){
   const wrap=document.getElementById('npFormRemainWrap');
   const box=document.getElementById('npFormRemain');
+  const detail=document.getElementById('npFormRemainDetail');
   if(!wrap||!box) return;
-  const typeEl=document.getElementById('npFormType');
-  const type=typeEl?typeEl.value:'';
-  if(type!=='phep-nam'){ wrap.style.display='none'; return; }
   const isA=npCurrentUser&&npCurrentUser.role==='admin';
   const personEl=document.getElementById('npPersonVal');
   const searchEl=document.getElementById('npPersonSearch');
   const person=isA?((personEl&&personEl.value)||(searchEl&&searchEl.value)||'').trim():(npCurrentUser?npCurrentUser.name:'');
+  // Hiện LUÔN khung này (không chỉ khi chọn loại "Phép năm") để nhân viên chủ động biết quỹ phép
+  // của mình TRƯỚC KHI quyết định chọn loại/ngày nghỉ, theo đúng nhu cầu "biết trước để chủ động".
   if(!person){ wrap.style.display='none'; return; }
   const quota=(typeof npGetQlpQuota==='function')?npGetQlpQuota(person):null;
   if(!quota){
     wrap.style.display='block';
     box.value='— (chưa có hồ sơ trong Quản lý Phép năm)';
     box.style.color='#999';
+    if(detail) detail.textContent='';
     return;
   }
   const remainNow=quota.total-quota.daNghi;
+  const typeEl=document.getElementById('npFormType');
+  const type=typeEl?typeEl.value:'';
   const fr=document.getElementById('npFormFrom').value;
   const to=document.getElementById('npFormTo').value;
   const halfEl=document.getElementById('npFormHalf');
   const half=(halfEl && fr===to) ? halfEl.value : '';
-  const daysXin=(typeof npCalcDaysNum==='function')?npCalcDaysNum(fr,to,half):0;
+  const daysXin=(type==='phep-nam' && typeof npCalcDaysNum==='function')?npCalcDaysNum(fr,to,half):0;
   const remainAfter=remainNow-daysXin;
   wrap.style.display='block';
   box.style.color=remainAfter<0?'#c62828':'#e65100';
-  box.value=daysXin>0
-    ? `Hiện còn ${remainNow} ngày → Sau khi đăng ký: ${remainAfter} ngày`
-    : `Hiện còn ${remainNow} ngày`;
+  box.value = `Tổng: ${quota.total} ngày — Đã nghỉ: ${quota.daNghi} ngày — Còn lại: ${remainNow} ngày`
+    + (daysXin>0 ? ` → Sau khi đăng ký lần này: ${remainAfter} ngày` : '');
+  if(detail){
+    detail.textContent = `Trong đó Tổng ${quota.total} ngày gồm: Phép năm cơ bản ${quota.base} + Thâm niên ${quota.tham} + Khác ${quota.khac} + Phép năm trước còn lại ${quota.carryover}.`;
+  }
 }
 // Tải trước danh sách ngày nghỉ đặc biệt (lễ/Tết) của Quản lý Phép năm ngay khi vào màn Đăng ký Nghỉ Phép,
 // để ô "Số ngày nghỉ" tính đúng ngay từ đầu (không phải đợi mở "Quản lý Phép năm" trước mới có dữ liệu).
@@ -19005,9 +19012,12 @@ function npGetQlpQuota(person){
   if(!emp) return null;
   var autoTham = qlpSeniorityAuto(emp);
   var tham = (autoTham!==null && autoTham!==undefined) ? autoTham : (emp.thamManual||0);
-  var total = qlpBaseLeave() + tham + (emp.khac||0) + (emp.carryover||0);
+  var base = qlpBaseLeave();
+  var khac = emp.khac||0;
+  var carryover = emp.carryover||0;
+  var total = base + tham + khac + carryover;
   var daNghi = emp.daNghi||0;
-  return {daNghi:daNghi, total:total};
+  return {daNghi:daNghi, total:total, base:base, tham:tham, khac:khac, carryover:carryover};
 }
 function npRenderList(){
   if(!npCurrentUser)return;
@@ -38205,6 +38215,20 @@ window.dctdMoveStatus=function(id,st){
   function pmSafeKey(s){ return String(s||'').replace(/[.#$/\[\]\s]/g,'_'); }
   function pmToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function pmFmtD(d){if(!d)return'';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d;}
+  // Hiển thị Ca gọn, dễ hiểu — đặc biệt xử lý trường hợp "Ca Đêm" nhưng giờ ký lại là buổi sáng hôm
+  // sau (VD: đêm 14 giao sáng 15/09 lúc 10:10) — nếu chỉ ghi "15/09 — Đêm" sẽ dễ hiểu lầm là đêm của
+  // chính ngày 15. Ta tự lùi 1 ngày để hiện rõ "🌙 Đêm 14/09" thay vì mập mờ.
+  function pmCaDisplay(r){
+    if(!r || !r.ca) return '';
+    if(String(r.ca).indexOf('Đêm')===-1) return '☀️ Ngày';
+    var h = r.gio ? parseInt(String(r.gio).split(':')[0],10) : NaN;
+    if(!isNaN(h) && h < 12 && r.ngay){
+      var d=new Date(r.ngay+'T00:00:00'); d.setDate(d.getDate()-1);
+      var prevStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      return '🌙 Đêm '+pmFmtD(prevStr);
+    }
+    return '🌙 Đêm';
+  }
   function pmFmtDateTime(iso){
     if(!iso) return '';
     var d=new Date(iso);
@@ -39419,7 +39443,7 @@ window.dctdMoveStatus=function(id,st){
     box.innerHTML = list.length ? list.map(function(r){
       return '<div style="border:1.5px solid #8fd0c4;background:#f6fffd;border-radius:8px;padding:10px 12px">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
-          '<div style="font-weight:700;color:#0a6b5e">'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — Ca '+pmEsc(r.ca)+'</div>'+
+          '<div style="font-weight:700;color:#0a6b5e">'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — '+pmCaDisplay(r)+'</div>'+
           '<span style="color:#0a6b5e;font-weight:700">⏳ Chờ hoàn thành</span>'+
         '</div>'+
         (r.soHieu?('<div style="font-size:12px;color:#0a6b5e;margin-top:2px;display:flex;align-items:center;gap:6px">Mã biên bản: <b style="font-family:monospace">'+pmEsc(r.soHieu)+'</b>'+
@@ -39453,7 +39477,7 @@ window.dctdMoveStatus=function(id,st){
       var groupBadge = r.nhomPM ? ('<span style="background:'+(r.nhomPM==='gayme'?'#e0f2f1':'#fff3e0')+';color:'+(r.nhomPM==='gayme'?'#0d6e6e':'#b45309')+';border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700">'+(r.nhomPM==='gayme'?'Gây mê':'Dụng cụ')+'</span>') : '';
       return '<div style="border:1.5px solid #a8d9d0;background:#f6fffd;border-radius:8px;padding:10px 12px;cursor:pointer" onclick="pmOpenView(\''+r._id+'\')">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
-          '<div style="font-weight:700;color:#0d6e6e;display:flex;align-items:center;gap:8px">'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — Ca '+pmEsc(r.ca)+groupBadge+'</div>'+
+          '<div style="font-weight:700;color:#0d6e6e;display:flex;align-items:center;gap:8px">'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — '+pmCaDisplay(r)+groupBadge+'</div>'+
           '<div style="display:flex;gap:8px">'+stHtml+flagHtml+'</div>'+
         '</div>'+
         '<div style="font-size:12px;color:#666;margin-top:3px">'+(r.tuKiemTra ? ('<span style="color:#5b21b6;font-weight:700">🔁 Tự kiểm tra cuối tháng</span> — Người phụ trách: <b>'+pmEsc(r.nguoiGiao)+'</b>') : ('Bàn giao: <b>'+pmEsc(r.nguoiGiao)+'</b> → Nhận: <b>'+pmEsc(r.nguoiNhan)+'</b>'))+'</div>'+
@@ -39606,7 +39630,7 @@ window.dctdMoveStatus=function(id,st){
       return '<tr style="'+ev+';cursor:pointer" onclick="pmOpenView(\''+r._id+'\')">'+
         '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+(i+1)+'</td>'+
         '<td style="padding:5px 8px;border:1px solid #cdeae4;white-space:nowrap">'+pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+'</td>'+
-        '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+pmEsc(r.ca)+'</td>'+
+        '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;white-space:nowrap">'+pmCaDisplay(r)+'</td>'+
         '<td style="padding:5px 8px;border:1px solid #cdeae4">'+pmEsc(r.soHieu||'—')+'</td>'+
         '<td style="padding:5px 8px;border:1px solid #cdeae4">'+pmEsc(r.nguoiGiao)+'</td>'+
         '<td style="padding:5px 8px;border:1px solid #cdeae4">'+pmEsc(r.nguoiNhan)+'</td>'+
@@ -39759,7 +39783,7 @@ window.dctdMoveStatus=function(id,st){
     if(!pmCu||pmCu.role!=='admin'){alert('Chỉ Quản lý mới được xóa biên bản!');return;}
     if(!pmViewingId){return;}
     var r=pmRecords[pmViewingId];
-    var lbl=r?(pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — Ca '+pmEsc(r.ca)+' — Phòng '+pmEsc(r.phong||pmCurrentRoom)):pmViewingId;
+    var lbl=r?(pmFmtD(r.ngay)+(r.gio?(' '+r.gio):'')+' — '+pmCaDisplay(r)+' — Phòng '+pmEsc(r.phong||pmCurrentRoom)):pmViewingId;
     if(!confirm('Xóa VĨNH VIỄN biên bản bàn giao '+lbl+'?\n\nKhông thể khôi phục sau khi xóa. Chỉ nên dùng để xóa các phiếu TEST/nháp, không dùng cho biên bản thật đã ký.')) return;
     pmRecordsRef.child(pmViewingId).remove().then(function(){
       delete pmRecords[pmViewingId];
