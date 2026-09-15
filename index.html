@@ -10156,6 +10156,25 @@ function qlpCountWorkDays(fromStr, toStr){
   }
   return count;
 }
+// Phân tách chi tiết 1 khoảng nghỉ thành 3 loại ngày: công thực (trừ quỹ phép) / Thứ 7,CN / Ngày lễ
+// (ngày lễ được ưu tiên tính riêng, dù trùng vào cuối tuần) — dùng cho phiếu nghỉ phép chi tiết.
+function qlpCountPeriodBreakdown(fromStr, toStr){
+  if(!fromStr || !toStr) return {work:0, weekend:0, holiday:0, total:0};
+  const from = new Date(fromStr), to = new Date(toStr);
+  if(to < from) return {work:0, weekend:0, holiday:0, total:0};
+  const holidaySet = new Set(QLP_HOLIDAYS);
+  let work=0, weekend=0, holiday=0, total=0;
+  let cur = new Date(from);
+  while(cur <= to){
+    total++;
+    const dow = cur.getDay();
+    if(holidaySet.has(qlpDateStr(cur))) holiday++;
+    else if(dow===0 || dow===6) weekend++;
+    else work++;
+    cur.setDate(cur.getDate()+1);
+  }
+  return {work, weekend, holiday, total};
+}
 
 function qlpToggleAddForm(){
   const f = document.getElementById('qlpAddForm');
@@ -16706,7 +16725,7 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   const chucDanh = emp.vanBang || '';
   const khoa = emp.donVi ? ('GMHS – '+emp.donVi) : 'Gây mê Hồi sức';
   const nam = (r.createdAt ? new Date(r.createdAt) : new Date()).getFullYear();
-  let dongThoiGian, tongSo;
+  let dongThoiGian, tongSo, ghiChuThoiGian = '';
   if(isBu){
     const entries = (r.entries && r.entries.length) ? r.entries : [{date:r.date, shift:r.shift}];
     dongThoiGian = entries.map(e=>`Ngày ${fmtD(e.date)} — ${shiftLabel[e.shift]||e.shift||''}`).join('<br>');
@@ -16719,13 +16738,31 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   // Số ngày phép năm còn lại (tính đến thời điểm in phiếu) — chỉ áp dụng cho phiếu Nghỉ phép,
   // loại "Phép năm" (loại DUY NHẤT trừ vào quỹ phép năm ở "Quản lý Phép năm"). Lấy cùng nguồn dữ
   // liệu với cột "Đã nghỉ/Tổng phép năm" ở danh sách, qua npGetQlpQuota() đã có sẵn.
+  // Trình bày theo đúng mẫu tham khảo: tách "Tổng phép năm" thành Phép thâm niên + Phép thường niên
+  // (thường niên = cơ bản + khác + năm trước còn lại, gộp chung 1 mục cho gọn); đợt xin nghỉ được
+  // phân tách thành Ngày công thực / Thứ 7,CN / Ngày lễ; "Còn lại" ưu tiên trừ vào Thường niên
+  // trước, giữ nguyên Thâm niên (chỉ đụng tới Thâm niên khi Thường niên đã hết).
   let dongPhepConLai = '';
   if(!isBu && r.type==='phep-nam' && typeof npGetQlpQuota==='function'){
     const _q = npGetQlpQuota(r.person);
     if(_q){
-      const _remain = _q.total - _q.daNghi;
-      dongPhepConLai = `<div class="pn-line">Số ngày phép năm còn lại: <b>${_remain}</b> ngày (tổng được cấp ${_q.total} ngày, đã nghỉ ${_q.daNghi} ngày)</div>`
-        + `<div class="pn-line" style="font-size:0.92em;font-style:italic">Trong đó ${_q.total} ngày được cấp gồm: Phép năm cơ bản ${_q.base} ngày + Thâm niên ${_q.tham} ngày + Khác ${_q.khac} ngày + Phép năm trước còn lại ${_q.carryover} ngày</div>`;
+      const _thuongNienTong = _q.base + _q.khac + _q.carryover;
+      const _bd = (typeof qlpCountPeriodBreakdown==='function') ? qlpCountPeriodBreakdown(r.dateFrom, r.dateTo) : {work:r.days||0, weekend:0, holiday:0};
+      const _daTruDotNay = (r.status==='pending'); // phiếu chưa duyệt -> "Đã nghỉ" ở Quản lý Phép năm CHƯA cộng đợt này
+      const _daNghiTruocDot = _q.daNghi;
+      const _daNghiSauDot = _daTruDotNay ? (_daNghiTruocDot + _bd.work) : _daNghiTruocDot;
+      // Trừ dồn vào Thường niên trước, chỉ đụng Thâm niên khi Thường niên không đủ
+      const _thuongNienConLai = Math.max(0, _thuongNienTong - _daNghiSauDot);
+      const _thamNienDaTru = Math.max(0, _daNghiSauDot - _thuongNienTong);
+      const _thamNienConLai = Math.max(0, _q.tham - _thamNienDaTru);
+      dongPhepConLai = `<div class="pn-line">Tổng số ngày phép năm ${nam}: <b>${_q.total}</b> ngày</div>`
+        + `<div class="pn-sub">- Phép thâm niên: ${_q.tham} ngày.</div>`
+        + `<div class="pn-sub">- Phép thường niên: ${_thuongNienTong} ngày (gồm cơ bản ${_q.base} + khác ${_q.khac} + năm trước còn lại ${_q.carryover}).</div>`
+        + `<div class="pn-line">Đã nghỉ (trước đợt này): ${_daNghiTruocDot} ngày.</div>`
+        + `<div class="pn-line">Tổng số đợt này: ${tongSo} ngày nghỉ <i>(Trong đó: Ngày công thực ${_bd.work} ngày; Thứ 7,CN ${_bd.weekend} ngày; Ngày lễ ${_bd.holiday} ngày)</i>.</div>`
+        + `<div class="pn-line"><b>Còn lại phép năm ${nam} (sau đợt này):</b></div>`
+        + `<div class="pn-sub">- Phép thâm niên: ${_thamNienConLai} ngày.</div>`
+        + `<div class="pn-sub">- Phép thường niên: ${_thuongNienConLai} ngày.</div>`;
     }
   }
   const ngayLap = r.createdAt ? new Date(r.createdAt) : new Date();
@@ -16783,6 +16820,7 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   .pn-toolbar button{padding:8px 18px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5;}
   .pn-toolbar span{color:#666;font-size:12px;margin-left:10px;}
   .pn-line{margin:5px 0;}
+  .pn-sub{margin:2px 0 2px 22px;}
   table.pn-ky td{vertical-align:top;}
   .pn-qr-box{position:absolute;top:16px;right:22mm;text-align:center;font-size:9pt;color:#555;}
   @media print{ .pn-no-print{display:none !important;} body{padding:0 22mm;} }
@@ -16810,7 +16848,7 @@ function buildPhieuNghiHtml(loai, r, mucDich){
   <div class="pn-line">Khoa: ${esc(khoa)}</div>
   <div class="pn-line">Nay tôi viết đơn này xin được nghỉ ${isBu?'bù':'phép'} năm ${nam}</div>
   <div class="pn-line">Thời gian nghỉ:<br>${dongThoiGian}</div>
-  <div class="pn-line">Tổng thời gian: ${tongSo} ${isBu?'ngày/ca':'ngày'}</div>
+  <div class="pn-line">Tổng thời gian: ${tongSo} ${isBu?'ngày/ca':'ngày'}${ghiChuThoiGian}</div>
   ${dongPhepConLai}
   <div class="pn-line">Lý do nghỉ ${isBu?'bù':'phép'}: ${esc(r.reason||'')}</div>
   <div class="pn-line">Tôi cam kết bàn giao công việc trước khi nghỉ ${isBu?'bù':'phép'}./.</div>
@@ -24973,7 +25011,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <div class="fg"><label>Giờ bàn giao *</label><input type="time" id="pmInGio"></div>
         <div class="fg">
           <label>Ca trực *</label>
-          <select id="pmInCa" onchange="pmRenderVeSinh()"><option value="">-- Chọn Ca --</option><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option></select>
+          <select id="pmInCa" onchange="pmRenderVeSinh()"><option value="">-- Chọn Ca --</option><option value="Ngày">Ca ngày</option><option value="Đêm">Ca đêm</option><option value="Cả ngày">🌗 Cả ngày (trực 24h)</option><option value="Bàn giao tháng">🗓️ Bàn giao tháng</option></select>
         </div>
         <div class="fg"><label>Người bàn giao (ca đi) *</label><input type="text" id="pmInGiao" readonly style="background:#f2f7f6;color:#555;cursor:not-allowed"></div>
         <div class="fg" style="grid-column:1/-1">
@@ -38220,6 +38258,8 @@ window.dctdMoveStatus=function(id,st){
   // chính ngày 15. Ta tự lùi 1 ngày để hiện rõ "🌙 Đêm 14/09" thay vì mập mờ.
   function pmCaDisplay(r){
     if(!r || !r.ca) return '';
+    if(r.ca==='Cả ngày') return '🌗 Cả ngày';
+    if(r.ca==='Bàn giao tháng') return '🗓️ Bàn giao tháng';
     if(String(r.ca).indexOf('Đêm')===-1) return '☀️ Ngày';
     var h = r.gio ? parseInt(String(r.gio).split(':')[0],10) : NaN;
     if(!isNaN(h) && h < 12 && r.ngay){
@@ -38431,7 +38471,7 @@ window.dctdMoveStatus=function(id,st){
     var pmBriefBtn=document.getElementById('pmBackToBriefBtn'); if(pmBriefBtn) pmBriefBtn.style.display=briefReturnPending?'inline-flex':'none';
     document.getElementById('pmInDate').value=pmToday();
     document.getElementById('pmInGio').value=String(new Date().getHours()).padStart(2,'0')+':'+String(new Date().getMinutes()).padStart(2,'0');
-    document.getElementById('pmInCa').value='';
+    document.getElementById('pmInCa').value = pmIsMonthlyRoom(pmCurrentRoom) ? 'Bàn giao tháng' : '';
     document.getElementById('pmInGiao').value=pmCu.name;
     document.getElementById('pmInNhan').value='';
     document.getElementById('pmInGhiChuChung').value='';
