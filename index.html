@@ -1655,6 +1655,8 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         <button class="qlp-btn2" onclick="qlpToggleMissingOnly()" id="qlpMissingBtn">Chỉ hiện thiếu dữ liệu</button>
         <button class="qlp-btn2 qlp-primary" id="qlpRecalcBtn" onclick="qlpRecalcAll()" title="Cột Thâm niên đã tự động tính sẵn; nút này chỉ lưu lại giá trị đó vào dữ liệu để xuất báo cáo"><i class="ti ti-device-floppy"></i> Lưu chốt số thâm niên hiện tại</button>
         <button class="qlp-btn2 qlp-primary" onclick="qlpToggleAddForm()" id="qlpAddBtn"><i class="ti ti-user-plus"></i> Thêm nhân viên mới</button>
+        <button class="qlp-btn2" onclick="qlpXuatExcel()" style="background:#1a7a4a;color:#fff;border-color:#145c38"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
+        <button class="qlp-btn2" onclick="qlpXuatWord()" style="background:#2b579a;color:#fff;border-color:#1e3f70"><i class="ti ti-file-word"></i> Xuất Word</button>
       </div>
 
       <div id="qlpAddForm" style="display:none;background:#EAF3DE;border:1.5px solid #a0c87a;border-radius:10px;padding:14px;margin-bottom:14px">
@@ -10022,6 +10024,174 @@ function qlpRender(){
   qlpApplyPermissions();
 }
 
+// Dùng CHUNG cho cả Xuất Excel và Xuất Word: lấy đúng danh sách đang được LỌC/TÌM trên màn hình
+// (không phải toàn bộ 118 người), và tính lại đúng công thức y hệt qlpRender() đang hiển thị, để
+// số liệu trong file xuất ra luôn khớp 100% với những gì đang thấy trên bảng.
+function qlpGetFilteredExportRows(){
+  const search = document.getElementById('qlpSearchBox').value.trim().toLowerCase();
+  const fUnit = document.getElementById('qlpFilterUnit').value;
+  const fGroup = document.getElementById('qlpFilterGroup').value;
+  const fLeaveStatus = (document.getElementById('qlpFilterLeaveStatus')||{}).value||'';
+  const list = QLP_EMPLOYEES.filter(e=>{
+    if(search && !(e.name.toLowerCase().includes(search) || vnNoAccent(e.name).includes(vnNoAccent(search)))) return false;
+    if(fUnit && e.unit!==fUnit) return false;
+    if(fGroup && e.group!==fGroup) return false;
+    if(fLeaveStatus==='da' && !(e.daNghi>0)) return false;
+    if(fLeaveStatus==='chua' && (e.daNghi>0)) return false;
+    if(qlpShowMissingOnly && e.namtn) return false;
+    return true;
+  });
+  const base = qlpBaseLeave();
+  return list.map(e=>{
+    const autoTham = qlpSeniorityAuto(e);
+    const tham = autoTham !== null ? autoTham : (e.thamManual || 0);
+    const khac = e.khac || 0;
+    const total = base + tham + khac;
+    const carry = e.carryover || 0;
+    const used = e.daNghi || 0;
+    return {
+      name:e.name||'', title:e.title||'', unit:e.unit||'', group:e.group||'', namtn:e.namtn||'',
+      base, tham, khac, total, carry, used,
+      remainThisYear: total-used, remain: total+carry-used
+    };
+  });
+}
+function qlpXuatExcel(){
+  const rows = qlpGetFilteredExportRows();
+  if(!rows.length){ alert('Không có dữ liệu nào khớp với bộ lọc đang chọn để xuất — bấm "Xóa lọc" rồi thử lại.'); return; }
+  const now = new Date();
+  const nowStr = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8">
+  <!--[if gte mso 9]><xml>
+  <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+   <x:Name>BangPhep</x:Name>
+   <x:WorksheetOptions>
+    <x:PageSetup><x:Layout x:Orientation="Landscape"/></x:PageSetup>
+    <x:Print><x:ValidPrinterInfo/></x:Print>
+    <x:Selected/>
+    <x:FreezePanes/><x:FrozenNoSplit/><x:SplitHorizontal>6</x:SplitHorizontal><x:TopRowBottomPane>6</x:TopRowBottomPane><x:ActivePane>2</x:ActivePane>
+   </x:WorksheetOptions>
+  </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
+  </xml><![endif]-->
+  <style>
+    body{font-family:Times New Roman;font-size:11pt}
+    .title{font-size:14pt;font-weight:bold;text-align:center}
+    .org{font-size:10pt;text-align:center;color:#444}
+    .org2{font-size:10pt;text-align:center;color:#222;font-weight:700}
+    .th{background:#3B6D11;color:#fff;font-weight:bold;text-align:center;border:1px solid #2a4d0c;padding:5px}
+    .td{border:1px solid #cce0a8;padding:4px 6px;font-size:10pt}
+    .td-c{border:1px solid #cce0a8;padding:4px 6px;text-align:center;font-size:10pt;vertical-align:middle}
+    .ev{background:#f3f8ec}
+    .tot{background:#3B6D11;color:#fff;font-weight:bold;text-align:center}
+  </style></head><body><table>
+    <colgroup>
+      <col width="40"><col width="150"><col width="130"><col width="80"><col width="80">
+      <col width="75"><col width="75"><col width="70"><col width="55"><col width="100">
+      <col width="115"><col width="100"><col width="115"><col width="115">
+    </colgroup>
+    <tr><td colspan="14" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>
+    <tr><td colspan="14" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>
+    <tr><td colspan="14" class="title">BẢNG PHÉP NHÂN VIÊN</td></tr>
+    <tr><td colspan="14" class="org">Xuất ngày: ${nowStr} | Tổng số: ${rows.length} người (theo đúng bộ lọc đang xem)</td></tr>
+    <tr></tr>
+    <tr>
+      <td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Chức vụ</td><td class="th">Đơn nguyên</td>
+      <td class="th">Nhóm</td><td class="th">Năm tính TN</td><td class="th">Phép cơ bản</td><td class="th">Thâm niên</td>
+      <td class="th">Khác</td><td class="th">Tổng phép năm nay</td><td class="th">Phép năm trước còn lại</td>
+      <td class="th">Đã nghỉ năm nay</td><td class="th">Còn lại phép năm nay</td><td class="th">Còn lại (tổng cộng)</td>
+    </tr>`;
+  rows.forEach((r,i)=>{
+    const ev = i%2===1 ? ' ev' : '';
+    html += `<tr>
+      <td class="td-c${ev}">${i+1}</td><td class="td${ev}" style="font-weight:bold">${qlpEscapeHtml(r.name)}</td>
+      <td class="td${ev}">${qlpEscapeHtml(r.title)}</td><td class="td-c${ev}">${qlpEscapeHtml(r.unit)}</td>
+      <td class="td-c${ev}">${qlpEscapeHtml(r.group)}</td><td class="td-c${ev}">${r.namtn}</td>
+      <td class="td-c${ev}">${r.base}</td><td class="td-c${ev}">${r.tham}</td><td class="td-c${ev}">${r.khac}</td>
+      <td class="td-c${ev}" style="font-weight:700">${r.total}</td><td class="td-c${ev}">${r.carry}</td>
+      <td class="td-c${ev}">${r.used}</td><td class="td-c${ev}">${r.remainThisYear}</td>
+      <td class="td-c${ev}" style="font-weight:700;color:#1e6b53">${r.remain}</td>
+    </tr>`;
+  });
+  html += `<tr>
+    <td colspan="9" class="tot">TỔNG CỘNG</td>
+    <td class="tot">${rows.reduce((s,r)=>s+r.total,0)}</td>
+    <td class="tot">${rows.reduce((s,r)=>s+r.carry,0)}</td>
+    <td class="tot">${rows.reduce((s,r)=>s+r.used,0)}</td>
+    <td class="tot">${rows.reduce((s,r)=>s+r.remainThisYear,0)}</td>
+    <td class="tot">${rows.reduce((s,r)=>s+r.remain,0)}</td>
+  </tr></table></body></html>`;
+  const blob = new Blob(['\uFEFF'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `BangPhep_GMHS_${today()}.xls`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function qlpXuatWord(){
+  const rows = qlpGetFilteredExportRows();
+  if(!rows.length){ alert('Không có dữ liệu nào khớp với bộ lọc đang chọn để xuất — bấm "Xóa lọc" rồi thử lại.'); return; }
+  const now = new Date();
+  const nowStr = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8"><style>
+    @page{ size: 29.7cm 21cm; margin: 1.5cm; } /* khổ ngang A4 cho đủ chỗ nhiều cột */
+    body{font-family:"Times New Roman",Times,serif;font-size:11pt;color:#000}
+    table{border-collapse:collapse;width:100%;margin-top:10pt;table-layout:fixed}
+    th,td{border:1px solid #000;padding:4px 6px;font-size:10pt;word-wrap:break-word}
+    th{background:#eef3e6;font-weight:bold;text-align:center;mso-pattern:none}
+    .title{font-size:15pt;font-weight:bold;text-align:center;margin:4pt 0}
+    .org{font-size:11pt;text-align:center;margin:0}
+    .org2{font-size:12pt;text-align:center;font-weight:bold;margin:0}
+    .sig-row{display:flex;justify-content:space-around;margin-top:26pt;text-align:center}
+  </style></head><body>
+  <p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>
+  <p class="org2">KHOA GÂY MÊ HỒI SỨC</p>
+  <p class="title">BẢNG PHÉP NHÂN VIÊN</p>
+  <p style="text-align:center;font-style:italic;font-size:10.5pt">Xuất ngày: ${nowStr} — Tổng số: ${rows.length} người (theo đúng bộ lọc đang xem)</p>
+  <table>
+    <colgroup>
+      <col style="width:3%"><col style="width:15%"><col style="width:9%"><col style="width:6%"><col style="width:6%">
+      <col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:5%"><col style="width:7%">
+      <col style="width:8%"><col style="width:7%"><col style="width:8%"><col style="width:8%">
+    </colgroup>
+    <thead>
+    <tr>
+      <th>STT</th><th>Họ và tên</th><th>Chức vụ</th><th>Đơn nguyên</th>
+      <th>Nhóm</th><th>Năm tính TN</th><th>Phép cơ bản</th><th>Thâm niên</th>
+      <th>Khác</th><th>Tổng phép năm nay</th><th>Phép năm trước còn lại</th>
+      <th>Đã nghỉ năm nay</th><th>Còn lại phép năm nay</th><th>Còn lại (tổng cộng)</th>
+    </tr>
+    </thead>
+    <tbody>
+    ${rows.map((r,i)=>`<tr>
+      <td style="text-align:center">${i+1}</td><td style="font-weight:bold">${qlpEscapeHtml(r.name)}</td>
+      <td>${qlpEscapeHtml(r.title)}</td><td style="text-align:center">${qlpEscapeHtml(r.unit)}</td>
+      <td style="text-align:center">${qlpEscapeHtml(r.group)}</td><td style="text-align:center">${r.namtn}</td>
+      <td style="text-align:center">${r.base}</td><td style="text-align:center">${r.tham}</td>
+      <td style="text-align:center">${r.khac}</td><td style="text-align:center;font-weight:bold">${r.total}</td>
+      <td style="text-align:center">${r.carry}</td><td style="text-align:center">${r.used}</td>
+      <td style="text-align:center">${r.remainThisYear}</td><td style="text-align:center;font-weight:bold">${r.remain}</td>
+    </tr>`).join('')}
+    <tr>
+      <td colspan="9" style="font-weight:bold;text-align:right">TỔNG CỘNG</td>
+      <td style="text-align:center;font-weight:bold">${rows.reduce((s,r)=>s+r.total,0)}</td>
+      <td style="text-align:center;font-weight:bold">${rows.reduce((s,r)=>s+r.carry,0)}</td>
+      <td style="text-align:center;font-weight:bold">${rows.reduce((s,r)=>s+r.used,0)}</td>
+      <td style="text-align:center;font-weight:bold">${rows.reduce((s,r)=>s+r.remainThisYear,0)}</td>
+      <td style="text-align:center;font-weight:bold">${rows.reduce((s,r)=>s+r.remain,0)}</td>
+    </tr>
+    </tbody>
+  </table>
+  <div class="sig-row">
+    <div><b>NGƯỜI LẬP BẢNG</b><div style="margin-top:50pt"></div></div>
+    <div><b>TRƯỞNG KHOA</b><div style="margin-top:50pt"></div></div>
+  </div>
+  </body></html>`;
+  const blob = new Blob(['\uFEFF'+html], {type:'application/msword;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `BangPhep_GMHS_${today()}.doc`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
 function qlpRenderLeaveStatusLists(){
   const wrap = document.getElementById('qlpLeaveStatusLists');
   if(!wrap) return;
@@ -10528,6 +10698,7 @@ var notifBgTreHanItems=[];
 var notifPmTreHanItems=[];
 var notifPmRoomsPending={}; // {roomId: số phiếu chờ của phòng đó}
 var notifBgRoomsPending={}; // {roomId: số phiếu chờ của phòng Hồi sức đó}
+var notifBgRoomsIssues={}; // {roomId: {count, recId, ngay}} — số mục thiếu/hỏng CHƯA XỬ LÝ của phòng Hồi sức đó, kèm ID biên bản gần nhất chứa mục đó để nhảy thẳng vào xem
 var notifMeta={
   khan:{label:'🚨 BÁO CÁO KHẨN CẤP — thiếu/mất/sự cố', icon:'ti-alert-triangle-filled'},
   treHan:{label:'⏰ Bàn giao trễ — quá 4 giờ chưa có người nhận ký', icon:'ti-clock-exclamation'},
@@ -10556,7 +10727,7 @@ function notifInit(){
   }catch(e){ console.warn('notifInit dctd:',e); }
   try{
     db.ref('bgRecords').on('value',function(snap){
-      var n=0, roomsMap={}, khanItems=[], treHanItems=[], hoanThanhItems=[];
+      var n=0, roomsMap={}, khanItems=[], treHanItems=[], hoanThanhItems=[], roomsIssueMap={};
       var TRE_HAN_MS=4*3600*1000;
       var homNay=new Date().toISOString().slice(0,10);
       var hoanThanhCount=0;
@@ -10579,10 +10750,19 @@ function notifInit(){
             }
           }
           if(r&&r.baoCaoKhan&&r.baoCaoKhan.length){ khanItems.push({roomId:roomSnap.key,id:recSnap.key,lines:r.baoCaoKhan,ngay:r.ngay}); }
+          // Đếm mục thiếu/hỏng CHƯA XỬ LÝ (không có .xuLy) trong biên bản này, gộp theo phòng — để hiện
+          // nhanh icon cảnh báo ngay trên ô chọn phòng, bấm vào là nhảy thẳng tới biên bản gần nhất có
+          // mục thiếu/hỏng đó (giống hệt cách "Giao ban sáng" đang làm, chỉ khác là lộ ra ngay từ đầu).
+          var badKeysRoom=Object.keys(r&&r.items||{}).filter(function(k){ var it=r.items[k]; return it&&(it.status==='thieu'||it.status==='hong')&&!it.xuLy; });
+          if(badKeysRoom.length){
+            if(!roomsIssueMap[roomSnap.key]) roomsIssueMap[roomSnap.key]={count:0, recId:recSnap.key, ngay:r.ngay||''};
+            roomsIssueMap[roomSnap.key].count += badKeysRoom.length;
+            if((r.ngay||'')>=roomsIssueMap[roomSnap.key].ngay){ roomsIssueMap[roomSnap.key].ngay=r.ngay||''; roomsIssueMap[roomSnap.key].recId=recSnap.key; }
+          }
         });
         if(c>0) roomsMap[roomSnap.key]=c;
       });
-      notifCounts.bg=n; notifBgRoomsPending=roomsMap; notifBgKhanItems=khanItems; notifBgTreHanItems=treHanItems;
+      notifCounts.bg=n; notifBgRoomsPending=roomsMap; notifBgKhanItems=khanItems; notifBgTreHanItems=treHanItems; notifBgRoomsIssues=roomsIssueMap;
       notifBgHoanThanhCount=hoanThanhCount;
       notifBgHoanThanhItems=hoanThanhItems;
       notifCounts.hoanThanh=notifBgHoanThanhCount+notifPmHoanThanhCount;
@@ -25577,6 +25757,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 #ddnlNoiDungEditable td, #ddnlNoiDungEditable th{border:1px solid #999;padding:6px 8px;}
 #ddnlNoiDungEditable *{position:static !important;}
 #ddnlNoiDungEditable table, #ddnlNoiDungEditable div, #ddnlNoiDungEditable p{margin-left:0 !important;}
+.ddnl-img-wrap{display:inline-block;overflow:hidden;resize:both;max-width:100%;min-width:40px;min-height:30px;vertical-align:top;border:1px solid transparent;box-sizing:border-box;}
+.ddnl-img-wrap:hover{border-color:#90caf9;}
+.ddnl-img-wrap img{width:100%;height:100%;display:block;object-fit:contain;pointer-events:none;}
 @keyframes ddnlFlash{ 0%{box-shadow:0 0 0 3px var(--ddnl-gold);} 100%{box-shadow:0 0 0 3px transparent;} }
 .ddnl-flash{animation:ddnlFlash 1.4s ease-out 2;border-radius:8px;}
 
@@ -25617,8 +25800,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 .ddnl-doc-title{text-align:center;font-weight:700;font-size:16px;margin:18px 0 2px;text-transform:uppercase;}
 .ddnl-doc-subtitle{text-align:center;font-style:italic;margin-bottom:14px;}
 .ddnl-doc-section-title{font-weight:700;margin:14px 0 4px;}
-.ddnl-doc table{font-size:12.5px;margin-top:6px;}
-.ddnl-doc th{background:#eee;color:#111;font-size:11.5px;text-transform:none;}
+.ddnl-doc table{font-size:12.5px;margin-top:6px;border-collapse:collapse;width:100%;}
+.ddnl-doc th{background:#eee;color:#111;font-size:11.5px;text-transform:none;border:1px solid #000;padding:4px 6px;}
+.ddnl-doc td{border:1px solid #000;padding:4px 6px;}
 .ddnl-doc .ddnl-signs{display:flex;justify-content:space-between;margin-top:26px;text-align:center;}
 .ddnl-doc .ddnl-signs .ddnl-sign-col{width:46%;}
 .ddnl-doc .ddnl-signs .ddnl-sign-title{font-weight:700;text-transform:uppercase;}
@@ -27938,6 +28122,7 @@ function renderModal(){
           </div>
           <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnExportWord">Xuất Word (.doc)</button>
           <button class="ddnl-btn ddnl-btn-primary ddnl-btn-sm" id="ddnlBtnPrintDoc">In phiếu</button>
+          <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnToggleZoomDoc" title="Phóng to/thu nhỏ khung xem"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
           <button class="ddnl-modal-close" id="ddnlBtnCloseModal">✕</button>
         </div>
       </div>
@@ -28019,6 +28204,12 @@ function renderModal(){
   document.getElementById('ddnlBtnCloseModal').onclick = closeModal;
   document.getElementById('ddnlBtnPrintDoc').onclick = ()=>window.print();
   document.getElementById('ddnlBtnExportWord').onclick = ()=>exportRequestToWord(r);
+  document.getElementById('ddnlBtnToggleZoomDoc').onclick = (e)=>{
+    e.preventDefault();
+    const modalBox = overlay.querySelector('.ddnl-modal');
+    const zoomed = modalBox.classList.toggle('ddnl-modal-zoomed');
+    e.currentTarget.innerHTML = zoomed ? '<i class="ti ti-arrows-minimize"></i> Thu gọn giao diện' : '<i class="ti ti-arrows-maximize"></i> Phóng to giao diện';
+  };
   const applyZoom = ()=>{
     const pa = document.getElementById('ddnlPrintArea');
     const lbl = document.getElementById('ddnlZoomLabel');
@@ -29422,6 +29613,8 @@ function openNoiDungSoanModal(){
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="insertUnorderedList">• Danh sách</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="insertOrderedList">1. Danh sách</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenBang">⊞ Chèn bảng</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenAnh" title="Chèn ảnh từ máy tính (giống dán ảnh trong Word) — bấm vào ảnh đã chèn để kéo phóng to/nhỏ ở góc dưới-phải">🖼️ Chèn ảnh</button>
+          <input type="file" id="ddnlFileAnh" accept="image/*" style="display:none">
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenHang" title="Chèn 1 hàng mới ngay dưới hàng đang đặt con trỏ">➕ Hàng</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenCot" title="Chèn 1 cột mới ngay bên phải cột đang đặt con trỏ">➕ Cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaHang" title="Xóa hàng đang đặt con trỏ">➖ Hàng</button>
@@ -29518,6 +29711,12 @@ function openNoiDungSoanModal(){
         sel.addRange(range);
       }
     }
+  };
+  document.getElementById('ddnlBtnChenAnh').onclick = (e)=>{ e.preventDefault(); document.getElementById('ddnlFileAnh').click(); };
+  document.getElementById('ddnlFileAnh').onchange = (e)=>{
+    const fileChon = e.target.files && e.target.files[0];
+    if(fileChon) ddnlChenAnhVaoNoiDung(fileChon);
+    e.target.value=''; // cho phép chọn lại đúng file đó lần sau nếu cần
   };
   // Tìm ô (td/th) đang đặt con trỏ, để biết đang ở hàng/cột nào mà chèn/xóa cho đúng chỗ
   function timOConTroHienTai(){
@@ -29677,7 +29876,51 @@ function ddnlSanitizePasteHtml(html){
   })(tmp);
   return tmp.innerHTML;
 }
+// Chèn 1 ảnh (từ máy tính hoặc từ clipboard dán vào) ngay tại vị trí con trỏ trong khung soạn nội
+// dung — tự động thu nhỏ bớt về tối đa 1200px để phiếu không bị quá nặng khi lưu Firebase/gửi đi,
+// đồng thời bọc trong 1 khung có thể KÉO GÓC DƯỚI-PHẢI để phóng to/nhỏ, giống hệt cách chỉnh ảnh
+// trong Word (ảnh mẫu anh gửi có các nút vuông quanh ảnh để kéo — ở đây kéo tại góc dưới-phải).
+function ddnlChenAnhVaoNoiDung(file){
+  if(!file || !file.type || file.type.indexOf('image/')!==0){ alert('Vui lòng chọn đúng file ảnh (jpg, png...).'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const MAX = 1200;
+      let w = img.naturalWidth||300, h = img.naturalHeight||200;
+      if(w>MAX || h>MAX){ const ti=Math.min(MAX/w, MAX/h); w=Math.round(w*ti); h=Math.round(h*ti); }
+      const canvas = document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      let dataUrl;
+      try{ dataUrl = canvas.toDataURL('image/jpeg', 0.85); }catch(errCv){ dataUrl = ev.target.result; }
+      const ed = document.getElementById('ddnlNoiDungEditable');
+      ed.focus();
+      const dispW = Math.min(w, 320);
+      const dispH = Math.max(30, Math.round(dispW*h/w));
+      const html = '<span class="ddnl-img-wrap" contenteditable="false" style="width:'+dispW+'px;height:'+dispH+'px;"><img src="'+dataUrl+'" alt="Ảnh đính kèm"></span>&nbsp;';
+      document.execCommand('insertHTML', false, html);
+    };
+    img.onerror = function(){ alert('Không đọc được ảnh này, vui lòng thử ảnh khác.'); };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
+    // Dán trực tiếp 1 ảnh (Ctrl+V ảnh chụp/copy từ nơi khác) -> chèn ngay như ảnh từ máy tính, không
+    // để trình duyệt tự xử lý (mỗi trình duyệt/mỗi máy cho kết quả khác nhau, có máy không dán được).
+    const cdImg = e.clipboardData || window.clipboardData;
+    if(cdImg && cdImg.items){
+      for(let iImg=0; iImg<cdImg.items.length; iImg++){
+        const itImg = cdImg.items[iImg];
+        if(itImg && itImg.type && itImg.type.indexOf('image/')===0){
+          e.preventDefault();
+          const fileImg = itImg.getAsFile();
+          if(fileImg) ddnlChenAnhVaoNoiDung(fileImg);
+          return;
+        }
+      }
+    }
     const ed = document.getElementById('ddnlNoiDungEditable');
     const oHienTai = timOConTroHienTai(); // đang đặt con trỏ TRONG 1 ô của bảng CÓ SẴN không?
     const cd = e.clipboardData || window.clipboardData;
@@ -35437,11 +35680,26 @@ window.dctdMoveStatus=function(id,st){
     var box=document.getElementById('bgRoomGrid');
     if(!box) return;
     var pend=(typeof notifBgRoomsPending!=='undefined') ? notifBgRoomsPending : {};
+    var issues=(typeof notifBgRoomsIssues!=='undefined') ? notifBgRoomsIssues : {};
     box.innerHTML=BG_ROOMS.map(function(r){
       var n=pend[r]||0;
       var badge=n>0 ? '<span style="position:absolute;top:-6px;right:-6px;background:#c62828;color:#fff;border-radius:999px;min-width:20px;height:20px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 5px rgba(0,0,0,.25)">'+n+'</span>' : '';
-      return '<button class="kpi-btn" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;border:1.5px solid #f0d9a8;color:#7c2d12" onclick="bgSelectRoom(\''+r+'\')"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>'+bgEsc(r)+badge+'</button>';
+      // Icon cảnh báo THIẾU/HỎNG chưa xử lý (khác với badge "chờ hoàn thành" ở góc phải) — đặt góc
+      // trái, màu đỏ nổi bật, kèm viền đỏ quanh cả ô phòng để thấy ngay từ xa. Bấm vào icon này sẽ
+      // nhảy thẳng vào đúng biên bản gần nhất đang có mục thiếu/hỏng đó, không cần dò tìm thủ công.
+      var iss=issues[r];
+      var issueBadge = iss&&iss.count>0
+        ? '<span onclick="event.stopPropagation();bgGotoIssueRoom(\''+r+'\',\''+iss.recId+'\')" title="Có '+iss.count+' mục thiếu/hỏng chưa xử lý — bấm để xem ngay" style="cursor:pointer;position:absolute;top:-6px;left:-6px;background:#c62828;color:#fff;border-radius:999px;min-width:22px;height:22px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 2px 5px rgba(0,0,0,.3);gap:2px"><i class="ti ti-alert-triangle-filled" style="font-size:11px"></i>'+iss.count+'</span>'
+        : '';
+      var borderStyle = (iss&&iss.count>0) ? 'border:2px solid #c62828' : 'border:1.5px solid #f0d9a8';
+      return '<button class="kpi-btn" style="position:relative;padding:16px 8px;font-size:14px;font-weight:700;background:#fff;'+borderStyle+';color:#7c2d12" onclick="bgSelectRoom(\''+r+'\')"><i class="ti ti-door" style="display:block;font-size:22px;margin-bottom:4px"></i>'+bgEsc(r)+badge+issueBadge+'</button>';
     }).join('');
+  };
+  // Bấm icon cảnh báo thiếu/hỏng trên ô chọn phòng: vào thẳng phòng đó rồi mở ngay đúng biên bản
+  // đang chứa mục thiếu/hỏng chưa xử lý — không cần chọn phòng xong rồi tự tìm trong danh sách.
+  window.bgGotoIssueRoom=function(roomId, recId){
+    bgSelectRoom(roomId);
+    setTimeout(function(){ try{ bgOpenView(recId); }catch(e){ console.warn(e); } }, 400);
   };
   window.bgOpenRoomsManage=function(){
     if(!bgCu||bgCu.role!=='admin'){alert('Chỉ Quản lý mới thao tác được!');return;}
