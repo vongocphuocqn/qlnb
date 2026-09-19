@@ -260,6 +260,9 @@ font-size:10px;color:var(--tx3)}
 .kpi-box-maximized{max-width:97vw!important;width:97vw!important;max-height:94vh!important;height:94vh!important}
 .kpi-box-maximized #assignNoteInput{min-height:40vh}
 .kpi-wide-maximized{max-width:98vw!important;width:98vw!important}
+.section-zoom-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998}
+.section-zoomed{position:fixed!important;top:3vh!important;left:3vw!important;right:3vw!important;bottom:3vh!important;width:94vw!important;max-width:94vw!important;height:88vh!important;max-height:88vh!important;z-index:99999!important;overflow-y:auto!important;background:#fff!important;box-shadow:0 12px 44px rgba(0,0,0,.4)!important;border-radius:14px!important;padding:18px!important;display:block!important}
+.section-zoom-btn{background:#fff;border:1.5px solid currentColor;border-radius:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;flex:none}
 .modal{background:#fff;border-radius:14px;padding:22px 20px;width:100%;max-width:400px;
   box-shadow:0 8px 32px rgba(0,0,0,.18);margin:auto;transition:max-width .15s}
 .modal h3{font-size:15px;font-weight:700;color:var(--g800);margin-bottom:14px;
@@ -2832,6 +2835,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
       <div class="tsub">BVĐK Trung tâm tỉnh Gia Lai &nbsp;<span class="sync-dot spin" id="syncDot"></span><span id="syncMsg" style="font-size:10px;color:rgba(255,255,255,.7)">Đang kết nối...</span></div>
     </div>
     <div class="ubadge"><div class="uav" id="tAv"></div><span id="tName"></span></div>
+    <button class="tbtn" onclick="goHome()"><i class="ti ti-home"></i> Trang chủ</button>
     <button class="tbtn" id="btnStaff" onclick="openStaffModal()" style="display:none"><i class="ti ti-users"></i> Nhân viên</button>
     <button class="tbtn" id="btnPwd" onclick="openPwdModal()" style="display:none"><i class="ti ti-lock"></i> Đổi mật khẩu</button>
     <button class="tbtn" id="btnExport" onclick="exportCSV()" style="display:none"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
@@ -10654,6 +10658,45 @@ function kpiToggleWideBox(boxId, btnId){
   if(!box) return;
   var isMax=box.classList.toggle('kpi-wide-maximized');
   if(btn){ btn.innerHTML = isMax ? '<i class="ti ti-arrows-minimize"></i> Thu gọn giao diện' : '<i class="ti ti-arrows-maximize"></i> Phóng to giao diện'; }
+}
+/* ══ Phóng đại 1 khối/mục cụ thể (VD: Lập biên bản, Lịch sử, Danh sách công khai...) ══
+   Bung khối đó ra thành lớp phủ gần toàn màn hình để xem/thao tác cho dễ, bấm lại (hoặc bấm
+   ra ngoài nền tối) để thu về vị trí cũ. Dùng chung cho mọi khối, chỉ cần truyền đúng id khối
+   (wrapId) và id nút bấm (btnId) để đổi icon phóng to <-> thu nhỏ. */
+function genSectionZoom(wrapId, btnId, ev){
+  if(ev){ ev.stopPropagation(); }
+  var el=document.getElementById(wrapId);
+  if(!el) return;
+  var isZoom=el.classList.toggle('section-zoomed');
+  var bd=document.getElementById(wrapId+'_zbd');
+  var closeBtn=document.getElementById(wrapId+'_zclose');
+  if(isZoom){
+    if(!bd){
+      bd=document.createElement('div');
+      bd.id=wrapId+'_zbd';
+      bd.className='section-zoom-backdrop';
+      bd.onclick=function(){ genSectionZoom(wrapId, btnId); };
+      document.body.appendChild(bd);
+    }
+    // Chèn nút "Thu nhỏ" nổi ngay trong khối — vì tiêu đề (chứa nút gốc) nằm NGOÀI khối này
+    // nên khi khối phóng to che hết màn hình, tiêu đề (và nút gốc) sẽ bị khuất phía sau.
+    if(!closeBtn){
+      closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.id=wrapId+'_zclose';
+      closeBtn.innerHTML='<i class="ti ti-arrows-minimize"></i> Thu nhỏ';
+      closeBtn.style.cssText='position:sticky;top:0;float:right;margin:0 0 10px 10px;background:#0d6e6e;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+      closeBtn.onclick=function(){ genSectionZoom(wrapId, btnId); };
+      el.insertBefore(closeBtn, el.firstChild);
+    }
+    document.body.style.overflow='hidden';
+  } else {
+    if(bd) bd.remove();
+    if(closeBtn) closeBtn.remove();
+    document.body.style.overflow='';
+  }
+  var btn=document.getElementById(btnId);
+  if(btn) btn.innerHTML = isZoom ? '<i class="ti ti-arrows-minimize"></i>' : '<i class="ti ti-arrows-maximize"></i>';
 }
 
 /* ══ Thông báo tổng — Phiếu cần xử lý (chỉ Quản lý xem, realtime) ══ */
@@ -19343,13 +19386,19 @@ function openNpApprove(id){
   var gridHTML = '<div style="font-size:11px;font-weight:700;color:#00695c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px"><i class="ti ti-users"></i> Phân người thay thế theo từng ngày</div>';
   for(var i=0;i<dates.length;i++){
     var parsedRepl = npParseReplCa(existingRepls[i]||'');
-    gridHTML += '<div style="display:grid;grid-template-columns:120px 1fr 110px;gap:8px;align-items:center;margin-bottom:8px;padding:8px 10px;background:#f0faf8;border:1.5px solid #a7d4ce;border-radius:9px">'
-      +'<div style="font-size:12px;font-weight:700;color:#00695c">'+fmtD(dates[i])+'</div>'
-      +'<div>'+npBuildReplSelect(i, parsedRepl.name)+'</div>'
-      +'<div>'+npBuildCaSelect(i, parsedRepl.ca)+'</div>'
+    gridHTML += '<div style="margin-bottom:8px;padding:8px 10px;background:#f0faf8;border:1.5px solid #a7d4ce;border-radius:9px">'
+      +'<div style="font-size:12px;font-weight:700;color:#00695c;margin-bottom:6px">'+fmtD(dates[i])+'</div>'
+      +'<div style="display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:center;margin-bottom:6px">'
+      +  '<div style="font-size:11.5px;font-weight:700;color:#f57f17">☀️ Ngày</div>'
+      +  '<div>'+npBuildReplSelect(i+'_ngay', parsedRepl.ngay)+'</div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:center">'
+      +  '<div style="font-size:11.5px;font-weight:700;color:#5e35b1">🌙 Đêm</div>'
+      +  '<div>'+npBuildReplSelect(i+'_dem', parsedRepl.dem)+'</div>'
+      +'</div>'
       +'</div>';
   }
-  gridHTML += '<div style="font-size:11px;color:#888;margin-top:2px"><i class="ti ti-info-circle"></i> Để trống nếu ngày đó không cần người thay. Không chọn Ca = áp dụng cả ngày.</div>';
+  gridHTML += '<div style="font-size:11px;color:#888;margin-top:2px"><i class="ti ti-info-circle"></i> Để trống nếu ca đó không cần người thay.</div>';
   document.getElementById('npReplGrid').innerHTML = gridHTML;
 
   document.getElementById('npApproveNote').value=r.adminNote||'';
@@ -19360,25 +19409,28 @@ function closeNpApprove(){document.getElementById('npApproveModal').classList.re
 // Tách chuỗi người-thay-thế cũ dạng "Nguyễn Văn A (Ca Đêm)" thành {name:'Nguyễn Văn A', ca:'dem'} để
 // hiển thị đúng lại vào 2 ô riêng (tên + ca) khi mở lại phiếu đã từng chọn ca. Nếu không có hậu tố
 // (Ca ...) thì coi như áp dụng CẢ NGÀY (ca rỗng), giữ đúng hành vi cũ cho dữ liệu đã lưu trước đây.
+// Tách chuỗi người-thay-thế của 1 ngày thành {ngay:'', dem:''} để đổ vào 2 ô riêng (Ngày/Đêm).
+// Hỗ trợ đọc lại cả 3 kiểu dữ liệu đã từng lưu trước đây:
+//  - Định dạng mới "Ngày: A — Đêm: B" (hoặc chỉ 1 vế)
+//  - Định dạng cũ có hậu tố "(Ca Ngày)"/"(Ca Đêm)"
+//  - Tên trơn không hậu tố = áp dụng CẢ NGÀY (đổ vào cả 2 ô để không mất dữ liệu cũ)
 function npParseReplCa(str){
-  var s=String(str||'');
+  var s=String(str||'').trim();
+  if(!s) return {ngay:'',dem:''};
+  var mN=s.match(/Ngày:\s*([^—]+?)\s*(?:—|$)/);
+  var mD=s.match(/Đêm:\s*([^—]+?)\s*(?:—|$)/);
+  if(mN||mD) return {ngay:mN?mN[1].trim():'', dem:mD?mD[1].trim():''};
   var m=s.match(/^(.*?)\s*\(Ca\s+(Ngày|Đêm)\)\s*$/);
-  if(m) return {name:m[1], ca:(m[2]==='Đêm'?'dem':'ngay')};
-  return {name:s, ca:''};
-}
-function npBuildCaSelect(idx, currentCa){
-  var opts=[['','Cả ngày'],['ngay','Ca Ngày'],['dem','Ca Đêm']];
-  return '<select id="npReplCa_'+idx+'" style="width:100%;border:1.5px solid #a7d4ce;border-radius:8px;padding:7px 6px;font-size:12.5px;font-family:inherit;color:#00695c;background:#fff;box-sizing:border-box">'
-    +opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===currentCa?' selected':'')+'>'+o[1]+'</option>';}).join('')
-    +'</select>';
+  if(m) return (m[2]==='Đêm') ? {ngay:'',dem:m[1].trim()} : {ngay:m[1].trim(),dem:''};
+  return {ngay:s, dem:s};
 }
 function npBuildReplSelect(idx, currentVal){
   var val=(currentVal||'').replace(/"/g,'&quot;');
   return '<div style="position:relative">'
     +'<input id="npRepl_'+idx+'" value="'+val+'" '
-    +'oninput="npFilterReplRow('+idx+')" onfocus="npShowReplRowDrop('+idx+')" '
-    +'onblur="setTimeout(function(){npHideReplRowDrop('+idx+')},180)" '
-    +'onkeydown="npNavReplRowDrop(event,'+idx+')" '
+    +'oninput="npFilterReplRow(\''+idx+'\')" onfocus="npShowReplRowDrop(\''+idx+'\')" '
+    +'onblur="setTimeout(function(){npHideReplRowDrop(\''+idx+'\')},180)" '
+    +'onkeydown="npNavReplRowDrop(event,\''+idx+'\')" '
     +'placeholder="🔍 Gõ tên để tìm nhanh..." autocomplete="off" '
     +'style="width:100%;border:1.5px solid #a7d4ce;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;color:#00695c;background:#fff;box-sizing:border-box">'
     +'<div id="npReplRowDrop_'+idx+'" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:180px;overflow-y:auto;background:#fff;border:1.5px solid #a7d4ce;border-top:none;border-radius:0 0 9px 9px;z-index:999;box-shadow:0 6px 16px rgba(0,105,92,.15)"></div>'
@@ -19467,14 +19519,22 @@ function npDoApprove(status){
       if(!confirm('CẢNH BÁO: '+rec.person+' đã có phiếu ĐÃ DUYỆT khác trùng ngày:\n- '+npConflicts.join('\n- ')+'\n\n1 ngày chỉ nên có 1 loại nghỉ (Phép hoặc Nghỉ bù), tránh lệch khi đối chiếu HIS. Vẫn muốn duyệt phiếu này?')) return;
     }
   }
-  // Collect per-day replacers (kèm Ca Ngày/Đêm nếu Quản lý có chọn)
+  // Collect per-day replacers, riêng theo Ngày và Đêm cho từng ngày
   var replacers=[];
   var i=0;
-  while(document.getElementById('npRepl_'+i)){
-    var _name=(document.getElementById('npRepl_'+i).value||'').trim();
-    var _caEl=document.getElementById('npReplCa_'+i);
-    var _ca=_caEl?_caEl.value:'';
-    var _val = (_name && _ca) ? (_name+' (Ca '+(_ca==='dem'?'Đêm':'Ngày')+')') : _name;
+  while(document.getElementById('npRepl_'+i+'_ngay') || document.getElementById('npRepl_'+i+'_dem')){
+    var _elN=document.getElementById('npRepl_'+i+'_ngay');
+    var _elD=document.getElementById('npRepl_'+i+'_dem');
+    var _nameN=_elN?(_elN.value||'').trim():'';
+    var _nameD=_elD?(_elD.value||'').trim():'';
+    var _val='';
+    if(_nameN && _nameD){
+      _val = (_nameN===_nameD) ? _nameN : ('Ngày: '+_nameN+' — Đêm: '+_nameD);
+    } else if(_nameN){
+      _val = 'Ngày: '+_nameN;
+    } else if(_nameD){
+      _val = 'Đêm: '+_nameD;
+    }
     replacers.push(_val);
     i++;
   }
@@ -19506,12 +19566,20 @@ function npDoApprove(status){
 }
 function npReplacerDisplay(r){
   if(r.replacers&&r.replacers.filter(Boolean).length){
-    // Show per-day replacers
+    // Show per-day replacers, mỗi ca (Ngày/Đêm) xuống 1 hàng riêng cho dễ nhìn
     var out='';
-    var d=new Date(r.dateFrom);
     r.replacers.forEach(function(rep,i){
+      if(!rep) return;
       var dateStr=fmtD(new Date(new Date(r.dateFrom).setDate(new Date(r.dateFrom).getDate()+i)).toISOString().split('T')[0]);
-      if(rep) out+='<div style="font-size:11px;line-height:1.7"><span style="color:#888">'+dateStr+':</span> <b>'+esc(rep)+'</b></div>';
+      var mN=rep.match(/Ngày:\s*([^—]+?)\s*(?:—|$)/);
+      var mD=rep.match(/Đêm:\s*([^—]+?)\s*(?:—|$)/);
+      out+='<div style="font-size:11px;line-height:1.7;margin-bottom:2px"><span style="color:#888">'+dateStr+':</span></div>';
+      if(mN||mD){
+        if(mN) out+='<div style="font-size:11px;line-height:1.6;padding-left:10px">☀️ Ngày: <b>'+esc(mN[1].trim())+'</b></div>';
+        if(mD) out+='<div style="font-size:11px;line-height:1.6;padding-left:10px;margin-bottom:4px">🌙 Đêm: <b>'+esc(mD[1].trim())+'</b></div>';
+      } else {
+        out+='<div style="font-size:11px;line-height:1.6;padding-left:10px;margin-bottom:4px"><b>'+esc(rep)+'</b></div>';
+      }
     });
     return out||'—';
   }
@@ -25184,7 +25252,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     <div id="pmGroupProgressBanner" style="display:none;margin:0 0 14px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;padding:10px 14px;font-size:13px;color:#8a5300;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
 
     <div class="kpi-section" style="margin-bottom:14px">
-      <h3 style="margin:0 0 12px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmFormWrap','pmFormChevron')"><span><i class="ti ti-square-plus"></i> Lập biên bản bàn giao</span><span id="pmFormChevron" style="font-size:13px">▾</span></h3>
+      <h3 style="margin:0 0 12px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px" onclick="cmeToggleSection('pmFormWrap','pmFormChevron')"><span><i class="ti ti-square-plus"></i> Lập biên bản bàn giao</span><span style="display:flex;align-items:center;gap:8px"><button type="button" class="section-zoom-btn" id="pmFormZoomBtn" title="Phóng to khối này" onclick="genSectionZoom('pmFormWrap','pmFormZoomBtn',event)"><i class="ti ti-arrows-maximize"></i></button><span id="pmFormChevron" style="font-size:13px">▾</span></span></h3>
       <div id="pmFormWrap">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin-bottom:12px">
         <div class="fg"><label>Ngày bàn giao *</label><input type="date" id="pmInDate" onchange="pmRenderVeSinh()"></div>
@@ -25311,7 +25379,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
 
     <div class="kpi-section" style="margin-bottom:14px;background:#eaf7f5;border:1.5px solid #8fd0c4">
-      <h3 style="margin:0 0 4px;font-size:15px;color:#0a6b5e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmPendingWrap','pmPendingChevron')"><span><i class="ti ti-clock-exclamation"></i> Biên bản CHỜ HOÀN THÀNH — <span id="pmPendingRoomTitle">phòng hiện tại</span> (<span id="pmPendingCount">0</span>)</span><span id="pmPendingChevron" style="font-size:13px">▾</span></h3>
+      <h3 style="margin:0 0 4px;font-size:15px;color:#0a6b5e;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px" onclick="cmeToggleSection('pmPendingWrap','pmPendingChevron')"><span><i class="ti ti-clock-exclamation"></i> Biên bản CHỜ HOÀN THÀNH — <span id="pmPendingRoomTitle">phòng hiện tại</span> (<span id="pmPendingCount">0</span>)</span><span style="display:flex;align-items:center;gap:8px"><button type="button" class="section-zoom-btn" id="pmPendingZoomBtn" title="Phóng to khối này" onclick="genSectionZoom('pmPendingWrap','pmPendingZoomBtn',event)"><i class="ti ti-arrows-maximize"></i></button><span id="pmPendingChevron" style="font-size:13px">▾</span></span></h3>
       <div id="pmPendingWrap">
       <div class="sub" style="margin:8px 0">Các biên bản mới có 1 bên ký — cần bên còn lại tự ký (qua QR/mã) hoặc ký trực tiếp nếu có mặt để hoàn thành.</div>
       <div id="pmPendingList" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -25319,7 +25387,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
 
     <div class="kpi-section">
-      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmHistWrap','pmHistChevron')"><span><i class="ti ti-history"></i> Lịch sử biên bản đã lập — <span id="pmHistRoomTitle">phòng hiện tại</span> (<span id="pmHistCount">0</span>)</span><span id="pmHistChevron" style="font-size:13px">▾</span></h3>
+      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px" onclick="cmeToggleSection('pmHistWrap','pmHistChevron')"><span><i class="ti ti-history"></i> Lịch sử biên bản đã lập — <span id="pmHistRoomTitle">phòng hiện tại</span> (<span id="pmHistCount">0</span>)</span><span style="display:flex;align-items:center;gap:8px"><button type="button" class="section-zoom-btn" id="pmHistZoomBtn" title="Phóng to khối này" onclick="genSectionZoom('pmHistWrap','pmHistZoomBtn',event)"><i class="ti ti-arrows-maximize"></i></button><span id="pmHistChevron" style="font-size:13px">▾</span></span></h3>
       <div id="pmHistWrap">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:10px 0">
         <div class="fg" style="margin:0"><label>Từ ngày</label><input type="date" id="pmHistFrom" onchange="pmRenderHistory()"></div>
@@ -25364,7 +25432,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
     </div>
 
     <div class="kpi-section" id="pmListBox" style="display:none">
-      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="cmeToggleSection('pmListWrap','pmListChevron')"><span><i class="ti ti-list"></i> Danh sách công khai — <span id="pmListRoomTitle">phòng hiện tại</span></span><span id="pmListChevron" style="font-size:13px">▾</span></h3>
+      <h3 style="margin:0 0 4px;font-size:15px;color:#0d6e6e;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px" onclick="cmeToggleSection('pmListWrap','pmListChevron')"><span><i class="ti ti-list"></i> Danh sách công khai — <span id="pmListRoomTitle">phòng hiện tại</span></span><span style="display:flex;align-items:center;gap:8px"><button type="button" class="section-zoom-btn" id="pmListZoomBtn" title="Phóng to khối này" onclick="genSectionZoom('pmListWrap','pmListZoomBtn',event)"><i class="ti ti-arrows-maximize"></i></button><span id="pmListChevron" style="font-size:13px">▾</span></span></h3>
       <div id="pmListWrap">
       <div class="sub" style="margin-bottom:10px">Xem được bởi cả Nhân viên và Quản lý, gồm mọi trạng thái (Chờ hoàn thành / Hoàn thành).</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
