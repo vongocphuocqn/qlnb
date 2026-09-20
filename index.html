@@ -46886,9 +46886,11 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     if(!tuNgay||!denNgay){ showErr('Vui lòng chọn đủ Từ ngày - Đến ngày thực hành.'); return; }
     if(!(document.getElementById('svttMNguoiHD').value||'').trim()){ showErr('Vui lòng chọn/nhập Người hướng dẫn cho học viên này.'); return; }
     // Cảnh báo (không chặn cứng) nếu người hướng dẫn đang chọn đã đạt/vượt mức tối đa 5 học viên
-    // cùng lúc theo quy định Nghị định 96 — vẫn cho thêm nếu người dùng xác nhận vẫn muốn tiếp tục.
+    // THỰC SỰ TRÙNG THỜI GIAN THỰC HÀNH (không phải cứ chưa đánh dấu "Hoàn thành"/"Nghỉ" là tính
+    // vào, vì như vậy sẽ đếm nhầm cả những người có lịch không hề trùng nhau) — theo quy định
+    // Nghị định 96. Vẫn cho thêm nếu người dùng xác nhận vẫn muốn tiếp tục.
     var effectiveHD = (document.getElementById('svttMNguoiHD').value||'').trim();
-    if(effectiveHD){
+    if(effectiveHD && tuNgay && denNgay){
       var normHD = effectiveHD.trim().toLowerCase();
       var cntHD = 0;
       Object.keys(svttMembers||{}).forEach(function(k){
@@ -46897,10 +46899,13 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         if(mm.trangThai==='hoan_thanh' || mm.trangThai==='nghi') return;
         var dd = svttDots[mm.dotId]||{};
         var hdOfM = (mm.nguoiHuongDan||dd.nguoiHuongDanChinh||'').trim().toLowerCase();
-        if(hdOfM===normHD) cntHD++;
+        if(hdOfM!==normHD) return;
+        var mTu = mm.tuNgay||dd.tuNgay, mDen = mm.denNgay||dd.denNgay;
+        if(!mTu || !mDen) return; // thiếu ngày thì không đủ căn cứ để tính là trùng lịch
+        if(svttRangesOverlap(tuNgay, denNgay, mTu, mDen)) cntHD++;
       });
       if(cntHD>=5){
-        if(!confirm('⚠️ "'+effectiveHD+'" hiện đang hướng dẫn '+cntHD+' học viên/sinh viên cùng lúc — đã đạt/vượt mức tối đa 5 người theo quy định (Nghị định 96).\n\nVẫn muốn tiếp tục lưu hồ sơ này với người hướng dẫn trên?')) return;
+        if(!confirm('⚠️ "'+effectiveHD+'" hiện đang hướng dẫn '+cntHD+' học viên/sinh viên có thời gian thực hành TRÙNG với khoảng '+tuNgay+' — '+denNgay+' — đã đạt/vượt mức tối đa 5 người theo quy định (Nghị định 96).\n\nVẫn muốn tiếp tục lưu hồ sơ này với người hướng dẫn trên?')) return;
       }
     }
     function proceedSave(finalDotId){
