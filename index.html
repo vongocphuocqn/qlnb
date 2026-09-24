@@ -12198,11 +12198,63 @@ function qnToggleDone(id){
 }
 // Lưu ghi chú xử lý cho 1 ghi chú nhanh — dùng chung trường "doing" (Đang làm) đã có sẵn của
 // thẻ Kanban, để ghi chú này cũng hiển thị đồng bộ khi xem thẻ trên bảng Kanban chính.
+// Nhớ giá trị vừa lưu của từng thẻ để không lưu trùng 2 lần (khi bấm nút Lưu, ô nhập mất focus
+// nên sự kiện onchange cũng chạy — chỉ cần lưu 1 lần).
+var qnLastSavedNote = {};
 function qnSaveNote(id, val){
   if(!(cu && cu.role==='admin')) return;
-  cardsRef.child(String(id)).update({doing: (val||'').trim()})
-    .then(function(){ if(typeof setSyncStatus==='function') setSyncStatus('ok'); })
-    .catch(function(){ if(typeof setSyncStatus==='function') setSyncStatus('err'); });
+  var v = (val||'').trim();
+  var c = (cards||[]).find(function(x){ return x.id===id; });
+  if(qnLastSavedNote[id]===v || (qnLastSavedNote[id]===undefined && c && (c.doing||'')===v)){
+    qnShowNoteState(id, v ? 'saved' : 'idle'); return;
+  }
+  qnLastSavedNote[id] = v;
+  qnShowNoteState(id, 'saving');
+  if(typeof setSyncStatus==='function') setSyncStatus('sync');
+  cardsRef.child(String(id)).update({doing: v})
+    .then(function(){ if(typeof setSyncStatus==='function') setSyncStatus('ok'); qnShowNoteState(id, 'saved'); })
+    .catch(function(err){
+      delete qnLastSavedNote[id];
+      if(typeof setSyncStatus==='function') setSyncStatus('err');
+      qnShowNoteState(id, 'err');
+      alert('Lỗi lưu ghi chú xử lý: '+(err&&err.message?err.message:err));
+    });
+}
+// Nút "Lưu" cạnh ô Ghi chú xử lý
+function qnSaveNoteBtn(id){
+  var inp = document.getElementById('qnNoteInp_'+id);
+  if(!inp) return;
+  qnSaveNote(id, inp.value);
+}
+// Khi đang gõ (chưa lưu): làm nổi nút Lưu để người dùng biết cần lưu
+function qnNoteDirty(id){
+  var inp = document.getElementById('qnNoteInp_'+id);
+  var c = (cards||[]).find(function(x){ return x.id===id; });
+  if(!inp) return;
+  var saved = qnLastSavedNote[id]!==undefined ? qnLastSavedNote[id] : ((c&&c.doing)||'');
+  qnShowNoteState(id, inp.value.trim()===saved ? (saved?'saved':'idle') : 'dirty');
+}
+// Hiển thị trạng thái nút Lưu: idle | dirty | saving | saved | err
+var qnSavedAt = {};
+function qnShowNoteState(id, st, keepTime){
+  if(st==='saved' && !keepTime) qnSavedAt[id]=Date.now();
+  var btn = document.getElementById('qnNoteBtn_'+id);
+  var lb  = document.getElementById('qnNoteSt_'+id);
+  if(btn){
+    var on = st==='dirty';
+    btn.disabled = (st==='saving');
+    btn.style.background  = on ? '#00897b' : '#fff';
+    btn.style.color       = on ? '#fff' : '#00695c';
+    btn.style.borderColor = on ? '#00695c' : '#b2dfdb';
+    btn.innerHTML = st==='saving' ? '<i class="ti ti-loader-2"></i> Đang lưu...' : '<i class="ti ti-device-floppy"></i> Lưu';
+  }
+  if(lb){
+    var map = { idle:['',''], dirty:['#e65100','● Chưa lưu'], saving:['#1565C0',''], saved:['#2e7d32','✓ Đã lưu'], err:['#c62828','✕ Lỗi lưu'] };
+    var m = map[st]||map.idle;
+    lb.style.color = m[0]; lb.textContent = m[1];
+    clearTimeout(lb._t);
+    if(st==='saved') lb._t = setTimeout(function(){ lb.textContent=''; }, 3000);
+  }
 }
 function qnRenderFilterBar(todayList){
   const bar = document.getElementById('qnFilterBar');
@@ -12231,6 +12283,31 @@ function qnRenderFilterBar(todayList){
 function qnRenderTodayList(){
   const wrap = document.getElementById('qnTodayList');
   if(!wrap) return;
+  // Giữ lại nội dung đang gõ dở (ô Ghi chú xử lý / ô Sửa) khi danh sách tự làm mới do có dữ liệu
+  // mới từ máy chủ — tránh mất chữ đang nhập mà chưa kịp bấm Lưu.
+  const qnDrafts = {};
+  wrap.querySelectorAll('[id^="qnNoteInp_"],[id^="qnEditTa_"]').forEach(function(el){ qnDrafts[el.id] = el.value; });
+  const qnFocus = (document.activeElement && wrap.contains(document.activeElement) && document.activeElement.id) ? {
+    id: document.activeElement.id, s: document.activeElement.selectionStart, e: document.activeElement.selectionEnd } : null;
+  const qnRestore = function(){
+    Object.keys(qnDrafts).forEach(function(k){
+      const el = document.getElementById(k); if(!el || el.value===qnDrafts[k]) return;
+      const id = Number(k.split('_')[1]);
+      const c = (cards||[]).find(function(x){ return x.id===id; });
+      if(k.indexOf('qnNoteInp_')===0){
+        // Chỉ khôi phục nếu bản nháp khác nội dung đã lưu (tức là người dùng đang gõ dở)
+        const saved = qnLastSavedNote[id]!==undefined ? qnLastSavedNote[id] : ((c&&c.doing)||'');
+        if(qnDrafts[k].trim()!==saved){ el.value = qnDrafts[k]; qnShowNoteState(id,'dirty'); }
+      } else { el.value = qnDrafts[k]; }
+    });
+    if(qnFocus){ const el=document.getElementById(qnFocus.id); if(el){ el.focus(); try{ el.setSelectionRange(qnFocus.s,qnFocus.e); }catch(_){} } }
+  };
+  qnRenderTodayListInner(wrap);
+  // Giữ dòng "✓ Đã lưu" hiển thị vài giây kể cả khi danh sách vừa tự làm mới
+  Object.keys(qnSavedAt).forEach(function(id){ if(Date.now()-qnSavedAt[id]<3000) qnShowNoteState(Number(id),'saved',true); });
+  qnRestore();
+}
+function qnRenderTodayListInner(wrap){
   const t = today();
   const todayList = (cards||[]).filter(c=>c.quickNote && c.date===t).sort((a,b)=>b.id-a.id);
   qnRenderFilterBar(todayList);
@@ -12257,7 +12334,7 @@ function qnRenderTodayList(){
     const adminTag = qnIsAdminNote(c) ? '<span style="flex-shrink:0;font-size:10px;font-weight:700;color:#8e24aa;background:#f3e5f5;padding:2px 7px;border-radius:6px;white-space:nowrap;">👑 Admin</span>' : '';
     if(dangSua){
       return `<div style="padding:10px 12px;border:1.5px solid #00897b;border-radius:10px;margin-bottom:8px;background:#e0f2f1;">
-        <textarea id="qnEditTa_${c.id}" rows="2" style="width:100%;box-sizing:border-box;font-size:14px;font-family:inherit;padding:8px;border:1px solid #b2dfdb;border-radius:8px;resize:vertical;">${esc(c.todo||c.content||'')}</textarea>
+        <textarea id="qnEditTa_${c.id}" rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();qnSaveEdit(${c.id});}else if(event.key==='Escape'){qnCancelEdit();}" style="width:100%;box-sizing:border-box;font-size:14px;font-family:inherit;padding:8px;border:1px solid #b2dfdb;border-radius:8px;resize:vertical;">${esc(c.todo||c.content||'')}</textarea>
         <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end;">
           <button class="btne" onclick="qnCancelEdit()" style="padding:5px 12px;font-size:12.5px;">Hủy</button>
           <button class="btne" onclick="qnSaveEdit(${c.id})" style="background:#00897b;border-color:#00695c;color:#fff;padding:5px 14px;font-size:12.5px;">Lưu</button>
@@ -12277,9 +12354,14 @@ function qnRenderTodayList(){
         ${(c.imgs&&c.imgs.length)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;">${c.imgs.map((b,i)=>`<img src="${b}" alt="ảnh" loading="lazy" onclick="openLbox(${i},'c',${c.id})" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;">`).join('')}</div>`:''}
         ${c.link?`<div style="margin:4px 0;"><a href="${esc(c.link)}" target="_blank" rel="noopener" style="font-size:12.5px;color:#00695c;word-break:break-all;"><i class="ti ti-link"></i> ${esc(c.link)}</a></div>`:''}
         <div style="font-size:11px;color:#999;margin-bottom:6px;">— ${esc(c.person||'')}</div>
-        <input type="text" value="${esc(c.doing||'')}" placeholder="+ Ghi chú xử lý (VD: đã báo phòng VTYT, đang chờ vật tư...)"
-          onchange="qnSaveNote(${c.id}, this.value)" onkeydown="if(event.key==='Enter'){this.blur();}"
-          style="width:100%;box-sizing:border-box;font-size:12.5px;padding:6px 9px;border:1px solid #ddd;border-radius:6px;font-family:inherit;color:#5d4037;background:#fffdf7;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" id="qnNoteInp_${c.id}" value="${esc(c.doing||'')}" placeholder="+ Ghi chú xử lý (VD: đã báo phòng VTYT, đang chờ vật tư...)"
+            oninput="qnNoteDirty(${c.id})" onchange="qnSaveNote(${c.id}, this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();qnSaveNote(${c.id}, this.value);}"
+            style="flex:1;min-width:0;box-sizing:border-box;font-size:12.5px;padding:6px 9px;border:1px solid #ddd;border-radius:6px;font-family:inherit;color:#5d4037;background:#fffdf7;">
+          <button type="button" class="btne" id="qnNoteBtn_${c.id}" onmousedown="event.preventDefault()" onclick="qnSaveNoteBtn(${c.id})" title="Lưu ghi chú xử lý (hoặc bấm Enter)"
+            style="flex-shrink:0;padding:5px 12px;font-size:12px;white-space:nowrap;background:#fff;color:#00695c;border-color:#b2dfdb;"><i class="ti ti-device-floppy"></i> Lưu</button>
+        </div>
+        <div id="qnNoteSt_${c.id}" style="font-size:11px;font-weight:600;min-height:14px;margin-top:3px;"></div>
       </div>
       <span style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
         <button class="btne" onclick="qnStartEdit(${c.id})" style="padding:4px 10px;font-size:12px;"><i class="ti ti-edit"></i> Sửa</button>
