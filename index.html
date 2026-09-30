@@ -18928,14 +18928,20 @@ function npUpdateRemainDisplay(){
   const to=document.getElementById('npFormTo').value;
   const halfEl=document.getElementById('npFormHalf');
   const half=(halfEl && fr===to) ? halfEl.value : '';
-  const daysXin=(type==='phep-nam' && typeof npCalcDaysNum==='function')?npCalcDaysNum(fr,to,half):0;
-  const remainAfter=remainNow-daysXin;
+  const _editId=document.getElementById('npFormFrom').dataset.editId||'';
+  const _chk=(type==='phep-nam')?npPhepNamCheck(person,fr,to,half,_editId):null;
+  const daysXin=_chk?_chk.xin:0;
+  const remainAfter=_chk?_chk.after:remainNow;
   wrap.style.display='block';
   box.style.color=remainAfter<0?'#c62828':'#e65100';
   box.value = `Tổng: ${quota.total} ngày — Đã nghỉ: ${quota.daNghi} ngày — Còn lại: ${remainNow} ngày`
+    + (_chk && _chk.pending>0 ? ` (chờ duyệt: ${_chk.pending} ngày)` : '')
     + (daysXin>0 ? ` → Sau khi đăng ký lần này: ${remainAfter} ngày` : '');
   if(detail){
     detail.textContent = `Trong đó Tổng ${quota.total} ngày gồm: Phép năm cơ bản ${quota.base} + Thâm niên ${quota.tham} + Khác ${quota.khac} + Phép năm trước còn lại ${quota.carryover}.`;
+    if(_chk && _chk.over){
+      detail.innerHTML = detail.innerHTML + '<div style="margin-top:5px;padding:6px 9px;background:#ffebee;border:1.5px solid #c62828;border-radius:6px;color:#c62828;font-size:12px;font-weight:700">⚠️ '+esc(npPhepNamOverMsg(person,_chk))+'</div>';
+    }
   }
 }
 // Tải trước danh sách ngày nghỉ đặc biệt (lễ/Tết) của Quản lý Phép năm ngay khi vào màn Đăng ký Nghỉ Phép,
@@ -18947,6 +18953,37 @@ function npPreloadHolidays(){
     QLP_HOLIDAYS = snap.val() || [];
     npCalcDays();
   }).catch(function(e){ console.warn('Không tải được danh sách ngày nghỉ đặc biệt cho Đăng ký Nghỉ Phép', e); });
+}
+// ── CHẶN ĐĂNG KÝ PHÉP NĂM VƯỢT SỐ NGÀY CÒN LẠI ──
+// Số ngày thực trừ vào quỹ phép năm = ngày công thực (không tính T7/CN/lễ), nửa ngày = 0.5 — khớp qlpApplyLeaveDelta.
+function npPhepNamWorkDays(fr,to,half){
+  if(!fr||!to) return 0;
+  var wd=(typeof qlpCountWorkDays==='function')?qlpCountWorkDays(fr,to):npCalcDaysNum(fr,to,'');
+  if(fr===to && half && wd===1) wd=0.5;
+  return wd;
+}
+// Còn lại = Tổng - Đã nghỉ (đã duyệt) - các phiếu Phép năm KHÁC đang chờ duyệt của cùng người.
+// excludeId: phiếu đang sửa/đang duyệt (không tính trùng); nếu phiếu đó đã duyệt thì cộng trả lại số ngày cũ.
+function npPhepNamCheck(person,fr,to,half,excludeId){
+  var q=(typeof npGetQlpQuota==='function')?npGetQlpQuota(person):null;
+  if(!q) return null;
+  var pending=0, addBack=0;
+  (npRecords||[]).forEach(function(x){
+    if(x.type!=='phep-nam' || (x.person||'').trim()!==(person||'').trim()) return;
+    if(excludeId && String(x.id)===String(excludeId)){
+      if(x.status==='approved') addBack+=npPhepNamWorkDays(x.dateFrom,x.dateTo,x.half);
+      return;
+    }
+    if(x.status==='pending') pending+=npPhepNamWorkDays(x.dateFrom,x.dateTo,x.half);
+  });
+  var remain=q.total-q.daNghi-pending+addBack;
+  var xin=npPhepNamWorkDays(fr,to,half);
+  return {total:q.total, daNghi:q.daNghi, pending:pending, remain:remain, xin:xin, after:remain-xin, over:xin>remain};
+}
+function npPhepNamOverMsg(person,c){
+  return 'Không thể đăng ký: '+person+' xin '+c.xin+' ngày công thực nhưng chỉ còn '+c.remain+' ngày phép năm'
+    +(c.pending>0?' (đã trừ '+c.pending+' ngày ở phiếu khác đang chờ duyệt)':'')
+    +' — vượt '+(c.xin-c.remain)+' ngày. Vui lòng rút ngắn thời gian nghỉ hoặc chọn loại nghỉ khác.';
 }
 function npCalcDaysNum(fr,to,half){
   if(!fr||!to)return 0;
@@ -19085,6 +19122,14 @@ function npSubmitForm(){
   const half=(halfEl && fr===to) ? halfEl.value : '';
   // Check if editing existing record
   var npEditId=document.getElementById('npFormFrom').dataset.editId||'';
+  if(type==='phep-nam' && person && fr && to){
+    var _npChk=npPhepNamCheck(person,fr,to,half,npEditId);
+    if(_npChk && _npChk.over){
+      npShowAl(npPhepNamOverMsg(person,_npChk),'err');
+      flagFieldInvalid('npFormTo','Vượt số ngày phép năm còn lại');
+      return;
+    }
+  }
   if(npEditId){
     // UPDATE existing record
     var npEditDays=npCalcDaysNum(fr,to,half);
@@ -19591,6 +19636,14 @@ function npDoApprove(status){
   }
   var rec=npRecords.find(function(x){return String(x.id)===String(npApproveTarget);});
   var oldStatus = rec ? rec.status : null;
+  // Không cho DUYỆT phiếu Phép năm vượt số ngày phép còn lại
+  if(status==='approved' && oldStatus!=='approved' && rec && rec.type==='phep-nam'){
+    var _apChk=npPhepNamCheck(rec.person,rec.dateFrom,rec.dateTo,rec.half,rec.id);
+    if(_apChk && _apChk.over){
+      npShowAl(npPhepNamOverMsg(rec.person,_apChk).replace('Không thể đăng ký','Không thể duyệt'),'err');
+      return;
+    }
+  }
   // Chống trùng loại nghỉ cùng ngày: 1 người/1 ngày chỉ nên có 1 loại nghỉ đã duyệt (Phép HOẶC
   // Nghỉ bù). Chỉ kiểm tra khi DUYỆT, và chỉ tính các ngày trong khoảng Từ ngày–Đến ngày của phiếu.
   if(status==='approved' && rec && rec.dateFrom && rec.dateTo){
