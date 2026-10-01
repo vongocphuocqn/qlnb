@@ -1107,14 +1107,19 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
     <!-- Pane 4: Lịch nghỉ Bù chung -->
     <div id="nbPane4" style="display:none;padding:0 4px">
       <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#1565C0">
-        <i class="ti ti-info-circle"></i> <b>Lịch nghỉ Bù chung</b> — Xem ai đang nghỉ bù và người thay thế. Chỉ hiển thị phiếu đã được duyệt.
+        <i class="ti ti-info-circle"></i> <b>Lịch nghỉ Bù chung</b> — Xem ai đang nghỉ bù, người thay thế và <b>số ngày đã nghỉ bù của từng nhân viên</b> theo tháng/năm. Chỉ tính phiếu đã được duyệt. Bấm <b>Xuất Word</b> ở thanh trên để in đúng khoảng thời gian đang lọc.
       </div>
       <div class="nb-fbar" style="margin-bottom:12px">
         <i class="ti ti-filter" style="color:#1565C0;font-size:15px;flex-shrink:0"></i>
         <div class="ff"><label>Từ ngày</label><input type="date" id="nbPubFrom" onchange="nbRenderPublic()"></div>
         <div class="ff"><label>Đến ngày</label><input type="date" id="nbPubTo" onchange="nbRenderPublic()"></div>
+        <button class="nb-btn nb-btn-sm" onclick="nbPubQuick('month')"><i class="ti ti-calendar-month"></i> Tháng này</button>
+        <button class="nb-btn nb-btn-sm" onclick="nbPubQuick('prev')"><i class="ti ti-calendar-minus"></i> Tháng trước</button>
+        <button class="nb-btn nb-btn-sm" onclick="nbPubQuick('year')"><i class="ti ti-calendar-stats"></i> Năm nay</button>
         <button class="nb-btn nb-btn-sec nb-btn-sm" onclick="document.getElementById('nbPubFrom').value='';document.getElementById('nbPubTo').value='';nbRenderPublic()"><i class="ti ti-refresh"></i> Xóa lọc</button>
       </div>
+      <div id="nbPublicSummary" style="margin-bottom:16px"></div>
+      <div style="font-weight:700;color:#1565C0;font-size:13.5px;margin:0 0 8px"><i class="ti ti-list-details"></i> Chi tiết phiếu nghỉ bù đã duyệt</div>
       <div id="nbPublicTable"><div style="text-align:center;padding:20px;color:#aaa"><i class="ti ti-loader" style="font-size:24px"></i><br>Đang tải...</div></div>
     </div>
 
@@ -13437,7 +13442,7 @@ var SFV_FEATURES = [
   {module:'Kanban', key:'downtime', id:'btnDowntime', label:'Nút "Downtime"', adminCheck:function(){ return sfvIsAdmin(); }},
   {module:'Nghỉ bù', key:'nb_tab2', id:'nbTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
   {module:'Nghỉ bù', key:'nb_tab3', id:'nbTab3', label:'Tab "Thống kê"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
-  {module:'Nghỉ bù', key:'nb_tab4', id:'nbTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && nbCurrentUser.role==='admin'; }},
+  {module:'Nghỉ bù', key:'nb_tab4', id:'nbTab4', label:'Tab "Lịch nghỉ chung" (người được tích "Xem Nghỉ Bù" ở bảng Phân quyền vẫn luôn thấy)', adminCheck:function(){ return typeof nbCurrentUser!=='undefined' && nbCurrentUser && (nbCurrentUser.role==='admin' || !!nbCurrentUser.canViewAll); }},
   {module:'Nghỉ phép', key:'np_tab2', id:'npTab2', label:'Tab "Danh sách phiếu"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }},
   {module:'Nghỉ phép', key:'np_tab4', id:'npTab4', label:'Tab "Lịch nghỉ chung"', adminCheck:function(){ return typeof npCurrentUser!=='undefined' && npCurrentUser && npCurrentUser.role==='admin'; }}
 ];
@@ -15157,7 +15162,7 @@ function authConfirm(){
     var hasNbPQ = Object.keys(pqAll).length > 0 && pqAll[name] !== undefined;
     if(!hasNbPQ || p.nghibu || p.nghibu_view){
       var nbRole = p.nghibu_view && !p.nghibu ? 'viewer' : 'staff';
-      nbCurrentUser={name:name,role:nbRole,dsPass:p.dsPhieuPass||'',canHis:!!p.doichieu_his,canPttt:!!p.doichieu_pttt,canDuty:!!p.kiem_si_so_truc};enterNbScreen();
+      nbCurrentUser={name:name,role:nbRole,dsPass:p.dsPhieuPass||'',canHis:!!p.doichieu_his,canPttt:!!p.doichieu_pttt,canDuty:!!p.kiem_si_so_truc,canViewAll:!!p.nghibu_view};enterNbScreen();
     } else {
       document.getElementById('homeScreen').style.display='flex';
       var e=document.getElementById('authErr');
@@ -15210,12 +15215,109 @@ function nbGetPublicFiltered(){
       return da>db2?-1:1;
     });
 }
+// ── TỔNG HỢP SỐ NGÀY NGHỈ BÙ THEO NHÂN VIÊN (dùng chung cho tab "Lịch nghỉ chung" và file Word) ──
+// Quy ước giống toàn hệ thống: mỗi dòng ngày trong phiếu = 1 ngày nghỉ bù; chỉ tính phiếu ĐÃ DUYỆT.
+// Chỉ đếm những ngày NẰM TRONG khoảng [from, to] (phiếu vắt qua 2 tháng thì ngày nào tính tháng đó).
+function nbRecEntries(r){
+  return (r && r.entries && r.entries.length) ? r.entries : ((r && r.date) ? [{date:r.date, shift:r.shift}] : []);
+}
+function nbDaysInRange(r, from, to){
+  return nbRecEntries(r).filter(function(e){ return e.date && (!from||e.date>=from) && (!to||e.date<=to); }).length;
+}
+function nbRangeYear(from, to){
+  return ((to||from||'').slice(0,4)) || String(new Date().getFullYear());
+}
+function nbRangeLabel(from, to){
+  if(from && to) return 'Từ ngày '+fmtD(from)+' đến ngày '+fmtD(to);
+  if(from) return 'Từ ngày '+fmtD(from);
+  if(to) return 'Đến ngày '+fmtD(to);
+  return 'Toàn bộ thời gian';
+}
+function nbBuildDaySummary(list, from, to){
+  var yr = nbRangeYear(from, to);
+  var byP = {};
+  (list||[]).forEach(function(r){
+    if(!r || !r.person) return;
+    var p = byP[r.person] || (byP[r.person] = {name:r.person, total:0, approved:0, pending:0, denied:0, days:0, yearDays:0});
+    p.total++;
+    p[r.status] = (p[r.status]||0) + 1;
+    if(r.status==='approved') p.days += nbDaysInRange(r, from, to);
+  });
+  var rows = Object.keys(byP).map(function(k){
+    byP[k].yearDays = nbCountDaysInYearApproved(k, yr);
+    return byP[k];
+  }).sort(function(a,b){ return (b.days-a.days) || a.name.localeCompare(b.name,'vi'); });
+  return {
+    year: yr,
+    rows: rows,
+    totalDays: rows.reduce(function(s2,p){ return s2+p.days; }, 0),
+    totalYearDays: rows.reduce(function(s2,p){ return s2+p.yearDays; }, 0)
+  };
+}
+function nbPubQuick(kind){
+  var f=document.getElementById('nbPubFrom'), t=document.getElementById('nbPubTo');
+  if(!f||!t) return;
+  var d=new Date(), y=d.getFullYear(), m=d.getMonth();
+  var iso=function(yy,mm,dd){ return yy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0'); };
+  if(kind==='year'){ f.value=iso(y,1,1); t.value=iso(y,12,31); }
+  else{
+    if(kind==='prev'){ m--; if(m<0){ m=11; y--; } }
+    f.value=iso(y,m+1,1); t.value=iso(y,m+1,new Date(y,m+1,0).getDate());
+  }
+  nbRenderPublic();
+}
+function nbRenderPublicSummary(approved, pubFrom, pubTo){
+  var box=document.getElementById('nbPublicSummary');
+  if(!box) return;
+  if(!approved || !approved.length){ box.innerHTML=''; return; }
+  var sm=nbBuildDaySummary(approved, pubFrom, pubTo);
+  var me=(nbCurrentUser&&nbCurrentUser.name||'').trim();
+  var card=function(num,lbl){
+    return '<div style="flex:1;min-width:130px;background:#fff;border:1px solid #bbdefb;border-radius:10px;padding:10px 12px;text-align:center">'+
+      '<div style="font-size:22px;font-weight:800;color:#1565C0">'+num+'</div>'+
+      '<div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.3px">'+lbl+'</div></div>';
+  };
+  var rows=sm.rows.map(function(p,i){
+    var isMe=(p.name||'').trim()===me;
+    var bg=isMe?'#fff8e1':(i%2===0?'#fff':'#f0f7ff');
+    return '<tr style="background:'+bg+'">'+
+      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:#1565C0">'+(i+1)+'</td>'+
+      '<td style="padding:7px 10px;font-weight:600">'+esc(p.name)+(isMe?' <span style="font-size:11px;color:#b26a00;font-weight:400">(tôi)</span>':'')+'</td>'+
+      '<td style="padding:7px 10px;text-align:center">'+p.total+'</td>'+
+      '<td style="padding:7px 10px;text-align:center;font-weight:800;color:#1565C0;font-size:14px">'+p.days+'</td>'+
+      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:#2e7d32">'+p.yearDays+'</td>'+
+      '</tr>';
+  }).join('');
+  box.innerHTML=
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'+
+      card(sm.rows.length,'Nhân viên có nghỉ bù')+
+      card(approved.length,'Phiếu đã duyệt')+
+      card(sm.totalDays,'Tổng ngày nghỉ bù')+
+    '</div>'+
+    '<div style="font-weight:700;color:#1565C0;font-size:13.5px;margin:0 0 8px"><i class="ti ti-users"></i> Tổng hợp số ngày đã nghỉ bù theo nhân viên — '+esc(nbRangeLabel(pubFrom,pubTo))+'</div>'+
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
+    '<thead><tr style="background:#1565C0;color:#fff">'+
+    '<th style="padding:9px 10px;text-align:center;width:44px">#</th>'+
+    '<th style="padding:9px 10px;text-align:left">Nhân viên</th>'+
+    '<th style="padding:9px 10px;text-align:center">Số phiếu</th>'+
+    '<th style="padding:9px 10px;text-align:center">Số ngày nghỉ bù<br><span style="font-weight:400;font-size:11px">(trong khoảng đang lọc)</span></th>'+
+    '<th style="padding:9px 10px;text-align:center">Lũy kế năm '+sm.year+'<br><span style="font-weight:400;font-size:11px">(đã duyệt)</span></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody>'+
+    '<tfoot><tr style="background:#0d47a1;color:#fff;font-weight:700">'+
+    '<td colspan="2" style="padding:8px 10px;text-align:center">TỔNG CỘNG</td>'+
+    '<td style="padding:8px 10px;text-align:center">'+approved.length+'</td>'+
+    '<td style="padding:8px 10px;text-align:center">'+sm.totalDays+'</td>'+
+    '<td style="padding:8px 10px;text-align:center">'+sm.totalYearDays+'</td>'+
+    '</tr></tfoot></table></div>'+
+    '<div style="font-size:11px;color:#888;margin-top:6px">Mỗi dòng ngày trong phiếu tính là 1 ngày nghỉ bù; chỉ đếm những ngày nằm trong khoảng đang lọc và thuộc phiếu đã duyệt.</div>';
+}
 function nbRenderPublic(){
   var el=document.getElementById('nbPublicTable');
   if(!el)return;
   var pubFrom=(document.getElementById('nbPubFrom')||{}).value||'';
   var pubTo=(document.getElementById('nbPubTo')||{}).value||'';
   var approved=nbGetPublicFiltered();
+  nbRenderPublicSummary(approved, pubFrom, pubTo);
   if(!approved.length){
     el.innerHTML='<div style="text-align:center;color:#aaa;padding:20px"><i class="ti ti-calendar-off" style="font-size:28px;display:block;margin-bottom:6px"></i>Chưa có phiếu nghỉ bù nào được duyệt'+((pubFrom||pubTo)?' trong khoảng thời gian này':'')+'</div>';
     return;
@@ -15623,7 +15725,8 @@ function switchNbTab(n){
   // Nếu tab này đang bị Admin ẩn với Nhân viên (qua "Chức năng cho NV") thì chặn luôn, không cho vào.
   if(typeof sfvConfig!=='undefined' && !(nbCurrentUser && nbCurrentUser.role==='admin')){
     var _sfvNbF = (typeof SFV_FEATURES!=='undefined'?SFV_FEATURES:[]).find(function(f){ return f.id==='nbTab'+n; });
-    if(_sfvNbF && sfvConfig[_sfvNbF.key]){ return; }
+    // Ngoại lệ: người được Admin tích quyền "Xem Nghỉ Bù" (canViewAll) luôn vào được tab "Lịch nghỉ chung".
+    if(_sfvNbF && sfvConfig[_sfvNbF.key] && !(n===4 && nbCurrentUser && nbCurrentUser.canViewAll)){ return; }
   }
   // Tab "Danh sách phiếu" (n===2): nếu Admin đã đặt mật khẩu riêng cho nhân viên này (nbCurrentUser.dsPass)
   // thì bắt buộc nhập đúng mật khẩu mới xem được — bảo vệ khỏi trường hợp chọn nhầm/giả tên người khác.
@@ -17652,6 +17755,16 @@ function nbGetMyFiltered(){
   }
   return mine;
 }
+// Khoảng ngày đang lọc của ĐÚNG tab đang mở (để file Word đếm số ngày nghỉ bù khớp với màn hình)
+function nbGetExportRange(){
+  var shown=function(id){ var e=document.getElementById(id); return e && e.style.display==='block'; };
+  var v=function(id){ return (document.getElementById(id)||{}).value||''; };
+  if(shown('nbPane4')) return {from:v('nbPubFrom'), to:v('nbPubTo')};
+  if(shown('nbPane3')) return {from:v('nbStatFrom'), to:v('nbStatTo')};
+  if(shown('nbPane2')) return {from:v('nbFFrom'), to:v('nbFTo')};
+  if(nbCurrentUser && nbCurrentUser.role==='admin') return {from:v('nbMyFrom'), to:v('nbMyTo')};
+  return {from:'', to:''};
+}
 function nbGetExportData(){
   // Xuất theo ĐÚNG tab đang mở và ĐÚNG quy tắc hiển thị của tab đó —
   // "Thống kê" và "Lịch nghỉ chung" vốn cho mọi vai trò xem toàn bộ nhân viên,
@@ -18314,13 +18427,12 @@ function nbExportWord(){
   const pending=list.filter(r=>r.status==='pending').length;
   const denied=list.filter(r=>r.status==='denied').length;
 
-  // By-person summary
-  const byP={};
-  list.forEach(r=>{
-    if(!byP[r.person])byP[r.person]={name:r.person,total:0,approved:0,pending:0,denied:0};
-    byP[r.person].total++;byP[r.person][r.status]=(byP[r.person][r.status]||0)+1;
-  });
-  const persSum=Object.values(byP).sort((a,b)=>b.total-a.total);
+  // Tổng hợp theo cá nhân: số phiếu + SỐ NGÀY nghỉ bù đã duyệt trong khoảng đang lọc + lũy kế năm
+  const expRange=nbGetExportRange();
+  const daySum=nbBuildDaySummary(list, expRange.from, expRange.to);
+  const persSum=daySum.rows;
+  const rangeLbl=nbRangeLabel(expRange.from, expRange.to);
+  const exporter=(nbCurrentUser&&nbCurrentUser.role!=='admin'&&nbCurrentUser.name)?nbCurrentUser.name:'Quản lý';
 
   const docFileName=`NghiBu_GMHS_${today()}.doc`;
 
@@ -18359,7 +18471,7 @@ function nbExportWord(){
   .doc-title{text-align:center;font-size:15pt;font-weight:700;text-transform:uppercase;
     margin:12pt 0 4pt;color:#0d47a1;letter-spacing:.5pt}
   .doc-sub{text-align:center;font-size:10pt;color:#555;margin-bottom:14pt}
-  .sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10pt;margin-bottom:16pt}
+  .sum-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10pt;margin-bottom:16pt}
   .sum-box{border:1pt solid #c5cfe8;border-radius:4pt;padding:8pt 10pt;text-align:center}
   .sn{font-size:18pt;font-weight:700;color:#1565C0}
   .sl{font-size:9pt;text-transform:uppercase;color:#555;margin-top:2pt}
@@ -18406,7 +18518,8 @@ function nbExportWord(){
     </div>
     <div class="doc-title">Danh sách Đăng ký Nghỉ Bù</div>
     <div class="doc-sub">
-      Ngày xuất: ${printDate} &nbsp;|&nbsp; Giờ xuất: ${printTime} &nbsp;|&nbsp; Người xuất: Quản lý
+      <b>Thời gian thống kê: ${esc(rangeLbl)}</b><br>
+      Ngày xuất: ${printDate} &nbsp;|&nbsp; Giờ xuất: ${printTime} &nbsp;|&nbsp; Người xuất: ${esc(exporter)}
     </div>
 
     <!-- Thống kê tổng quan -->
@@ -18415,6 +18528,7 @@ function nbExportWord(){
       <div class="sum-box"><div class="sn" style="color:#1b5e20">${approved}</div><div class="sl">Đã duyệt</div></div>
       <div class="sum-box"><div class="sn" style="color:#e65100">${pending}</div><div class="sl">Chờ duyệt</div></div>
       <div class="sum-box"><div class="sn" style="color:#880e4f">${denied}</div><div class="sl">Từ chối</div></div>
+      <div class="sum-box"><div class="sn">${daySum.totalDays}</div><div class="sl">Tổng ngày nghỉ bù (đã duyệt)</div></div>
     </div>
 
     <!-- Bảng chi tiết -->
@@ -18460,7 +18574,7 @@ function nbExportWord(){
     </table>
 
     <!-- Thống kê theo cá nhân -->
-    <div class="section-title">II. THỐNG KÊ THEO CÁ NHÂN</div>
+    <div class="section-title">II. TỔNG HỢP SỐ NGÀY NGHỈ BÙ THEO CÁ NHÂN</div>
     <table>
       <thead><tr>
         <th style="width:28pt">STT</th>
@@ -18469,6 +18583,8 @@ function nbExportWord(){
         <th style="width:60pt">Đã duyệt</th>
         <th style="width:60pt">Chờ duyệt</th>
         <th style="width:60pt">Từ chối</th>
+        <th style="width:90pt;white-space:normal">Số ngày nghỉ bù trong kỳ (đã duyệt)</th>
+        <th style="width:90pt;white-space:normal">Lũy kế năm ${daySum.year} (đã duyệt)</th>
       </tr></thead>
       <tbody>
       ${persSum.map((p,i)=>`<tr class="${i%2===1?'ev':''}">
@@ -18478,9 +18594,23 @@ function nbExportWord(){
         <td style="text-align:center" class="st-ok">${p.approved||0}</td>
         <td style="text-align:center" class="st-pend">${p.pending||0}</td>
         <td style="text-align:center" class="st-deny">${p.denied||0}</td>
+        <td style="text-align:center;font-weight:700;color:#1565C0">${p.days}</td>
+        <td style="text-align:center;font-weight:700">${p.yearDays}</td>
       </tr>`).join('')}
       </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" class="tot">TỔNG CỘNG</td>
+          <td class="tot">${list.length}</td>
+          <td class="tot">${approved}</td>
+          <td class="tot">${pending}</td>
+          <td class="tot">${denied}</td>
+          <td class="tot">${daySum.totalDays}</td>
+          <td class="tot">${daySum.totalYearDays}</td>
+        </tr>
+      </tfoot>
     </table>
+    <div style="font-size:9pt;font-style:italic;color:#555;margin-top:-8pt">Ghi chú: mỗi dòng ngày trong phiếu tính là 01 ngày nghỉ bù; "trong kỳ" chỉ đếm những ngày thuộc khoảng thời gian thống kê nêu trên và thuộc phiếu đã duyệt.</div>
 
     <!-- Chữ ký -->
     <div class="sig-row">
