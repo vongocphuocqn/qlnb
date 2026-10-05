@@ -1157,6 +1157,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
         <br>• <b>2 file "tháng trước" (khuyến nghị, không bắt buộc):</b> Chấm công + Chấm trực của THÁNG NGAY TRƯỚC ĐÓ — chỉ dùng đúng cột ngày cuối tháng, để đối chiếu chính xác ca mổ rạng sáng NGÀY 1 đầu tháng (có thể thuộc phiên trực đêm bắt đầu từ tối ngày cuối tháng trước). <b>Thiếu 2 file này thì các ca rạng sáng ngày 1 sẽ không xác định được</b> (xếp riêng vào mục "Thiếu dữ liệu", không đoán bừa).
         <br>• <b>Chỉ xét đúng nhân viên khoa GMHS</b> (có tên trong bảng Chấm công vừa tải) + danh sách kiêm nhiệm ngoài khoa tự khai báo bên dưới — mọi tên khác sẽ tự động bỏ qua, không đưa vào kết quả.
         <br>• <b>Kết luận dứt khoát HỢP LỆ / KHÔNG HỢP LỆ</b> theo đúng bảng khung giờ của Khoa: ca ngày (7h–19h) cần Chấm công "X", hoặc Chấm trực đúng ngày thuộc loại ca ngày/24h; ca đêm (19h–7h hôm sau) LUÔN cần Chấm trực (đúng ngày bắt đầu trực) thuộc loại ca đêm/24h — không còn kiểu báo "có thể hợp lệ" mập mờ như trước. Mã trực lạ chưa có trong danh mục sẽ được báo riêng để Trưởng khoa xác nhận, không tự suy đoán.
+        <br>• <b>Quy định bổ sung:</b> <b>Ngày lễ</b> — Chấm công "Xc" (hoặc "X"), Chấm trực "LtNc" (ca ngày), "LtDc" (ca đêm) hoặc "Ltc" (24h). <b>Ngày thường có điều động</b> — Chấm công "X", Chấm trực "Ltb". <b>Thứ 7/Chủ nhật có điều động</b> — Chấm công "LTb", Chấm trực để trống. <b>Ca phẫu thuật từ 18h00</b> — Chấm trực "Ltb".
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:10px">
         <div>
@@ -15841,6 +15842,46 @@ function hisGroupRowsByY(items){
   });
   return rows;
 }
+// pdf.js hay GỘP 2 ô liền kề thành 1 mẩu chữ khi mã dài nằm sát nhau (VD ngày 1 "LtNc" + ngày 2 "LtDc"
+// → 1 mẩu "LtNc LtDc" đặt ở cột ngày 1, cột ngày 2 bị đọc thành TRỐNG). Hàm này tách mẩu gộp đó trả về
+// đúng từng cột ngày. Trả về null nếu mẩu chữ thật sự nằm gọn trong 1 ô (giữ nguyên cách đọc cũ).
+function hisTachOGop(it, toks, dayHeaders, cw){
+  function near(x){ var bi=-1,bd=Infinity; dayHeaders.forEach(function(dh,i){ var d=Math.abs(x-dh.x); if(d<bd){bd=d;bi=i;} }); return {i:bi,d:bd}; }
+  var f = near(it.x);
+  if(f.i<0 || f.d>8) return null;
+  var n = toks.length, first = f.i, last;
+  var nCol = dayHeaders.length;
+  var pitch = nCol>1 ? (dayHeaders[nCol-1].x-dayHeaders[0].x)/(nCol-1) : 0;
+  var str = it.str.trim(), w = it.w||0;
+  var wOk = w>0 && pitch>0 && w < pitch*(nCol+1);
+  var c = cw>0 ? cw : (wOk ? w/str.length : 0);
+  var lastLeft = null;
+  if(wOk){ lastLeft = it.x + w - toks[n-1].length*c; last = near(lastLeft).i; }
+  else last = first;
+  if(last<=first){
+    // Bề rộng không tin được/ước lượng nằm trong 1 cột — nhưng nếu chuỗi chắc chắn RỘNG HƠN 1 cột thì
+    // vẫn là ô gộp: coi như các mã nằm ở các cột liền nhau.
+    var estW = c>0 ? str.length*c : 0;
+    if(pitch>0 && (estW > pitch*1.3 || (!wOk && !(c>0)))) last = first+n-1; else return null;
+  }
+  var cols = [];
+  if(last-first===n-1 || lastLeft===null){
+    for(var i=0;i<n;i++) cols.push(first+i);
+  } else {
+    // Có cột trống xen giữa → ước lượng vị trí từng mã theo tỉ lệ ký tự giữa mã đầu và mã cuối.
+    var pos=[], idx=0;
+    toks.forEach(function(t){ idx = str.indexOf(t, idx); pos.push(idx); idx += t.length; });
+    for(var j=0;j<n;j++){
+      var x = it.x + (lastLeft-it.x) * (pos[n-1]>0 ? pos[j]/pos[n-1] : 0);
+      var k = (j===0) ? first : (j===n-1 ? last : near(x).i);
+      if(cols.length && k<=cols[cols.length-1]) k = cols[cols.length-1]+1;
+      cols.push(k);
+    }
+  }
+  var out = [];
+  cols.forEach(function(k,j){ if(k>=0 && k<nCol) out.push({ day: dayHeaders[k].day, code: toks[j] }); });
+  return out;
+}
 function hisParseRows(allItems, monthInfo){
   var daysInMonth = (monthInfo && monthInfo.daysInMonth) || 31;
   var rows = hisGroupRowsByY(allItems);
@@ -15877,6 +15918,17 @@ function hisParseRows(allItems, monthInfo){
       .sort(function(a,b){ return a.x-b.x; }).slice(0, daysInMonth)
       .map(function(it,i){ return { day:i+1, x:it.x }; });
     var lastDayX = dayHeaders[dayHeaders.length-1].x;
+    // Bề rộng trung bình 1 ký tự của mã trong vùng cột ngày (lấy trung vị từ các ô 1 mã) — dùng để tách ô gộp.
+    var cwList = [];
+    pageRows.forEach(function(r){
+      if(r.y <= dayHdrRow.y) return;
+      r.items.forEach(function(it){
+        var t = it.str.trim();
+        if(it.w>0 && t.length>=2 && !/\s/.test(t) && !/^\d+$/.test(t) && it.x >= dayHeaders[0].x-8 && it.x <= lastDayX+8) cwList.push(it.w/t.length);
+      });
+    });
+    cwList.sort(function(a,b){ return a-b; });
+    var cwMed = cwList.length ? cwList[Math.floor(cwList.length/2)] : 0;
     // Dò dòng "Tổng cộng" (nếu có trên trang này — thường chỉ có ở bảng Chấm TRỰC) — đếm số người
     // trực mỗi ngày do chính hệ thống HIS tính sẵn, dùng làm số liệu THAM CHIẾU đáng tin cậy nhất.
     var tongCongRow = pageRows.find(function(r){ return r.items.some(function(it){ return it.str.indexOf('Tổng cộng')>-1; }); });
@@ -15908,6 +15960,11 @@ function hisParseRows(allItems, monthInfo){
           // Vùng SAU cột ngày cuối cùng — đúng là vùng chứa "SN Trực" (Thường/T7-CN/Lễ), cộng dồn lại.
           if(it.x > lastDayX + 8 && /^\d{1,3}$/.test(it.str.trim())){ snTruc += parseInt(it.str.trim(),10); hasSnCols = true; }
           return;
+        }
+        var toks = it.str.trim().split(/\s+/);
+        if(toks.length>1){
+          var tach = hisTachOGop(it, toks, dayHeaders, cwMed);
+          if(tach){ tach.forEach(function(o){ days[o.day] = o.code; }); return; }
         }
         var best=null, bestD=Infinity;
         dayHeaders.forEach(function(dh){ var d=Math.abs(it.x-dh.x); if(d<bestD){bestD=d;best=dh;} });
@@ -16187,6 +16244,15 @@ function dvFindDayCode(parsedRows, hoTen, day){
   if(!row) return { found:false, code:null };
   return { found:true, code: row.days[day] || '' };
 }
+function dvTachMa(code){
+  // Tách 1 ô thành từng mã riêng (ô có thể ghi nhiều mã cách nhau bằng dấu cách, ";", ",", "/", "+").
+  return String(code||'').trim().split(/[\s;,\/+]+/).filter(Boolean);
+}
+function dvCoMa(code, ma){
+  // Ô có chứa đúng mã "ma" hay không — KHÔNG phân biệt hoa/thường (VD "LTb" = "Ltb").
+  var m = String(ma).toLowerCase();
+  return dvTachMa(code).some(function(p){ return p.toLowerCase()===m; });
+}
 function dvTrucKhungGio(code){
   // Tra khung giờ hợp lệ theo MÃ CHẤM TRỰC, dựa đúng bảng quy định của Khoa (ảnh đính kèm) —
   // khung giờ chỉ phụ thuộc vào ĐUÔI của mã (không phụ thuộc ngày thường/cuối tuần/lễ tết, vì các
@@ -16199,6 +16265,21 @@ function dvTrucKhungGio(code){
   //   null   = mã không nằm trong danh mục đã biết — KHÔNG được đoán, phải báo để kiểm tra tay
   if(!code) return null;
   var c = String(code).trim();
+  // Ô có NHIỀU mã cùng lúc (VD ngày lễ ghi "LtNc LtDc" = ca ngày + ca đêm) → gộp khung giờ từng mã.
+  var cParts = dvTachMa(c);
+  if(cParts.length>1){
+    var coNgay=false, coDem=false;
+    cParts.forEach(function(p){
+      var k = dvTrucKhungGio(p);
+      if(k==='24h'){ coNgay=true; coDem=true; }
+      else if(k==='ngay') coNgay=true;
+      else if(k==='dem') coDem=true;
+    });
+    if(coNgay && coDem) return '24h';
+    if(coNgay) return 'ngay';
+    if(coDem) return 'dem';
+    return null;
+  }
   var full24 = ['Tc','To','Cc','Co','LTc','LTo','Ltc','Lto','Tld','Cld','Ltld','Tx','Cx','Ltx'];
   if(full24.indexOf(c)>-1) return '24h';
   if(/Dc$/.test(c) || /D$/.test(c)) return 'dem';   // TDc, CDc, LTDc, TD, LtD, CD…
@@ -16595,11 +16676,27 @@ function dvVerifyShift(args){
       flags=args.flags;
   var cc = dvFindDayCode(ccRows, ten, day);
   var ccCode = cc.code || '';
+  // ── Quy định bổ sung của Khoa ──────────────────────────────────────────────────────────────
+  //  (1) Ngày lễ: Chấm công ghi "Xc" (hoặc "X"); Chấm trực ghi "LtNc" (ca ngày), "LtDc" (ca đêm) hoặc "Ltc" (24h).
+  //  (2) Ngày thường có điều động: Chấm công "X"; Chấm trực "Ltb".
+  //  (3) Thứ 7/Chủ nhật có điều động: Chấm công "LTb"; Chấm trực để trống.
+  //  (4) Ca phẫu thuật từ 18h00 trở đi: Chấm trực "Ltb".
+  function laCuoiTuan(dd){ // dd có thể = 0 (ngày cuối tháng trước) — Date tự lùi tháng
+    var t = new Date(sv.ngayBD.y, sv.ngayBD.m-1, dd).getDay();
+    return t===0 || t===6;
+  }
+  function ccDieuDongCuoiTuan(rows, dd, ddThu){ // Chấm công "LTb" đúng ngày Thứ 7/Chủ nhật
+    if(!rows || !laCuoiTuan(ddThu)) return false;
+    return dvCoMa(dvFindDayCode(rows, ten, dd).code, 'ltb');
+  }
+  var trHomNay = dvFindDayCode(trRows, ten, day);
   if(phien==='ngay'){
-    if(ccCode==='X') return;
-    var trToday = dvFindDayCode(trRows, ten, day);
+    if(dvCoMa(ccCode,'X') || dvCoMa(ccCode,'Xc')) return;          // (1)(2) công ngày thường / công ngày lễ
+    if(ccDieuDongCuoiTuan(ccRows, day, day)) return;               // (3) điều động T7/CN
+    var trToday = trHomNay;
     var kind = dvTrucKhungGio(trToday.code);
     if(kind==='ngay' || kind==='24h') return;
+    if(hour>=18 && dvCoMa(trToday.code,'ltb')) return;             // (4) ca từ 18h00 — điều động "Ltb"
     if(trToday.code && kind===null){
       maLaTraKhongXacDinh[trToday.code] = true;
       flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trToday.code,
@@ -16609,9 +16706,12 @@ function dvVerifyShift(args){
     }
     flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trToday.code||'(trống)',
       benhNhan: sv.hoTenBN||'', dichVu: sv.tenDV||'', loaiLoi: 'chinh',
-      moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' (ca ngày) nhưng Chấm công ghi "'+(ccCode||'trống')+'" (không phải "X") VÀ Chấm trực ngày '+day+' ghi "'+(trToday.code||'trống')+'" (không phải mã trực ca ngày/24h hợp lệ) — KHÔNG HỢP LỆ.' });
+      moTa: 'Đứng tên "'+vt.nhan+'" lúc '+gioStr+' ngày '+day+' (ca ngày) nhưng Chấm công ghi "'+(ccCode||'trống')+'" (không phải "X"/"Xc"'+(laCuoiTuan(day)?'/"LTb"':'')+') VÀ Chấm trực ngày '+day+' ghi "'+(trToday.code||'trống')+'" (không phải mã trực ca ngày/24h hợp lệ) — KHÔNG HỢP LỆ.' });
   } else {
     var checkDay = (hour>=19) ? day : (day-1);
+    // (4)(3) Ca đêm do ĐIỀU ĐỘNG: Chấm trực "Ltb", hoặc (T7/CN) Chấm công "LTb" — ghi ngay tại NGÀY MỔ.
+    if(dvCoMa(trHomNay.code,'ltb')) return;
+    if(ccDieuDongCuoiTuan(ccRows, day, day)) return;
     if(hour<7 && day===1){
       if(!ccPrevRows || !trPrevRows){
         flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR:'?',
@@ -16622,6 +16722,8 @@ function dvVerifyShift(args){
       var trPrev = dvFindDayCode(trPrevRows, ten, trPrevLastDay);
       var kindPrev = dvTrucKhungGio(trPrev.code);
       if(kindPrev==='dem' || kindPrev==='24h') return;
+      if(dvCoMa(trPrev.code,'ltb')) return;                                  // (4) điều động từ tối hôm trước
+      if(ccDieuDongCuoiTuan(ccPrevRows, trPrevLastDay, 0)) return;           // (3) hôm trước là T7/CN
       if(trPrev.code && kindPrev===null){
         maLaTraKhongXacDinh[trPrev.code] = true;
         flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trPrev.code,
@@ -16637,6 +16739,8 @@ function dvVerifyShift(args){
     var trCheck = dvFindDayCode(trRows, ten, checkDay);
     var kindC = dvTrucKhungGio(trCheck.code);
     if(kindC==='dem' || kindC==='24h') return;
+    if(dvCoMa(trCheck.code,'ltb')) return;                                   // (4) điều động từ tối hôm trước
+    if(ccDieuDongCuoiTuan(ccRows, checkDay, checkDay)) return;               // (3) hôm trước là T7/CN
     if(trCheck.code && kindC===null){
       maLaTraKhongXacDinh[trCheck.code] = true;
       flags.push({ ten:ten, vaiTro:vt.nhan, ngay:day, gio:gioKhoangStr, maCC: ccCode||'(trống)', maTR: trCheck.code,
