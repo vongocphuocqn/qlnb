@@ -1024,6 +1024,20 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
             background:#fff;border:1.5px solid var(--bd);border-top:none;border-radius:0 0 8px 8px;
             max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12)"></div>
         </div>
+        <div class="ff" style="position:relative">
+          <label>Người thay thế</label>
+          <div style="position:relative">
+            <input type="text" id="nbFRepl" placeholder="Tìm người thay thế..." autocomplete="off"
+              oninput="replFFilter('nb')" onfocus="replFFilter('nb')" onblur="setTimeout(function(){var b=document.getElementById('nbFReplDrop');if(b)b.style.display='none';},200)"
+              onkeydown="if(event.key==='Escape'){document.getElementById('nbFReplDrop').style.display='none';}"
+              style="width:170px;border:1.5px solid var(--bd);border-radius:7px;padding:6px 24px 6px 8px;font-size:12px;font-family:inherit">
+            <span onclick="replFPick('nb','')"
+              style="position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;color:#aaa;font-size:14px;line-height:1">×</span>
+          </div>
+          <div id="nbFReplDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:500;
+            background:#fff;border:1.5px solid var(--bd);border-top:none;border-radius:0 0 8px 8px;
+            max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12)"></div>
+        </div>
         <div class="ff"><label>Trạng thái</label>
           <select id="nbFStatus" onchange="nbRenderList()">
             <option value="">Tất cả</option>
@@ -1481,6 +1495,20 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
               style="position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;color:#aaa;font-size:14px;line-height:1">×</span>
           </div>
           <div id="npFNameDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:500;
+            background:#fff;border:1.5px solid #a7d4ce;border-top:none;border-radius:0 0 8px 8px;
+            max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12)"></div>
+        </div>
+        <div class="ff" style="position:relative">
+          <label>Người thay thế</label>
+          <div style="position:relative">
+            <input type="text" id="npFRepl" placeholder="Tìm người thay thế..." autocomplete="off"
+              oninput="replFFilter('np')" onfocus="replFFilter('np')" onblur="setTimeout(function(){var b=document.getElementById('npFReplDrop');if(b)b.style.display='none';},200)"
+              onkeydown="if(event.key==='Escape'){document.getElementById('npFReplDrop').style.display='none';}"
+              style="width:170px;border:1.5px solid #a7d4ce;border-radius:7px;padding:6px 24px 6px 8px;font-size:12px;font-family:inherit">
+            <span onclick="replFPick('np','')"
+              style="position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;color:#aaa;font-size:14px;line-height:1">×</span>
+          </div>
+          <div id="npFReplDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:500;
             background:#fff;border:1.5px solid #a7d4ce;border-top:none;border-radius:0 0 8px 8px;
             max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12)"></div>
         </div>
@@ -17930,6 +17958,8 @@ function nbGetFiltered(){
   const to=(document.getElementById('nbFTo')||{}).value||'';
   if(nm)list=list.filter(r=>(r.person||'').toLowerCase().includes(nm.toLowerCase())||vnNoAccent(r.person||'').includes(vnNoAccent(nm)));
   if(st)list=list.filter(r=>r.status===st);
+  const rp=((document.getElementById('nbFRepl')||{}).value||'').trim();
+  if(rp)list=list.filter(r=>replFMatch(r,rp));
   if(sh)list=list.filter(r=>r.shift===sh||r.entries&&r.entries.some(e=>e.shift===sh));
   if(fr||to)list=list.filter(r=>{var dates=(r.entries&&r.entries.length)?r.entries.map(e=>e.date):[r.date||''];return dates.some(d=>(!fr||d>=fr)&&(!to||d<=to));});
   var wkOnly=(document.getElementById('nbFWeekend')||{}).checked;
@@ -18051,11 +18081,61 @@ function npFNameFilter(){
 }
 function npFNamePick(n){document.getElementById('npFName').value=n;document.getElementById('npFNameDrop').style.display='none';npRenderList();}
 
+/* ── LỌC THEO NGƯỜI THAY THẾ (dùng chung cho Nghỉ bù 'nb' và Nghỉ phép 'np') ── */
+function replFNorm(t){ return vnNoAccent(String(t||'').toLowerCase()).toLowerCase().replace(/đ/g,'d').replace(/\s+/g,' ').trim(); }
+// Toàn bộ chữ ghi ở cột "Người thay thế" của 1 phiếu (theo từng ca/ngày + trường cũ replacer).
+function replFTexts(r){
+  var out=[];
+  if(r && Array.isArray(r.replacers)) r.replacers.forEach(function(x){ if(x) out.push(String(x)); });
+  else if(r && r.replacers && typeof r.replacers==='object') Object.keys(r.replacers).forEach(function(k){ if(r.replacers[k]) out.push(String(r.replacers[k])); });
+  if(r && r.replacer) out.push(String(r.replacer));
+  return out;
+}
+// Tách ra từng TÊN người thay thế (bỏ nhãn "Ngày:"/"Đêm:", tách theo "—", ",", ";", "/", "+").
+function replFNames(r){
+  var names=[];
+  replFTexts(r).forEach(function(t){
+    t.split(/\s*[—;,\/+]\s*|\s+-\s+/).forEach(function(p){
+      p=p.replace(/^\s*(Ngày|Đêm|Ca ngày|Ca đêm)\s*:\s*/i,'').trim();
+      if(p && !/^(không phân|—|-)$/i.test(p)) names.push(p);
+    });
+  });
+  return names;
+}
+function replFMatch(r,q){
+  var k=replFNorm(q); if(!k) return true;
+  return replFTexts(r).some(function(t){ return replFNorm(t).indexOf(k)>-1; });
+}
+function replFRender(p){ if(p==='np'){ if(typeof npRenderList==='function') npRenderList(); } else { if(typeof nbRenderList==='function') nbRenderList(); } }
+function replFFilter(p){
+  var inp=document.getElementById(p+'FRepl'), box=document.getElementById(p+'FReplDrop');
+  if(!inp||!box) return;
+  var recs=(p==='np') ? (typeof npRecords!=='undefined'?npRecords:[]) : (typeof nbRecords!=='undefined'?nbRecords:[]);
+  var cnt={}, goc={};
+  (recs||[]).forEach(function(r){
+    var seen={};
+    replFNames(r).forEach(function(n){ var k=replFNorm(n); if(seen[k]) return; seen[k]=1; cnt[k]=(cnt[k]||0)+1; if(!goc[k]) goc[k]=n; });
+  });
+  var q=replFNorm(inp.value);
+  var keys=Object.keys(cnt).filter(function(k){ return !q || k.indexOf(q)>-1; })
+    .sort(function(a,b){ return goc[a].localeCompare(goc[b],'vi'); });
+  if(!keys.length){ box.style.display='none'; replFRender(p); return; }
+  box.innerHTML=keys.map(function(k){
+    return '<div data-n="'+esc(goc[k])+'" onmousedown="replFPick(\''+p+'\',this.getAttribute(\'data-n\'))" style="padding:7px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;gap:8px" onmouseover="this.style.background=\'#f0f8ff\'" onmouseout="this.style.background=\'\'"><span>'+esc(goc[k])+'</span><span style="color:#999;font-size:11px;white-space:nowrap">'+cnt[k]+' phiếu</span></div>';
+  }).join('');
+  box.style.display='block'; replFRender(p);
+}
+function replFPick(p,n){
+  var inp=document.getElementById(p+'FRepl'), box=document.getElementById(p+'FReplDrop');
+  if(inp) inp.value=n||''; if(box) box.style.display='none';
+  replFRender(p);
+}
 function nbClearFilter(){
-  ['nbFName','nbFFrom','nbFTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['nbFName','nbFRepl','nbFFrom','nbFTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['nbFStatus','nbFShift'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   var wk=document.getElementById('nbFWeekend');if(wk)wk.checked=false;
   var b=document.getElementById('nbFNameDrop');if(b)b.style.display='none';
+  var b2=document.getElementById('nbFReplDrop');if(b2)b2.style.display='none';
   nbRenderList();
 }
 
@@ -19571,6 +19651,8 @@ function npGetFiltered(){
   const to=(document.getElementById('npFTo')||{}).value||'';
   if(nm)list=list.filter(r=>r.person.toLowerCase().includes(nm.toLowerCase())||vnNoAccent(r.person).includes(vnNoAccent(nm)));
   if(st)list=list.filter(r=>r.status===st);
+  const rp=((document.getElementById('npFRepl')||{}).value||'').trim();
+  if(rp)list=list.filter(r=>replFMatch(r,rp));
   if(tp)list=list.filter(r=>r.type===tp);
   if(fr||to)list=list.filter(r=>(!fr||r.dateTo>=fr)&&(!to||r.dateFrom<=to));
 
@@ -19709,7 +19791,7 @@ function npRenderList(){
   }).join('');
 }
 function npClearFilter(){
-  ['npFName','npFFrom','npFTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['npFName','npFRepl','npFFrom','npFTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['npFStatus','npFType'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   npRenderList();
 }
