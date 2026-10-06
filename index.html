@@ -25557,6 +25557,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
   <div style="padding:16px;max-width:1100px;margin:0 auto" id="bbbaMainBox">
     <div id="bbbaWhoBanner" style="background:#fff;border:1.5px solid #e6c3c1;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#333"></div>
 
+    <div id="bbbaQuickBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;border:1.5px solid #e6c3c1;border-radius:10px;padding:10px 14px;margin-bottom:14px">
+      <input type="text" id="bbbaQuickSearch" autocomplete="off" placeholder="🔍 Tìm bệnh án cũ theo tên người bệnh hoặc mã hồ sơ..." style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #e6c3c1;border-radius:8px;font-size:13px;font-family:inherit" oninput="bbbaQuickFind(false)" onkeydown="if(event.key==='Enter'){bbbaQuickFind(true);}">
+      <button class="kpi-btn" style="border:1.5px solid #6a1b1a;color:#6a1b1a;background:#fff" onclick="bbbaQuickFind(true)"><i class="ti ti-list-search"></i> Danh sách đã lưu (<span id="bbbaCount2">0</span>)</button>
+      <button class="kpi-btn" style="background:#6a1b1a;color:#fff" onclick="bbbaNewRecord()"><i class="ti ti-plus"></i> Thêm bệnh án mới</button>
+    </div>
+
     <div class="kpi-section" id="bbbaAddBox">
       <h3 style="margin:0 0 12px;font-size:15px;color:#6a1b1a;display:flex;align-items:center;justify-content:space-between;gap:7px;cursor:pointer" onclick="bbbaToggleAddBox()">
         <span><i class="ti ti-file-plus"></i> Lưu biên bản Bình bệnh án</span>
@@ -25591,7 +25597,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       </div>
     </div>
 
-    <div class="kpi-section">
+    <div class="kpi-section" id="bbbaListBox">
       <h3 style="margin:0 0 12px;font-size:15px;color:#6a1b1a;display:flex;align-items:center;gap:7px"><i class="ti ti-list-details"></i> Danh sách biên bản đã lưu (<span id="bbbaCount">0</span>)</h3>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <input type="text" id="bbbaSearchInp" placeholder="🔍 Tìm theo tên người bệnh hoặc mã hồ sơ..." style="flex:1;min-width:220px" oninput="bbbaRenderList()">
@@ -43052,6 +43058,29 @@ function bbbaToggleAddBox(){
   body.style.display=hidden?'block':'none';
   if(chev) chev.innerHTML=hidden?'<i class="ti ti-chevron-up"></i> Thu gọn':'<i class="ti ti-chevron-down"></i> Mở rộng';
 }
+// Thu gọn / mở rộng khung nhập theo ý muốn (khác bbbaToggleAddBox là đảo trạng thái).
+function bbbaSetAddBox(open){
+  var body=document.getElementById('bbbaAddBoxBody'), chev=document.getElementById('bbbaAddBoxChevron');
+  if(!body) return;
+  body.style.display=open?'block':'none';
+  if(chev) chev.innerHTML=open?'<i class="ti ti-chevron-up"></i> Thu gọn':'<i class="ti ti-chevron-down"></i> Mở rộng';
+}
+// Ô tìm nhanh ở đầu trang: tìm bệnh án cũ mà không phải kéo xuống dưới khung nhập.
+function bbbaQuickFind(goToList){
+  var qInp=document.getElementById('bbbaQuickSearch'), sInp=document.getElementById('bbbaSearchInp');
+  if(qInp && sInp) sInp.value=qInp.value;
+  bbbaRenderList();
+  // Đang gõ tìm hoặc bấm nút → thu gọn khung nhập (dữ liệu đang nhập vẫn giữ nguyên) để danh sách hiện ngay bên dưới.
+  if(!bbbaEditingId && (goToList || (qInp && qInp.value.trim()))) bbbaSetAddBox(false);
+  if(goToList){ var box=document.getElementById('bbbaListBox'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+// Nút "Thêm bệnh án mới": mở khung nhập và đưa con trỏ vào ô Tên người bệnh.
+function bbbaNewRecord(){
+  if(bbbaEditingId) bbbaCancelEdit();
+  bbbaSetAddBox(true);
+  var box=document.getElementById('bbbaAddBox'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
+  var t=document.getElementById('bbbaInTenNb'); if(t){ try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); } }
+}
 function bbbaAddRecord(){
   var tenNb=(document.getElementById('bbbaInTenNb').value||'').trim();
   var maHs=(document.getElementById('bbbaInMaHs').value||'').trim();
@@ -43355,8 +43384,11 @@ function bbbaRenderList(){
     })
     .sort(function(a,b){ return (b.ngay||'').localeCompare(a.ngay||'') || (b.createdAt||'').localeCompare(a.createdAt||''); });
   if(cntEl) cntEl.textContent=list.length;
+  var cnt2=document.getElementById('bbbaCount2'); if(cnt2) cnt2.textContent=ids.length;
+  var qInp=document.getElementById('bbbaQuickSearch'), sInp=document.getElementById('bbbaSearchInp');
+  if(qInp && sInp && document.activeElement!==qInp) qInp.value=sInp.value; // giữ 2 ô tìm kiếm khớp nhau
   if(!list.length){
-    body.innerHTML='<div style="text-align:center;color:#aaa;padding:24px"><i class="ti ti-file-off" style="font-size:28px;display:block;margin-bottom:6px"></i>Chưa có biên bản nào được lưu.</div>';
+    body.innerHTML='<div style="text-align:center;color:#aaa;padding:24px"><i class="ti ti-file-off" style="font-size:28px;display:block;margin-bottom:6px"></i>'+((q||flt||fromD||toD)&&ids.length?'Không tìm thấy biên bản nào khớp với điều kiện tìm/lọc đang chọn.':'Chưa có biên bản nào được lưu.')+'</div>';
     return;
   }
   body.innerHTML=list.map(function(r){
@@ -43370,7 +43402,7 @@ function bbbaRenderList(){
         '<div style="font-size:11.5px;color:#666;margin-top:2px">'+(r.khoa?(bbbaEsc(r.khoa)+' · '):'')+'Ngày lập: '+bbbaFmtD(r.ngay)+' · Người bình: '+bbbaEsc(r.nguoiBinh)+' &nbsp; '+klBadge+'</div>'+
       '</div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-        '<button class="kpi-btn" style="padding:3px 10px;font-size:11.5px;border:1.5px solid #6a1b1a;color:#6a1b1a" onclick="bbbaOpenView(\''+r._id+'\')"><i class="ti ti-paperclip"></i> Đính kèm'+(fCount?(' ('+fCount+')'):'')+'</button>'+
+        '<button class="kpi-btn" style="padding:3px 10px;font-size:11.5px;border:1.5px solid #6a1b1a;color:#6a1b1a" onclick="bbbaOpenView(\''+r._id+'\')"><i class="ti ti-eye"></i> Xem biên bản'+(fCount?(' · '+fCount+' file'):'')+'</button>'+
         (bbbaIsAdmin()?('<button class="kpi-btn" style="padding:3px 10px;font-size:11.5px;border:1.5px solid #c62828;color:#c62828" onclick="bbbaDeleteRecord(\''+r._id+'\')"><i class="ti ti-trash"></i> Xóa</button>'):'')+
       '</div>'+
     '</div>';
