@@ -25582,6 +25582,16 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <div class="fg"><label>Số vào viện / Mã hồ sơ bệnh án *</label><input type="text" id="bbbaInMaHs" placeholder="VD: 12345/26"></div>
           <div class="fg"><label>Khoa/phòng điều trị</label><input type="text" id="bbbaInKhoa" placeholder="VD: Khoa Ngoại Tổng hợp"></div>
           <div class="fg"><label>Ngày lập biên bản *</label><input type="date" id="bbbaInNgay"></div>
+          <div class="fg"><label>Kỳ bình bệnh án (tháng/quý) *</label>
+            <div style="display:flex;gap:6px">
+              <select id="bbbaInKyLoai" onchange="bbbaKyFillSo('')" style="flex:1">
+                <option value="thang">Bình theo THÁNG</option>
+                <option value="quy">Bình theo QUÝ</option>
+              </select>
+              <select id="bbbaInKySo" style="flex:1"></select>
+              <select id="bbbaInKyNam" style="flex:1"></select>
+            </div>
+          </div>
           <div class="fg"><label>Người bình (tự động = tên đăng nhập)</label><input type="text" id="bbbaInNguoiBinh" readonly style="background:#f2f2f2;color:#555;cursor:not-allowed"></div>
           <div class="fg"><label>Kết luận *</label>
             <select id="bbbaInKetLuan">
@@ -25594,6 +25604,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         </div>
         <button class="kpi-btn" id="bbbaSubmitBtn" style="background:#6a1b1a;color:#fff" onclick="bbbaAddRecord()"><i class="ti ti-device-floppy"></i> Lưu biên bản</button>
         <button class="kpi-btn" id="bbbaCancelEditBtn" style="display:none;border:1.5px solid #999;color:#666;margin-left:8px" onclick="bbbaCancelEdit()"><i class="ti ti-x"></i> Hủy sửa</button>
+        <div id="bbbaSaveStatus" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;font-size:13px;line-height:1.5"></div>
       </div>
     </div>
 
@@ -25605,6 +25616,9 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <option value="">Tất cả kết luận</option>
           <option value="dat">✅ Đạt</option>
           <option value="chuadat">❌ Chưa đạt</option>
+        </select>
+        <select id="bbbaFilterKy" onchange="bbbaRenderList()" style="width:190px">
+          <option value="">Tất cả kỳ bình</option>
         </select>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
@@ -43033,6 +43047,7 @@ function enterBbbaScreen(role,name){
   var who=document.getElementById('bbbaWhoBanner');
   if(who) who.innerHTML='Đang đăng nhập: <b>'+bbbaEsc(name)+'</b>'+(role==='admin'?' <span style="color:#6a1b1a;font-weight:700">(Quản lý)</span>':'');
   var inNb=document.getElementById('bbbaInNguoiBinh'); if(inNb) inNb.value=name;
+  bbbaKyInit();
   var inNgay=document.getElementById('bbbaInNgay'); if(inNgay && !inNgay.value) inNgay.value=new Date().toISOString().slice(0,10);
   if(bbbaRecordsRef){ try{ bbbaRecordsRef.off(); }catch(e){} }
   bbbaRecordsRef=db.ref('binhBenhAnRecords');
@@ -43081,7 +43096,152 @@ function bbbaNewRecord(){
   var box=document.getElementById('bbbaAddBox'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
   var t=document.getElementById('bbbaInTenNb'); if(t){ try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); } }
 }
+/* ── LƯU BIÊN BẢN ──────────────────────────────────────────────────────────────────────────────
+   Trước đây cả biên bản + TẤT CẢ file đính kèm được gửi lên Firebase trong MỘT lần ghi. Khi tổng dung lượng
+   vượt giới hạn của Firebase (~16MB/lần ghi), máy chủ ngắt kết nối rồi trình duyệt tự gửi lại mãi → nút Lưu
+   "không có hiệu lực", không báo gì. Nay: lưu thông tin biên bản trước, rồi gửi TỪNG FILE một (mỗi file 1 lần
+   ghi riêng), có báo tiến độ và báo rõ file nào quá lớn. Cấu trúc dữ liệu (files[i] = {name,dataUrl}) giữ nguyên. */
+/* ── KỲ BÌNH BỆNH ÁN (tháng/quý) — phục vụ thống kê ── */
+var BBBA_LAMA=['','I','II','III','IV'];
+function bbbaKyFillSo(giuSo){
+  var loai=(document.getElementById('bbbaInKyLoai')||{}).value||'thang';
+  var sel=document.getElementById('bbbaInKySo'); if(!sel) return;
+  var h='<option value="">— Chọn '+(loai==='quy'?'quý':'tháng')+' —</option>';
+  if(loai==='quy'){ for(var q=1;q<=4;q++) h+='<option value="'+q+'">Quý '+BBBA_LAMA[q]+'</option>'; }
+  else { for(var m=1;m<=12;m++) h+='<option value="'+m+'">Tháng '+m+'</option>'; }
+  sel.innerHTML=h; sel.value=(giuSo==null?'':String(giuSo));
+}
+function bbbaKyEnsureNam(nam){
+  var sel=document.getElementById('bbbaInKyNam'); if(!sel) return;
+  var y0=new Date().getFullYear();
+  if(!sel.options.length){
+    var h=''; for(var y=y0+1;y>=y0-3;y--) h+='<option value="'+y+'">Năm '+y+'</option>';
+    sel.innerHTML=h; sel.value=String(y0);
+  }
+  if(nam){
+    var co=false; for(var i=0;i<sel.options.length;i++) if(sel.options[i].value===String(nam)) co=true;
+    if(!co){ var o=document.createElement('option'); o.value=String(nam); o.textContent='Năm '+nam; sel.appendChild(o); }
+    sel.value=String(nam);
+  }
+}
+function bbbaKyInit(){
+  var so=document.getElementById('bbbaInKySo');
+  if(so && !so.options.length) bbbaKyFillSo('');
+  bbbaKyEnsureNam(null);
+}
+function bbbaKySetForm(loai,so,nam){
+  bbbaKyInit();
+  var l=document.getElementById('bbbaInKyLoai'); if(l) l.value=(loai==='quy'?'quy':'thang');
+  bbbaKyFillSo(so||'');
+  if(nam) bbbaKyEnsureNam(nam);
+}
+// Đoán kỳ bình từ TÊN FILE đính kèm (VD "BIÊN BẢN BÌNH BỆNH ÁN T09-26.docx" → Tháng 9/2026; "... Quý III-2026" → Quý III/2026).
+// Chỉ tự điền khi ô kỳ bình còn trống; người dùng vẫn sửa lại được.
+function bbbaKyGuessFromName(name){
+  var so=document.getElementById('bbbaInKySo'); if(!so || so.value) return;
+  var t=String(name||'').replace(/\.[a-z0-9]+$/i,'');
+  function nam4(y){ y=parseInt(y,10); return y<100?2000+y:y; }
+  var m=t.match(/(?:^|[^a-zA-Z0-9À-ỹ])Q(?:u[ýy]?)?\s*(IV|III|II|I|[1-4])\s*[-_\/. ]\s*(?:n[ăa]m\s*)?(\d{4}|\d{2})(?!\d)/i);
+  if(m){ var q=/^\d$/.test(m[1])?parseInt(m[1],10):BBBA_LAMA.indexOf(m[1].toUpperCase()); if(q>=1&&q<=4){ bbbaKySetForm('quy',q,nam4(m[2])); return; } }
+  m=t.match(/(?:^|[^a-zA-Z0-9À-ỹ])T(?:h[áa]ng)?\s*0?(\d{1,2})\s*[-_\/.]\s*(\d{4}|\d{2})(?!\d)/i);
+  if(m){ var th=parseInt(m[1],10); if(th>=1&&th<=12) bbbaKySetForm('thang',th,nam4(m[2])); }
+}
+// Kỳ bình của 1 biên bản. Biên bản cũ chưa ghi kỳ → tạm suy theo THÁNG của ngày lập (suy=true) để vẫn lọc/thống kê được.
+function bbbaKyOf(r){
+  if(r && r.kySo && r.kyNam){
+    var so=parseInt(r.kySo,10), loai=(r.kyLoai==='quy'?'quy':'thang');
+    return {loai:loai, so:so, nam:parseInt(r.kyNam,10), quy:(loai==='quy'?so:Math.ceil(so/3)), suy:false};
+  }
+  var m=/^(\d{4})-(\d{2})/.exec((r&&r.ngay)||'');
+  if(m){ var th=parseInt(m[2],10); return {loai:'thang', so:th, nam:parseInt(m[1],10), quy:Math.ceil(th/3), suy:true}; }
+  return null;
+}
+function bbbaKyLabel(r){
+  var k=bbbaKyOf(r); if(!k || k.suy) return '';
+  return (k.loai==='quy'?('Quý '+BBBA_LAMA[k.so]):('Tháng '+k.so))+'/'+k.nam;
+}
+// Khớp bộ lọc: "n:2026" (cả năm) · "q:2026:3" (quý III, gồm cả biên bản bình theo tháng 7–9) · "t:2026:9" (đúng tháng 9)
+function bbbaKyMatch(r,f){
+  if(!f) return true;
+  var k=bbbaKyOf(r); if(!k) return false;
+  var p=f.split(':'), nam=parseInt(p[1],10), so=parseInt(p[2],10);
+  if(k.nam!==nam) return false;
+  if(p[0]==='n') return true;
+  if(p[0]==='q') return k.quy===so;
+  return k.loai==='thang' && k.so===so;
+}
+function bbbaKyBuildFilter(){
+  var sel=document.getElementById('bbbaFilterKy'); if(!sel) return '';
+  var cur=sel.value, set={};
+  Object.keys(bbbaRecords||{}).forEach(function(id){
+    var k=bbbaKyOf(bbbaRecords[id]); if(!k) return;
+    set['n:'+k.nam]=1; set['q:'+k.nam+':'+k.quy]=1;
+    if(k.loai==='thang') set['t:'+k.nam+':'+k.so]=1;
+  });
+  function rank(v){ var p=v.split(':'), nam=+p[1], so=+p[2]||0;
+    // Năm (mới nhất trước) → trong năm: dòng "Cả năm", rồi từng quý (mới trước), dưới mỗi quý là các tháng của quý đó
+    var quy=p[0]==='q'?so:(p[0]==='t'?Math.ceil(so/3):9);
+    return [-nam, p[0]==='n'?0:1, -quy, p[0]==='q'?0:1, -so];
+  }
+  var keys=Object.keys(set).sort(function(a,b){ var x=rank(a),y=rank(b); for(var i=0;i<x.length;i++){ if(x[i]!==y[i]) return x[i]-y[i]; } return 0; });
+  var h='<option value="">Tất cả kỳ bình</option>';
+  keys.forEach(function(v){ var p=v.split(':');
+    var lb = p[0]==='n' ? ('Cả năm '+p[1]) : (p[0]==='q' ? ('Quý '+BBBA_LAMA[+p[2]]+'/'+p[1]) : ('\u00a0\u00a0\u00a0Tháng '+p[2]+'/'+p[1]));
+    h+='<option value="'+v+'">'+lb+'</option>';
+  });
+  sel.innerHTML=h;
+  sel.value=set[cur]?cur:'';
+  return sel.value;
+}
+var bbbaSaving=false;
+var BBBA_MAX_FILE_CHARS=9.5*1024*1024; // Firebase giới hạn 1 chuỗi ~10MB → file gốc tối đa khoảng 7MB
+function bbbaFileBytes(f){ var d=(f&&f.dataUrl)||''; return Math.round((d.length-d.indexOf(',')-1)*3/4); }
+function bbbaFmtMB(n){ return (n/1048576).toFixed(n<1048576?2:1)+' MB'; }
+function bbbaSaveStatus(msg,type){
+  var el=document.getElementById('bbbaSaveStatus'); if(!el) return;
+  if(!msg){ el.style.display='none'; el.innerHTML=''; return; }
+  var c={ok:['#e8f5e9','#1b5e20','#a5d6a7'], err:['#fce4e4','#b71c1c','#ef9a9a'], info:['#eef6ff','#0d47a1','#b6d8f5']}[type||'info'];
+  el.style.display='block'; el.style.background=c[0]; el.style.color=c[1]; el.style.border='1px solid '+c[2];
+  el.innerHTML=msg;
+}
+function bbbaSetSaving(on){
+  bbbaSaving=on;
+  var btn=document.getElementById('bbbaSubmitBtn'); if(!btn) return;
+  btn.disabled=on; btn.style.opacity=on?'0.6':''; btn.style.cursor=on?'wait':'';
+}
+// Kiểm tra file quá lớn — trả về chuỗi thông báo lỗi, hoặc '' nếu ổn.
+function bbbaCheckFileSizes(files){
+  var big=(files||[]).filter(function(f){ return f && f.dataUrl && f.dataUrl.length>BBBA_MAX_FILE_CHARS; });
+  if(!big.length) return '';
+  return '⚠️ Có '+big.length+' file QUÁ LỚN, hệ thống không lưu được (tối đa khoảng 7 MB mỗi file):\n\n'+
+    big.map(function(f){ return '• '+f.name+' — '+bbbaFmtMB(bbbaFileBytes(f)); }).join('\n')+
+    '\n\nAnh bấm "Gỡ" file đó, rồi nén nhỏ lại / tách thành nhiều file / chụp lại ở độ phân giải thấp hơn trước khi đính kèm.';
+}
+// Ghi danh sách file lên records/{id}/files — TỪNG FILE một lần ghi, bỏ qua file không đổi, xóa file đã gỡ.
+// onStep(i, n, file): báo tiến độ. Trả về Promise; nếu lỗi → reject với e.bbbaFileName = tên file đang gửi.
+function bbbaSaveFilesSeq(recRef, oldFiles, newFiles, onStep){
+  oldFiles=oldFiles||[]; newFiles=newFiles||[];
+  var todo=[];
+  newFiles.forEach(function(f,i){
+    var o=oldFiles[i];
+    if(!(o && o.name===f.name && o.dataUrl===f.dataUrl)) todo.push(i);
+  });
+  var p=Promise.resolve(), done=0;
+  todo.forEach(function(i){
+    p=p.then(function(){
+      var f=newFiles[i]; done++;
+      if(onStep) onStep(done, todo.length, f);
+      return recRef.child('files/'+i).set({name:f.name, dataUrl:f.dataUrl}).catch(function(e){ e.bbbaFileName=f.name; throw e; });
+    });
+  });
+  // Xóa các file thừa ở cuối (đã bị gỡ khi sửa) — xóa từ cuối lên để mảng luôn liền mạch.
+  for(var k=oldFiles.length-1;k>=newFiles.length;k--){
+    (function(k){ p=p.then(function(){ return recRef.child('files/'+k).remove(); }); })(k);
+  }
+  return p;
+}
 function bbbaAddRecord(){
+  if(bbbaSaving) return;
   var tenNb=(document.getElementById('bbbaInTenNb').value||'').trim();
   var maHs=(document.getElementById('bbbaInMaHs').value||'').trim();
   var khoa=(document.getElementById('bbbaInKhoa').value||'').trim();
@@ -43089,27 +43249,63 @@ function bbbaAddRecord(){
   var ketLuan=document.getElementById('bbbaInKetLuan').value||'dat';
   var noiDung=(document.getElementById('bbbaInNoiDung').value||'').trim();
   var loi=(document.getElementById('bbbaInLoi').value||'').trim();
-  if(!tenNb||!maHs||!ngay||(!noiDung&&!bbbaAttachedFiles.length)){
-    alert('⚠️ Vui lòng nhập đủ: Tên người bệnh, Số vào viện/Mã HSBA, Ngày lập — và Nội dung đánh giá (hoặc đính kèm ít nhất 1 file Word gốc).');
+  var thieu=[];
+  if(!tenNb) thieu.push('Tên người bệnh');
+  if(!maHs) thieu.push('Số vào viện/Mã HSBA');
+  if(!ngay) thieu.push('Ngày lập biên bản');
+  bbbaKyInit();
+  var kyLoai=document.getElementById('bbbaInKyLoai').value==='quy'?'quy':'thang';
+  var kySo=parseInt(document.getElementById('bbbaInKySo').value,10)||0;
+  var kyNam=parseInt(document.getElementById('bbbaInKyNam').value,10)||0;
+  if(!kySo||!kyNam) thieu.push('Kỳ bình bệnh án (chọn tháng hoặc quý)');
+  if(!noiDung&&!bbbaAttachedFiles.length) thieu.push('Tóm tắt/Ghi chú (hoặc đính kèm ít nhất 1 file)');
+  if(thieu.length){
+    alert('⚠️ Chưa lưu được — còn thiếu:\n\n• '+thieu.join('\n• '));
     return;
   }
-  var payload={
+  if(!bbbaRecordsRef){ alert('Chưa kết nối được dữ liệu. Anh bấm "Làm mới" rồi thử lại.'); return; }
+  var files=bbbaAttachedFiles.map(function(f){ return {name:f.name, dataUrl:f.dataUrl}; });
+  var loiSize=bbbaCheckFileSizes(files);
+  if(loiSize){ alert(loiSize); bbbaSaveStatus(loiSize.replace(/\n/g,'<br>'),'err'); return; }
+
+  var meta={
     tenNb:tenNb, maHs:maHs, khoa:khoa, ngay:ngay,
     nguoiBinh:(bbbaCu&&bbbaCu.name)||'—',
     ketLuan:ketLuan, noiDung:noiDung, loi:loi,
-    files:bbbaAttachedFiles.map(function(f){ return {name:f.name, dataUrl:f.dataUrl}; }),
+    kyLoai:kyLoai, kySo:kySo, kyNam:kyNam, // kỳ bình: tháng/quý + năm (giữ nguyên trên form sau khi lưu để nhập tiếp hồ sơ cùng kỳ)
     fileName:null, fileData:null, // dọn field cũ (tương thích ngược), dữ liệu file nay nằm trong "files"
     updatedAt:new Date().toISOString()
   };
-  if(bbbaEditingId){
-    bbbaRecordsRef.child(bbbaEditingId).update(payload).then(function(){
-      alert('✅ Đã cập nhật biên bản.');
-      bbbaCancelEdit();
-    }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
+  var isEdit=!!bbbaEditingId;
+  var recRef, oldFiles=[], p;
+  var tongMB=bbbaFmtMB(files.reduce(function(t,f){ return t+bbbaFileBytes(f); },0));
+  bbbaSetSaving(true);
+  bbbaSaveStatus('⏳ Đang lưu thông tin biên bản...','info');
+  // Mạng chậm: sau 40 giây chưa xong thì nhắc để người dùng biết hệ thống vẫn đang gửi (không phải treo).
+  var buocHienTai='thông tin biên bản';
+  var nhac=setInterval(function(){
+    if(bbbaSaving) bbbaSaveStatus('⏳ Vẫn đang gửi '+buocHienTai+'... Mạng đang chậm hoặc file lớn — anh vui lòng chờ, KHÔNG đóng trang và không bấm Lưu lại.','info');
+  },40000);
+  if(isEdit){
+    recRef=bbbaRecordsRef.child(bbbaEditingId);
+    var cu=bbbaRecords[bbbaEditingId];
+    oldFiles=(cu && cu.files && cu.files.length) ? cu.files : [];
+    p=recRef.update(meta);
   } else {
-    payload.createdAt=new Date().toISOString();
-    bbbaRecordsRef.push(payload).then(function(){
-      alert('✅ Đã lưu biên bản Bình bệnh án.'+(bbbaAttachedFiles.length?(' (kèm '+bbbaAttachedFiles.length+' file)'):''));
+    meta.createdAt=new Date().toISOString();
+    recRef=bbbaRecordsRef.push();
+    p=recRef.set(meta);
+  }
+  p.then(function(){
+    return bbbaSaveFilesSeq(recRef, oldFiles, files, function(i,n,f){
+      buocHienTai='file '+i+'/'+n+' ('+f.name+')';
+      bbbaSaveStatus('⏳ Đang gửi file '+i+'/'+n+': <b>'+bbbaEsc(f.name)+'</b> ('+bbbaFmtMB(bbbaFileBytes(f))+')...','info');
+    });
+  }).then(function(){
+    clearInterval(nhac); bbbaSetSaving(false);
+    var soFile=files.length;
+    if(isEdit){ bbbaCancelEdit(); }
+    else {
       document.getElementById('bbbaInTenNb').value='';
       document.getElementById('bbbaInMaHs').value='';
       document.getElementById('bbbaInKhoa').value='';
@@ -43117,8 +43313,23 @@ function bbbaAddRecord(){
       document.getElementById('bbbaInLoi').value='';
       document.getElementById('bbbaInKetLuan').value='dat';
       bbbaClearAttachedFiles();
-    }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
-  }
+    }
+    bbbaSaveStatus('✅ Đã '+(isEdit?'cập nhật':'lưu')+' biên bản của <b>'+bbbaEsc(tenNb)+'</b>'+(soFile?(' — kèm '+soFile+' file ('+tongMB+')'):'')+'. Xem ở "Danh sách biên bản đã lưu" bên dưới.','ok');
+    alert('✅ Đã '+(isEdit?'cập nhật':'lưu')+' biên bản Bình bệnh án.'+(soFile?(' (kèm '+soFile+' file)'):''));
+  }).catch(function(e){
+    clearInterval(nhac); bbbaSetSaving(false);
+    var msg = e && e.bbbaFileName
+      ? '❌ Thông tin biên bản ĐÃ LƯU, nhưng file "'+e.bbbaFileName+'" và các file sau nó CHƯA gửi được ('+(e.message||e)+').\n\nAnh mở biên bản trong danh sách bên dưới → "Xem biên bản" để đính kèm bổ sung các file còn thiếu (không cần nhập lại).'
+      : '❌ Lỗi lưu: '+((e&&e.message)||e);
+    if(e && e.bbbaFileName && !isEdit){ // tránh bấm Lưu lần nữa tạo biên bản trùng
+      document.getElementById('bbbaInTenNb').value=''; document.getElementById('bbbaInMaHs').value='';
+      document.getElementById('bbbaInKhoa').value=''; document.getElementById('bbbaInNoiDung').value='';
+      document.getElementById('bbbaInLoi').value=''; document.getElementById('bbbaInKetLuan').value='dat';
+      bbbaClearAttachedFiles();
+    }
+    bbbaSaveStatus(bbbaEsc(msg).replace(/\n/g,'<br>'),'err');
+    alert(msg);
+  });
 }
 function bbbaCancelEdit(){
   bbbaEditingId=null;
@@ -43156,6 +43367,7 @@ function bbbaIsSupportedFile(name){
 function bbbaAddAttachedFile(name, arrayBuffer){
   var b64=bbbaArrayBufferToBase64(arrayBuffer);
   bbbaAttachedFiles.push({name:name, dataUrl:'data:'+bbbaMimeOf(name)+';base64,'+b64, _new:true});
+  try{ bbbaKyGuessFromName(name); }catch(e){}
   bbbaRenderAttachedChip();
 }
 function bbbaClearAttachedFiles(){
@@ -43220,7 +43432,14 @@ function bbbaAttachMoreFiles(id, fileList){
     reader.readAsArrayBuffer(file);
   });
   function finish(){
-    bbbaRecordsRef.child(id).update({files:existing, updatedAt:new Date().toISOString()}).then(function(){
+    var loiSize=bbbaCheckFileSizes(existing.slice(originalCount));
+    if(loiSize){ alert(loiSize); return; }
+    var recRef=bbbaRecordsRef.child(id);
+    // Bản ghi kiểu cũ (1 file ở fileData) → ghi lại đủ cả file cũ vào "files"; còn lại chỉ gửi các file MỚI.
+    var oldFiles=(r.files && r.files.length) ? r.files : [];
+    bbbaSaveFilesSeq(recRef, oldFiles, existing).then(function(){
+      return recRef.update({fileName:null, fileData:null, updatedAt:new Date().toISOString()});
+    }).then(function(){
       var added=existing.length-originalCount;
       if(errors.length) alert('Đã đính kèm thêm '+added+' file. Lỗi: '+errors.join(', '));
       bbbaOpenView(id);
@@ -43374,9 +43593,11 @@ function bbbaRenderList(){
   var fromD=((document.getElementById('bbbaFilterFrom')||{}).value||'');
   var toD=((document.getElementById('bbbaFilterTo')||{}).value||'');
   var ids=Object.keys(bbbaRecords||{});
+  var fKy=bbbaKyBuildFilter();
   var list=ids.map(function(id){ var r=Object.assign({},bbbaRecords[id]); r._id=id; return r; })
     .filter(function(r){
       if(flt && r.ketLuan!==flt) return false;
+      if(!bbbaKyMatch(r,fKy)) return false;
       if(fromD && (r.ngay||'') < fromD) return false;
       if(toD && (r.ngay||'') > toD) return false;
       if(!q) return true;
@@ -43388,10 +43609,20 @@ function bbbaRenderList(){
   var qInp=document.getElementById('bbbaQuickSearch'), sInp=document.getElementById('bbbaSearchInp');
   if(qInp && sInp && document.activeElement!==qInp) qInp.value=sInp.value; // giữ 2 ô tìm kiếm khớp nhau
   if(!list.length){
-    body.innerHTML='<div style="text-align:center;color:#aaa;padding:24px"><i class="ti ti-file-off" style="font-size:28px;display:block;margin-bottom:6px"></i>'+((q||flt||fromD||toD)&&ids.length?'Không tìm thấy biên bản nào khớp với điều kiện tìm/lọc đang chọn.':'Chưa có biên bản nào được lưu.')+'</div>';
+    body.innerHTML='<div style="text-align:center;color:#aaa;padding:24px"><i class="ti ti-file-off" style="font-size:28px;display:block;margin-bottom:6px"></i>'+((q||flt||fKy||fromD||toD)&&ids.length?'Không tìm thấy biên bản nào khớp với điều kiện tìm/lọc đang chọn.':'Chưa có biên bản nào được lưu.')+'</div>';
     return;
   }
-  body.innerHTML=list.map(function(r){
+  var soDat=list.filter(function(r){ return r.ketLuan==='dat'; }).length, soCD=list.length-soDat;
+  function pct(n){ return list.length?(Math.round(n*1000/list.length)/10+'%'):'0%'; }
+  var kySel=document.getElementById('bbbaFilterKy');
+  var kyTxt=(fKy && kySel && kySel.selectedIndex>=0) ? kySel.options[kySel.selectedIndex].text.trim() : 'Tất cả kỳ bình';
+  var statHtml='<div style="background:#faf3f2;border:1px solid #e6c3c1;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#444">'+
+    '<i class="ti ti-chart-bar"></i> <b>Thống kê — '+bbbaEsc(kyTxt)+':</b> '+list.length+' biên bản &nbsp;·&nbsp; '+
+    '<span style="color:#1b5e20;font-weight:700">✅ Đạt: '+soDat+' ('+pct(soDat)+')</span> &nbsp;·&nbsp; '+
+    '<span style="color:#b71c1c;font-weight:700">❌ Chưa đạt: '+soCD+' ('+pct(soCD)+')</span></div>';
+  body.innerHTML=statHtml+list.map(function(r){
+    var kyLb=bbbaKyLabel(r);
+    var kyHtml=kyLb ? ('<b style="color:#6a1b1a">Kỳ bình: '+kyLb+'</b> · ') : '<span style="color:#b26a00">Chưa ghi kỳ bình</span> · ';
     var klBadge = r.ketLuan==='dat'
       ? '<span style="background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7;border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:700">✅ Đạt</span>'
       : '<span style="background:#fce4e4;color:#b71c1c;border:1px solid #ef9a9a;border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:700">❌ Chưa đạt</span>';
@@ -43399,7 +43630,7 @@ function bbbaRenderList(){
     return '<div style="background:#fff;border:1.5px solid #e6c3c1;border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<div>'+
         '<div style="font-weight:700;color:#333;font-size:13.5px">'+bbbaEsc(r.tenNb)+' <span style="color:#888;font-weight:400">— Mã HSBA: '+bbbaEsc(r.maHs)+'</span>'+(fCount?' <span style="color:#1b5e20;font-weight:700;font-size:11.5px"><i class="ti ti-paperclip"></i> '+fCount+'</span>':'')+'</div>'+
-        '<div style="font-size:11.5px;color:#666;margin-top:2px">'+(r.khoa?(bbbaEsc(r.khoa)+' · '):'')+'Ngày lập: '+bbbaFmtD(r.ngay)+' · Người bình: '+bbbaEsc(r.nguoiBinh)+' &nbsp; '+klBadge+'</div>'+
+        '<div style="font-size:11.5px;color:#666;margin-top:2px">'+kyHtml+(r.khoa?(bbbaEsc(r.khoa)+' · '):'')+'Ngày lập: '+bbbaFmtD(r.ngay)+' · Người bình: '+bbbaEsc(r.nguoiBinh)+' &nbsp; '+klBadge+'</div>'+
       '</div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
         '<button class="kpi-btn" style="padding:3px 10px;font-size:11.5px;border:1.5px solid #6a1b1a;color:#6a1b1a" onclick="bbbaOpenView(\''+r._id+'\')"><i class="ti ti-eye"></i> Xem biên bản'+(fCount?(' · '+fCount+' file'):'')+'</button>'+
@@ -43428,7 +43659,7 @@ function bbbaOpenView(id){
       }).join('')+
       '</div>';
   }
-  var html='<div style="font-size:13px;margin-bottom:8px"><b>Ngày lập:</b> '+bbbaFmtD(r.ngay)+' &nbsp; <b>Người bình:</b> '+bbbaEsc(r.nguoiBinh)+'</div>'+
+  var html='<div style="font-size:13px;margin-bottom:8px"><b>Kỳ bình:</b> '+(bbbaKyLabel(r)||'<span style="color:#b26a00">chưa ghi — bấm "Sửa biên bản" để bổ sung</span>')+' &nbsp; <b>Ngày lập:</b> '+bbbaFmtD(r.ngay)+' &nbsp; <b>Người bình:</b> '+bbbaEsc(r.nguoiBinh)+'</div>'+
     (r.khoa?('<div style="font-size:12.5px;color:#555;margin-bottom:8px"><b>Khoa/phòng điều trị:</b> '+bbbaEsc(r.khoa)+'</div>'):'')+
     '<div style="font-size:13px;margin-bottom:10px"><b>Kết luận:</b> '+klTxt+'</div>'+
     filesHtml+
@@ -43474,6 +43705,7 @@ function bbbaStartEdit(){
   document.getElementById('bbbaInKetLuan').value=r.ketLuan||'dat';
   document.getElementById('bbbaInNoiDung').value=r.noiDung||'';
   document.getElementById('bbbaInLoi').value=r.loi||'';
+  bbbaKySetForm(r.kyLoai, r.kySo, r.kyNam); // biên bản cũ chưa ghi kỳ → để trống cho người dùng chọn
   bbbaAttachedFiles=bbbaGetFilesOf(r).map(function(f){ return {name:f.name, dataUrl:f.dataUrl, _existing:true}; });
   bbbaRenderAttachedChip();
   document.getElementById('bbbaSubmitBtn').innerHTML='<i class="ti ti-device-floppy"></i> Lưu thay đổi';
