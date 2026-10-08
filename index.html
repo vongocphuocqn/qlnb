@@ -50503,10 +50503,19 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         </select>
         <span id="nvkCount" style="font-size:12.5px;color:#555;white-space:nowrap"></span>
       </div>
+      <div id="nvkSelBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12.5px">
+        <i class="ti ti-checklist" style="font-size:17px;color:#b26a00"></i>
+        <span id="nvkSelCount" style="font-weight:700;color:#7a4b00">Lập danh sách: tích ô ở đầu dòng để chọn nhân viên</span>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-left:6px"><input type="checkbox" id="nvkOnlySel" onchange="nvkRender()" style="width:15px;height:15px"> Chỉ hiện người đã chọn</label>
+        <span style="flex:1"></span>
+        <button onclick="nvkSelAllFiltered(true)" style="background:#fff;color:#283593;border:1.5px solid #283593;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-checks"></i> Chọn tất cả đang lọc</button>
+        <button onclick="nvkSelClear()" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit"><i class="ti ti-square-x"></i> Bỏ chọn tất cả</button>
+        <button onclick="nvkOpenSelExport()" style="background:#283593;color:#fff;border:1.5px solid #283593;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-file-word"></i> Xuất Word danh sách đã chọn</button>
+      </div>
       <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
         <table class="nvk-table">
-          <thead><tr><th>#</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th><th>Thao tác</th></tr></thead>
-          <tbody id="nvkTbody"><tr><td colspan="12" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr></tbody>
+          <thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="nvkSelAll" onchange="nvkSelAllFiltered(this.checked)" title="Chọn / bỏ chọn tất cả người đang hiển thị" style="width:16px;height:16px;cursor:pointer"></th><th>#</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th><th>Thao tác</th></tr></thead>
+          <tbody id="nvkTbody"><tr><td colspan="13" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -51566,7 +51575,9 @@ function nvkGetFilteredList(){
   var nhom = (document.getElementById('nvkNhomFilter')||{}).value || '';
   var vanBang = (document.getElementById('nvkVanBangFilter')||{}).value || '';
   var sortMode = (document.getElementById('nvkSortMode')||{}).value || 'hoten';
+  var onlySel = !!((document.getElementById('nvkOnlySel')||{}).checked);
   return nvkList.filter(function(e){
+    if(onlySel && !nvkSel[nvkSelKey(e)]) return false;
     if(donVi && e.donVi!==donVi) return false;
     if(nhom && e.nhom!==nhom) return false;
     if(vanBang && e.vanBang!==vanBang) return false;
@@ -51581,23 +51592,182 @@ function nvkGetFilteredList(){
     return (a.ten||'').localeCompare(b.ten||'', 'vi');
   });
 }
+/* ── CHECKLIST: tích chọn một số nhân viên (kết hợp tìm/lọc) rồi xuất Word để kèm thông báo ──
+   Lựa chọn được GIỮ NGUYÊN khi đổi ô tìm kiếm/bộ lọc, nên có thể lọc nhóm này tích vài người, lọc nhóm khác
+   tích tiếp. Chỉ lưu tạm trong phiên làm việc (tải lại trang là hết), không ghi gì lên dữ liệu nhân viên. */
+var nvkSel = {};
+function nvkSelKey(e){ return (e.ten||'')+'|'+(e.ngaySinh||'')+'|'+(e.soDinhDanh||''); }
+function nvkSelectedList(){ // người đã chọn (trong TOÀN BỘ danh sách, không phụ thuộc bộ lọc), theo kiểu sắp xếp đang chọn
+  var sortMode = (document.getElementById('nvkSortMode')||{}).value || 'hoten';
+  return nvkList.filter(function(e){ return !!nvkSel[nvkSelKey(e)]; }).sort(function(a,b){
+    if(sortMode==='ten'){
+      var r = nvkTenChinh(a.ten).localeCompare(nvkTenChinh(b.ten), 'vi');
+      return r!==0 ? r : (a.ten||'').localeCompare(b.ten||'', 'vi');
+    }
+    return (a.ten||'').localeCompare(b.ten||'', 'vi');
+  });
+}
+function nvkUpdateSelBar(list){
+  var n = nvkList.filter(function(e){ return !!nvkSel[nvkSelKey(e)]; }).length;
+  var el = document.getElementById('nvkSelCount');
+  if(el) el.textContent = n ? ('Đã chọn '+n+' người') : 'Lập danh sách: tích ô ở đầu dòng để chọn nhân viên';
+  var all = document.getElementById('nvkSelAll');
+  if(all){
+    list = list || nvkGetFilteredList();
+    var k = list.filter(function(e){ return !!nvkSel[nvkSelKey(e)]; }).length;
+    all.checked = list.length>0 && k===list.length;
+    all.indeterminate = k>0 && k<list.length;
+  }
+}
+function nvkToggleSel(idx, cb){
+  var e = nvkList[idx]; if(!e) return;
+  if(cb.checked) nvkSel[nvkSelKey(e)] = true; else delete nvkSel[nvkSelKey(e)];
+  var tr = cb.closest ? cb.closest('tr') : null;
+  if(tr) tr.style.background = cb.checked ? '#fff8e1' : '';
+  // Đang bật "Chỉ hiện người đã chọn" mà bỏ tích → vẽ lại để dòng đó biến mất
+  if(!cb.checked && (document.getElementById('nvkOnlySel')||{}).checked) nvkRender(); else nvkUpdateSelBar();
+}
+function nvkSelAllFiltered(on){
+  var list = nvkGetFilteredList();
+  if(on && !list.length){ alert('Không có ai trong danh sách đang lọc để chọn.'); return; }
+  list.forEach(function(e){ if(on) nvkSel[nvkSelKey(e)] = true; else delete nvkSel[nvkSelKey(e)]; });
+  nvkRender();
+}
+function nvkSelClear(){
+  nvkSel = {};
+  var o = document.getElementById('nvkOnlySel'); if(o) o.checked = false;
+  nvkRender();
+}
+// Các cột có thể đưa vào danh sách xuất Word (Họ và tên luôn có). "trong" = cột để trống cho ký/ghi tay.
+var NVK_SEL_COLS = [
+  {k:'ngaySinh', t:'Ngày sinh', on:false, get:function(e){ return nvkFmtD(e.ngaySinh); }, c:true},
+  {k:'donVi', t:'Đơn vị', on:true, get:function(e){ return e.donVi||''; }},
+  {k:'nhom', t:'Nhóm', on:false, get:function(e){ return e.nhom||''; }},
+  {k:'chucVu', t:'Chức vụ', on:true, get:function(e){ return e.chucVu||''; }},
+  {k:'vanBang', t:'Văn bằng', on:true, get:function(e){ return e.vanBang||''; }},
+  {k:'soCCHN', t:'Số CCHN', on:false, get:function(e){ return e.soCCHN||''; }},
+  {k:'sdt', t:'Số điện thoại', on:false, get:function(e){ return e.sdt||''; }},
+  {k:'email', t:'Email', on:false, get:function(e){ return e.email||''; }},
+  {k:'soDinhDanh', t:'Số định danh cá nhân', on:false, get:function(e){ return e.soDinhDanh||''; }},
+  {k:'_kyNhan', t:'Ký nhận', on:false, trong:true},
+  {k:'_ghiChu', t:'Ghi chú', on:true, trong:true}
+];
+var nvkSelOpt = {title:'DANH SÁCH NHÂN VIÊN', sub:'', cols:null};
+function nvkOpenSelExport(){
+  var list = nvkSelectedList();
+  if(!list.length){ alert('Anh chưa chọn nhân viên nào.\n\nTích vào ô ở đầu dòng của từng người (có thể dùng ô tìm kiếm/bộ lọc để tìm nhanh), rồi bấm lại nút này.'); return; }
+  if(!nvkSelOpt.cols){ nvkSelOpt.cols = {}; NVK_SEL_COLS.forEach(function(c){ nvkSelOpt.cols[c.k] = c.on; }); }
+  var old = document.getElementById('nvkSelExportOv'); if(old) old.parentNode.removeChild(old);
+  var ov = document.createElement('div');
+  ov.id = 'nvkSelExportOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px';
+  var inp = 'width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit;box-sizing:border-box';
+  ov.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:92vh;overflow:auto;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.3)">'
+    + '<div style="font-size:15.5px;font-weight:700;color:#283593;margin-bottom:4px"><i class="ti ti-file-word"></i> Xuất Word danh sách đã chọn ('+list.length+' người)</div>'
+    + '<div style="font-size:12px;color:#666;margin-bottom:12px">Sắp xếp theo kiểu đang chọn ở màn hình chính. File Word mở ra vẫn chỉnh sửa được.</div>'
+    + '<label style="font-size:12px;font-weight:700;color:#444">Tiêu đề danh sách</label>'
+    + '<input type="text" id="nvkSelTitle" style="'+inp+';margin:4px 0 10px" value="'+nvkEsc(nvkSelOpt.title)+'" placeholder="VD: DANH SÁCH NHÂN VIÊN THAM GIA TẬP HUẤN...">'
+    + '<label style="font-size:12px;font-weight:700;color:#444">Dòng phụ dưới tiêu đề (không bắt buộc)</label>'
+    + '<input type="text" id="nvkSelSub" style="'+inp+';margin:4px 0 10px" value="'+nvkEsc(nvkSelOpt.sub)+'" placeholder="VD: (Kèm theo Thông báo số …/TB-GMHS ngày …/…/2026)">'
+    + '<div style="font-size:12px;font-weight:700;color:#444;margin-bottom:4px">Các cột đưa vào danh sách (STT và Họ và tên luôn có)</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:13px;margin-bottom:14px">'
+    + NVK_SEL_COLS.map(function(c){ return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="nvkSelColCb" value="'+c.k+'"'+(nvkSelOpt.cols[c.k]?' checked':'')+' style="width:15px;height:15px"> '+c.t+(c.trong?' <span style="color:#999;font-size:11px">(cột trống)</span>':'')+'</label>'; }).join('')
+    + '</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'
+    + '<button onclick="nvkSelCopyNames()" style="background:#fff;color:#283593;border:1.5px solid #283593;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit"><i class="ti ti-copy"></i> Sao chép tên (dán Zalo)</button>'
+    + '<button onclick="nvkCloseSelExport()" style="background:#fff;color:#555;border:1.5px solid #bbb;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit">Đóng</button>'
+    + '<button onclick="nvkExportSelWord()" style="background:#283593;color:#fff;border:1.5px solid #283593;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-file-word"></i> Xuất Word</button>'
+    + '</div></div>';
+  ov.addEventListener('mousedown', function(ev){ if(ev.target===ov) nvkCloseSelExport(); });
+  document.body.appendChild(ov);
+}
+function nvkSelReadOpt(){
+  var t = document.getElementById('nvkSelTitle'), sb = document.getElementById('nvkSelSub');
+  if(t) nvkSelOpt.title = t.value.trim() || 'DANH SÁCH NHÂN VIÊN';
+  if(sb) nvkSelOpt.sub = sb.value.trim();
+  var cbs = document.querySelectorAll('#nvkSelExportOv .nvkSelColCb');
+  for(var i=0;i<cbs.length;i++) nvkSelOpt.cols[cbs[i].value] = cbs[i].checked;
+}
+function nvkCloseSelExport(){
+  nvkSelReadOpt();
+  var ov = document.getElementById('nvkSelExportOv'); if(ov) ov.parentNode.removeChild(ov);
+}
+function nvkSelCopyNames(){
+  nvkSelReadOpt();
+  var list = nvkSelectedList();
+  var txt = nvkSelOpt.title + (nvkSelOpt.sub?('\n'+nvkSelOpt.sub):'') + '\n' + list.map(function(e,i){ return (i+1)+'. '+e.ten; }).join('\n');
+  function ok(){ alert('✅ Đã sao chép '+list.length+' tên. Anh dán (Ctrl + V) vào Zalo hoặc văn bản.'); }
+  function fallback(){
+    var ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText='position:fixed;left:-9999px;top:0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); ok(); }catch(e){ alert('Không sao chép tự động được. Anh dùng nút Xuất Word.'); }
+    document.body.removeChild(ta);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, fallback); else fallback();
+}
+function nvkBuildSelWordHtml(list, opt){
+  var cols = NVK_SEL_COLS.filter(function(c){ return opt.cols[c.k]; });
+  var ngang = cols.length > 5; // nhiều cột → giấy ngang
+  var fs = cols.length > 7 ? '11pt' : (cols.length > 5 ? '12pt' : '13pt');
+  var bd = 'border:1px solid #000;padding:3pt 5pt;';
+  var head = '<tr><th style="'+bd+'width:28pt">STT</th><th style="'+bd+'">Họ và tên</th>'
+    + cols.map(function(c){ return '<th style="'+bd+(c.trong?'width:70pt':'')+'">'+c.t+'</th>'; }).join('') + '</tr>';
+  var rows = list.map(function(e,i){
+    return '<tr><td style="'+bd+'text-align:center">'+(i+1)+'</td><td style="'+bd+'">'+nvkEsc(e.ten)+'</td>'
+      + cols.map(function(c){ return '<td style="'+bd+(c.c?'text-align:center':'')+'">'+(c.trong?'&nbsp;':nvkEsc(c.get(e)))+'</td>'; }).join('') + '</tr>';
+  }).join('');
+  var page = ngang
+    ? '@page Section1{size:842.0pt 595.0pt;mso-page-orientation:landscape;margin:56.7pt 56.7pt 56.7pt 56.7pt;}'
+    : '@page Section1{size:595.0pt 842.0pt;margin:56.7pt 42.5pt 56.7pt 85.0pt;}'; // lề trên/dưới 2cm, trái 3cm, phải 1,5cm
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+    + '<head><meta charset="UTF-8"><title>Danh sach nhan vien</title>'
+    + '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->'
+    + '<style>'+page+' div.Section1{page:Section1;}'
+    + 'body{font-family:"Times New Roman",Times,serif;font-size:13pt;} p{margin:0}'
+    + 'table.ds{border-collapse:collapse;width:100%;margin-top:10pt} table.ds th{font-size:'+fs+';font-weight:bold;text-align:center} table.ds td{font-size:'+fs+'}</style>'
+    + '</head><body><div class="Section1">'
+    + '<table style="border:none;border-collapse:collapse"><tr><td style="border:none;text-align:center;padding:0">'
+    + '<p style="font-size:12pt">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p>'
+    + '<p style="font-size:12pt;font-weight:bold"><u>KHOA GÂY MÊ HỒI SỨC</u></p></td></tr></table>'
+    + '<p style="text-align:center;font-size:14pt;font-weight:bold;margin-top:14pt">'+nvkEsc(opt.title)+'</p>'
+    + (opt.sub ? '<p style="text-align:center;font-style:italic;margin-top:2pt">'+nvkEsc(opt.sub)+'</p>' : '')
+    + '<table class="ds">'+head+rows+'</table>'
+    + '<p style="margin-top:8pt;font-style:italic">Danh sách gồm '+list.length+' người./.</p>'
+    + '</div></body></html>';
+}
+function nvkExportSelWord(){
+  nvkSelReadOpt();
+  var list = nvkSelectedList();
+  if(!list.length){ alert('Chưa chọn nhân viên nào.'); return; }
+  var html = nvkBuildSelWordHtml(list, nvkSelOpt);
+  var now = new Date();
+  var blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'DanhSachDaChon_GMHS_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.doc';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  nvkCloseSelExport();
+}
 function nvkRender(){
   var tb = document.getElementById('nvkTbody');
   var cnt = document.getElementById('nvkCount');
   if(!tb) return;
   var list = nvkGetFilteredList();
   if(cnt) cnt.textContent = list.length + ' / ' + nvkList.length + ' người';
+  nvkUpdateSelBar(list);
   if(!nvkList.length){
-    tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
+    tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
     return;
   }
   if(!list.length){
-    tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
     return;
   }
   tb.innerHTML = list.map(function(e,i){
     var idx = nvkList.indexOf(e);
-    return '<tr>'
+    var daChon = !!nvkSel[nvkSelKey(e)];
+    return '<tr'+(daChon?' style="background:#fff8e1"':'')+'>'
+      + '<td style="text-align:center"><input type="checkbox" '+(daChon?'checked ':'')+'onchange="nvkToggleSel('+idx+',this)" style="width:16px;height:16px;cursor:pointer"></td>'
       + '<td>'+(i+1)+'</td>'
       + '<td style="font-weight:600">'+nvkEsc(e.ten)+'</td>'
       + '<td>'+nvkFmtD(e.ngaySinh)+'</td>'
