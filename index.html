@@ -13443,13 +13443,21 @@ function phDeptOptions(){
 // Tên NGƯỜI GỬI thực tế (tài khoản quản trị dùng chung tên "Quản lý" nên cần ghi rõ ai gửi để thống kê).
 // Nhớ tên dùng gần nhất trên máy này; nếu chưa có thì lấy theo lần gửi gần nhất trong dữ liệu, cuối cùng là tên đăng nhập.
 function phSenderOf(f){ return (f && f.by) ? f.by : 'Quản lý'; }
+// Tên tài khoản chung ("Quản lý", "Admin"...) KHÔNG phải tên người → không in ra phiếu/tin nhắn gửi phòng khác.
+function phIsGenericSender(ten){ var k=phNorm(ten); return !k || ['quan ly','admin','administrator','quan tri','quan tri vien','ql'].indexOf(k)>-1; }
+// Tên người gửi để IN RA NGOÀI (phiếu, tin Zalo): tên thật nếu có, còn tên chung thì để trống (chỉ ghi tên Khoa).
+function phSenderShown(f){ var t=phSenderOf(f); return phIsGenericSender(t) ? '' : t; }
 // SĐT người gửi: ưu tiên số đã lưu kèm lần gửi; nếu chưa có thì tra theo tên trong Danh sách nhân viên
 function phSenderPhone(f){ if(!f) return ''; return f.bySdt || (typeof phStaffPhone==='function' ? phStaffPhone(f.by) : ''); }
 function phDefaultSender(){
-  try{ var v=localStorage.getItem('phLastSender'); if(v) return v; }catch(e){}
+  // Thứ tự: tên dùng gần nhất trên máy này → tên người gửi gần nhất trong dữ liệu → tên đăng nhập (nếu là tên người).
+  // Tên chung như "Quản lý" bị bỏ qua; không có tên thật nào thì để TRỐNG để người dùng phải chọn.
+  try{ var v=localStorage.getItem('phLastSender'); if(v && !phIsGenericSender(v)) return v; }catch(e){}
   var best=null;
-  (typeof cards!=='undefined'?cards:[]).forEach(function(c){ phList(c).forEach(function(f){ if(f.by && (!best || String(f.at)>String(best.at))) best=f; }); });
-  return best ? best.by : ((typeof cu!=='undefined'&&cu&&cu.name)?cu.name:'Quản lý');
+  (typeof cards!=='undefined'?cards:[]).forEach(function(c){ phList(c).forEach(function(f){ if(f.by && !phIsGenericSender(f.by) && (!best || String(f.at)>String(best.at))) best=f; }); });
+  if(best) return best.by;
+  var dn=(typeof cu!=='undefined'&&cu&&cu.name)?cu.name:'';
+  return phIsGenericSender(dn) ? '' : dn;
 }
 function phSenderOptions(){
   var set={};
@@ -13525,6 +13533,17 @@ function phNoiDungGui(c,f){
   if(f && f.sel && f.sel.items && f.sel.items.length) return f.sel.items.map(function(it){ return it.t; }).join('\n');
   return String((f&&f.note)||c.content||c.todo||c.doing||'').trim();
 }
+/* ── LOẠI PHIẾU: tiêu đề ảnh phiếu + câu mở đầu tin Zalo. Mặc định dùng chữ trung tính "đề nghị phối hợp"
+   (gửi phòng/khoa khác) hoặc "thông báo" (gửi nội bộ Khoa); "phản ánh" chỉ dùng khi người gửi chủ động chọn. */
+var PH_LOAI={
+  denghi:{t:'Đề nghị phối hợp xử lý', td:'PHIẾU ĐỀ NGHỊ PHỐI HỢP XỬ LÝ', mo:'Khoa Gây mê Hồi sức kính đề nghị phối hợp xử lý nội dung sau:'},
+  thongtin:{t:'Chuyển thông tin', td:'PHIẾU CHUYỂN THÔNG TIN', mo:'Khoa Gây mê Hồi sức xin chuyển thông tin sau để anh/chị nắm và phối hợp:'},
+  thongbao:{t:'Thông báo', td:'THÔNG BÁO', mo:'Khoa Gây mê Hồi sức thông báo nội dung sau:'},
+  phananh:{t:'Phản ánh - đề nghị phối hợp xử lý', td:'PHIẾU PHẢN ÁNH - ĐỀ NGHỊ PHỐI HỢP XỬ LÝ', mo:'Khoa Gây mê Hồi sức xin phản ánh và đề nghị phối hợp xử lý:'}
+};
+function phLoaiMacDinh(dept){ return (dept && phNorm(dept)===phNorm(PH_NOIBO)) ? 'thongbao' : 'denghi'; }
+function phLoaiOf(f){ return (f && PH_LOAI[f.loai]) ? f.loai : phLoaiMacDinh(f&&f.dept); }
+var phLoaiTouched=false; // người dùng đã tự chọn loại phiếu → không tự đổi theo phòng nữa
 var phTargetId=null;
 var phEditIdx=null; // đang sửa lần gửi thứ mấy của thẻ (null = đang ghi nhận lần gửi mới)
 function phCardOf(id){ return (typeof cards!=='undefined'?cards:[]).find(function(x){ return String(x.id)===String(id); }); }
@@ -13559,7 +13578,7 @@ function phClose(id){ var o=document.getElementById(id||'phOv'); if(o) o.parentN
 function phOpen(id){
   if(!phIsAdmin()){ alert('Chỉ Quản lý mới ghi nhận việc gửi phòng ban.'); return; }
   var c=phCardOf(id); if(!c) return;
-  phTargetId=c.id; phEditIdx=null; phAuto={nguoi:'',zalo:''}; phSelKeys=null; phSendImgs=true;
+  phTargetId=c.id; phEditIdx=null; phAuto={nguoi:'',zalo:''}; phSelKeys=null; phSendImgs=true; phLoaiTouched=false;
   phCtInit(); phStaffInit();
   phOverlay('phOv','<div id="phBody"></div>',640);
   phRenderBody(true);
@@ -13570,7 +13589,7 @@ function phRenderBody(resetForm){
   var inp='width:100%;padding:7px 9px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:13px;font-family:inherit;box-sizing:border-box';
   var lb='font-size:11.5px;font-weight:700;color:#555;display:block;margin-bottom:3px';
   var giu={}; // giữ lại nội dung đang gõ dở khi vẽ lại
-  if(!resetForm) ['phInDeptSel','phInDept','phInBy','phInAt','phInVia','phInNguoi','phInZalo','phInNote'].forEach(function(k){ var e=document.getElementById(k); if(e) giu[k]=e.value; });
+  if(!resetForm) ['phInDeptSel','phInDept','phInLoai','phInBy','phInAt','phInVia','phInNguoi','phInZalo','phInNote'].forEach(function(k){ var e=document.getElementById(k); if(e) giu[k]=e.value; });
   var now=new Date(), p2=function(n){return String(n).padStart(2,'0');};
   var nowLocal=now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate())+'T'+p2(now.getHours())+':'+p2(now.getMinutes());
   var nd=(c.content||c.todo||c.doing||'').trim();
@@ -13579,7 +13598,7 @@ function phRenderBody(resetForm){
     var btn='padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;background:#fff;';
     return '<div style="border:'+(phEditIdx===i?'2.5px solid #f9a825':('1px solid '+st.bd))+';background:'+st.bg+';border-radius:8px;padding:8px 10px;margin-bottom:7px">'+(phEditIdx===i?'<div style="font-size:11.5px;font-weight:700;color:#8a5a00;margin-bottom:3px">✏️ Đang sửa lần gửi này ở khung bên dưới</div>':'')
       +'<div style="color:'+st.c+'"><b>'+phEsc(f.dept)+'</b> — '+st.ic+' <b>'+st.t+'</b> · '+(s==='xong'?('xong sau '+phDays(f)+' ngày'):('đã '+phDays(f)+' ngày'))+'</div>'
-      +'<div style="font-size:12px;color:#444;margin-top:2px">Gửi lúc '+phDT(f.at)+(f.via?(' · qua '+phEsc(f.via)):'')+(f.nguoiNhan?(' · người nhận: '+phEsc(f.nguoiNhan)):'')+(f.zalo?(' · Zalo: '+phEsc(f.zalo)):'')+' · <b>người gửi: '+phEsc(f.by||'Quản lý')+'</b>'
+      +'<div style="font-size:12px;color:#444;margin-top:2px">Gửi lúc '+phDT(f.at)+(f.via?(' · qua '+phEsc(f.via)):'')+(f.nguoiNhan?(' · người nhận: '+phEsc(f.nguoiNhan)):'')+(f.zalo?(' · Zalo: '+phEsc(f.zalo)):'')+' · '+PH_LOAI[phLoaiOf(f)].t+' · <b>người gửi: '+(phSenderShown(f)?phEsc(phSenderShown(f)):'<span style="color:#c62828">chưa ghi tên — bấm "Sửa" để chọn người gửi</span>')+'</b>'
       +((f.sel&&f.sel.items&&f.sel.items.length)?('<br><span style="color:#6a1b9a;font-weight:600">Chỉ chuyển '+f.sel.items.length+'/'+phCardItems(c).length+' dòng:</span> '+phEsc(f.sel.items.map(function(it){return it.t;}).join(' | ').slice(0,260))+(f.sel.items.map(function(it){return it.t;}).join(' | ').length>260?'…':'')):'')
       +(f.noImgs?'<br><span style="color:#888">Không kèm ảnh minh chứng</span>':'')
       +(f.note?('<br>Lời đề nghị: '+phEsc(f.note)):'')
@@ -13604,13 +13623,16 @@ function phRenderBody(resetForm){
     +'<div style="border-top:1px dashed #ccc;margin:10px 0 10px"></div>'
     +'<div id="phFormTitle" style="font-weight:700;color:'+(phEditIdx!=null?'#8a5a00':'#444')+';margin-bottom:8px">'+(phEditIdx!=null?('✏️ Sửa lần gửi '+phEsc((l[phEditIdx]||{}).dept||'')+' ('+phDT((l[phEditIdx]||{}).at)+')'):'+ Ghi nhận lần gửi mới')+'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">'
-    +'<div style="grid-column:1/3"><label style="'+lb+'">Phòng/khoa nhận *</label><select id="phInDeptSel" onchange="phDeptSelChange()" style="'+inp+'"><option value="">-- Chọn phòng/khoa --</option>'+phDeptOptions().map(function(d){return '<option value="'+phEsc(d)+'">'+phEsc(d)+'</option>';}).join('')+'<option value="__khac__">➕ Phòng/khoa khác (thêm mới)...</option></select>'
-      +'<div id="phInDeptWrap" style="display:none;margin-top:6px"><input id="phInDept" onchange="phAutoFillContact()" placeholder="Gõ tên phòng/khoa mới (lần sau sẽ có sẵn trong danh sách)" style="'+inp+'"></div></div>'
-    +'<div style="grid-column:1/3"><label style="'+lb+'">Người gửi (Khoa GMHS) *</label><input id="phInBy" list="phByDl" value="'+phEsc(phDefaultSender())+'" placeholder="Gõ vài chữ trong tên để chọn từ Danh sách nhân viên Khoa (VD: Phước)" style="'+inp+'"><datalist id="phByDl">'+phByDatalistHtml()+'</datalist></div>'
+    +'<div style="grid-column:1/3"><label style="'+lb+'">Phòng/khoa nhận *</label><div style="position:relative"><input id="phInDeptQ" autocomplete="off" placeholder="Bấm để chọn, hoặc gõ vài chữ để tìm phòng/khoa (VD: duoc, vat tu, hanh chinh...)" oninput="phDeptDrop(false)" onfocus="try{this.select();}catch(e){}phDeptDrop(true)" onclick="phDeptDrop(true)" onblur="setTimeout(phDeptBlur,220)" onkeydown="phDeptKeyDown(event)" style="'+inp+'">'
+      +'<div id="phDeptDropBox" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1.5px solid #6a1b9a;border-top:none;border-radius:0 0 8px 8px;max-height:280px;overflow:auto;box-shadow:0 6px 16px rgba(0,0,0,.18)"></div></div>'
+      +'<select id="phInDeptSel" onchange="phDeptSelChange()" style="display:none"><option value="">-- Chọn phòng/khoa --</option>'+phDeptOptions().map(function(d){return '<option value="'+phEsc(d)+'">'+phEsc(d)+'</option>';}).join('')+'<option value="__khac__">➕ Phòng/khoa khác (thêm mới)...</option></select>'
+      +'<div id="phInDeptWrap" style="display:none"><input id="phInDept"></div></div>'
+    +'<div style="grid-column:1/3"><label style="'+lb+'">Người gửi (Khoa GMHS) *</label><input id="phInBy" list="phByDl" value="'+phEsc(phDefaultSender())+'" placeholder="Gõ vài chữ trong tên để chọn từ Danh sách nhân viên Khoa (VD: Phước) — tên này in trên phiếu gửi phòng khác" style="'+inp+'"><datalist id="phByDl">'+phByDatalistHtml()+'</datalist></div>'
+    +'<div style="grid-column:1/3"><label style="'+lb+'">Loại phiếu (tiêu đề in trên phiếu và câu mở đầu tin nhắn)</label><select id="phInLoai" onchange="phLoaiTouched=true" style="'+inp+'">'+Object.keys(PH_LOAI).map(function(k){ return '<option value="'+k+'">'+PH_LOAI[k].td+'</option>'; }).join('')+'</select></div>'
     +'<div><label style="'+lb+'">Thời điểm gửi *</label><input type="datetime-local" id="phInAt" value="'+nowLocal+'" style="'+inp+'"></div>'
     +'<div><label style="'+lb+'">Hình thức</label><select id="phInVia" style="'+inp+'">'+PH_VIA.map(function(v){return '<option>'+v+'</option>';}).join('')+'</select></div>'
     +'<div><label style="'+lb+'">Người nhận <a href="javascript:void(0)" onclick="phCtOpen()" style="font-weight:600;color:#6a1b9a;margin-left:6px;text-decoration:underline"><i class="ti ti-address-book"></i> Danh mục người nhận</a></label>'
-      +'<div style="position:relative"><input id="phInNguoi" autocomplete="off" placeholder="Bấm để chọn, hoặc gõ vài chữ trong tên / số điện thoại để tìm..." oninput="phNguoiDrop()" onfocus="phNguoiDrop()" onclick="phNguoiDrop()" onblur="setTimeout(phNguoiBlur,220)" onkeydown="if(event.key===\'Escape\'){phNguoiHide();}" style="'+inp+'">'
+      +'<div style="position:relative"><input id="phInNguoi" autocomplete="off" placeholder="Gõ tên hoặc số điện thoại để tìm trong toàn bộ danh bạ..." oninput="phNguoiDrop()" onfocus="phNguoiDrop()" onclick="phNguoiDrop()" onblur="setTimeout(phNguoiBlur,220)" onkeydown="if(event.key===\'Escape\'){phNguoiHide();}" style="'+inp+'">'
       +'<div id="phNguoiDropBox" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1.5px solid #6a1b9a;border-top:none;border-radius:0 0 8px 8px;max-height:240px;overflow:auto;box-shadow:0 6px 16px rgba(0,0,0,.18)"></div></div></div>'
     +'<div><label style="'+lb+'">SĐT Zalo hoặc link nhóm Zalo</label><input id="phInZalo" placeholder="VD: 0905xxxxxx hoặc https://zalo.me/g/..." style="'+inp+'"></div>'
     +phLineBoxHtml(c)
@@ -13627,11 +13649,86 @@ function phRenderBody(resetForm){
   phLineCount();
   phApplyWide('phOv');
 }
+/* ── Ô "Phòng/khoa nhận" dạng TÌM KIẾM: gõ vài chữ (không cần dấu) để lọc danh sách phòng/khoa; gõ tên chưa có
+   thì dùng luôn làm phòng/khoa mới. Giá trị thật vẫn nằm ở <select id="phInDeptSel"> (ẩn) như trước. */
+var phDeptShown=[];
+function phDeptSync(){ // đưa tên phòng đang chọn lên ô tìm (trừ khi người dùng đang gõ trong ô đó)
+  var q=document.getElementById('phInDeptQ'), w=document.getElementById('phInDeptWrap');
+  if(w) w.style.display='none';
+  if(q && document.activeElement!==q) q.value=phCurDept();
+}
+function phDeptSoNguoi(d){ // số người trong danh bạ của phòng/khoa đó
+  if(phNorm(d)===phNorm(PH_NOIBO)) return phStaff.length;
+  var k=phDeptKey(d), n=0; Object.keys(phContacts).forEach(function(id){ var x=phContacts[id]; if(x && phDeptKey(x.dept)===k) n++; }); return n;
+}
+function phDeptAllOptions(){ // danh sách phòng/khoa cho ô tìm: mặc định + đã dùng + có trong Danh mục người nhận
+  var sel=document.getElementById('phInDeptSel'), out=[], set={};
+  function them(d){ var k=phDeptKey(d); if(!k||set[k]) return; set[k]=1; out.push(d); }
+  if(sel) Array.prototype.forEach.call(sel.options,function(o){ if(o.value && o.value!=='__khac__') them(o.value); });
+  phDeptOptionsAll().forEach(them);
+  return out;
+}
+function phDeptHide(){ var b=document.getElementById('phDeptDropBox'); if(b) b.style.display='none'; }
+function phDeptDrop(tatCa){
+  var inp=document.getElementById('phInDeptQ'), box=document.getElementById('phDeptDropBox'); if(!inp||!box) return;
+  phCtInit(); phStaffInit();
+  var raw=inp.value.trim(), q=tatCa?'':phDeptKey(raw), ds=phDeptAllOptions();
+  phDeptShown=ds.filter(function(d){ return !q || phDeptKey(d).indexOf(q)>-1; });
+  var cur=phDeptKey(phCurDept());
+  var dong='padding:7px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;gap:10px';
+  var h=phDeptShown.map(function(d,i){ var n=phDeptSoNguoi(d), dangChon=(phDeptKey(d)===cur);
+    return '<div style="'+dong+(dangChon?';background:#f3e5f5':'')+'" onmousedown="event.preventDefault();phDeptPick('+i+')" onmouseover="this.style.background=\'#ede7f6\'" onmouseout="this.style.background=\''+(dangChon?'#f3e5f5':'')+'\'"><span style="font-weight:'+(dangChon?'700':'500')+'">'+phEsc(d)+'</span><span style="color:'+(n?'#1b6b3a':'#aaa')+';font-size:11.5px;white-space:nowrap">'+(n?(n+' người trong danh bạ'):'chưa có danh bạ')+'</span></div>'; }).join('');
+  var trung=raw && ds.some(function(d){ return phDeptKey(d)===phDeptKey(raw); });
+  if(!tatCa && raw && !trung) h+='<div style="'+dong+';color:#6a1b9a;font-weight:600" onmousedown="event.preventDefault();phDeptPickNew()" onmouseover="this.style.background=\'#ede7f6\'" onmouseout="this.style.background=\'\'"><span>➕ Dùng "'+phEsc(raw)+'" làm phòng/khoa mới</span></div>';
+  if(!h) h='<div style="padding:8px 10px;font-size:12px;color:#888">Không có phòng/khoa nào khớp.</div>';
+  box.innerHTML=h; box.style.display='block';
+}
+function phDeptApply(val, tenMoi){ // đặt giá trị vào <select> ẩn rồi chạy đúng các bước như khi đổi phòng trước đây
+  var sel=document.getElementById('phInDeptSel'), t=document.getElementById('phInDept'), q=document.getElementById('phInDeptQ'); if(!sel) return;
+  var truoc=phCurDept();
+  if(val==='__khac__'){ sel.value='__khac__'; if(t) t.value=tenMoi||''; }
+  else {
+    if(val && !Array.prototype.some.call(sel.options,function(o){ return o.value===val; })){ var o=document.createElement('option'); o.value=val; o.textContent=val; sel.insertBefore(o, sel.options[sel.options.length-1]||null); }
+    sel.value=val||''; if(t) t.value='';
+  }
+  phDeptHide();
+  if(q) q.value=phCurDept();
+  if(phDeptKey(truoc)!==phDeptKey(phCurDept()) || truoc!==phCurDept()) phDeptSelChange(); else phDeptSync();
+}
+function phDeptPick(i){ var d=phDeptShown[i]; if(d==null) return; phDeptApply(d); var q=document.getElementById('phInDeptQ'); if(q){ try{ q.blur(); }catch(e){} } }
+function phDeptPickNew(){ var q=document.getElementById('phInDeptQ'); var ten=q?q.value.trim().replace(/\s+/g,' '):''; if(!ten) return; phDeptApply('__khac__', ten); if(q){ try{ q.blur(); }catch(e){} } }
+function phDeptTextToValue(raw){ // chữ đang gõ → phòng có sẵn (nếu trùng tên) / phòng mới / trống
+  raw=String(raw||'').trim().replace(/\s+/g,' ');
+  if(!raw) return {val:''};
+  var ds=phDeptAllOptions();
+  for(var i=0;i<ds.length;i++){ if(phDeptKey(ds[i])===phDeptKey(raw)) return {val:ds[i]}; }
+  return {val:'__khac__', ten:raw};
+}
+function phDeptBlur(){
+  var q=document.getElementById('phInDeptQ'); if(!q) return;
+  if(document.activeElement===q) return;
+  var r=phDeptTextToValue(q.value);
+  phDeptApply(r.val, r.ten);
+}
+function phDeptKeyDown(ev){
+  if(ev.key==='Escape'){ phDeptHide(); phDeptSync(); return; }
+  if(ev.key==='Enter'){
+    ev.preventDefault();
+    var q=document.getElementById('phInDeptQ'), raw=q?q.value.trim():'';
+    var r=phDeptTextToValue(raw);
+    if(r.val==='__khac__' && phDeptShown.length===1) phDeptPick(0);      // gõ dở mà chỉ còn 1 phòng khớp → chọn phòng đó
+    else if(r.val==='__khac__' && phDeptShown.length>1 && raw){ /* còn nhiều phòng khớp → chờ người dùng bấm chọn */ }
+    else { phDeptApply(r.val, r.ten); if(q){ try{ q.blur(); }catch(e){} } }
+  }
+}
 // Chọn "Phòng/khoa khác" → hiện ô gõ tên mới. Tên mới sau khi lưu 1 lần sẽ tự có trong danh sách chọn.
 function phDeptSelChange(){
   var sel=document.getElementById('phInDeptSel'), wrap=document.getElementById('phInDeptWrap');
   if(!sel||!wrap) return;
-  wrap.style.display = sel.value==='__khac__' ? 'block' : 'none';
+  wrap.style.display = 'none'; // tên phòng mới nay gõ thẳng ở ô tìm phía trên
+  phDeptSync();
+  var lo=document.getElementById('phInLoai');
+  if(lo && phEditIdx==null && (!phLoaiTouched || !lo.value)) lo.value=phLoaiMacDinh(phCurDept());
   phAutoFillContact();
   if(sel.value==='__khac__'){ var t=document.getElementById('phInDept'); if(t && t.focus && !t.value) { try{ t.focus(); }catch(e){} } }
 }
@@ -13642,7 +13739,7 @@ function phSave(c, arr, action, okMsg, resetForm){
   if(typeof setSyncStatus==='function') setSyncStatus('sync');
   return cardsRef.child(String(c.id)).update({forwards:(arr.length?arr:null), history:hist}).then(function(){
     c.forwards=arr.length?arr:null; c.history=hist;
-    if(resetForm){ phSelKeys=null; phSendImgs=true; }
+    if(resetForm){ phSelKeys=null; phSendImgs=true; phLoaiTouched=false; }
     if(typeof showAl==='function') showAl(okMsg);
     if(typeof setSyncStatus==='function') setSyncStatus('ok');
     phRenderBody(resetForm);
@@ -13663,12 +13760,17 @@ function phAdd(moZalo){
   var f={dept:dept, at:at.toISOString(), via:document.getElementById('phInVia').value||'',
     nguoiNhan:(document.getElementById('phInNguoi').value||'').trim(), note:(document.getElementById('phInNote').value||'').trim(),
     status:'gui', by:(cu&&cu.name)?cu.name:'Quản lý'};
+  var loaiV=(document.getElementById('phInLoai')||{}).value||''; f.loai=PH_LOAI[loaiV]?loaiV:phLoaiMacDinh(dept);
   var tatCaDong=phCardItems(c), dongChon=tatCaDong.filter(phSelIsOn);
   if(tatCaDong.length>1 && !dongChon.length){ alert('Anh chưa tích dòng nội dung nào để chuyển.\nTích ít nhất 1 dòng trong khung "Nội dung chuyển cho phòng/khoa này".'); return; }
   if(tatCaDong.length>1 && dongChon.length<tatCaDong.length) f.sel={items:dongChon.map(function(it){ return {g:it.g, t:it.t}; })};
   if(c.imgs && c.imgs.length && !phSendImgs) f.noImgs=true;
   var nguoiGui=((document.getElementById('phInBy')||{}).value||'').trim();
-  if(!nguoiGui){ alert('Anh nhập tên người gửi (người của Khoa trực tiếp chuyển nội dung này).'); return; }
+  if(phIsGenericSender(nguoiGui)){
+    alert((nguoiGui?('"'+nguoiGui+'" là tên tài khoản dùng chung, không nên ghi làm người gửi trên phiếu gửi phòng khác.\n\n'):'')+'Anh gõ vài chữ trong tên để chọn NGƯỜI GỬI từ Danh sách nhân viên Khoa (ví dụ: Phước).');
+    var oBy=document.getElementById('phInBy'); if(oBy){ try{ oBy.focus(); oBy.select(); }catch(e){} }
+    return;
+  }
   var nvGui=phStaffFind(nguoiGui); if(nvGui) nguoiGui=nvGui.ten; // khớp Danh sách nhân viên → dùng đúng cách viết tên trong danh sách
   f.byUser=f.by;      // tài khoản đăng nhập lúc ghi nhận
   f.by=nguoiGui;      // người gửi thực tế — dùng cho phiếu và thống kê
@@ -13691,7 +13793,7 @@ function phAdd(moZalo){
     // SỬA lần gửi đã lưu: chỉ thay các ô trên form; giữ nguyên trạng thái, phản hồi, kết quả, tài khoản ghi nhận ban đầu.
     var ds=phList(c).map(function(x){ return Object.assign({},x); }), cu0=ds[phEditIdx];
     if(!cu0){ phEditIdx=null; phRenderBody(true); return; }
-    var moi=Object.assign({}, cu0, {dept:f.dept, at:f.at, via:f.via, nguoiNhan:f.nguoiNhan, note:f.note, by:f.by, bySdt:(f.bySdt||null), zalo:(f.zalo||null), sel:(f.sel||null), noImgs:(f.noImgs||null), editedAt:new Date().toISOString(), editedBy:(cu&&cu.name)?cu.name:'Quản lý'});
+    var moi=Object.assign({}, cu0, {dept:f.dept, at:f.at, via:f.via, nguoiNhan:f.nguoiNhan, note:f.note, by:f.by, bySdt:(f.bySdt||null), loai:f.loai, zalo:(f.zalo||null), sel:(f.sel||null), noImgs:(f.noImgs||null), editedAt:new Date().toISOString(), editedBy:(cu&&cu.name)?cu.name:'Quản lý'});
     ds[phEditIdx]=moi; phEditIdx=null;
     phSave(c, ds, 'Sửa lần gửi '+moi.dept+(cu0.dept!==moi.dept?(' (trước là '+cu0.dept+')'):''), 'Đã lưu thay đổi lần gửi '+moi.dept+'.', true);
     return;
@@ -13710,12 +13812,12 @@ function phEdit(i){
   function set(id,v){ var e=document.getElementById(id); if(e) e.value=(v==null?'':v); }
   var coSan=phDeptOptions().indexOf(f.dept)>-1;
   set('phInDeptSel', coSan?f.dept:'__khac__'); set('phInDept', coSan?'':f.dept);
-  set('phInBy', phSenderOf(f)); set('phInAt', phIsoToLocalInput(f.at)); set('phInVia', f.via||PH_VIA[0]);
+  set('phInLoai', phLoaiOf(f)); set('phInBy', phSenderOf(f)); set('phInAt', phIsoToLocalInput(f.at)); set('phInVia', f.via||PH_VIA[0]);
   set('phInNguoi', f.nguoiNhan||''); set('phInZalo', f.zalo||''); set('phInNote', f.note||'');
   phDeptSelChange();
   var t=document.getElementById('phFormTitle'); if(t && t.scrollIntoView){ try{ t.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
 }
-function phCancelEdit(){ phEditIdx=null; phSelKeys=null; phSendImgs=true; phRenderBody(true); }
+function phCancelEdit(){ phEditIdx=null; phSelKeys=null; phSendImgs=true; phLoaiTouched=false; phRenderBody(true); }
 function phSetStatus(i, st){
   var c=phCardOf(phTargetId); if(!c||!phIsAdmin()) return;
   var arr=phList(c).map(function(x){ return Object.assign({},x); }); var f=arr[i]; if(!f) return;
@@ -13796,14 +13898,14 @@ function phNguoiNhanText(f){
   return [f.nguoiNhan||'', sdt?('ĐT: '+sdt):''].filter(Boolean).join(' - ');
 }
 function phZaloText(c,f){
-  var t='Kính gửi '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+',\nKhoa Gây mê Hồi sức xin phản ánh và đề nghị phối hợp xử lý:\n';
+  var t='Kính gửi '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+',\n'+PH_LOAI[phLoaiOf(f)].mo+'\n';
   phCardLines(c, f).forEach(function(x){
     var nhieuDong = x[2] && x[1].indexOf('\n')>-1;
     var giaTri = x[3] ? (PH_PRI[x[3]].ic+' '+(x[3]==='h'?x[1].toUpperCase():x[1])) : x[1];
     t+='• '+x[0]+':'+(nhieuDong?('\n'+giaTri):(' '+giaTri))+'\n';
   });
   if(f.note) t+='• Đề nghị: '+f.note+'\n';
-  t+='Trân trọng cảm ơn.\n'+phSenderOf(f)+' - Khoa Gây mê Hồi sức'+(phSenderPhone(f)?(' (ĐT: '+phSenderPhone(f)+')'):'');
+  t+='Trân trọng cảm ơn.\n'+(phSenderShown(f)?(phSenderShown(f)+' - '):'')+'Khoa Gây mê Hồi sức'+((phSenderShown(f)&&phSenderPhone(f))?(' (ĐT: '+phSenderPhone(f)+')'):'');
   return t;
 }
 /* ── Ảnh thẻ: VẼ trực tiếp 1 "phiếu phản ánh" đầy đủ thông tin của thẻ (kèm ảnh minh chứng, thời điểm gửi,
@@ -13842,7 +13944,7 @@ function phDrawCard(c,f){
     // 1) Tính bố cục
     var rows=phCardLines(c, f).map(function(x){ return {lb:x[0], v:x[1], col:'#1b6b3a', pri:x[3]||''}; });
     if(f.note) rows.push({lb:'Đề nghị', v:f.note, col:'#b71c1c'});
-    rows.push({lb:'Người gửi', v:phSenderOf(f)+(phSenderPhone(f)?(' - ĐT: '+phSenderPhone(f)):'')+' - Khoa Gây mê Hồi sức', col:'#6a1b9a'});
+    rows.push({lb:'Người gửi', v:(phSenderShown(f)?(phSenderShown(f)+(phSenderPhone(f)?(' - ĐT: '+phSenderPhone(f)):'')+' - '):'')+'Khoa Gây mê Hồi sức', col:'#6a1b9a'});
     m.font=font(15,false);
     rows.forEach(function(r){ r.lines=phWrapText(m, r.v, VW); r.h=Math.max(1,r.lines.length)*LH+10; });
     m.font=font(15,true);
@@ -13860,7 +13962,7 @@ function phDrawCard(c,f){
     var khan=(c.pri==='h'), MAU=khan?'#b71c1c':'#1b6b3a'; // thẻ KHẨN CẤP: tiêu đề + viền chuyển đỏ
     g.fillStyle=MAU; g.fillRect(0,0,W,HEAD);
     g.fillStyle=khan?'#ffe3e0':'#e3f1e6'; g.font=font(12.5,false); g.fillText('BỆNH VIỆN ĐA KHOA TRUNG TÂM — KHOA GÂY MÊ HỒI SỨC', PAD, 11);
-    g.fillStyle='#ffffff'; g.font=font(18,true); g.fillText('PHIẾU PHẢN ÁNH - ĐỀ NGHỊ PHỐI HỢP XỬ LÝ', PAD, 31);
+    g.fillStyle='#ffffff'; g.font=font(18,true); g.fillText(PH_LOAI[phLoaiOf(f)].td, PAD, 31);
     var y=HEAD+12;
     g.fillStyle='#6a1b9a'; g.font=font(15,true);
     kg.forEach(function(l){ g.fillText(l, PAD, y); y+=LH; });
@@ -13935,7 +14037,7 @@ function phCopyImage(i){
   var c=phCardOf(phTargetId); if(!c) return; var f=phList(c)[i]; if(!f) return;
   var pBlob=phDrawCard(c,f).then(phCanvasBlob);
   var pCopy=phImgWriteClipboard(pBlob); pCopy.catch(function(){});
-  phImgState={blob:null, name:'PhanAnh_'+String(f.dept||'').replace(/[^0-9a-zA-ZÀ-ỹ]+/g,'_')+'_'+c.id+'.png'};
+  phImgState={blob:null, name:({denghi:'DeNghi_',thongtin:'ChuyenThongTin_',thongbao:'ThongBao_',phananh:'PhanAnh_'})[phLoaiOf(f)]+String(f.dept||'').replace(/[^0-9a-zA-ZÀ-ỹ]+/g,'_')+'_'+c.id+'.png'};
   var btn='border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;';
   phOverlay('phImgOv',
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:15.5px;font-weight:700;color:#00695c;flex:1"><i class="ti ti-photo"></i> Ảnh thẻ gửi '+phEsc(f.dept)+'</div>'
@@ -14077,15 +14179,96 @@ function phCtWrite(id, obj){ // obj=null → xóa
   var p = obj ? ref.child(id).set(obj) : ref.child(id).remove();
   return p.then(function(){ return true; }, function(){ phCtLocalOnly=true; return false; });
 }
+/* ── NHẬP DANH MỤC NGƯỜI NHẬN TỪ EXCEL ──
+   File gồm 3 cột (thứ tự bất kỳ, có/không có dòng tiêu đề): Họ tên — Phòng/khoa — Số điện thoại.
+   Dữ liệu được đưa vào Danh mục người nhận (Firebase / máy này), KHÔNG nằm trong mã nguồn trang web. */
+function phDeptKey(d){ return phNorm(d).replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); } // bỏ dấu gạch, chấm... để so tên phòng
+function phTenDep(t){ // "VÕ NGỌC LƯƠNG" → "Võ Ngọc Lương"
+  return String(t||'').trim().replace(/\s+/g,' ').toLowerCase().split(' ').map(function(w){ return w ? (w.charAt(0).toUpperCase()+w.slice(1)) : w; }).join(' ');
+}
+function phSdtChuan(v){ // trả về số dạng 0xxxxxxxxx, hoặc '' nếu không phải số điện thoại
+  var d=String(v==null?'':v).replace(/[^0-9+]/g,'').replace(/^\+?84/,'0');
+  if(/^[1-9]\d{8}$/.test(d)) d='0'+d; // Excel làm mất số 0 đầu
+  return /^0\d{9,10}$/.test(d) ? d : '';
+}
+// Đọc các dòng của bảng tính → [{dept, ten, zalo}] + danh sách dòng bị bỏ qua
+function phCtParseRows(rows){
+  var out=[], boQua=[], canon={};
+  phDeptOptionsAll().forEach(function(d){ canon[phDeptKey(d)]=d; });
+  (rows||[]).forEach(function(r,idx){
+    var cells=(r||[]).map(function(x){ return String(x==null?'':x).trim(); }).filter(function(x){ return x!==''; });
+    if(!cells.length) return;
+    var sdt='', dept='', ten='';
+    cells.forEach(function(x){ if(!sdt && phSdtChuan(x)) sdt=phSdtChuan(x); });
+    var con=cells.filter(function(x){ return !phSdtChuan(x); });
+    con.forEach(function(x){ if(!dept && /^(phong|khoa|ban|to|trung tam|don vi)\b/.test(phNorm(x))) dept=x; });
+    con=con.filter(function(x){ return x!==dept && !/^\d+$/.test(x); }); // bỏ cột STT
+    ten=con[0]||'';
+    if(!sdt || !ten || !dept){ // dòng tiêu đề hoặc thiếu dữ liệu
+      if(!(idx===0 && !sdt)) boQua.push('Dòng '+(idx+1)+': '+cells.join(' | ').slice(0,80));
+      return;
+    }
+    var k=phDeptKey(dept); if(canon[k]) dept=canon[k]; else { dept=dept.replace(/\s+/g,' '); canon[k]=dept; }
+    out.push({dept:dept, ten:phTenDep(ten), zalo:sdt});
+  });
+  return {ds:out, boQua:boQua};
+}
+function phCtBulkWrite(map){ // ghi nhiều người 1 lần
+  Object.keys(map).forEach(function(id){ phContacts[id]=map[id]; });
+  phCtSaveLocal();
+  var ref=phCtRef();
+  if(!ref || phCtLocalOnly){ phCtLocalOnly=true; return Promise.resolve(false); }
+  return ref.update(map).then(function(){ return true; }, function(){ phCtLocalOnly=true; return false; });
+}
+function phCtImportRows(rows){
+  var R=phCtParseRows(rows);
+  if(!R.ds.length){ alert('Không đọc được người nào từ file.\n\nFile cần có 3 cột: Họ tên — Phòng/khoa — Số điện thoại (tên phòng/khoa bắt đầu bằng "Phòng", "Khoa", "Ban", "Tổ"...).'); return; }
+  var map={}, them=0, capNhat=0, giuNguyen=0, theoPhong={}, daCo={};
+  var stamp=new Date().toISOString();
+  R.ds.forEach(function(x,i){
+    var khoa=phDeptKey(x.dept)+'|'+phNorm(x.ten); if(daCo[khoa]) return; daCo[khoa]=1; // trùng trong chính file → lấy dòng đầu
+    theoPhong[x.dept]=(theoPhong[x.dept]||0)+1;
+    var id=null;
+    Object.keys(phContacts).forEach(function(k){ var c0=phContacts[k]; if(c0 && phDeptKey(c0.dept)===phDeptKey(x.dept) && phNorm(c0.ten)===phNorm(x.ten)) id=k; });
+    if(id){
+      var cu0=phContacts[id];
+      if(phSdtChuan(cu0.zalo)===x.zalo && cu0.dept===x.dept){ giuNguyen++; return; }
+      map[id]={dept:x.dept, ten:cu0.ten||x.ten, zalo:x.zalo, updatedAt:stamp}; capNhat++;
+    } else { map['i'+Date.now().toString(36)+'_'+i]={dept:x.dept, ten:x.ten, zalo:x.zalo, updatedAt:stamp}; them++; }
+  });
+  var tom=Object.keys(theoPhong).map(function(d){ return '  • '+d+': '+theoPhong[d]+' người'; }).join('\n');
+  if(!them && !capNhat){ alert('File có '+Object.keys(daCo).length+' người, tất cả đã có sẵn trong danh mục với đúng số điện thoại — không cần nhập thêm.'); return; }
+  if(!confirm('Đọc được '+Object.keys(daCo).length+' người từ file:\n'+tom+'\n\nSẽ THÊM MỚI '+them+' người, CẬP NHẬT số của '+capNhat+' người'+(giuNguyen?(', giữ nguyên '+giuNguyen+' người đã có'):'')+'.'+(R.boQua.length?('\nBỏ qua '+R.boQua.length+' dòng thiếu tên/phòng/số điện thoại.'):'')+'\n\nTiếp tục nhập vào Danh mục người nhận?')) return;
+  phCtBulkWrite(map).then(function(ok){
+    var msg='Đã nhập vào danh mục: thêm '+them+', cập nhật '+capNhat+' người.'+(ok?'':' (đang lưu trên máy này — chưa đồng bộ được lên Firebase)');
+    if(typeof showAl==='function') showAl(msg, ok?'ok':'warn'); else alert(msg);
+    phCtRefreshUi();
+  });
+  phCtRender();
+}
+function phCtImportFile(inp){
+  var file=inp && inp.files && inp.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ alert('Chưa tải được thư viện đọc Excel (cần có mạng). Anh kiểm tra kết nối rồi thử lại.'); return; }
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result), {type:'array'}), rows=[];
+      wb.SheetNames.forEach(function(n){ rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, raw:false, defval:''})); });
+      phCtImportRows(rows);
+    }catch(err){ alert('Không đọc được file Excel: '+err.message); }
+  };
+  rd.onerror=function(){ alert('Không mở được file.'); };
+  rd.readAsArrayBuffer(file);
+}
 function phCtFind(dept, ten){
   var kd=phNorm(dept), kt=phNorm(ten), found=null;
-  Object.keys(phContacts).forEach(function(id){ var x=phContacts[id]; if(x && phNorm(x.ten)===kt && phNorm(x.dept)===kd) found=id; });
+  Object.keys(phContacts).forEach(function(id){ var x=phContacts[id]; if(x && phNorm(x.ten)===kt && (phNorm(x.dept)===kd || phDeptKey(x.dept)===phDeptKey(dept))) found=id; });
   return found;
 }
 // Người nhận có thể chọn cho 1 phòng/khoa: trước hết từ Danh mục, sau đó từ các lần gửi trước (chưa có trong danh mục).
 function phNguoiOptions(dept){
   var out=[], seen={};
-  Object.keys(phContacts).map(function(id){ return phContacts[id]; }).filter(function(x){ return x && x.ten && (!dept || phNorm(x.dept)===phNorm(dept)); })
+  Object.keys(phContacts).map(function(id){ return phContacts[id]; }).filter(function(x){ return x && x.ten && (!dept || phDeptKey(x.dept)===phDeptKey(dept)); })
     .sort(function(a,b){ return String(a.ten).localeCompare(String(b.ten),'vi'); })
     .forEach(function(x){ var k=phNorm(x.ten); if(seen[k]) return; seen[k]=1; out.push({ten:x.ten, zalo:x.zalo||'', dept:x.dept||''}); });
   if(dept && phNorm(dept)===phNorm(PH_NOIBO)){
@@ -14114,28 +14297,66 @@ function phFillNguoiSel(keepName){
   var box=document.getElementById('phNguoiDropBox'); if(box && box.style.display!=='none') phNguoiDrop();
 }
 function phNguoiHide(){ var b=document.getElementById('phNguoiDropBox'); if(b) b.style.display='none'; }
-// Danh sách thả xuống dưới ô Người nhận: tính lại MỖI LẦN bấm/gõ theo phòng đang chọn (danh mục + nhân viên Khoa),
-// lọc theo chữ đang gõ (tên hoặc số điện thoại, không cần dấu).
+// TOÀN BỘ danh bạ: Danh mục người nhận của mọi phòng/khoa + nhân viên Khoa GMHS
+function phNguoiAll(){
+  var out=[], seen={};
+  Object.keys(phContacts).forEach(function(id){ var x=phContacts[id]; if(!x||!x.ten) return; var k=phDeptKey(x.dept)+'|'+phNorm(x.ten); if(seen[k]) return; seen[k]=1; out.push({ten:x.ten, zalo:x.zalo||'', dept:x.dept||''}); });
+  phStaff.forEach(function(e){ var k=phDeptKey(PH_NOIBO)+'|'+phNorm(e.ten); if(seen[k]) return; seen[k]=1; out.push({ten:e.ten, zalo:e.sdt||'', dept:PH_NOIBO}); });
+  return out.sort(function(a,b){ return String(a.ten).localeCompare(String(b.ten),'vi'); });
+}
+var phNguoiOther=[]; // kết quả tìm thấy ở phòng/khoa KHÁC phòng đang chọn
+function phNguoiKhop(x, q){ return !q || phNorm(x.ten).indexOf(q)>-1 || (/^[\d\s]+$/.test(q) && String(x.zalo||'').replace(/\s/g,'').indexOf(q.replace(/\s/g,''))>-1); }
+// Danh sách thả xuống dưới ô Người nhận: tính lại MỖI LẦN bấm/gõ. Trước hết là người của phòng/khoa đang chọn;
+// khi có gõ chữ thì tìm thêm trong TOÀN BỘ danh bạ (mọi phòng/khoa + nhân viên Khoa) — chọn người ở phòng khác
+// thì nơi nhận tự đổi theo. Lọc theo tên (không cần dấu) hoặc số điện thoại.
 function phNguoiDrop(){
   var inp=document.getElementById('phInNguoi'), box=document.getElementById('phNguoiDropBox'); if(!inp||!box) return;
   phCtInit(); phStaffInit();
   var dept=phCurDept();
   phNguoiList=phNguoiOptions(dept);
   var q=phNorm(inp.value), ds=[];
-  phNguoiList.forEach(function(x,i){ if(!q || phNorm(x.ten).indexOf(q)>-1 || String(x.zalo||'').replace(/\s/g,'').indexOf(q.replace(/\s/g,''))>-1) ds.push(i); });
+  if(dept) phNguoiList.forEach(function(x,i){ if(phNguoiKhop(x,q)) ds.push(i); });
+  // Phòng khác: chỉ tìm khi có gõ chữ; chưa chọn phòng thì hiện/tìm trong toàn bộ danh bạ
+  var dk=phDeptKey(dept);
+  phNguoiOther = (!dept || q) ? phNguoiAll().filter(function(x){ return (!dept || phDeptKey(x.dept)!==dk) && phNguoiKhop(x,q); }) : [];
   var dong='padding:7px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;gap:10px';
+  var dau='padding:5px 10px;font-size:11.5px;position:sticky;top:0';
+  function so(x){ return '<span style="color:'+(x.zalo?'#0068ff':'#b26a00')+';white-space:nowrap">'+(x.zalo?phEsc(x.zalo):'chưa có số')+'</span>'; }
   var h='';
-  if(!dept) h+='<div style="padding:6px 10px;font-size:11.5px;color:#a15c00;background:#fff8e1">Chưa chọn Phòng/khoa nhận — đang hiện toàn bộ Danh mục người nhận.</div>';
-  else if(phNorm(dept)===phNorm(PH_NOIBO) && !phStaff.length) h+='<div style="padding:6px 10px;font-size:11.5px;color:#a15c00;background:#fff8e1">Chưa đọc được Danh sách nhân viên Khoa (đang tải hoặc mất mạng) — anh thử bấm lại sau vài giây.</div>';
-  if(ds.length){
-    h+='<div style="padding:5px 10px;font-size:11.5px;color:#666;background:#f7f3fb;position:sticky;top:0">'+ds.length+' người'+(q?' khớp':'')+(ds.length>8?' — gõ vài chữ để lọc nhanh':'')+'</div>';
-    h+=ds.slice(0,150).map(function(i){ var x=phNguoiList[i];
-      return '<div style="'+dong+'" onmousedown="event.preventDefault();phNguoiPick('+i+')" onmouseover="this.style.background=\'#f3e5f5\'" onmouseout="this.style.background=\'\'"><span style="font-weight:600">'+phEsc(x.ten)+((!dept&&x.dept)?(' <span style="font-weight:400;color:#888">· '+phEsc(x.dept)+'</span>'):'')+'</span>'
-        +'<span style="color:'+(x.zalo?'#0068ff':'#b26a00')+';white-space:nowrap">'+(x.zalo?phEsc(x.zalo):'chưa có số')+'</span></div>'; }).join('');
-  } else {
-    h+='<div style="padding:8px 10px;font-size:12px;color:#888">'+(q?('Không có ai khớp "'+phEsc(inp.value)+'" trong danh sách — hệ thống sẽ lưu đúng tên anh gõ; nhập số Zalo ở ô bên cạnh.'):'Phòng/khoa này chưa có người nhận nào trong danh mục — anh gõ tên và số Zalo, lưu xong hệ thống tự đưa vào danh mục.')+'</div>';
+  if(dept && phNorm(dept)===phNorm(PH_NOIBO) && !phStaff.length) h+='<div style="padding:6px 10px;font-size:11.5px;color:#a15c00;background:#fff8e1">Chưa đọc được Danh sách nhân viên Khoa (đang tải hoặc mất mạng) — anh thử bấm lại sau vài giây.</div>';
+  if(dept){
+    if(ds.length){
+      h+='<div style="'+dau+';color:#666;background:#f7f3fb">'+phEsc(dept)+': '+ds.length+' người'+(q?' khớp':'')+(ds.length>8?' — gõ vài chữ để lọc nhanh':'')+'</div>';
+      h+=ds.slice(0,150).map(function(i){ var x=phNguoiList[i];
+        return '<div style="'+dong+'" onmousedown="event.preventDefault();phNguoiPick('+i+')" onmouseover="this.style.background=\'#f3e5f5\'" onmouseout="this.style.background=\'\'"><span style="font-weight:600">'+phEsc(x.ten)+'</span>'+so(x)+'</div>'; }).join('');
+    } else {
+      h+='<div style="padding:7px 10px;font-size:12px;color:#888;background:#fafafa">'+(q?('"'+phEsc(inp.value)+'" không có trong '+phEsc(dept)+'.'):(phEsc(dept)+' chưa có người nhận nào trong danh mục — anh gõ tên để tìm trong toàn bộ danh bạ, hoặc gõ tên + số Zalo người mới rồi lưu.'))+'</div>';
+    }
   }
-  box.innerHTML=h; box.style.display='block';
+  if(phNguoiOther.length){
+    h+='<div style="'+dau+';color:#0d47a1;background:#e3f2fd">'+(dept?('Ở phòng/khoa khác: '+phNguoiOther.length+' người khớp — chọn thì NƠI NHẬN tự đổi theo'):('Toàn bộ danh bạ: '+phNguoiOther.length+' người'+(q?' khớp':'')+' — chọn thì nơi nhận tự điền'))+'</div>';
+    h+=phNguoiOther.slice(0,80).map(function(x,i){
+      return '<div style="'+dong+'" onmousedown="event.preventDefault();phNguoiPickOther('+i+')" onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'\'"><span><span style="font-weight:600">'+phEsc(x.ten)+'</span> <span style="color:#888;font-size:12px">· '+phEsc(x.dept)+'</span></span>'+so(x)+'</div>'; }).join('');
+    if(phNguoiOther.length>80) h+='<div style="padding:6px 10px;font-size:11.5px;color:#888">… còn '+(phNguoiOther.length-80)+' người nữa — gõ thêm chữ để thu hẹp.</div>';
+  } else if(q && !ds.length){
+    h+='<div style="padding:8px 10px;font-size:12px;color:#888">Không tìm thấy "'+phEsc(inp.value)+'" trong toàn bộ danh bạ — hệ thống sẽ lưu đúng tên anh gõ; nhập số Zalo ở ô bên cạnh.</div>';
+  }
+  box.innerHTML=h; box.style.display=h?'block':'none';
+}
+// Chọn người thuộc phòng/khoa KHÁC phòng đang chọn → đổi nơi nhận theo người đó, điền tên + số.
+function phNguoiPickOther(i){
+  var x=phNguoiOther[i], sel=document.getElementById('phInDeptSel'), inp=document.getElementById('phInNguoi'), zl=document.getElementById('phInZalo'); if(!x||!sel||!inp) return;
+  var ds=phDeptOptions(), chuan='';
+  for(var k=0;k<ds.length;k++){ if(phDeptKey(ds[k])===phDeptKey(x.dept)){ chuan=ds[k]; break; } }
+  if(chuan && Array.prototype.some.call(sel.options,function(o){ return o.value===chuan; })){ sel.value=chuan; }
+  else { sel.value='__khac__'; var t=document.getElementById('phInDept'); if(t) t.value=x.dept; }
+  phDeptSync();
+  var lo=document.getElementById('phInLoai'); if(lo && phEditIdx==null && !phLoaiTouched) lo.value=phLoaiMacDinh(phCurDept());
+  inp.value=x.ten; if(zl) zl.value=x.zalo||'';
+  phAuto={nguoi:x.ten, zalo:x.zalo||''};
+  phNguoiList=phNguoiOptions(phCurDept());
+  phNguoiHide();
+  if(typeof showAl==='function') showAl('Đã chọn '+x.ten+' — nơi nhận: '+(chuan||x.dept)+'.');
 }
 // Chọn 1 người trong danh sách → điền tên + SĐT Zalo đã khai báo của người đó.
 function phNguoiPick(i){
@@ -14148,8 +14369,9 @@ function phNguoiPick(i){
 function phNguoiMatch(ten){ var k=phNorm(ten); if(!k) return null; for(var i=0;i<phNguoiList.length;i++){ if(phNorm(phNguoiList[i].ten)===k) return phNguoiList[i]; } return null; }
 // Rời ô Người nhận: đóng danh sách; nếu tên gõ tay trùng đúng 1 người đã khai báo mà ô Zalo còn trống → tự điền số.
 function phNguoiBlur(){
-  phNguoiHide();
   var inp=document.getElementById('phInNguoi'), zl=document.getElementById('phInZalo'); if(!inp||!zl) return;
+  if(document.activeElement===inp) return; // đã bấm trở lại ô này ngay sau khi rời đi → không đóng danh sách đang gõ dở
+  phNguoiHide();
   phNguoiList=phNguoiOptions(phCurDept());
   var x=phNguoiMatch(inp.value);
   if(x){ inp.value=x.ten; if(!zl.value || zl.value===phAuto.zalo){ zl.value=x.zalo||''; phAuto={nguoi:x.ten, zalo:x.zalo||''}; } }
@@ -14188,49 +14410,127 @@ function phCtRender(){
   var lb='font-size:11.5px;font-weight:700;color:#555;display:block;margin-bottom:3px';
   var th='padding:6px 8px;border:1px solid #d1c4e9;background:#ede7f6;color:#4a148c;font-size:12px;text-align:left';
   var td='padding:6px 8px;border:1px solid #e0e0e0;font-size:12.5px';
-  var giu={}; ['phCtDeptSel','phCtDept','phCtTen','phCtZalo','phCtNvQ'].forEach(function(k){ var e=document.getElementById(k); if(e) giu[k]=e.value; });
+  var giu={}; ['phCtDeptSel','phCtDept','phCtTen','phCtZalo','phCtNvQ','phCtListQ'].forEach(function(k){ var e=document.getElementById(k); if(e) giu[k]=e.value; });
   var ids=Object.keys(phContacts).filter(function(id){ return phContacts[id]; }).sort(function(a,b){ var x=phContacts[a], y=phContacts[b];
     return String(x.dept||'').localeCompare(String(y.dept||''),'vi') || String(x.ten||'').localeCompare(String(y.ten||''),'vi'); });
   var e0=phCtEditId?phContacts[phCtEditId]:null;
   var b1='padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;background:#fff;';
   body.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:15.5px;font-weight:700;color:#6a1b9a;flex:1"><i class="ti ti-address-book"></i> Danh mục người nhận ('+ids.length+')</div>'
+    +'<button onclick="var f=document.getElementById(\'phCtFile\');if(f){f.value=\'\';f.click();}" title="Nhập nhiều người nhận từ file Excel gồm 3 cột: Họ tên - Phòng/khoa - Số điện thoại" style="border:1.5px solid #1b5e20;background:#fff;color:#1b5e20;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-file-spreadsheet"></i> Nhập từ Excel</button>'
+    +'<input type="file" id="phCtFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="phCtImportFile(this)">'
     +phWideBtnHtml('phCtOv')
     +'<button onclick="phCtClose()" style="border:none;background:#eee;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer">×</button></div>'
     +(phCtLocalOnly?'<div style="background:#fff3e0;border:1px solid #ffcc80;color:#a15c00;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:12px">⚠️ Chưa lưu được danh mục lên Firebase (chưa được cấp quyền cho nhánh dữ liệu mới) — danh mục đang <b>chỉ lưu trên máy này</b>.</div>':'')
-    +'<div style="background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:12px"><i class="ti ti-users"></i> <b>Nhân viên Khoa Gây mê Hồi sức</b> được lấy tự động từ "Danh sách nhân viên": '+phStaff.length+' người, '+phStaff.filter(function(e){return phZaloUrl(e.sdt);}).length+' người có số điện thoại — <b>không cần khai báo ở đây</b>. Muốn gửi cho nhân viên Khoa: bấm <b>"Chọn"</b> ở bảng nhân viên cuối cửa sổ này (hệ thống tự đặt nơi nhận là "'+PH_NOIBO+'" và điền số). Muốn đổi số thì sửa ở thẻ "Danh sách nhân viên".</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#666"><span>Ẩn/hiện khối:</span>'
+      +[['note','Hướng dẫn'],['form','Khai báo người mới'],['list','Danh mục đã khai báo'],['nv','Nhân viên Khoa GMHS']].map(function(x){ return '<button id="phCtChip_'+x[0]+'" onclick="phCtToggle(\''+x[0]+'\')" data-ten="'+x[1]+'" style="border-radius:14px;padding:3px 10px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit"></button>'; }).join('')+'</div>'
+    +'<div id="phCtNote" style="background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:12px"><i class="ti ti-users"></i> <b>Nhân viên Khoa Gây mê Hồi sức</b> được lấy tự động từ "Danh sách nhân viên": '+phStaff.length+' người, '+phStaff.filter(function(e){return phZaloUrl(e.sdt);}).length+' người có số điện thoại — <b>không cần khai báo ở đây</b>. Muốn gửi cho nhân viên Khoa: bấm <b>"Chọn"</b> ở bảng nhân viên cuối cửa sổ này (hệ thống tự đặt nơi nhận là "'+PH_NOIBO+'" và điền số). Muốn đổi số thì sửa ở thẻ "Danh sách nhân viên".</div>'
     +'<div style="border:1.5px solid '+(e0?'#f9a825':'#d1c4e9')+';border-radius:8px;padding:10px 12px;margin-bottom:12px">'
-    +'<div style="font-weight:700;color:'+(e0?'#8a5a00':'#444')+';margin-bottom:8px">'+(e0?('✏️ Sửa: '+phEsc(e0.ten)):'+ Khai báo người nhận của PHÒNG/KHOA KHÁC (ngoài Khoa GMHS)')+'</div>'
+    +'<div style="font-weight:700;color:'+(e0?'#8a5a00':'#444')+';margin-bottom:8px">'+(e0?('✏️ Sửa: '+phEsc(e0.ten)):'Chọn phòng/khoa nhận — rồi chọn người ở bảng bên dưới, hoặc khai báo người nhận mới')+'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">'
-    +'<div style="grid-column:1/3"><label style="'+lb+'">Phòng/khoa *</label><select id="phCtDeptSel" onchange="var w=document.getElementById(\'phCtDeptWrap\');if(w)w.style.display=this.value===\'__khac__\'?\'block\':\'none\'" style="'+inp+'"><option value="">-- Chọn phòng/khoa --</option>'
+    +'<div style="grid-column:1/3"><label style="'+lb+'">Phòng/khoa *</label><select id="phCtDeptSel" onchange="phCtDeptChange(true)" style="'+inp+'"><option value="">-- Chọn phòng/khoa --</option>'
+      +'<option value="'+phEsc(PH_NOIBO)+'">'+phEsc(PH_NOIBO)+' (nhân viên trong Khoa)</option>'
       +phDeptOptionsAll().filter(function(d){ return phNorm(d)!==phNorm(PH_NOIBO); }).map(function(d){ return '<option value="'+phEsc(d)+'">'+phEsc(d)+'</option>'; }).join('')+'<option value="__khac__">➕ Phòng/khoa khác (thêm mới)...</option></select>'
       +'<div id="phCtDeptWrap" style="display:none;margin-top:6px"><input id="phCtDept" placeholder="Gõ tên phòng/khoa mới" style="'+inp+'"></div></div>'
-    +'<div><label style="'+lb+'">Tên người nhận *</label><input id="phCtTen" placeholder="VD: Chị Kiều" style="'+inp+'"></div>'
-    +'<div><label style="'+lb+'">SĐT Zalo hoặc link nhóm Zalo</label><input id="phCtZalo" placeholder="VD: 0905xxxxxx hoặc https://zalo.me/g/..." style="'+inp+'"></div>'
-    +'</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">'
-    +(e0?'<button onclick="phCtEditId=null;phCtRender()" style="background:#fff;color:#8a5a00;border:1.5px solid #f9a825;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Hủy sửa</button>':'')
+    +'<div id="phCtNoiBoHint" style="display:none;grid-column:1/3;background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;border-radius:8px;padding:8px 10px;font-size:12.5px"><i class="ti ti-arrow-down"></i> Nơi nhận là <b>'+phEsc(PH_NOIBO)+'</b>: anh chọn người nhận ở <b>bảng nhân viên ngay bên dưới</b> (gõ tên vào ô tìm rồi bấm <b>"Chọn"</b>). Nhân viên Khoa không cần khai báo tay.</div>'
+    +'<div id="phCtTenCell"><label style="'+lb+'">Tên người nhận * <span style="font-weight:400;color:#888">(gõ tên để tìm trong bảng bên dưới; chưa có thì nhập thêm số rồi bấm "Thêm vào danh mục")</span></label><input id="phCtTen" autocomplete="off" oninput="phCtDeptChange(false)" placeholder="Gõ tên để tìm hoặc để thêm mới, VD: Kiên" style="'+inp+'"></div>'
+    +'<div id="phCtZaloCell"><label style="'+lb+'">SĐT Zalo hoặc link nhóm Zalo</label><input id="phCtZalo" placeholder="VD: 0905xxxxxx hoặc https://zalo.me/g/..." style="'+inp+'"></div>'
+    +'</div><div id="phCtBtnRow" style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">'
+    +(e0?'<button onclick="phCtEditId=null;phCtJustSaved=true;phCtRender()" style="background:#fff;color:#8a5a00;border:1.5px solid #f9a825;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Hủy sửa</button>':'')
     +'<button onclick="phCtSave()" style="background:#6a1b9a;color:#fff;border:1.5px solid #6a1b9a;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> '+(e0?'Lưu thay đổi':'Thêm vào danh mục')+'</button></div></div>'
-    +(ids.length?('<div style="overflow:auto;max-height:44vh"><table style="border-collapse:collapse;width:100%"><tr><th style="'+th+';width:36px;text-align:center">STT</th><th style="'+th+'">Phòng/khoa</th><th style="'+th+'">Người nhận</th><th style="'+th+'">SĐT Zalo / link nhóm</th><th style="'+th+';width:190px">Thao tác</th></tr>'
-      +ids.map(function(id,i){ var x=phContacts[id]; return '<tr'+(phCtEditId===id?' bgcolor="#fff8e1"':'')+'><td style="'+td+';text-align:center">'+(i+1)+'</td><td style="'+td+'">'+phEsc(x.dept||'')+'</td><td style="'+td+';font-weight:600">'+phEsc(x.ten||'')+'</td><td style="'+td+'">'+phEsc(x.zalo||'')+'</td>'
-        +'<td style="'+td+';white-space:nowrap">'+(document.getElementById('phInNguoi')?'<button style="'+b1+'background:#1b5e20;color:#fff;border:1.5px solid #1b5e20" onclick="phCtPickCt(\''+id+'\')"><i class="ti ti-check"></i> Chọn</button> ':'')+'<button style="'+b1+'border:1.5px solid #f9a825;color:#8a5a00" onclick="phCtEdit(\''+id+'\')"><i class="ti ti-edit"></i> Sửa</button> <button style="'+b1+'border:1.5px solid #ef9a9a;color:#c62828" onclick="phCtDelete(\''+id+'\')"><i class="ti ti-trash"></i> Xóa</button></td></tr>'; }).join('')
-      +'</table></div>'):'<div style="color:#999;padding:6px 0">Danh mục chưa có ai. Anh thêm người nhận ở khung trên; hoặc khi gửi cho một người mới có nhập SĐT Zalo, hệ thống cũng tự đưa người đó vào danh mục.</div>')
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0 6px"><div style="font-weight:700;color:#1b5e20;flex:1"><i class="ti ti-users"></i> Nhân viên Khoa Gây mê Hồi sức ('+phStaff.length+') — lấy từ "Danh sách nhân viên"'+(document.getElementById('phInNguoi')?'; bấm "Chọn" để gửi cho người đó':'')+'</div>'
+    +(ids.length?('<div id="phCtListTitle" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 6px"><div style="font-weight:700;color:#4a148c;flex:1"><i class="ti ti-address-book"></i> Người nhận đã khai báo <span id="phCtListCnt"></span></div><input id="phCtListQ" oninput="phCtDeptChange(false)" autocomplete="off" placeholder="🔍 Tìm tên hoặc số điện thoại..." style="'+inp+';width:240px"></div><div id="phCtTableWrap" style="overflow:auto;max-height:44vh"><table style="border-collapse:collapse;width:100%"><tr><th style="'+th+';width:36px;text-align:center">STT</th><th style="'+th+'">Phòng/khoa</th><th style="'+th+'">Người nhận</th><th style="'+th+'">SĐT Zalo / link nhóm</th><th style="'+th+';width:190px">Thao tác</th></tr>'
+      +ids.map(function(id,i){ var x=phContacts[id]; return '<tr data-dept="'+phEsc(phDeptKey(x.dept))+'" data-q="'+phEsc(phNorm(x.ten)+' '+String(x.zalo||'').replace(/\s/g,''))+'"'+(phCtEditId===id?' bgcolor="#fff8e1"':'')+'><td style="'+td+';text-align:center">'+(i+1)+'</td><td style="'+td+'">'+phEsc(x.dept||'')+'</td><td style="'+td+';font-weight:600">'+phEsc(x.ten||'')+'</td><td style="'+td+'">'+phEsc(x.zalo||'')+'</td>'
+        +'<td style="'+td+';white-space:nowrap">'+(document.getElementById('phInNguoi')?'<button style="'+b1+'background:#1b5e20;color:#fff;border:1.5px solid #1b5e20;white-space:nowrap" onclick="phCtPickCt(\''+id+'\')"><i class="ti ti-check"></i> Chọn</button> ':'')+'<button style="'+b1+'border:1.5px solid #f9a825;color:#8a5a00" onclick="phCtEdit(\''+id+'\')"><i class="ti ti-edit"></i> Sửa</button> <button style="'+b1+'border:1.5px solid #ef9a9a;color:#c62828" onclick="phCtDelete(\''+id+'\')"><i class="ti ti-trash"></i> Xóa</button></td></tr>'; }).join('')
+      +'<tr id="phCtEmptyDept" style="display:none"><td colspan="5" style="'+td+';color:#999;text-align:center">Phòng/khoa này chưa có người nhận nào trong danh mục — anh nhập tên và số Zalo ở khung trên rồi bấm "Thêm vào danh mục".</td></tr>'
+      +'</table></div>'):'<div style="color:#999;padding:6px 0">Danh mục chưa có ai. Anh thêm người nhận ở khung trên, bấm "Nhập từ Excel" để nhập cả danh sách (3 cột: Họ tên — Phòng/khoa — Số điện thoại); hoặc khi gửi cho một người mới có nhập SĐT Zalo, hệ thống cũng tự đưa người đó vào danh mục.</div>')
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0 6px"><div id="phCtNvTitle" style="font-weight:700;color:#1b5e20;flex:1"><i class="ti ti-users"></i> Nhân viên Khoa Gây mê Hồi sức ('+phStaff.length+') — lấy từ "Danh sách nhân viên"'+(document.getElementById('phInNguoi')?'; bấm "Chọn" để gửi cho người đó':'')+'</div>'
     +'<input id="phCtNvQ" oninput="phCtNvRender()" placeholder="🔍 Tìm tên, đơn vị hoặc số điện thoại..." style="'+inp+';width:260px"></div>'
     +'<div id="phCtNvList" style="overflow:auto;max-height:'+(phWide.phCtOv?'none':'38vh')+'"></div>';
   if(giu.phCtNvQ){ var qe=document.getElementById('phCtNvQ'); if(qe) qe.value=giu.phCtNvQ; }
+  if(giu.phCtListQ){ var ql=document.getElementById('phCtListQ'); if(ql) ql.value=giu.phCtListQ; }
   phCtNvRender();
   function set(id,v){ var e=document.getElementById(id); if(e && v!=null) e.value=v; }
   if(e0 && giu.phCtTen===undefined || (e0 && phCtJustEdit)){
     var coSan=phDeptOptionsAll().indexOf(e0.dept)>-1;
     set('phCtDeptSel', coSan?e0.dept:'__khac__'); set('phCtDept', coSan?'':e0.dept); set('phCtTen', e0.ten||''); set('phCtZalo', e0.zalo||'');
   } else if(!phCtJustSaved){
-    Object.keys(giu).forEach(function(k){ if(k!=='phCtNvQ') set(k, giu[k]); });
+    Object.keys(giu).forEach(function(k){ if(k!=='phCtNvQ' && k!=='phCtListQ') set(k, giu[k]); });
     if(giu.phCtDeptSel===undefined){ var d0=phCurDept(); if(d0 && phDeptOptionsAll().indexOf(d0)>-1) set('phCtDeptSel', d0); } // mở từ form gửi → chọn sẵn phòng đang chọn
+  } else {
+    // vừa lưu / vừa hủy sửa: xóa ô tên + số, nhưng GIỮ phòng/khoa đang chọn để thêm/tìm tiếp trong phòng đó
+    if(giu.phCtDeptSel && giu.phCtDeptSel!=='__khac__') set('phCtDeptSel', giu.phCtDeptSel);
+    else if(giu.phCtDeptSel==='__khac__' && giu.phCtDept){ var dM=giu.phCtDept.trim(), dsM=phDeptOptionsAll(); for(var iM=0;iM<dsM.length;iM++){ if(phDeptKey(dsM[iM])===phDeptKey(dM)){ set('phCtDeptSel', dsM[iM]); break; } } }
   }
   phCtJustEdit=false; phCtJustSaved=false;
-  var w=document.getElementById('phCtDeptWrap'), ss=document.getElementById('phCtDeptSel'); if(w&&ss) w.style.display=ss.value==='__khac__'?'block':'none';
+  phCtDeptChange(false);
   phApplyWide('phCtOv');
 }
 var phCtJustEdit=false, phCtJustSaved=false;
+/* Ẩn/hiện từng khối trong cửa sổ Danh mục (nhớ trên máy này). nv = null nghĩa là TỰ ĐỘNG: bảng nhân viên Khoa
+   tự ẩn khi đang chọn phòng/khoa khác, tự hiện khi chọn Khoa Gây mê Hồi sức hoặc chưa chọn phòng. */
+var phCtHide=(function(){ try{ var v=JSON.parse(localStorage.getItem('phCtHide')||'{}'); return {note:!!v.note, form:!!v.form, list:!!v.list, nv:(v.nv===true||v.nv===false)?v.nv:null}; }catch(e){ return {note:false,form:false,list:false,nv:null}; } })();
+function phCtHideState(){ // trạng thái ẨN thực tế của từng khối theo lựa chọn + phòng đang chọn
+  var ss=document.getElementById('phCtDeptSel'), v=ss?ss.value:'';
+  var noiBo=phNorm(v)===phNorm(PH_NOIBO), chonPhongKhac=!!(v && v!=='__khac__' && !noiBo);
+  return {
+    noiBo:noiBo,
+    note:phCtHide.note,
+    form: noiBo ? true : (phCtEditId || v==='__khac__' ? false : phCtHide.form),
+    list: noiBo ? true : phCtHide.list,
+    nv: noiBo ? false : (phCtHide.nv==null ? chonPhongKhac : phCtHide.nv)
+  };
+}
+function phCtApplyHide(){
+  var H=phCtHideState();
+  function hien(id,on,kieu){ var e=document.getElementById(id); if(e) e.style.display = on ? (kieu||'') : 'none'; }
+  hien('phCtNote', !H.note, 'block');
+  hien('phCtTenCell', !H.form); hien('phCtZaloCell', !H.form); hien('phCtBtnRow', !H.form, 'flex');
+  hien('phCtTableWrap', !H.list); hien('phCtListTitle', !H.noiBo, 'flex'); hien('phCtListQ', !H.list);
+  hien('phCtNvQ', !H.nv); hien('phCtNvList', !H.nv);
+  ['note','form','list','nv'].forEach(function(k){
+    var b=document.getElementById('phCtChip_'+k); if(!b) return;
+    var an=H[k], khoa=(H.noiBo && (k==='form'||k==='list'||k==='nv')); // khi chọn Khoa GMHS các khối này do hệ thống quyết định
+    b.innerHTML='<i class="ti ti-eye'+(an?'-off':'')+'"></i> '+b.getAttribute('data-ten')+(an?' (đang ẩn)':'');
+    b.style.background=an?'#f3f3f3':'#ede7f6'; b.style.color=an?'#888':'#4a148c'; b.style.border='1.5px solid '+(an?'#ccc':'#b39ddb');
+    b.style.opacity=khoa?'.55':'1'; b.title=khoa?'Đang chọn Khoa Gây mê Hồi sức nên khối này tự ẩn/hiện':(an?'Bấm để hiện khối này':'Bấm để ẩn khối này');
+  });
+}
+function phCtToggle(k){
+  var H=phCtHideState();
+  if(H.noiBo && (k==='form'||k==='list'||k==='nv')){ if(typeof showAl==='function') showAl('Đang chọn Khoa Gây mê Hồi sức nên chỉ dùng bảng nhân viên Khoa. Đổi phòng/khoa khác để bật khối này.','warn'); return; }
+  phCtHide[k]=!H[k];
+  try{ localStorage.setItem('phCtHide', JSON.stringify(phCtHide)); }catch(e){}
+  phCtApplyHide();
+}
+// Đổi phòng/khoa trong cửa sổ Danh mục: chọn "Khoa Gây mê Hồi sức" → ẩn ô khai báo tay, chỉ dẫn xuống bảng nhân viên;
+// chọn phòng khác → hiện ô khai báo và lọc bảng danh mục theo phòng đó.
+function phCtDeptChange(nguoiDungBam){
+  var ss=document.getElementById('phCtDeptSel'); if(!ss) return;
+  var w=document.getElementById('phCtDeptWrap'); if(w) w.style.display = ss.value==='__khac__' ? 'block' : 'none';
+  var noiBo = phNorm(ss.value)===phNorm(PH_NOIBO);
+  function hien(id,on,kieu){ var e=document.getElementById(id); if(e) e.style.display = on ? (kieu||'') : 'none'; }
+  hien('phCtNoiBoHint', noiBo, 'block');
+  // lọc bảng danh mục theo phòng đang chọn (không chọn / phòng mới → hiện tất cả)
+  var loc = (ss.value && ss.value!=='__khac__' && !noiBo) ? phDeptKey(ss.value) : '';
+  var rows=document.querySelectorAll ? document.querySelectorAll('#phCtBody tr[data-dept]') : [], n=0;
+  // Từ khóa lọc: ô tìm của bảng; nếu ô đó trống thì lấy luôn chữ đang gõ ở ô "Tên người nhận" (trừ khi đang sửa 1 người)
+  var tq=phNorm((document.getElementById('phCtListQ')||{}).value||'');
+  if(!tq && !phCtEditId && !noiBo) tq=phNorm((document.getElementById('phCtTen')||{}).value||'');
+  var tqSo=tq.replace(/\s/g,''), stt=0;
+  for(var i=0;i<rows.length;i++){
+    var dq=rows[i].getAttribute('data-q')||'';
+    var ok = (!loc || rows[i].getAttribute('data-dept')===loc) && (!tq || dq.indexOf(tq)>-1 || (tqSo && /^\d+$/.test(tqSo) && dq.indexOf(tqSo)>-1));
+    rows[i].style.display = ok ? '' : 'none';
+    if(ok){ n++; stt++; if(rows[i].cells && rows[i].cells[0]) rows[i].cells[0].textContent=stt; } // đánh lại STT theo danh sách đang hiện
+  }
+  var tr=document.getElementById('phCtEmptyDept'); if(tr){ tr.style.display = !n ? '' : 'none'; if(tr.cells && tr.cells[0]) tr.cells[0].textContent = tq ? 'Không có ai khớp với từ khóa đang tìm — nếu là người mới, anh nhập thêm số Zalo ở khung trên rồi bấm "Thêm vào danh mục".' : 'Phòng/khoa này chưa có người nhận nào trong danh mục — anh nhập tên và số Zalo ở khung trên rồi bấm "Thêm vào danh mục", hoặc bấm "Nhập từ Excel".'; }
+  var cnt=document.getElementById('phCtListCnt'); if(cnt) cnt.textContent = (loc ? ('— '+ss.value+' ') : '— tất cả phòng/khoa ')+'('+n+(tq?' người khớp':' người')+')';
+  phCtApplyHide();
+  if(noiBo && nguoiDungBam){
+    var q=document.getElementById('phCtNvQ');
+    try{ (document.getElementById('phCtNvTitle')||q).scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
+    if(q){ try{ q.focus({preventScroll:true}); }catch(e){ try{ q.focus(); }catch(e2){} } }
+  }
+}
 // Bảng nhân viên Khoa trong cửa sổ Danh mục người nhận — có ô tìm nhanh; bấm "Chọn" (hoặc bấm vào dòng) để
 // đưa người đó làm NGƯỜI NHẬN của lần gửi đang soạn (tự chọn nơi nhận = Khoa Gây mê Hồi sức + điền số Zalo).
 var phCtNvShown=[];
@@ -14244,11 +14544,11 @@ function phCtNvRender(){
   phCtNvShown=ds;
   if(!ds.length){ box.innerHTML='<div style="color:#999;padding:6px 0">Không tìm thấy nhân viên nào khớp.</div>'; return; }
   var coForm=!!document.getElementById('phInNguoi');
-  box.innerHTML='<table style="border-collapse:collapse;width:100%"><tr><th style="'+th+';width:40px;text-align:center">STT</th><th style="'+th+'">Họ và tên</th><th style="'+th+'">Đơn vị</th><th style="'+th+'">Chức vụ</th><th style="'+th+'">Số điện thoại (Zalo)</th>'+(coForm?'<th style="'+th+';width:74px;text-align:center">Chọn</th>':'')+'</tr>'
+  box.innerHTML='<table style="border-collapse:collapse;width:100%"><tr><th style="'+th+';width:40px;text-align:center">STT</th><th style="'+th+'">Họ và tên</th><th style="'+th+'">Đơn vị</th><th style="'+th+'">Chức vụ</th><th style="'+th+'">Số điện thoại (Zalo)</th>'+(coForm?'<th style="'+th+';width:92px;text-align:center">Chọn</th>':'')+'</tr>'
     +ds.map(function(e,i){ var ok=phZaloUrl(e.sdt);
       return '<tr'+(coForm?' style="cursor:pointer" title="Bấm để chọn làm người nhận" onclick="phCtPickNv('+i+')" onmouseover="this.style.background=\'#f1f8e9\'" onmouseout="this.style.background=\'\'"':'')+'><td style="'+td+';text-align:center">'+(i+1)+'</td><td style="'+td+';font-weight:600">'+phEsc(e.ten)+'</td><td style="'+td+'">'+phEsc(e.donVi)+'</td><td style="'+td+'">'+phEsc(e.chucVu)+'</td>'
         +'<td style="'+td+'">'+(e.sdt?(phEsc(e.sdt)+(ok?'':' <span style="color:#c62828;font-size:11.5px">(số chưa đúng dạng)</span>')):'<span style="color:#b26a00">chưa có số</span>')+'</td>'
-        +(coForm?'<td style="'+td+';text-align:center"><button onclick="event.stopPropagation();phCtPickNv('+i+')" style="background:#1b5e20;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-check"></i> Chọn</button></td>':'')
+        +(coForm?'<td style="'+td+';text-align:center"><button onclick="event.stopPropagation();phCtPickNv('+i+')" style="background:#1b5e20;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-check"></i>Chọn</button></td>':'')
         +'</tr>'; }).join('')
     +'</table>';
 }
@@ -14259,7 +14559,8 @@ function phCtApplyToForm(dept, ten, zalo){
   var ds=phDeptOptions(), chuan='';
   for(var i=0;i<ds.length;i++){ if(phNorm(ds[i])===phNorm(dept)){ chuan=ds[i]; break; } }
   if(chuan){ sel.value=chuan; } else { sel.value='__khac__'; var t=document.getElementById('phInDept'); if(t) t.value=dept; }
-  var w=document.getElementById('phInDeptWrap'); if(w) w.style.display = sel.value==='__khac__' ? 'block' : 'none';
+  phDeptSync();
+  var loP=document.getElementById('phInLoai'); if(loP && phEditIdx==null && !phLoaiTouched) loP.value=phLoaiMacDinh(phCurDept());
   ng.value=ten; zl.value=zalo||'';
   phAuto={nguoi:ten, zalo:zalo||''};
   phNguoiList=phNguoiOptions(phCurDept());
@@ -14280,6 +14581,7 @@ function phCtSave(){
   var dept=(selV==='__khac__' ? ((document.getElementById('phCtDept')||{}).value||'') : selV).trim();
   var ten=((document.getElementById('phCtTen')||{}).value||'').trim(), zalo=((document.getElementById('phCtZalo')||{}).value||'').trim();
   if(!dept){ alert('Anh chọn phòng/khoa.'); return; }
+  if(phNorm(dept)===phNorm(PH_NOIBO)){ alert('Nhân viên Khoa Gây mê Hồi sức lấy từ "Danh sách nhân viên", không khai báo ở đây.\nAnh bấm "Chọn" ở bảng nhân viên bên dưới.'); return; }
   if(!ten){ alert('Anh nhập tên người nhận.'); return; }
   if(zalo && !phZaloUrl(zalo)){ alert('SĐT Zalo / link nhóm Zalo chưa đúng.\nVí dụ: 0905123456 hoặc https://zalo.me/g/abcxyz'); return; }
   var trung=phCtFind(dept, ten);
@@ -14454,11 +14756,11 @@ function phExportExcel(){
   if(typeof XLSX==='undefined'){ alert('Chưa tải được thư viện Excel. Anh kiểm tra mạng rồi thử lại, hoặc dùng Xuất Word.'); return; }
   var a1=[['THỐNG KÊ PHỐI HỢP PHÒNG BAN - KHOA GÂY MÊ HỒI SỨC'],[phKyText(D)],[],['STT','Phòng/khoa phối hợp','Số nội dung đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong','Tỷ lệ xử lý xong (%)','Số ngày xử lý TB','Đang chờ lâu nhất (ngày)']];
   D.rows.forEach(function(r,i){ a1.push([i+1,r.dept,r.tong,r.gui,r.phanhoi,r.xong,Math.round(r.xong*100/r.tong),r.xong?(Math.round(r.tongNgayXong*10/r.xong)/10):'',(r.gui+r.phanhoi)?r.lau:'']); });
-  var a2=[['STT','Thời điểm gửi','Người gửi','Phòng/khoa nhận','Bộ phận báo cáo','Người báo cáo','Ngày báo cáo','Nội dung','Hình thức','Người nhận','Zalo người nhận','Trạng thái','Thời điểm phản hồi','Nội dung phản hồi','Người ghi nhận phản hồi','Thời điểm xử lý xong','Kết quả xử lý','Người xác nhận xong','Số ngày']];
-  D.detail.forEach(function(x,i){ var f=x.f,c=x.c; a2.push([i+1,phDT(f.at),f.by||'Quản lý',f.dept,c.dept||'',c.person||'',c.date||'',phNoiDungGui(c,f),f.via||'',f.nguoiNhan||'',f.zalo||'',PH_ST[x.st].t,phDT(f.replyAt),f.replyNote||'',f.replyBy||'',phDT(f.doneAt),f.doneNote||'',f.doneBy||'',x.days]); });
+  var a2=[['STT','Thời điểm gửi','Loại phiếu','Người gửi','Phòng/khoa nhận','Bộ phận báo cáo','Người báo cáo','Ngày báo cáo','Nội dung','Hình thức','Người nhận','Zalo người nhận','Trạng thái','Thời điểm phản hồi','Nội dung phản hồi','Người ghi nhận phản hồi','Thời điểm xử lý xong','Kết quả xử lý','Người xác nhận xong','Số ngày']];
+  D.detail.forEach(function(x,i){ var f=x.f,c=x.c; a2.push([i+1,phDT(f.at),PH_LOAI[phLoaiOf(f)].t,f.by||'Quản lý',f.dept,c.dept||'',c.person||'',c.date||'',phNoiDungGui(c,f),f.via||'',f.nguoiNhan||'',f.zalo||'',PH_ST[x.st].t,phDT(f.replyAt),f.replyNote||'',f.replyBy||'',phDT(f.doneAt),f.doneNote||'',f.doneBy||'',x.days]); });
   var wb=XLSX.utils.book_new();
   var s1=XLSX.utils.aoa_to_sheet(a1); s1['!cols']=[{wch:5},{wch:34},{wch:12},{wch:12},{wch:14},{wch:12},{wch:12},{wch:12},{wch:14}];
-  var s2=XLSX.utils.aoa_to_sheet(a2); s2['!cols']=[{wch:5},{wch:16},{wch:16},{wch:30},{wch:14},{wch:22},{wch:11},{wch:60},{wch:14},{wch:16},{wch:16},{wch:22},{wch:16},{wch:36},{wch:18},{wch:16},{wch:36},{wch:18},{wch:8}];
+  var s2=XLSX.utils.aoa_to_sheet(a2); s2['!cols']=[{wch:5},{wch:16},{wch:26},{wch:16},{wch:30},{wch:14},{wch:22},{wch:11},{wch:60},{wch:14},{wch:16},{wch:16},{wch:22},{wch:16},{wch:36},{wch:18},{wch:16},{wch:36},{wch:18},{wch:8}];
   var a3=[['STT','Người gửi','Số nội dung đã gửi','Số phòng/khoa đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong']];
   D.senders.forEach(function(r,i){ a3.push([i+1,r.ten,r.tong,r.soPhong,r.gui,r.phanhoi,r.xong]); });
   var s3=XLSX.utils.aoa_to_sheet(a3); s3['!cols']=[{wch:5},{wch:34},{wch:12},{wch:12},{wch:12},{wch:14},{wch:12}];
