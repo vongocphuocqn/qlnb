@@ -13916,6 +13916,7 @@ function phOpen(id){
   if(!phIsAdmin()){ alert('Chỉ Quản lý mới ghi nhận việc gửi phòng ban.'); return; }
   var c=phCardOf(id); if(!c) return;
   phTargetId=c.id; phEditIdx=null; phAuto={nguoi:'',zalo:''}; phSelKeys=null; phSendImgs=true; phLoaiTouched=false;
+  try{ phTipClose(); }catch(e){}
   phCtInit(); phStaffInit(); phLoaiInit();
   phOverlay('phOv','<div id="phBody"></div>',640);
   phRenderBody(true);
@@ -13959,7 +13960,9 @@ function phRenderBody(resetForm){
     +'<button onclick="phClose(\'phOv\')" style="border:none;background:#eee;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer">×</button></div>'
     +'<div style="background:#f7f7f7;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12.5px;color:#444"><b>'+phEsc(c.person||'')+'</b>'+(c.dept?(' · '+phEsc(c.dept)):'')+' · báo ngày '+(typeof fmtD==='function'?fmtD(c.date):phEsc(c.date))
     +'<div style="white-space:pre-wrap;margin-top:3px;max-height:90px;overflow:auto">'+phEsc(nd)+'</div></div>'
-    +'<div style="font-weight:700;color:#444;margin-bottom:6px">Đã gửi ('+l.length+')</div>'+ds
+    +'<div style="font-weight:700;color:#444;margin-bottom:6px">Đã gửi ('+l.length+')</div>'
+    +(phDupFind(c).length?('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff3e0;border:1.5px solid #ffb74d;border-radius:8px;padding:7px 10px;margin-bottom:8px;font-size:12.5px;color:#8a4b00"><span style="flex:1">⚠️ Có <b>'+phDupFind(c).length+' lần gửi bị ghi trùng</b> (cùng phòng, cùng người nhận, cùng ngày, đều đang chờ phản hồi) — thống kê đang đếm thừa.</span><button onclick="phDupClean()" style="background:#ef6c00;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Gộp, giữ lần đầu</button></div>'):'')
+    +ds
     +'<div style="border-top:1px dashed #ccc;margin:10px 0 10px"></div>'
     +'<div id="phFormTitle" style="font-weight:700;color:'+(phEditIdx!=null?'#8a5a00':'#444')+';margin-bottom:8px">'+(phEditIdx!=null?('✏️ Sửa lần gửi '+phEsc((l[phEditIdx]||{}).dept||'')+' ('+phDT((l[phEditIdx]||{}).at)+')'):'+ Ghi nhận lần gửi mới')+'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">'
@@ -13979,7 +13982,9 @@ function phRenderBody(resetForm){
     +'<div style="grid-column:1/3"><label style="'+lb+'">Lời đề nghị / ghi chú thêm cho phòng nhận (không bắt buộc) <span style="font-weight:400;color:#888">— in trên phiếu và tin nhắn của '+(phEditIdx!=null?'lần gửi đang sửa':'lần gửi đang soạn; muốn thêm vào lần gửi ĐÃ LƯU thì bấm "Sửa" ở lần gửi đó')+'</span></label><textarea id="phInNote" rows="2" placeholder="VD: Đề nghị cử thợ kiểm tra, sửa trong tuần" style="'+inp+';resize:vertical"></textarea></div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:#444"><span><i class="ti ti-message-circle" style="color:#0068ff"></i> Khi mở Zalo, dán sẵn:</span>'
-      +'<select id="phInKieu" onchange="phZaloKieuSet(this.value)" style="padding:5px 8px;border:1.5px solid #90caf9;border-radius:7px;font-size:12.5px;font-family:inherit"><option value="">Hỏi mỗi lần</option><option value="anh">🖼️ Ảnh thẻ</option><option value="chu">📝 Nội dung chữ</option></select></div>'
+      +'<select id="phInKieu" onchange="phZaloKieuSet(this.value)" style="padding:5px 8px;border:1.5px solid #90caf9;border-radius:7px;font-size:12.5px;font-family:inherit"><option value="">Hỏi mỗi lần</option><option value="anh">🖼️ Ảnh thẻ</option><option value="chu">📝 Nội dung chữ</option></select>'
+      +'<span style="margin-left:8px">Mở Zalo bằng:</span>'
+      +'<select id="phInCach" onchange="phZaloCachSet(this.value)" title="Tra theo số: mở zalo.me/số — Zalo giới hạn số lượt tra mỗi tháng, tra nhiều có thể báo không tìm thấy dù số đúng. Zalo Web: mở chat.zalo.me, tự chọn người nhận. Không mở: chỉ chép, dùng Zalo PC đang mở sẵn." style="padding:5px 8px;border:1.5px solid #90caf9;border-radius:7px;font-size:12.5px;font-family:inherit;max-width:260px"><option value="auto">Tự động (khuyên dùng): nhóm thì mở thẳng, cá nhân thì chép + hướng dẫn</option><option value="pc">Mở thẳng Zalo PC theo số (thử nghiệm)</option><option value="webso">Mở Zalo Web theo số (thử nghiệm)</option><option value="web">Zalo Web - tự chọn người nhận</option><option value="khong">Không mở - chỉ chép</option><option value="so">Tra theo số trên zalo.me (dễ bị Zalo bắt xác minh)</option></select></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
     +'<button onclick="phClose(\'phOv\')" style="background:#fff;color:#555;border:1.5px solid #bbb;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit">Đóng</button>'
     +(phEditIdx!=null?'<button onclick="phCancelEdit()" style="background:#fff;color:#8a5a00;border:1.5px solid #f9a825;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Hủy sửa</button>':'')
@@ -13990,6 +13995,7 @@ function phRenderBody(resetForm){
   phDeptSelChange();
   phLineCount();
   var kX=document.getElementById('phInKieu'); if(kX) kX.value=phZaloKieu();
+  var cX=document.getElementById('phInCach'); if(cX) cX.value=phZaloCach();
   var loX=document.getElementById('phInLoai'); if(loX){ if(!loX.value || loX.value==='__cfg__') loX.value=phLoaiMacDinh(phCurDept()); phLoaiPrev=loX.value; }
   phApplyWide('phOv');
 }
@@ -14093,7 +14099,7 @@ function phSave(c, arr, action, okMsg, resetForm){
     if(typeof setSyncStatus==='function') setSyncStatus('err');
   });
 }
-function phAdd(moZalo){
+function phAdd(moZalo, boQuaTrung){
   var c=phCardOf(phTargetId); if(!c||!phIsAdmin()) return;
   var selV=(document.getElementById('phInDeptSel')||{}).value||'';
   var dept=(selV==='__khac__' ? (document.getElementById('phInDept').value||'') : selV).trim();
@@ -14137,6 +14143,11 @@ function phAdd(moZalo){
   if(f.nguoiNhan && f.zalo && !phCtFind(f.dept, f.nguoiNhan) && !(phNorm(f.dept)===phNorm(PH_NOIBO) && phStaffFind(f.nguoiNhan))){
     phCtWrite('c'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36), {dept:f.dept, ten:f.nguoiNhan, zalo:f.zalo, updatedAt:new Date().toISOString()});
   }
+  // CHỐNG GHI TRÙNG: đã có lần gửi cho đúng phòng + đúng người nhận này mà chưa xử lý xong → hỏi trước khi tạo thêm
+  if(phEditIdx==null && !boQuaTrung){
+    var iTrung=phTimLanGuiTrung(c, f);
+    if(iTrung>=0){ phHoiTrung(iTrung, !!moZalo); return; }
+  }
   var hoiSauLuu=false;
   if(moZalo){
     f.via='Zalo';
@@ -14158,6 +14169,64 @@ function phAdd(moZalo){
   var arr=phList(c).concat([f]);
   var prA=phSave(c, arr, 'Gửi '+dept+(f.via?(' qua '+f.via):'')+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):''), 'Đã ghi nhận gửi '+dept+'.', true);
   if(hoiSauLuu && prA && prA.then) prA.then(function(){ phZaloAsk(c, f); });
+}
+/* ── CHỐNG GHI TRÙNG LẦN GỬI ──
+   Bấm "Lưu & mở Zalo" nhiều lần (VD khi Zalo báo lỗi) trước đây tạo ra nhiều lần gửi giống hệt nhau, làm sai thống kê.
+   - Khi lưu lần gửi MỚI mà đã có lần gửi cùng phòng + cùng người nhận đang chờ → hỏi: gửi lại lần cũ / ghi là nhắc lại / vẫn tạo mới.
+   - Nút "Dọn lần gửi trùng": gộp các lần gửi giống hệt nhau trong cùng một ngày (chưa có phản hồi), giữ lần đầu. */
+function phKhoaTrung(f){ return phDeptKey(f.dept)+'|'+phNorm(f.nguoiNhan||'')+'|'+JSON.stringify((f.sel&&f.sel.items)?f.sel.items.map(function(x){return x.t;}):null); }
+function phTimLanGuiTrung(c, f){ // vị trí lần gửi đang chờ (chưa xong) trùng phòng + người nhận + phạm vi nội dung; -1 nếu không có
+  var l=phList(c), k=phKhoaTrung(f), tim=-1;
+  l.forEach(function(x,i){ if(phStOf(x)!=='xong' && phKhoaTrung(x)===k) tim=i; });
+  return tim;
+}
+function phHoiTrung(i, moZalo){
+  var c=phCardOf(phTargetId), f=c?phList(c)[i]:null; if(!f) return;
+  var nut='display:block;width:100%;text-align:left;border-radius:10px;padding:11px 14px;margin-bottom:9px;cursor:pointer;font-family:inherit;font-size:13.5px;';
+  phOverlay('phDupOv',
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:15.5px;font-weight:700;color:#b26a00;flex:1"><i class="ti ti-alert-triangle"></i> Nội dung này đã gửi cho '+phEsc(f.nguoiNhan||f.dept)+' rồi</div>'
+    +'<button onclick="phClose(\'phDupOv\')" style="border:none;background:#eee;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer">×</button></div>'
+    +'<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:12px">Đã có lần gửi <b>'+phEsc(f.dept)+'</b>'+(f.nguoiNhan?(' — '+phEsc(f.nguoiNhan)):'')+' lúc <b>'+phDT(f.at)+'</b>, trạng thái: '+PH_ST[phStOf(f)].t+(phNhacList(f).length?(', đã nhắc '+phNhacList(f).length+' lần'):'')+'.<br>Tạo thêm một lần gửi nữa sẽ làm thống kê đếm thành 2 nội dung.</div>'
+    +'<button onclick="phClose(\'phDupOv\');phOpenZalo('+i+')" style="'+nut+'background:#e3f2fd;border:2px solid #1565c0;color:#0d47a1"><b>Gửi lại lần đã lưu</b> — không tạo mới<br><span style="font-size:12px">Dùng khi lần trước chưa dán được vào Zalo (Zalo báo lỗi, bấm nhầm...). Chỉ chép lại nội dung'+(moZalo?' và mở Zalo':'')+'.</span></button>'
+    +'<button onclick="phClose(\'phDupOv\');phNhacLai('+i+')" style="'+nut+'background:#ffebee;border:2px solid #c62828;color:#b71c1c"><b>Ghi là NHẮC LẠI lần '+(phNhacList(f).length+1)+'</b><br><span style="font-size:12px">Dùng khi đã gửi rồi, nay gửi lại để đôn đốc. Phiếu và tin nhắn ghi "NHẮC LẦN '+(phNhacList(f).length+1)+'".</span></button>'
+    +'<button onclick="phClose(\'phDupOv\');phAdd('+(moZalo?'true':'false')+',true)" style="'+nut+'background:#fff;border:2px solid #999;color:#444"><b>Vẫn tạo lần gửi mới</b><br><span style="font-size:12px">Dùng khi đây thật sự là một lần gửi khác (nội dung mới phát sinh).</span></button>', 540);
+}
+// Các lần gửi trùng hẳn trong 1 thẻ: cùng phòng + người nhận + phạm vi nội dung + CÙNG NGÀY, đều đang "Chờ phản hồi" → giữ lần đầu
+function phDupFind(c){
+  var l=phList(c), nhom={}, bo=[];
+  l.forEach(function(f,i){
+    if(phStOf(f)!=='gui' || f.replyAt || f.doneAt) return;
+    var k=phKhoaTrung(f)+'|'+phLocalDate(f.at);
+    if(nhom[k]==null) nhom[k]=i; else bo.push({bo:i, giu:nhom[k]});
+  });
+  return bo;
+}
+function phDupCleanCard(c){ // trả về Promise<số lần gửi đã gộp>
+  var bo=phDupFind(c); if(!bo.length) return Promise.resolve(0);
+  var arr=phList(c).map(function(x){ return Object.assign({},x); }), xoa={};
+  bo.forEach(function(b){ var nh=phNhacList(arr[b.bo]); if(nh.length) arr[b.giu].nhac=phNhacList(arr[b.giu]).concat(nh).sort(function(a,b2){ return String(a.at).localeCompare(String(b2.at)); }); // không làm mất các lần nhắc
+    if(!arr[b.giu].note && arr[b.bo].note) arr[b.giu].note=arr[b.bo].note; xoa[b.bo]=1; });
+  var moi=arr.filter(function(x,i){ return !xoa[i]; });
+  var hist=(c.history)?[].concat(c.history):[];
+  hist.push({action:'Gộp '+bo.length+' lần gửi phòng ban bị ghi trùng', actor:(cu&&cu.name)?cu.name:'Quản lý', at:new Date().toISOString()});
+  return cardsRef.child(String(c.id)).update({forwards:(moi.length?moi:null), history:hist}).then(function(){ c.forwards=moi.length?moi:null; c.history=hist; return bo.length; });
+}
+function phDupClean(){ // dọn trong thẻ đang mở
+  var c=phCardOf(phTargetId); if(!c||!phIsAdmin()) return;
+  var n=phDupFind(c).length; if(!n) return;
+  if(!confirm('Thẻ này có '+n+' lần gửi bị ghi TRÙNG (cùng phòng, cùng người nhận, cùng ngày, đều đang chờ phản hồi).\n\nGộp lại, chỉ giữ lần gửi đầu tiên của mỗi nhóm? Các lần nhắc lại (nếu có) vẫn được giữ.')) return;
+  phEditIdx=null;
+  phDupCleanCard(c).then(function(k){ if(typeof showAl==='function') showAl('Đã gộp '+k+' lần gửi trùng.'); phRenderBody(true); if(typeof renderBoard==='function') renderBoard(); })
+    .catch(function(e){ if(typeof showAl==='function') showAl('Lỗi: '+e.message,'err'); });
+}
+function phDupTotal(){ var n=0, soThe=0; (typeof cards!=='undefined'?cards:[]).forEach(function(c){ var k=phDupFind(c).length; if(k){ n+=k; soThe++; } }); return {n:n, soThe:soThe}; }
+function phDupCleanAll(){ // dọn toàn bộ các thẻ (gọi từ cửa sổ thống kê)
+  if(!phIsAdmin()) return; var T=phDupTotal(); if(!T.n) return;
+  if(!confirm('Có '+T.n+' lần gửi bị ghi TRÙNG trong '+T.soThe+' thẻ (cùng phòng, cùng người nhận, cùng ngày, đều đang chờ phản hồi).\n\nGộp lại, chỉ giữ lần gửi đầu tiên của mỗi nhóm? Thống kê sẽ đếm đúng hơn.')) return;
+  var ds=(typeof cards!=='undefined'?cards:[]).filter(function(c){ return phDupFind(c).length; }), tong=0, p=Promise.resolve();
+  ds.forEach(function(c){ p=p.then(function(){ return phDupCleanCard(c).then(function(k){ tong+=k; }); }); });
+  p.then(function(){ if(typeof showAl==='function') showAl('Đã gộp '+tong+' lần gửi trùng trong '+ds.length+' thẻ.'); if(typeof renderBoard==='function') renderBoard(); phRenderStats(); })
+   .catch(function(e){ if(typeof showAl==='function') showAl('Lỗi khi dọn: '+e.message,'err'); phRenderStats(); });
 }
 function phIsoToLocalInput(iso){ var d=new Date(iso); if(isNaN(d)) d=new Date(); var p=function(n){return String(n).padStart(2,'0');};
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
@@ -14457,36 +14526,125 @@ function phCopySync(txt){
   document.body.removeChild(ta);
   return ok;
 }
+/* ── CÁCH MỞ ZALO ──
+   'so'    = mở trang zalo.me/<số điện thoại> (Zalo tra tài khoản theo số). Lưu ý: Zalo GIỚI HẠN số lượt một tài khoản
+             được tìm thấy qua số điện thoại mỗi tháng; tra quá nhiều lần (hoặc người nhận tắt cho tìm bằng số)
+             thì Zalo báo "Tài khoản này không tồn tại hoặc không cho phép tìm kiếm" dù số vẫn đúng.
+   'web'   = mở Zalo Web (chat.zalo.me), người dùng tự chọn cuộc trò chuyện → không phụ thuộc việc tra số.
+   'khong' = chỉ chép nội dung, không mở gì (dùng Zalo PC đang mở sẵn).
+   Link nhóm (zalo.me/g/...) luôn mở thẳng vì không phải tra số. */
+// 'auto' (MẶC ĐỊNH, khuyên dùng) = link nhóm thì mở thẳng nhóm; số điện thoại cá nhân thì KHÔNG tra số, chỉ chép và hiện
+// khung hướng dẫn (tên + số người nhận) để tìm trong Zalo PC — tránh bị Zalo bắt xác minh / chặn do tra số nhiều lần.
+// 'pc'    = THỬ NGHIỆM: gọi thẳng ứng dụng Zalo PC mở cuộc trò chuyện theo số (zalo://conversation?phone=...), không qua trang zalo.me.
+// 'webso' = THỬ NGHIỆM: mở Zalo Web kèm số (chat.zalo.me/?phone=...).
+// Hai cách này dựa trên đường dẫn mà cộng đồng dùng, Zalo không công bố chính thức → cần thử trên máy thật; không chạy thì đổi lại "Tự động".
+var PH_CACH_OK={web:1, khong:1, so:1, pc:1, webso:1};
+function phZaloCach(){ try{ var v=localStorage.getItem('phZaloCach'); return PH_CACH_OK[v] ? v : 'auto'; }catch(e){ return 'auto'; } }
+function phZaloCachSet(v){ try{ localStorage.setItem('phZaloCach', PH_CACH_OK[v]?v:'auto'); }catch(e){} var s1=document.getElementById('phInCach'); if(s1) s1.value=phZaloCach(); }
+function phZaloUrlPc(f){ var sdt=phPhoneOf(f); return sdt ? ('zalo://conversation?phone='+sdt) : ''; }
+function phZaloUrlWebSo(f){ var sdt=phPhoneOf(f); return sdt ? ('https://chat.zalo.me/?phone='+sdt) : ''; }
+function phZaloDich(f){ // → {url, kieu:'so'|'nhom'|'web'|'khong'|'thieu'}
+  var u=phZaloUrl(f&&f.zalo), cach=phZaloCach(), laNhom=/zalo\.me\/g\//i.test(u);
+  if(laNhom) return {url:u, kieu:'nhom'};
+  if(cach==='khong') return {url:'', kieu:'khong'};
+  if(cach==='web') return {url:'https://chat.zalo.me/', kieu:'web'};
+  if(cach==='auto') return {url:'', kieu:(u?'tu':'thieu'), urlSo:u};
+  if(cach==='pc') return phZaloUrlPc(f) ? {url:phZaloUrlPc(f), kieu:'pc'} : {url:'', kieu:(u?'tu':'thieu')};
+  if(cach==='webso') return phZaloUrlWebSo(f) ? {url:phZaloUrlWebSo(f), kieu:'webso'} : {url:'https://chat.zalo.me/', kieu:'web'};
+  return u ? {url:u, kieu:'so'} : {url:'', kieu:'thieu'};
+}
+function phZaloLoiNhan(D, f, w, thu){ // câu thông báo sau khi chép "thu" (VD: 'ẢNH thẻ', 'nội dung') và mở Zalo theo D
+  var ai=(f&&f.nguoiNhan)?(' với '+f.nguoiNhan):'';
+  if(D.kieu==='thieu') return {m:'Đã chép '+thu+'. Chưa có SĐT/link Zalo của người nhận nên anh tự mở Zalo và dán (Ctrl + V).', t:'ok'};
+  if(D.kieu==='khong' || D.kieu==='tu') return {m:'Đã chép '+thu+'. Anh mở Zalo, chọn cuộc trò chuyện'+ai+' rồi dán (Ctrl + V).', t:'ok'};
+  if(!w) return {m:'Đã chép '+thu+', nhưng trình duyệt chặn mở Zalo — anh cho phép mở cửa sổ mới (popup) cho trang này, hoặc tự mở Zalo rồi dán (Ctrl + V).', t:'warn'};
+  if(D.kieu==='web') return {m:'Đã chép '+thu+' và mở Zalo Web. Anh chọn cuộc trò chuyện'+ai+' rồi dán (Ctrl + V).', t:'ok'};
+  if(D.kieu==='pc') return {m:'Đã chép '+thu+' và gọi Zalo PC mở cuộc trò chuyện'+ai+'. Dán (Ctrl + V).', t:'ok'};
+  if(D.kieu==='webso') return {m:'Đã chép '+thu+' và mở Zalo Web theo số'+ai+'. Dán (Ctrl + V).', t:'ok'};
+  if(D.kieu==='nhom') return {m:'Đã chép '+thu+' và mở nhóm Zalo. Anh dán (Ctrl + V) vào khung chat.', t:'ok'};
+  return {m:'Đã chép '+thu+' và mở Zalo. Anh bấm "Nhắn tin" rồi dán (Ctrl + V). Nếu Zalo báo "tài khoản không tồn tại hoặc không cho phép tìm kiếm" dù số đúng: đổi ô "Mở Zalo bằng" sang "Zalo Web" rồi tự chọn người nhận.', t:'ok'};
+}
+var phTipCtx=null;
+function phTipClose(){ var e=document.getElementById('phTipBox'); if(e && e.parentNode) e.parentNode.removeChild(e); }
+// Khung nhỏ góc dưới phải: báo đã chép gì, gửi cho ai (tên + số để tìm trong Zalo), kèm các nút mở Zalo khi cần.
+function phTip(c, f, kieu, D, w){
+  phTipCtx={c:c, f:f, kieu:kieu};
+  phTipClose();
+  var sdt=phPhoneOf(f), urlSo=phZaloUrl(f.zalo), laNhom=(D.kieu==='nhom');
+  var thu = kieu==='anh' ? 'ẢNH THẺ' : 'NỘI DUNG CHỮ';
+  var nut='border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;background:#fff;';
+  var dong2;
+  if(laNhom) dong2 = w ? 'Đã mở nhóm Zalo — anh bấm vào khung chat rồi <b>Ctrl + V</b>.' : 'Trình duyệt chặn mở nhóm Zalo — anh bấm nút "Mở nhóm Zalo" bên dưới.';
+  else if(D.kieu==='so') dong2 = w ? 'Đã mở trang Zalo của số này — bấm "Nhắn tin" rồi <b>Ctrl + V</b>. Nếu Zalo bắt xác minh hoặc báo không tìm thấy: tìm tên trong Zalo PC rồi dán.' : 'Trình duyệt chặn mở Zalo — anh tìm người nhận trong Zalo PC rồi <b>Ctrl + V</b>.';
+  else if(D.kieu==='web') dong2 = 'Đã mở Zalo Web — chọn cuộc trò chuyện với người nhận rồi <b>Ctrl + V</b>.';
+  else if(D.kieu==='pc') dong2 = 'Đã gọi <b>Zalo PC</b> mở thẳng cuộc trò chuyện theo số (nếu trình duyệt hỏi "Mở Zalo?" thì bấm đồng ý) → <b>Ctrl + V</b>. Nếu Zalo PC không bật đúng người: máy chưa hỗ trợ cách này, anh gõ tên trong ô tìm kiếm của Zalo PC.';
+  else if(D.kieu==='webso') dong2 = 'Đã mở <b>Zalo Web theo số</b> → nếu vào đúng cuộc trò chuyện thì <b>Ctrl + V</b>; nếu không, gõ tên người nhận để tìm.';
+  else dong2 = 'Mở <b>Zalo PC</b> → gõ tên hoặc số người nhận vào ô tìm kiếm → mở cuộc trò chuyện → <b>Ctrl + V</b>.';
+  var box=document.createElement('div'); box.id='phTipBox';
+  box.style.cssText='position:fixed;left:16px;bottom:16px;z-index:7000;width:350px;max-width:calc(100vw - 32px);background:#fff;border:2px solid #0068ff;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.28);padding:12px 14px;font-size:13px;line-height:1.5;color:#222';
+  box.innerHTML='<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1;font-weight:700;color:#1b5e20">✅ Đã chép '+thu+(f._nhacLan?(' (NHẮC LẦN '+f._nhacLan+')'):'')+' — sẵn sàng dán</div>'
+    +'<button onclick="phTipClose()" style="border:none;background:#eee;border-radius:50%;width:24px;height:24px;font-size:14px;cursor:pointer;flex-shrink:0">×</button></div>'
+    +'<div style="margin:6px 0;padding:7px 9px;background:#eef6ff;border-radius:8px"><div style="font-size:11.5px;color:#555">Gửi cho</div>'
+    +'<div style="font-size:15px;font-weight:700;color:#0d47a1">'+phEsc(f.nguoiNhan||f.dept)+(sdt?(' · <span style="font-family:monospace">'+phEsc(sdt)+'</span>'):'')+'</div>'
+    +'<div style="font-size:11.5px;color:#555">'+phEsc(f.dept)+'</div></div>'
+    +'<div style="margin-bottom:8px">'+dong2+'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +(laNhom?('<button onclick="phZaloMo(\''+phEsc(urlSo)+'\')" style="'+nut+'border:1.5px solid #0068ff;color:#0068ff">Mở nhóm Zalo</button>'):'')
+    +((!laNhom && phZaloUrlPc(f))?('<button onclick="phZaloMo(\''+phEsc(phZaloUrlPc(f))+'\')" title="Thử nghiệm: gọi ứng dụng Zalo PC mở thẳng cuộc trò chuyện theo số, không qua trang zalo.me" style="'+nut+'border:1.5px solid #0068ff;background:#0068ff;color:#fff">Mở Zalo PC</button>'):'')
+    +'<button onclick="phZaloMo(\''+((!laNhom && phZaloUrlWebSo(f))?phEsc(phZaloUrlWebSo(f)):'https://chat.zalo.me/')+'\')" style="'+nut+'border:1.5px solid #0068ff;color:#0068ff">Mở Zalo Web</button>'
+    +((!laNhom && urlSo)?('<button onclick="phZaloMo(\''+phEsc(urlSo)+'\')" title="Mở trang zalo.me/số — Zalo giới hạn số lượt tra, chỉ nên dùng khi chưa từng nhắn với người này" style="'+nut+'border:1.5px solid #999;color:#555">Tra theo số</button>'):'')
+    +'<button onclick="phTipRecopy()" title="Chép lại nếu anh đã sao chép thứ khác" style="'+nut+'border:1.5px solid #2e7d32;color:#2e7d32">Chép lại</button>'
+    +'<button onclick="phTipDoi()" title="Chép thứ còn lại để dán tiếp" style="'+nut+'border:1.5px solid #6a1b9a;color:#6a1b9a">Chép '+(kieu==='anh'?'nội dung chữ':'ảnh thẻ')+'</button>'
+    +'</div><div id="phTipMsg" style="font-size:11.5px;color:#2e7d32;margin-top:6px;min-height:14px"></div>';
+  document.body.appendChild(box);
+  clearTimeout(phTip._t); phTip._t=setTimeout(phTipClose, 5*60*1000); // tự đóng sau 5 phút
+}
+function phTipSay(m, loi){ var e=document.getElementById('phTipMsg'); if(e){ e.style.color=loi?'#c62828':'#2e7d32'; e.textContent=m; } }
+// Chép lại đúng thứ vừa chép (không mở Zalo lần nữa)
+function phTipCopy(kieu){
+  var x=phTipCtx; if(!x) return;
+  if(kieu==='anh'){
+    phImgWriteClipboard(phDrawCard(x.c,x.f).then(phCanvasBlob)).then(function(){ phTipSay('Đã chép ẢNH THẺ lúc '+phGioPhutGiay()+' — dán Ctrl + V.'); }, function(e){ phTipSay('Chưa chép được ảnh ('+((e&&e.message)||e)+') — bấm "Chép ảnh thẻ" trong cửa sổ Gửi phòng ban.', true); });
+  } else {
+    var ok=phCopySync(phZaloText(x.c,x.f));
+    phTipSay(ok?('Đã chép NỘI DUNG CHỮ lúc '+phGioPhutGiay()+' — dán Ctrl + V.'):'Chưa chép được nội dung chữ.', !ok);
+  }
+}
+function phTipRecopy(){ if(phTipCtx) phTipCopy(phTipCtx.kieu); }
+function phTipDoi(){ if(phTipCtx) phTipCopy(phTipCtx.kieu==='anh'?'chu':'anh'); }
 function phSendZalo(c,f){
-  var url=phZaloUrl(f.zalo), txt=phZaloText(c,f);
+  var D=phZaloDich(f), url=D.url, txt=phZaloText(c,f);
   var daChep=phCopySync(txt);                       // 1) chép trước
   if(!daChep && navigator.clipboard && navigator.clipboard.writeText){ try{ navigator.clipboard.writeText(txt); }catch(e){} }
-  var w=null;
-  if(url){ try{ w=window.open(url,'_blank'); }catch(e){} }   // 2) rồi mới mở Zalo
+  var w=phZaloMo(url);   // 2) rồi mới mở Zalo
   var msg, loai='ok';
   if(!daChep){ msg='Chưa sao chép được nội dung tự động. Anh quay lại thẻ này và bấm "Mở Zalo" lần nữa.'; loai='warn'; }
-  else if(!url) msg='Đã sao chép nội dung. Chưa có SĐT/link Zalo của người nhận nên anh tự mở Zalo và dán (Ctrl + V).';
-  else if(!w){ msg='Đã sao chép nội dung, nhưng trình duyệt chặn mở Zalo — anh cho phép mở cửa sổ mới (popup) cho trang này.'; loai='warn'; }
-  else msg='Đã sao chép toàn bộ nội dung thẻ và mở Zalo. Anh dán (Ctrl + V) vào khung chat rồi gửi. Muốn gửi kèm ảnh thẻ: quay lại đây bấm "Chép ảnh thẻ" rồi dán tiếp.';
-  if(typeof showAl==='function') showAl(msg, loai); else alert(msg);
+  else { var R=phZaloLoiNhan(D, f, w, 'NỘI DUNG chữ'); msg=R.m; loai=R.t; }
+  if(daChep){ try{ phTip(c, f, 'chu', D, w); }catch(e){} }
+  if(!daChep || loai!=='ok'){ if(typeof showAl==='function') showAl(msg, loai); else alert(msg); }
 }
 /* ── Mở Zalo: dán ẢNH THẺ hay NỘI DUNG CHỮ? ──
    Bộ nhớ tạm mỗi lần chỉ giữ được 1 thứ, nên trước khi mở Zalo hệ thống hỏi (hoặc dùng lựa chọn đã nhớ):
    'anh' = chép ảnh phiếu (rõ, đẹp, kèm ảnh minh chứng) · 'chu' = chép nội dung dạng chữ · '' = hỏi mỗi lần. */
 function phZaloKieu(){ try{ var v=localStorage.getItem('phZaloKieu'); return (v==='anh'||v==='chu') ? v : ''; }catch(e){ return ''; } }
 function phZaloKieuSet(v){ try{ localStorage.setItem('phZaloKieu', (v==='anh'||v==='chu')?v:''); }catch(e){} var s1=document.getElementById('phInKieu'); if(s1) s1.value=phZaloKieu(); }
-function phZaloMo(url){ var w=null; if(url){ try{ w=window.open(url,'_blank'); }catch(e){} } return w; }
+function phZaloMo(url){
+  if(!url) return null;
+  if(/^zalo:/i.test(url)){ // gọi ứng dụng Zalo PC qua giao thức riêng: trình duyệt sẽ hỏi "Mở Zalo?" (nếu máy có đăng ký giao thức này)
+    try{ var a=document.createElement('a'); a.href=url; a.style.display='none'; document.body.appendChild(a); a.click(); document.body.removeChild(a); return {ungDung:true}; }catch(e){ return null; }
+  }
+  var w=null; try{ w=window.open(url,'_blank'); }catch(e){} return w;
+}
 // Chép ẢNH thẻ xong rồi mới mở Zalo (mở trước thì trang mất tiêu điểm, trình duyệt không cho chép ảnh nữa)
 function phZaloGoAnh(c,f){
-  var url=phZaloUrl(f.zalo);
+  var D=phZaloDich(f), url=D.url;
   if(typeof showAl==='function') showAl('Đang tạo ảnh thẻ...');
   var pBlob=phDrawCard(c,f).then(phCanvasBlob);
   return phImgWriteClipboard(pBlob).then(function(){
     var w=phZaloMo(url);
-    var msg = !url ? 'Đã chép ẢNH thẻ. Chưa có SĐT/link Zalo của người nhận nên anh tự mở Zalo và dán (Ctrl + V).'
-      : (w ? 'Đã chép ẢNH thẻ và mở Zalo. Anh bấm "Nhắn tin" rồi dán (Ctrl + V) vào khung chat.'
-           : 'Đã chép ẢNH thẻ, nhưng trình duyệt chặn mở Zalo — anh cho phép mở cửa sổ mới (popup) cho trang này, hoặc tự mở Zalo rồi dán (Ctrl + V).');
-    if(typeof showAl==='function') showAl(msg, (url&&!w)?'warn':'ok'); else alert(msg);
+    var R=phZaloLoiNhan(D, f, w, 'ẢNH thẻ');
+    try{ phTip(c, f, 'anh', D, w); }catch(e){}
+    if(R.t!=='ok'){ if(typeof showAl==='function') showAl(R.m, R.t); else alert(R.m); }
   }, function(e){
     // không chép tự động được → mở cửa sổ xem trước ảnh để chép tay / tải về, và vẫn mở Zalo
     phZaloMo(url);
@@ -14737,7 +14895,7 @@ function phCtFind(dept, ten){
 function phNguoiOptions(dept){
   var out=[], seen={};
   Object.keys(phContacts).map(function(id){ return phContacts[id]; }).filter(function(x){ return x && x.ten && (!dept || phDeptKey(x.dept)===phDeptKey(dept)); })
-    .sort(function(a,b){ return String(a.ten).localeCompare(String(b.ten),'vi'); })
+    .sort(function(a,b){ var ga=/zalo\.me\/g\//i.test(String(a.zalo||''))?0:1, gb=/zalo\.me\/g\//i.test(String(b.zalo||''))?0:1; return (ga-gb) || String(a.ten).localeCompare(String(b.ten),'vi'); }) // nhóm Zalo đứng đầu
     .forEach(function(x){ var k=phNorm(x.ten); if(seen[k]) return; seen[k]=1; out.push({ten:x.ten, zalo:x.zalo||'', dept:x.dept||''}); });
   if(dept && phNorm(dept)===phNorm(PH_NOIBO)){
     phStaff.forEach(function(e){ var k=phNorm(e.ten); if(seen[k]) return; seen[k]=1; out.push({ten:e.ten, zalo:e.sdt||'', dept:PH_NOIBO, nv:true}); });
@@ -14789,7 +14947,7 @@ function phNguoiDrop(){
   phNguoiOther = (!dept || q) ? phNguoiAll().filter(function(x){ return (!dept || phDeptKey(x.dept)!==dk) && phNguoiKhop(x,q); }) : [];
   var dong='padding:7px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;gap:10px';
   var dau='padding:5px 10px;font-size:11.5px;position:sticky;top:0';
-  function so(x){ return '<span style="color:'+(x.zalo?'#0068ff':'#b26a00')+';white-space:nowrap">'+(x.zalo?phEsc(x.zalo):'chưa có số')+'</span>'; }
+  function so(x){ var nh=/zalo\.me\/g\//i.test(String(x.zalo||'')); return '<span style="color:'+(x.zalo?'#0068ff':'#b26a00')+';white-space:nowrap'+(nh?';font-weight:700':'')+'">'+(nh?'👥 nhóm Zalo':(x.zalo?phEsc(x.zalo):'chưa có số'))+'</span>'; }
   var h='';
   if(dept && phNorm(dept)===phNorm(PH_NOIBO) && !phStaff.length) h+='<div style="padding:6px 10px;font-size:11.5px;color:#a15c00;background:#fff8e1">Chưa đọc được Danh sách nhân viên Khoa (đang tải hoặc mất mạng) — anh thử bấm lại sau vài giây.</div>';
   if(dept){
@@ -14859,6 +15017,9 @@ function phAutoFillContact(){
   var k=(dept && sel.value!=='__khac__') ? phLastContact(dept) : null;
   var nNew=k?(k.nguoiNhan||''):'';
   if(!nNew && dept && phNguoiList.length===1) nNew=phNguoiList[0].ten; // phòng chỉ có 1 người trong danh mục → điền sẵn
+  // Phòng đã khai báo NHÓM ZALO (ô Zalo là link zalo.me/g/...) → ưu tiên chọn nhóm: mở thẳng, không phải tra số, cả phòng cùng thấy
+  var nhomZ=null; phNguoiList.forEach(function(x){ if(!nhomZ && /zalo\.me\/g\//i.test(phZaloUrl(x.zalo))) nhomZ=x; });
+  if(nhomZ) nNew=nhomZ.ten;
   var chon=phNguoiMatch(nNew);
   var zNew = chon ? (chon.zalo||(k?k.zalo:'')||'') : (k?(k.zalo||''):'');
   ng.value=nNew;
@@ -14900,6 +15061,7 @@ function phCtRender(){
       +phDeptOptionsAll().filter(function(d){ return phNorm(d)!==phNorm(PH_NOIBO); }).map(function(d){ return '<option value="'+phEsc(d)+'">'+phEsc(d)+'</option>'; }).join('')+'<option value="__khac__">➕ Phòng/khoa khác (thêm mới)...</option></select>'
       +'<div id="phCtDeptWrap" style="display:none;margin-top:6px"><input id="phCtDept" placeholder="Gõ tên phòng/khoa mới" style="'+inp+'"></div></div>'
     +'<div id="phCtNoiBoHint" style="display:none;grid-column:1/3;background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;border-radius:8px;padding:8px 10px;font-size:12.5px"><i class="ti ti-arrow-down"></i> Nơi nhận là <b>'+phEsc(PH_NOIBO)+'</b>: anh chọn người nhận ở <b>bảng nhân viên ngay bên dưới</b> (gõ tên vào ô tìm rồi bấm <b>"Chọn"</b>). Nhân viên Khoa không cần khai báo tay.</div>'
+    +'<div style="grid-column:1/3;background:#eef6ff;border:1px solid #b6d8f5;color:#0d47a1;border-radius:8px;padding:6px 10px;font-size:12px"><b>Mẹo:</b> lập một <b>nhóm Zalo cho phòng/khoa</b> hay gửi, rồi thêm vào đây một "người nhận" tên <i>Nhóm Zalo …</i> và dán <b>link nhóm</b> (https://zalo.me/g/…) vào ô bên phải. Khi gửi, hệ thống tự chọn nhóm và mở thẳng nhóm — không phải tra số, không bị Zalo bắt xác minh.</div>'
     +'<div id="phCtTenCell"><label style="'+lb+'">Tên người nhận * <span style="font-weight:400;color:#888">(gõ tên để tìm trong bảng bên dưới; chưa có thì nhập thêm số rồi bấm "Thêm vào danh mục")</span></label><input id="phCtTen" autocomplete="off" oninput="phCtDeptChange(false)" placeholder="Gõ tên để tìm hoặc để thêm mới, VD: Kiên" style="'+inp+'"></div>'
     +'<div id="phCtZaloCell"><label style="'+lb+'">SĐT Zalo hoặc link nhóm Zalo</label><input id="phCtZalo" placeholder="VD: 0905xxxxxx hoặc https://zalo.me/g/..." style="'+inp+'"></div>'
     +'</div><div id="phCtBtnRow" style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">'
@@ -15144,7 +15306,9 @@ function phOpenStats(){
     +'<span style="flex:1"></span>'
     +'<button onclick="phExportExcel()" style="'+btn+'background:#fff;color:#1b5e20;border:1.5px solid #1b5e20"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>'
     +'<button onclick="phExportWord()" style="'+btn+'background:#6a1b9a;color:#fff;border:1.5px solid #6a1b9a"><i class="ti ti-file-word"></i> Xuất Word</button>'
-    +'</div><div id="phStBody"></div>', 1180);
+    +'</div>'
+    +'<div id="phStDup" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;background:#fff3e0;border:1.5px solid #ffb74d;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:12.5px;color:#8a4b00"><span id="phStDupTxt" style="flex:1"></span><button onclick="phDupCleanAll()" style="background:#ef6c00;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Gộp tất cả, giữ lần đầu</button></div>'
+    +'<div id="phStBody"></div>', 1180);
   phRenderStats();
 }
 function phRenderStats(){
@@ -15158,6 +15322,8 @@ function phRenderStats(){
     selBy.innerHTML='<option value="">Tất cả người gửi</option>'+ds.map(function(d){ return '<option value="'+phEsc(d)+'">'+phEsc(d)+'</option>'; }).join('');
     selBy.value=ds.indexOf(curB)>-1?curB:''; }
   var D=phStatsData();
+  var dupT=phDupTotal(), dupEl=document.getElementById('phStDup');
+  if(dupEl){ dupEl.style.display=dupT.n?'flex':'none'; var dupTxt=document.getElementById('phStDupTxt'); if(dupTxt) dupTxt.innerHTML='⚠️ Có <b>'+dupT.n+' lần gửi bị ghi trùng</b> trong '+dupT.soThe+' thẻ (cùng phòng, cùng người nhận, cùng ngày, đều đang chờ phản hồi) — các con số bên dưới đang đếm thừa.'; }
   var selN=document.getElementById('phStNhan');
   if(selN){ // danh sách người nhận lấy theo toàn bộ dữ liệu trong khoảng ngày đang chọn
     var curN=selN.value, coN=false;
