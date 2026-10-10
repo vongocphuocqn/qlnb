@@ -13615,6 +13615,19 @@ function phCardBtn(c){
   var n=phList(c).length;
   return '<button class="bedit" style="background:'+(n?'#f3e5f5':'none')+';border-color:#ce93d8;color:#6a1b9a" onclick="phOpen('+c.id+')" title="Ghi nhận đã gửi nội dung này cho phòng/khoa khác và theo dõi phản hồi"><i class="ti ti-send"></i> Gửi phòng ban'+(n?(' ('+n+')'):'')+'</button>';
 }
+/* ── ĐÔN ĐỐC: NHẮC LẠI việc đã gửi mà chưa xong ──
+   Mỗi lần gửi (forward) có thêm f.nhac = [{at, by}] — mỗi phần tử là 1 lần "Gửi thông tin nhắc lại" (đánh số 1, 2, 3...).
+   Mức cảnh báo theo số ngày chờ dùng đúng ngưỡng Downtime của Kanban: dưới 7 ngày xanh · 7–29 ngày vàng · từ 30 ngày đỏ.
+   "Quá hạn / cần nhắc" = đã gửi từ 7 ngày trở lên mà chưa xử lý xong. */
+var PH_NHAC_NGAY=7;
+function phNhacList(f){ var n=f&&f.nhac; if(!n) return []; return (Array.isArray(n)?n:Object.keys(n).map(function(k){return n[k];})).filter(Boolean); }
+function phMucCho(f){ // {muc:'green'|'amber'|'red', cls: lớp màu Downtime sẵn có, ten}
+  var d=phDays(f);
+  if(d>=30) return {muc:'red', cls:'dt-red', ten:'quá hạn lâu', mau:'#c62828'};
+  if(d>=PH_NHAC_NGAY) return {muc:'amber', cls:'dt-amber', ten:'quá hạn', mau:'#e65100'};
+  return {muc:'green', cls:'dt-green', ten:'trong hạn', mau:'#2e7d32'};
+}
+function phCanNhac(f){ return phStOf(f)!=='xong' && phDays(f)>=PH_NHAC_NGAY; }
 function phCardBadges(c){
   var l=phList(c); if(!l.length) return '';
   return '<div style="margin:6px 0 2px;display:flex;flex-direction:column;gap:3px">'+l.map(function(f){
@@ -13622,7 +13635,8 @@ function phCardBadges(c){
     var kq=(phStOf(f)==='xong'?f.doneNote:f.replyNote)||'';
     return '<div style="font-size:11px;line-height:1.45;padding:3px 8px;border-radius:6px;background:'+st.bg+';color:'+st.c+';border:1px solid '+st.bd+'">'
       +'<i class="ti ti-send" style="font-size:11px"></i> <b>'+phEsc(f.dept)+'</b> · '+phDT(f.at)+(f.via?(' · '+phEsc(f.via)):'')+(f.nguoiNhan?(' ('+phEsc(f.nguoiNhan)+')'):'')
-      +' — '+st.ic+' <b>'+st.t+'</b>'+(phStOf(f)==='xong'?(' sau '+d+' ngày'):(d>0?(' · đã '+d+' ngày'):''))
+      +' — '+st.ic+' <b>'+st.t+'</b>'+(phStOf(f)==='xong'?(' sau '+d+' ngày'):(' <span class="dt-badge '+phMucCho(f).cls+'" style="margin-left:2px" title="Số ngày chờ kể từ lúc gửi — xanh dưới 7 ngày, vàng 7–29 ngày, đỏ từ 30 ngày">⏱ '+d+' ngày</span>'))
+      +(phNhacList(f).length?(' <span style="font-weight:700;color:#b71c1c;white-space:nowrap">🔔 đã nhắc '+phNhacList(f).length+' lần</span>'):'')
       +(kq?('<br><span style="opacity:.9">↳ '+phEsc(kq)+'</span>'):'')+'</div>';
   }).join('')+'</div>';
 }
@@ -13925,6 +13939,8 @@ function phRenderBody(resetForm){
       +((f.sel&&f.sel.items&&f.sel.items.length)?('<br><span style="color:#6a1b9a;font-weight:600">Chỉ chuyển '+f.sel.items.length+'/'+phCardItems(c).length+' dòng:</span> '+phEsc(f.sel.items.map(function(it){return it.t;}).join(' | ').slice(0,260))+(f.sel.items.map(function(it){return it.t;}).join(' | ').length>260?'…':'')):'')
       +(f.noImgs?'<br><span style="color:#888">Không kèm ảnh minh chứng</span>':'')
       +(f.note?('<br>Lời đề nghị: '+phEsc(f.note)):'')
+      +(s!=='xong'?(' <span class="dt-badge '+phMucCho(f).cls+'">⏱ chờ '+phDays(f)+' ngày'+(phCanNhac(f)?' — nên nhắc lại':'')+'</span>'):'')
+      +phNhacList(f).map(function(nh,k){ return '<br><span style="color:#b71c1c">🔔 Nhắc lần '+(k+1)+': '+phDT(nh.at)+(nh.by?(' ('+phEsc(nh.by)+')'):'')+'</span>'; }).join('')
       +(f.replyAt?('<br>Phản hồi lúc '+phDT(f.replyAt)+(f.replyNote?(': '+phEsc(f.replyNote)):'')+(f.replyBy?(' <span style="color:#777">(ghi nhận bởi '+phEsc(f.replyBy)+')</span>'):'')):'')
       +(f.doneAt?('<br>Xử lý xong lúc '+phDT(f.doneAt)+(f.doneNote?(': '+phEsc(f.doneNote)):'')+(f.doneBy?(' <span style="color:#777">(xác nhận bởi '+phEsc(f.doneBy)+')</span>'):'')):'')+'</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
@@ -13933,6 +13949,7 @@ function phRenderBody(resetForm){
       +(s!=='gui'?'<button style="'+btn+'border:1.5px solid #999;color:#666" onclick="phSetStatus('+i+',\'gui\')">↺ Về "Chờ phản hồi"</button>':'')
       +'<button style="'+btn+'border:1.5px solid #0068ff;color:#0068ff" onclick="phOpenZalo('+i+')" title="Chọn dán ẢNH THẺ hay NỘI DUNG CHỮ, rồi mở khung chat Zalo'+(f.zalo?'':' (chưa có SĐT/link Zalo — chỉ sao chép)')+'"><i class="ti ti-message-circle"></i> '+(f.zalo?'Mở Zalo':'Chép để gửi Zalo')+'</button>'
       +'<button style="'+btn+'border:1.5px solid #00695c;color:#00695c" onclick="phCopyImage('+i+')" title="Tạo ảnh phiếu phản ánh đầy đủ nội dung thẻ (kèm ảnh minh chứng) và chép vào bộ nhớ tạm để dán vào Zalo"><i class="ti ti-photo"></i> Chép ảnh thẻ</button>'
+      +(s!=='xong'?('<button style="'+btn+(phCanNhac(f)?'background:#c62828;color:#fff;border:1.5px solid #c62828':'border:1.5px solid #c62828;color:#c62828')+'" onclick="phNhacLai('+i+')" title="Gửi thông tin nhắc lại — ghi nhận là lần nhắc thứ '+(phNhacList(f).length+1)+', phiếu và tin nhắn có ghi rõ NHẮC LẦN '+(phNhacList(f).length+1)+'"><i class="ti ti-bell-ringing"></i> Nhắc lại'+(phNhacList(f).length?(' (đã '+phNhacList(f).length+' lần)'):'')+'</button>'):'')
       +'<button style="'+btn+'border:1.5px solid #f9a825;color:#8a5a00" onclick="phEdit('+i+')" title="Sửa phòng nhận, thời điểm, hình thức, người nhận, Zalo, người gửi, nội dung của lần gửi này"><i class="ti ti-edit"></i> Sửa</button>'
       +'<button style="'+btn+'border:1.5px solid #ef9a9a;color:#c62828" onclick="phDelete('+i+')"><i class="ti ti-trash"></i> Xóa</button>'
       +'</div></div>';
@@ -14240,7 +14257,9 @@ function phNguoiNhanText(f){
   return [f.nguoiNhan||'', sdt?('ĐT: '+sdt):''].filter(Boolean).join(' - ');
 }
 function phZaloText(c,f){
-  var t='Kính gửi '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+',\n'+phLoaiInfo(f).mo+'\n';
+  var t='';
+  if(f._nhacLan) t+='🔔 NHẮC LẦN '+f._nhacLan+' — nội dung đã gửi lúc '+phDT(f.at)+', đến nay '+phDays(f)+' ngày '+(phStOf(f)==='phanhoi'?'chưa xử lý xong':'chưa nhận được phản hồi')+'. Khoa Gây mê Hồi sức kính đề nghị quan tâm, phối hợp xử lý.\n\n';
+  t+='Kính gửi '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+',\n'+phLoaiInfo(f).mo+'\n';
   phCardLines(c, f).forEach(function(x){
     var nhieuDong = x[2] && x[1].indexOf('\n')>-1;
     var giaTri = x[3] ? (PH_PRI[x[3]].ic+' '+(x[3]==='h'?x[1].toUpperCase():x[1])) : x[1];
@@ -14293,12 +14312,14 @@ function phDrawCard(c,f){
     var nn=phNguoiNhanText(f);
     var kg=phWrapText(m, 'Kính gửi: '+f.dept+(nn?(' ('+nn+')'):''), W-PAD*2);
     m.font=font(12,false);
-    var foot=phWrapText(m, 'Gửi lúc '+phDT(f.at)+(f.via?(' qua '+f.via):'')+'  ·  Mã thẻ: '+c.id, W-PAD*2);
+    var foot=phWrapText(m, 'Gửi lúc '+phDT(f.at)+(f.via?(' qua '+f.via):'')+(f._nhacLan?('  ·  Nhắc lần '+f._nhacLan+' lúc '+phDT(new Date().toISOString())):'')+'  ·  Mã thẻ: '+c.id, W-PAD*2);
+    var NB=0, nbLines=[];
+    if(f._nhacLan){ m.font=font(14,true); nbLines=phWrapText(m, 'NHẮC LẦN '+f._nhacLan+'  ·  đã gửi lúc '+phDT(f.at)+'  ·  đến nay '+phDays(f)+' ngày '+(phStOf(f)==='phanhoi'?'chưa xử lý xong':'chưa có phản hồi'), W-PAD*2); NB=12+nbLines.length*20; }
     m.font=font(18,true);
     var tdLines=phWrapText(m, phLoaiInfo(f).td, W-PAD*2); if(!tdLines.length) tdLines=[''];
     var HEAD=40+tdLines.length*24, IW=Math.floor((W-PAD*2-16)/3), IH=Math.round(IW*0.75);
     var imgRows=Math.ceil(ims.length/3);
-    var H=HEAD+12+kg.length*LH+10+rows.reduce(function(t,r){return t+r.h;},0)+(imgRows?(imgRows*(IH+8)+8):0)+10+foot.length*17+14;
+    var H=HEAD+NB+12+kg.length*LH+10+rows.reduce(function(t,r){return t+r.h;},0)+(imgRows?(imgRows*(IH+8)+8):0)+10+foot.length*17+14;
     // 2) Vẽ
     var cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
     var g=cv.getContext('2d'); g.scale(S,S); g.textBaseline='top';
@@ -14307,7 +14328,11 @@ function phDrawCard(c,f){
     g.fillStyle=MAU; g.fillRect(0,0,W,HEAD);
     g.fillStyle=khan?'#ffe3e0':'#e3f1e6'; g.font=font(12.5,false); g.fillText('BỆNH VIỆN ĐA KHOA TRUNG TÂM — KHOA GÂY MÊ HỒI SỨC', PAD, 11);
     g.fillStyle='#ffffff'; g.font=font(18,true); tdLines.forEach(function(ln,iT){ g.fillText(ln, PAD, 31+iT*24); });
-    var y=HEAD+12;
+    if(NB){ // dải nhắc lại: vàng cam khi chờ dưới 30 ngày, đỏ khi từ 30 ngày hoặc đã nhắc từ lần 3
+      g.fillStyle=(phDays(f)>=30 || f._nhacLan>=3) ? (khan?'#7f0000':'#c62828') : '#ef6c00'; g.fillRect(0,HEAD,W,NB); // thẻ khẩn cấp (tiêu đề đã đỏ) → dải nhắc dùng đỏ sẫm cho tách bạch
+      g.fillStyle='#ffffff'; g.font=font(14,true); nbLines.forEach(function(ln,iN){ g.fillText(ln, PAD, HEAD+7+iN*20); });
+    }
+    var y=HEAD+NB+12;
     g.fillStyle='#6a1b9a'; g.font=font(15,true);
     kg.forEach(function(l){ g.fillText(l, PAD, y); y+=LH; });
     y+=3; g.fillStyle='#1b6b3a'; g.fillRect(PAD, y, W-PAD*2, 2); y+=7;
@@ -14381,7 +14406,7 @@ function phCopyImage(i){ phGanGhiChuDangGo(i, function(c,f){ phCopyImageRun(c,f)
 function phCopyImageRun(c,f){
   var pBlob=phDrawCard(c,f).then(phCanvasBlob);
   var pCopy=phImgWriteClipboard(pBlob); pCopy.catch(function(){});
-  phImgState={blob:null, name:(({denghi:'DeNghi_',thongtin:'ChuyenThongTin_',thongbao:'ThongBao_',phananh:'PhanAnh_'})[phLoaiOf(f)]||'Phieu_')+String(f.dept||'').replace(/[^0-9a-zA-ZÀ-ỹ]+/g,'_')+'_'+c.id+'.png'};
+  phImgState={blob:null, name:(f._nhacLan?('NhacLan'+f._nhacLan+'_'):'')+(({denghi:'DeNghi_',thongtin:'ChuyenThongTin_',thongbao:'ThongBao_',phananh:'PhanAnh_'})[phLoaiOf(f)]||'Phieu_')+String(f.dept||'').replace(/[^0-9a-zA-ZÀ-ỹ]+/g,'_')+'_'+c.id+'.png'};
   var btn='border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;';
   phOverlay('phImgOv',
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:15.5px;font-weight:700;color:#00695c;flex:1"><i class="ti ti-photo"></i> Ảnh thẻ gửi '+phEsc(f.dept)+'</div>'
@@ -14464,10 +14489,8 @@ function phZaloGoAnh(c,f){
     if(typeof showAl==='function') showAl(msg, (url&&!w)?'warn':'ok'); else alert(msg);
   }, function(e){
     // không chép tự động được → mở cửa sổ xem trước ảnh để chép tay / tải về, và vẫn mở Zalo
-    var i=phList(c).indexOf(f); if(i<0) i=phList(c).length-1;
     phZaloMo(url);
-    if(i>=0 && phList(c)[i]) phCopyImageRun(c, phList(c)[i]);
-    else if(typeof showAl==='function') showAl('Chưa chép được ảnh thẻ tự động ('+((e&&e.message)||e)+'). Anh bấm "Chép ảnh thẻ" ở lần gửi vừa lưu.','warn');
+    phCopyImageRun(c, f);
   });
 }
 function phZaloGo(c,f,kieu){ if(kieu==='anh') return phZaloGoAnh(c,f); phSendZalo(c,f); }
@@ -14517,6 +14540,31 @@ function phGanGhiChuDangGo(i, xong){
     if(typeof setSyncStatus==='function') setSyncStatus('err');
     if(typeof showAl==='function') showAl('Chưa lưu được ghi chú: '+err.message,'err');
     xong(c, f);
+  });
+}
+// "Gửi thông tin nhắc lại": ghi nhận lần nhắc thứ n vào lần gửi, rồi chép phiếu/tin nhắn có ghi "NHẮC LẦN n" và mở Zalo.
+function phNhacLai(i){
+  var c=phCardOf(phTargetId); if(!c||!phIsAdmin()) return; var f=phList(c)[i]; if(!f) return;
+  if(phStOf(f)==='xong'){ alert('Lần gửi này đã xử lý xong, không cần nhắc.'); return; }
+  var lan=phNhacList(f).length+1, d=phDays(f);
+  if(!confirm('Gửi NHẮC LẦN '+lan+' cho '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+'?\n\nĐã gửi lần đầu lúc '+phDT(f.at)+' — đến nay '+d+' ngày, trạng thái: '+PH_ST[phStOf(f)].t+'.'
+    +(d<PH_NHAC_NGAY?('\n(Mới '+d+' ngày, chưa tới mốc '+PH_NHAC_NGAY+' ngày — anh vẫn có thể nhắc nếu cần.)'):'')
+    +'\n\nHệ thống sẽ ghi nhận lần nhắc này, rồi chép phiếu / tin nhắn có ghi "NHẮC LẦN '+lan+'" để anh dán vào Zalo.')) return;
+  var nguoi=''; try{ nguoi=phDefaultSender(); }catch(e){} if(!nguoi) nguoi=phSenderShown(f)||((cu&&cu.name)?cu.name:'Quản lý');
+  var arr=phList(c).map(function(x){ return Object.assign({},x); });
+  arr[i].nhac=phNhacList(f).concat([{at:new Date().toISOString(), by:nguoi}]);
+  var hist=(c.history)?[].concat(c.history):[];
+  hist.push({action:'Nhắc lần '+lan+': '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+' — đã chờ '+d+' ngày', actor:(cu&&cu.name)?cu.name:'Quản lý', at:new Date().toISOString()});
+  if(typeof setSyncStatus==='function') setSyncStatus('sync');
+  cardsRef.child(String(c.id)).update({forwards:arr, history:hist}).then(function(){
+    c.forwards=arr; c.history=hist;
+    if(typeof setSyncStatus==='function') setSyncStatus('ok');
+    phRenderBody(false); if(typeof renderBoard==='function') renderBoard();
+    var fN=Object.assign({}, arr[i], {_nhacLan:lan}); // _nhacLan chỉ dùng để dựng phiếu/tin nhắn, không lưu
+    var k=phZaloKieu(); if(k) phZaloGo(c,fN,k); else phZaloAsk(c,fN);
+  }).catch(function(err){
+    if(typeof setSyncStatus==='function') setSyncStatus('err');
+    if(typeof showAl==='function') showAl('Chưa ghi nhận được lần nhắc: '+err.message,'err'); else alert('Lỗi: '+err.message);
   });
 }
 function phOpenZalo(i){
@@ -15047,8 +15095,8 @@ function phStatsData(){
   });
   var by={};
   items.forEach(function(x){
-    var r=by[x.f.dept]||(by[x.f.dept]={dept:x.f.dept,tong:0,gui:0,phanhoi:0,xong:0,lau:0,tongNgayXong:0});
-    r.tong++; r[x.st]++;
+    var r=by[x.f.dept]||(by[x.f.dept]={dept:x.f.dept,tong:0,gui:0,phanhoi:0,xong:0,lau:0,tongNgayXong:0,nhac:0,canNhac:0});
+    r.tong++; r[x.st]++; r.nhac+=phNhacList(x.f).length; if(phCanNhac(x.f)) r.canNhac++;
     if(x.st==='xong') r.tongNgayXong+=x.days; else r.lau=Math.max(r.lau,x.days);
   });
   var rows=Object.keys(by).map(function(k){return by[k];}).sort(function(a,b){ return b.tong-a.tong || a.dept.localeCompare(b.dept,'vi'); });
@@ -15061,12 +15109,12 @@ function phStatsData(){
   // Theo NGƯỜI NHẬN (gộp theo phòng/khoa + tên người nhận)
   var byN={};
   items.forEach(function(x){ var k=phNhanKey(x.f);
-    var r=byN[k]||(byN[k]={key:k, ten:(x.f.nguoiNhan||''), dept:x.f.dept, sdt:'', tong:0,gui:0,phanhoi:0,xong:0,lau:0});
-    r.tong++; r[x.st]++; if(!r.sdt) r.sdt=phPhoneOf(x.f)||'';
+    var r=byN[k]||(byN[k]={key:k, ten:(x.f.nguoiNhan||''), dept:x.f.dept, sdt:'', tong:0,gui:0,phanhoi:0,xong:0,lau:0,nhac:0,canNhac:0});
+    r.tong++; r[x.st]++; r.nhac+=phNhacList(x.f).length; if(phCanNhac(x.f)) r.canNhac++; if(!r.sdt) r.sdt=phPhoneOf(x.f)||'';
     if(x.st!=='xong') r.lau=Math.max(r.lau,x.days); });
   var receivers=Object.keys(byN).map(function(k){ return byN[k]; })
     .sort(function(a,b){ return b.tong-a.tong || String(a.dept).localeCompare(String(b.dept),'vi') || String(a.ten).localeCompare(String(b.ten),'vi'); });
-  var detail=items.filter(function(x){ return (!fDept||x.f.dept===fDept) && (!fSt||x.st===fSt) && (!fBy||phSenderOf(x.f)===fBy) && (!fNhan||phNhanKey(x.f)===fNhan); })
+  var detail=items.filter(function(x){ return (!fDept||x.f.dept===fDept) && (!fSt||(fSt==='canNhac'?phCanNhac(x.f):x.st===fSt)) && (!fBy||phSenderOf(x.f)===fBy) && (!fNhan||phNhanKey(x.f)===fNhan); })
     .sort(function(a,b){ return String(b.f.at).localeCompare(String(a.f.at)); });
   return {rows:rows, senders:senders, receivers:receivers, detail:detail, all:items, fr:fr, to:to, fDept:fDept, fSt:fSt, fBy:fBy, fNhan:fNhan, q:qRaw};
 }
@@ -15092,7 +15140,7 @@ function phOpenStats(){
     +'<select id="phStDept" onchange="phRenderStats()" style="'+inp+'"><option value="">Tất cả phòng/khoa</option></select>'
     +'<select id="phStBy" onchange="phRenderStats()" style="'+inp+'"><option value="">Tất cả người gửi</option></select>'
     +'<select id="phStNhan" onchange="phRenderStats()" style="'+inp+';max-width:230px"><option value="">Tất cả người nhận</option></select>'
-    +'<select id="phStStatus" onchange="phRenderStats()" style="'+inp+'"><option value="">Tất cả trạng thái</option><option value="gui">⏳ Chờ phản hồi</option><option value="phanhoi">💬 Đã phản hồi - đang xử lý</option><option value="xong">✅ Đã xử lý xong</option></select>'
+    +'<select id="phStStatus" onchange="phRenderStats()" style="'+inp+'"><option value="">Tất cả trạng thái</option><option value="gui">⏳ Chờ phản hồi</option><option value="phanhoi">💬 Đã phản hồi - đang xử lý</option><option value="xong">✅ Đã xử lý xong</option><option value="canNhac">🔔 Quá hạn - cần nhắc (chờ từ '+PH_NHAC_NGAY+' ngày)</option></select>'
     +'<span style="flex:1"></span>'
     +'<button onclick="phExportExcel()" style="'+btn+'background:#fff;color:#1b5e20;border:1.5px solid #1b5e20"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>'
     +'<button onclick="phExportWord()" style="'+btn+'background:#6a1b9a;color:#fff;border:1.5px solid #6a1b9a"><i class="ti ti-file-word"></i> Xuất Word</button>'
@@ -15133,7 +15181,8 @@ function phRenderStats(){
       +'<td style="'+td+';text-align:center;color:#a15c00">'+r.gui+'</td><td style="'+td+';text-align:center;color:#0d47a1">'+r.phanhoi+'</td><td style="'+td+';text-align:center;color:#1b5e20">'+r.xong+'</td>'
       +'<td style="'+td+';text-align:center">'+Math.round(r.xong*100/r.tong)+'%</td>'
       +'<td style="'+td+';text-align:center">'+(r.xong?(Math.round(r.tongNgayXong*10/r.xong)/10):'-')+'</td>'
-      +'<td style="'+td+';text-align:center'+(r.lau>=7?';color:#c62828;font-weight:700':'')+'">'+((r.gui+r.phanhoi)?r.lau:'-')+'</td></tr>';
+      +'<td style="'+td+';text-align:center'+(r.lau>=7?';color:#c62828;font-weight:700':'')+'">'+((r.gui+r.phanhoi)?('<span class="dt-badge '+(r.lau>=30?'dt-red':(r.lau>=7?'dt-amber':'dt-green'))+'">'+r.lau+'</span>'):'-')+'</td>'
+      +'<td style="'+td+';text-align:center'+(r.canNhac?';color:#c62828;font-weight:700':'')+'">'+r.canNhac+'</td><td style="'+td+';text-align:center">'+r.nhac+'</td></tr>';
   }).join('');
   var detHtml=D.detail.map(function(x,i){ var st=PH_ST[x.st], f=x.f, c=x.c;
     var nd=phNoiDungGui(c,f); if(nd.length>220) nd=nd.slice(0,220)+'…';
@@ -15143,12 +15192,14 @@ function phRenderStats(){
       +'<td style="'+td+';white-space:pre-wrap">'+phEsc(nd)+'</td>'
       +'<td style="'+td+'">'+phEsc(f.via||'')+(f.nguoiNhan?('<br><span style="color:#888;font-size:11.5px">'+phEsc(f.nguoiNhan)+'</span>'):'')+'</td>'
       +'<td style="'+td+'"><span style="display:inline-block;padding:1px 8px;border-radius:12px;background:'+st.bg+';color:'+st.c+';border:1px solid '+st.bd+';font-size:11.5px;font-weight:700;white-space:nowrap">'+st.ic+' '+st.t+'</span></td>'
-      +'<td style="'+td+'">'+phEsc(kq)+'</td><td style="'+td+';text-align:center">'+x.days+'</td></tr>';
+      +'<td style="'+td+'">'+phEsc(kq)+'</td><td style="'+td+';text-align:center">'+(x.st==='xong'?x.days:('<span class="dt-badge '+phMucCho(f).cls+'">'+x.days+'</span>'))+'</td>'
+      +'<td style="'+td+';text-align:center'+(phNhacList(f).length?';color:#b71c1c;font-weight:700':'')+'">'+(phNhacList(f).length?(phNhacList(f).length+' lần<br><span style="font-weight:400;font-size:11px;color:#888">'+phDT(phNhacList(f).slice(-1)[0].at)+'</span>'):'-')+'</td>'
+      +'<td style="'+td+';text-align:center"><button onclick="phClose(\'phStOv\');phOpen('+c.id+')" title="Mở cửa sổ Gửi phòng ban của thẻ này để nhắc lại / cập nhật" style="border:1.5px solid #6a1b9a;background:#fff;color:#6a1b9a;border-radius:6px;padding:3px 8px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">'+(phCanNhac(f)?'🔔 Nhắc':'Mở')+'</button></td></tr>';
   }).join('');
   body.innerHTML='<div style="overflow:auto"><table style="border-collapse:collapse;width:100%"><tr>'
-    +['STT','Phòng/khoa phối hợp','Số nội dung đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong','Tỷ lệ xử lý xong','Số ngày xử lý TB','Đang chờ lâu nhất (ngày)'].map(function(h){ return '<th style="'+th+'">'+h+'</th>'; }).join('')+'</tr>'
+    +['STT','Phòng/khoa phối hợp','Số nội dung đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong','Tỷ lệ xử lý xong','Số ngày xử lý TB','Đang chờ lâu nhất (ngày)','Quá hạn - cần nhắc','Số lần đã nhắc'].map(function(h){ return '<th style="'+th+'">'+h+'</th>'; }).join('')+'</tr>'
     +rowsHtml
-    +'<tr style="font-weight:700;background:#faf5fc"><td style="'+td+'" colspan="2">Tổng cộng</td><td style="'+td+';text-align:center">'+T.tong+'</td><td style="'+td+';text-align:center">'+T.gui+'</td><td style="'+td+';text-align:center">'+T.phanhoi+'</td><td style="'+td+';text-align:center">'+T.xong+'</td><td style="'+td+';text-align:center">'+(T.tong?Math.round(T.xong*100/T.tong):0)+'%</td><td style="'+td+'"></td><td style="'+td+'"></td></tr></table></div>'
+    +'<tr style="font-weight:700;background:#faf5fc"><td style="'+td+'" colspan="2">Tổng cộng</td><td style="'+td+';text-align:center">'+T.tong+'</td><td style="'+td+';text-align:center">'+T.gui+'</td><td style="'+td+';text-align:center">'+T.phanhoi+'</td><td style="'+td+';text-align:center">'+T.xong+'</td><td style="'+td+';text-align:center">'+(T.tong?Math.round(T.xong*100/T.tong):0)+'%</td><td style="'+td+'"></td><td style="'+td+'"></td><td style="'+td+';text-align:center">'+D.rows.reduce(function(t,r){return t+r.canNhac;},0)+'</td><td style="'+td+';text-align:center">'+D.rows.reduce(function(t,r){return t+r.nhac;},0)+'</td></tr></table></div>'
     +'<div style="font-weight:700;color:#444;margin:14px 0 6px">Theo người gửi</div>'
     +'<div style="overflow:auto"><table style="border-collapse:collapse;min-width:60%"><tr>'
     +['STT','Người gửi','Số nội dung đã gửi','Số phòng/khoa đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong'].map(function(h){ return '<th style="'+th+'">'+h+'</th>'; }).join('')+'</tr>'
@@ -15166,7 +15217,7 @@ function phRenderStats(){
     +'</table></div>'
     +'<div style="font-weight:700;color:#444;margin:14px 0 6px">Chi tiết ('+D.detail.length+')'+(D.fDept?(' — '+phEsc(D.fDept)):'')+(D.fBy?(' — người gửi: '+phEsc(D.fBy)):'')+(D.fNhan?(' — người nhận: '+phEsc((D.receivers.filter(function(r){return r.key===D.fNhan;})[0]||{ten:''}).ten||'(chưa ghi)')):'')+(D.fDept||D.fSt||D.fBy||D.fNhan?' <a href="javascript:void(0)" onclick="document.getElementById(\'phStDept\').value=\'\';document.getElementById(\'phStStatus\').value=\'\';document.getElementById(\'phStBy\').value=\'\';document.getElementById(\'phStNhan\').value=\'\';phRenderStats()" style="font-weight:400;font-size:12px">(xem tất cả)</a>':'')+'</div>'
     +(D.detail.length?('<div id="phStDetailWrap" style="overflow:auto;max-height:'+(phWide.phStOv?'none':'46vh')+'"><table style="border-collapse:collapse;width:100%"><tr>'
-      +['STT','Thời điểm gửi','Người gửi','Phòng/khoa nhận','Bộ phận / Người báo','Nội dung','Hình thức / Người nhận','Trạng thái','Phản hồi / Kết quả','Số ngày'].map(function(h){ return '<th style="'+th+';position:sticky;top:0">'+h+'</th>'; }).join('')+'</tr>'+detHtml+'</table></div>')
+      +['STT','Thời điểm gửi','Người gửi','Phòng/khoa nhận','Bộ phận / Người báo','Nội dung','Hình thức / Người nhận','Trạng thái','Phản hồi / Kết quả','Số ngày','Đã nhắc','Thẻ'].map(function(h){ return '<th style="'+th+';position:sticky;top:0">'+h+'</th>'; }).join('')+'</tr>'+detHtml+'</table></div>')
       :'<div style="color:#999;padding:8px 0">Không có dòng nào khớp điều kiện lọc.</div>');
 }
 function phKyText(D){ var f=function(d){ return d?d.split('-').reverse().join('/'):''; };
@@ -15174,13 +15225,13 @@ function phKyText(D){ var f=function(d){ return d?d.split('-').reverse().join('/
 function phExportExcel(){
   var D=phStatsData(); if(!D.all.length){ alert('Chưa có dữ liệu để xuất.'); return; }
   if(typeof XLSX==='undefined'){ alert('Chưa tải được thư viện Excel. Anh kiểm tra mạng rồi thử lại, hoặc dùng Xuất Word.'); return; }
-  var a1=[['THỐNG KÊ PHỐI HỢP PHÒNG BAN - KHOA GÂY MÊ HỒI SỨC'],[phKyText(D)],[],['STT','Phòng/khoa phối hợp','Số nội dung đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong','Tỷ lệ xử lý xong (%)','Số ngày xử lý TB','Đang chờ lâu nhất (ngày)']];
-  D.rows.forEach(function(r,i){ a1.push([i+1,r.dept,r.tong,r.gui,r.phanhoi,r.xong,Math.round(r.xong*100/r.tong),r.xong?(Math.round(r.tongNgayXong*10/r.xong)/10):'',(r.gui+r.phanhoi)?r.lau:'']); });
-  var a2=[['STT','Thời điểm gửi','Loại phiếu','Người gửi','Phòng/khoa nhận','Bộ phận báo cáo','Người báo cáo','Ngày báo cáo','Nội dung','Hình thức','Người nhận','Zalo người nhận','Trạng thái','Thời điểm phản hồi','Nội dung phản hồi','Người ghi nhận phản hồi','Thời điểm xử lý xong','Kết quả xử lý','Người xác nhận xong','Số ngày']];
-  D.detail.forEach(function(x,i){ var f=x.f,c=x.c; a2.push([i+1,phDT(f.at),phLoaiInfo(f).t,f.by||'Quản lý',f.dept,c.dept||'',c.person||'',c.date||'',phNoiDungGui(c,f),f.via||'',f.nguoiNhan||'',f.zalo||'',PH_ST[x.st].t,phDT(f.replyAt),f.replyNote||'',f.replyBy||'',phDT(f.doneAt),f.doneNote||'',f.doneBy||'',x.days]); });
+  var a1=[['THỐNG KÊ PHỐI HỢP PHÒNG BAN - KHOA GÂY MÊ HỒI SỨC'],[phKyText(D)],[],['STT','Phòng/khoa phối hợp','Số nội dung đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong','Tỷ lệ xử lý xong (%)','Số ngày xử lý TB','Đang chờ lâu nhất (ngày)','Quá hạn - cần nhắc','Số lần đã nhắc']];
+  D.rows.forEach(function(r,i){ a1.push([i+1,r.dept,r.tong,r.gui,r.phanhoi,r.xong,Math.round(r.xong*100/r.tong),r.xong?(Math.round(r.tongNgayXong*10/r.xong)/10):'',(r.gui+r.phanhoi)?r.lau:'',r.canNhac,r.nhac]); });
+  var a2=[['STT','Thời điểm gửi','Loại phiếu','Người gửi','Phòng/khoa nhận','Bộ phận báo cáo','Người báo cáo','Ngày báo cáo','Nội dung','Hình thức','Người nhận','Zalo người nhận','Trạng thái','Thời điểm phản hồi','Nội dung phản hồi','Người ghi nhận phản hồi','Thời điểm xử lý xong','Kết quả xử lý','Người xác nhận xong','Số ngày','Số lần nhắc','Lần nhắc gần nhất','Quá hạn - cần nhắc']];
+  D.detail.forEach(function(x,i){ var f=x.f,c=x.c; a2.push([i+1,phDT(f.at),phLoaiInfo(f).t,f.by||'Quản lý',f.dept,c.dept||'',c.person||'',c.date||'',phNoiDungGui(c,f),f.via||'',f.nguoiNhan||'',f.zalo||'',PH_ST[x.st].t,phDT(f.replyAt),f.replyNote||'',f.replyBy||'',phDT(f.doneAt),f.doneNote||'',f.doneBy||'',x.days,phNhacList(f).length,(phNhacList(f).length?phDT(phNhacList(f).slice(-1)[0].at):''),(phCanNhac(f)?'Có':'')]); });
   var wb=XLSX.utils.book_new();
   var s1=XLSX.utils.aoa_to_sheet(a1); s1['!cols']=[{wch:5},{wch:34},{wch:12},{wch:12},{wch:14},{wch:12},{wch:12},{wch:12},{wch:14}];
-  var s2=XLSX.utils.aoa_to_sheet(a2); s2['!cols']=[{wch:5},{wch:16},{wch:26},{wch:16},{wch:30},{wch:14},{wch:22},{wch:11},{wch:60},{wch:14},{wch:16},{wch:16},{wch:22},{wch:16},{wch:36},{wch:18},{wch:16},{wch:36},{wch:18},{wch:8}];
+  var s2=XLSX.utils.aoa_to_sheet(a2); s2['!cols']=[{wch:5},{wch:16},{wch:26},{wch:16},{wch:30},{wch:14},{wch:22},{wch:11},{wch:60},{wch:14},{wch:16},{wch:16},{wch:22},{wch:16},{wch:36},{wch:18},{wch:16},{wch:36},{wch:18},{wch:8},{wch:10},{wch:16},{wch:12}];
   var a3=[['STT','Người gửi','Số nội dung đã gửi','Số phòng/khoa đã gửi','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong']];
   D.senders.forEach(function(r,i){ a3.push([i+1,r.ten,r.tong,r.soPhong,r.gui,r.phanhoi,r.xong]); });
   var s3=XLSX.utils.aoa_to_sheet(a3); s3['!cols']=[{wch:5},{wch:34},{wch:12},{wch:12},{wch:12},{wch:14},{wch:12}];
@@ -15205,7 +15256,7 @@ function phBuildWordHtml(D){
   var h2=['STT','Thời điểm gửi / Người gửi','Phòng/khoa nhận','Bộ phận báo cáo','Nội dung','Hình thức / Người nhận','Trạng thái','Phản hồi / Kết quả'];
   var r2=D.detail.map(function(x,i){ var f=x.f,c=x.c;
     var kq=[f.replyNote?('Phản hồi: '+f.replyNote):'', f.doneAt?('Xong '+phDT(f.doneAt)+(f.doneNote?(': '+f.doneNote):'')):''].filter(Boolean).join('; ');
-    return '<tr>'+C(String(i+1),w2[0],ct)+C(phDT(f.at)+'<br>'+phEsc(f.by||'Quản lý'),w2[1],ct)+C(phEsc(f.dept),w2[2])+C(phEsc(c.dept||''),w2[3])+C(phEsc(phNoiDungGui(c,f)).replace(/\n/g,'<br>'),w2[4])+C(phEsc(f.via||'')+(f.nguoiNhan?(' - '+phEsc(f.nguoiNhan)):''),w2[5])+C(PH_ST[x.st].t,w2[6])+C(phEsc(kq),w2[7])+'</tr>'; }).join('');
+    return '<tr>'+C(String(i+1),w2[0],ct)+C(phDT(f.at)+'<br>'+phEsc(f.by||'Quản lý'),w2[1],ct)+C(phEsc(f.dept),w2[2])+C(phEsc(c.dept||''),w2[3])+C(phEsc(phNoiDungGui(c,f)).replace(/\n/g,'<br>'),w2[4])+C(phEsc(f.via||'')+(f.nguoiNhan?(' - '+phEsc(f.nguoiNhan)):''),w2[5])+C(PH_ST[x.st].t+(x.st!=='xong'?('<br>(chờ '+x.days+' ngày)'):'')+(phNhacList(f).length?('<br><b>Đã nhắc '+phNhacList(f).length+' lần</b>'):''),w2[6])+C(phEsc(kq),w2[7])+'</tr>'; }).join('');
   function H(hs,ws){ return '<tr>'+hs.map(function(h,i){ return C('<b>'+h+'</b>',ws[i],ct); }).join('')+'</tr>'; }
   return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
     +'<head><meta charset="UTF-8"><title>Thong ke phoi hop phong ban</title>'
@@ -15230,7 +15281,7 @@ function phBuildWordHtml(D){
     +(function(){ var w4=[30,150,178,80,70,60,70,50,40], h4=['STT','Người nhận','Phòng/khoa','Số điện thoại','Số nội dung đã nhận','Chờ phản hồi','Đã phản hồi - đang xử lý','Đã xử lý xong','Chờ lâu nhất (ngày)'];
         return H(h4,w4)+D.receivers.map(function(r,i){ return '<tr>'+C(String(i+1),w4[0],ct)+C(phEsc(phNhanLabel(r)),w4[1])+C(phEsc(r.dept),w4[2])+C(phEsc(r.sdt),w4[3],ct)+C(String(r.tong),w4[4],ct)+C(String(r.gui),w4[5],ct)+C(String(r.phanhoi),w4[6],ct)+C(String(r.xong),w4[7],ct)+C((r.gui+r.phanhoi)?String(r.lau):'-',w4[8],ct)+'</tr>'; }).join(''); })()
     +'</table>'
-    +'<p style="font-size:8pt">&nbsp;</p><p style="font-weight:bold">4. Chi tiết'+(D.fDept?(' - '+phEsc(D.fDept)):'')+(D.fBy?(' - người gửi: '+phEsc(D.fBy)):'')+(D.fSt?(' ('+PH_ST[D.fSt].t+')'):'')+'</p><p style="font-size:3pt">&nbsp;</p>'
+    +'<p style="font-size:8pt">&nbsp;</p><p style="font-weight:bold">4. Chi tiết'+(D.fDept?(' - '+phEsc(D.fDept)):'')+(D.fBy?(' - người gửi: '+phEsc(D.fBy)):'')+(D.fSt?(' ('+(D.fSt==='canNhac'?'Quá hạn - cần nhắc':PH_ST[D.fSt].t)+')'):'')+'</p><p style="font-size:3pt">&nbsp;</p>'
     +'<table class="t" width="'+Math.round(728*96/72)+'" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:728pt">'+H(h2,w2)+r2+'</table>'
     +'<p style="font-size:6pt">&nbsp;</p><p style="font-style:italic">Số liệu xuất ngày '+String(n.getDate()).padStart(2,'0')+'/'+String(n.getMonth()+1).padStart(2,'0')+'/'+n.getFullYear()+' từ Kanban Khoa Gây mê Hồi sức./.</p>'
     +'</div></body></html>';
