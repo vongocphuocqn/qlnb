@@ -6832,6 +6832,7 @@ function downloadWordDoc(){
 <!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -9761,6 +9762,38 @@ function vnNoAccent(s){
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+/* ══════════════════════════════
+   BẢO MẬT FIREBASE — tự đăng nhập ẩn danh trước khi đọc/ghi dữ liệu
+   - Tạm ngắt kết nối Database (các lệnh đọc/ghi phát sinh trong lúc này được giữ lại, KHÔNG mất),
+     đăng nhập ẩn danh xong mới kết nối lại → mọi yêu cầu đều mang "vé" đăng nhập.
+   - Nhờ vậy có thể đổi Rules thành  auth != null  để chặn người ngoài tải thẳng dữ liệu qua đường link .json.
+   - An toàn khi chuyển đổi: nếu đăng nhập ẩn danh lỗi (chưa bật trong Console, mất mạng...) hoặc quá 8 giây
+     thì vẫn kết nối như cũ → với Rules hiện tại nhân viên dùng bình thường, không bị gián đoạn.
+   ══════════════════════════════ */
+var fbAuthState={ok:false, uid:null, err:null, done:false};
+(function fbSecureConnect(){
+  var auth=null;
+  try{ auth=firebase.auth(); }catch(e){ fbAuthState.err=e; fbAuthState.done=true; console.warn('[Bảo mật] Chưa tải được Firebase Auth — kết nối như cũ.', e); return; }
+  try{ db.goOffline(); }catch(e){}
+  var daNoi=false;
+  function noiLai(lyDo){
+    if(daNoi) return; daNoi=true; fbAuthState.done=true;
+    try{ db.goOnline(); }catch(e){}
+    if(lyDo) console.warn('[Bảo mật] '+lyDo+' — vẫn kết nối dữ liệu như cũ.');
+  }
+  var hetGio=setTimeout(function(){ noiLai('Đăng nhập ẩn danh quá 8 giây'); }, 8000);
+  var unsub=auth.onAuthStateChanged(function(user){
+    if(user){
+      fbAuthState.ok=true; fbAuthState.uid=user.uid;
+      clearTimeout(hetGio); noiLai();
+      return;
+    }
+    auth.signInAnonymously().catch(function(e){
+      fbAuthState.err=e; clearTimeout(hetGio);
+      noiLai('Đăng nhập ẩn danh lỗi ('+(e&&e.code||e)+')');
+    });
+  }, function(e){ fbAuthState.err=e; clearTimeout(hetGio); noiLai('Lỗi xác thực ('+(e&&e.code||e)+')'); });
+})();
 let kpiStorage = null; // dùng cho tính năng đính kèm file danh mục KPI — độc lập với Database
 try{ kpiStorage = firebase.storage(); }catch(e){ console.warn('Firebase Storage chưa sẵn sàng (có thể chưa bật trong Console):', e); }
 const cardsRef = db.ref('cards');
@@ -44316,7 +44349,7 @@ function btdResetDebt(){
     .then(function(){ alert('✅ Đã xóa sạch nợ cũ. Từ ngày mai ('+btdDMY(tmr)+') hệ thống bắt đầu tính lại từ đầu.'); })
     .catch(function(e){ alert('Lỗi: '+e.message); });
 }
-function btdDMY(ymd){ const p=(ymd||'').split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : (ymd||''); }
+function btdDMY(ymd){ if(ymd instanceof Date){ const z=n=>(n<10?'0':'')+n; ymd=ymd.getFullYear()+'-'+z(ymd.getMonth()+1)+'-'+z(ymd.getDate()); } else if(ymd!=null && typeof ymd!=='string') ymd=String(ymd); const p=(ymd||'').split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : (ymd||''); }
 function btdEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Sao y hệt logic bgSafeKey() của module "Bàn giao trực Phòng Hồi sức" để tra đúng khóa Firebase
 function btdBgSafeKey(s){ return String(s||'').replace(/[.#$/\[\]\s]/g,'_'); }
