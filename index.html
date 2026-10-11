@@ -27675,6 +27675,15 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <input type="file" id="bbbaDocxFile" accept=".docx,.pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="bbbaImportDocx(this.files)">
         </div>
         <div id="bbbaAttachedChip" style="display:none;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+        <div style="background:#f0faf8;border:1px solid #80cbc4;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+          <div style="font-size:12.5px;color:#00695c;margin-bottom:6px"><i class="ti ti-link-plus"></i> <b>Đính kèm link</b> (Google Drive, OneDrive, trang web...) — dán link rồi bấm "Thêm link"; có thể dán nhiều link, mỗi link cách nhau dấu cách/xuống dòng.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="bbbaFormLinkUrl" placeholder="Đường link, ví dụ: https://drive.google.com/..." style="flex:2;min-width:220px;padding:7px 10px;border:1px solid #b2dfdb;border-radius:7px;font-size:12.5px" onkeydown="if(event.key==='Enter'){event.preventDefault();bbbaFormAddLink();}">
+            <input type="text" id="bbbaFormLinkTitle" placeholder="Tên hiển thị (không bắt buộc)" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid #b2dfdb;border-radius:7px;font-size:12.5px" onkeydown="if(event.key==='Enter'){event.preventDefault();bbbaFormAddLink();}">
+            <button type="button" class="kpi-btn" style="background:#00695c;color:#fff;padding:5px 12px" onclick="bbbaFormAddLink()"><i class="ti ti-plus"></i> Thêm link</button>
+          </div>
+        </div>
+        <div id="bbbaFormLinkChip" style="display:none;flex-direction:column;gap:6px;margin-bottom:12px"></div>
         <div id="bbbaImportStatus" style="display:none;font-size:12.5px;border-radius:8px;padding:8px 12px;margin-bottom:12px"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
           <div class="fg"><label>Tên người bệnh *</label><input type="text" id="bbbaInTenNb" placeholder="Nguyễn Văn A..."></div>
@@ -45348,7 +45357,7 @@ function bbbaAddRecord(){
   var ketLuan=document.getElementById('bbbaInKetLuan').value||'dat';
   var noiDung=(document.getElementById('bbbaInNoiDung').value||'').trim();
   var loi=(document.getElementById('bbbaInLoi').value||'').trim();
-  var thieu=[];
+  var thieu=[], isEditPre=!!bbbaEditingId;
   if(!tenNb) thieu.push('Tên người bệnh');
   if(!maHs) thieu.push('Số vào viện/Mã HSBA');
   if(!ngay) thieu.push('Ngày lập biên bản');
@@ -45357,7 +45366,10 @@ function bbbaAddRecord(){
   var kySo=parseInt(document.getElementById('bbbaInKySo').value,10)||0;
   var kyNam=parseInt(document.getElementById('bbbaInKyNam').value,10)||0;
   if(!kySo||!kyNam) thieu.push('Kỳ bình bệnh án (chọn tháng hoặc quý)');
-  if(!noiDung&&!bbbaAttachedFiles.length) thieu.push('Tóm tắt/Ghi chú (hoặc đính kèm ít nhất 1 file)');
+  // Link đã dán nhưng chưa bấm "Thêm link" → tự thêm luôn, tránh mất link
+  var _lkInp=document.getElementById('bbbaFormLinkUrl');
+  if(_lkInp && _lkInp.value.trim()){ bbbaFormAddLink(); if(_lkInp.value.trim()) return; }
+  if(!noiDung&&!bbbaAttachedFiles.length&&!bbbaAttachedLinks.length) thieu.push('Tóm tắt/Ghi chú (hoặc đính kèm ít nhất 1 file/link)');
   if(thieu.length){
     alert('⚠️ Chưa lưu được — còn thiếu:\n\n• '+thieu.join('\n• '));
     return;
@@ -45373,8 +45385,10 @@ function bbbaAddRecord(){
     ketLuan:ketLuan, noiDung:noiDung, loi:loi,
     kyLoai:kyLoai, kySo:kySo, kyNam:kyNam, // kỳ bình: tháng/quý + năm (giữ nguyên trên form sau khi lưu để nhập tiếp hồ sơ cùng kỳ)
     fileName:null, fileData:null, // dọn field cũ (tương thích ngược), dữ liệu file nay nằm trong "files"
+    links: bbbaAttachedLinks.length ? bbbaAttachedLinks.map(function(l){ return {url:l.url, title:l.title||'', at:l.at||'', by:l.by||''}; }) : null,
     updatedAt:new Date().toISOString()
   };
+  if(!isEditPre && !meta.links) delete meta.links;
   var isEdit=!!bbbaEditingId;
   var recRef, oldFiles=[], p;
   var tongMB=bbbaFmtMB(files.reduce(function(t,f){ return t+bbbaFileBytes(f); },0));
@@ -45411,7 +45425,7 @@ function bbbaAddRecord(){
       document.getElementById('bbbaInNoiDung').value='';
       document.getElementById('bbbaInLoi').value='';
       document.getElementById('bbbaInKetLuan').value='dat';
-      bbbaClearAttachedFiles();
+      bbbaClearAttachedFiles(); bbbaClearFormLinks();
     }
     bbbaSaveStatus('✅ Đã '+(isEdit?'cập nhật':'lưu')+' biên bản của <b>'+bbbaEsc(tenNb)+'</b>'+(soFile?(' — kèm '+soFile+' file ('+tongMB+')'):'')+'. Xem ở "Danh sách biên bản đã lưu" bên dưới.','ok');
     alert('✅ Đã '+(isEdit?'cập nhật':'lưu')+' biên bản Bình bệnh án.'+(soFile?(' (kèm '+soFile+' file)'):''));
@@ -45424,7 +45438,7 @@ function bbbaAddRecord(){
       document.getElementById('bbbaInTenNb').value=''; document.getElementById('bbbaInMaHs').value='';
       document.getElementById('bbbaInKhoa').value=''; document.getElementById('bbbaInNoiDung').value='';
       document.getElementById('bbbaInLoi').value=''; document.getElementById('bbbaInKetLuan').value='dat';
-      bbbaClearAttachedFiles();
+      bbbaClearAttachedFiles(); bbbaClearFormLinks();
     }
     bbbaSaveStatus(bbbaEsc(msg).replace(/\n/g,'<br>'),'err');
     alert(msg);
@@ -45440,7 +45454,7 @@ function bbbaCancelEdit(){
   document.getElementById('bbbaInNoiDung').value='';
   document.getElementById('bbbaInLoi').value='';
   document.getElementById('bbbaInKetLuan').value='dat';
-  bbbaClearAttachedFiles();
+  bbbaClearAttachedFiles(); bbbaClearFormLinks();
 }
 var bbbaAttachedFiles=[]; // [{name, dataUrl}] — danh sách file gốc đang chờ lưu kèm biên bản (hỗ trợ nhiều phiếu/file)
 function bbbaArrayBufferToBase64(buf){
@@ -45492,6 +45506,45 @@ function bbbaRenderAttachedChip(){
   } else {
     el.style.display='none'; el.innerHTML='';
   }
+}
+var bbbaAttachedLinks=[]; // [{url,title,at,by}] — link đang chờ lưu kèm biên bản (form Thêm/Sửa)
+function bbbaFormAddLink(){
+  var uEl=document.getElementById('bbbaFormLinkUrl'), tEl=document.getElementById('bbbaFormLinkTitle');
+  var raw=((uEl&&uEl.value)||'').trim(), title=((tEl&&tEl.value)||'').trim();
+  if(!raw){ alert('Anh dán đường link vào ô "Đường link".'); if(uEl) uEl.focus(); return; }
+  var parts=raw.split(/\s+/).filter(Boolean), ok=[], bad=[], trung=[];
+  parts.forEach(function(p){ var u=bbbaNormUrl(p); if(u) ok.push(u); else bad.push(p); });
+  var now=new Date().toISOString(), by=(bbbaCu&&bbbaCu.name)||'';
+  ok.forEach(function(u,i){
+    if(bbbaAttachedLinks.some(function(x){ return x.url===u; })){ trung.push(u); return; }
+    bbbaAttachedLinks.push({url:u, title: title ? (ok.length>1?(title+' ('+(i+1)+')'):title) : bbbaLinkGuessTitle(u), at:now, by:by});
+  });
+  var msg=[];
+  if(bad.length) msg.push('Link không hợp lệ (phải bắt đầu bằng http:// hoặc https://):\n• '+bad.join('\n• '));
+  if(trung.length) msg.push('Link đã có trong danh sách:\n• '+trung.join('\n• '));
+  if(msg.length) alert(msg.join('\n\n'));
+  if(!bad.length){ uEl.value=''; tEl.value=''; } // còn link sai thì giữ nguyên để anh sửa
+  bbbaRenderFormLinks();
+}
+function bbbaFormRemoveLink(idx){ bbbaAttachedLinks.splice(idx,1); bbbaRenderFormLinks(); }
+function bbbaClearFormLinks(){
+  bbbaAttachedLinks=[];
+  var u=document.getElementById('bbbaFormLinkUrl'); if(u) u.value='';
+  var t=document.getElementById('bbbaFormLinkTitle'); if(t) t.value='';
+  bbbaRenderFormLinks();
+}
+function bbbaRenderFormLinks(){
+  var el=document.getElementById('bbbaFormLinkChip'); if(!el) return;
+  if(!bbbaAttachedLinks.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML=bbbaAttachedLinks.map(function(l,idx){
+    return '<div style="display:flex;align-items:center;gap:8px;background:#eef6ff;border:1px solid #b6d8f5;border-radius:8px;padding:6px 12px;font-size:12.5px;color:#0d47a1">'+
+      '<i class="ti '+bbbaLinkIcon(l.url)+'"></i>'+
+      '<span style="flex:1;min-width:0"><a href="'+bbbaEsc(l.url)+'" target="_blank" rel="noopener noreferrer" style="color:#0d47a1;font-weight:700;text-decoration:none">'+bbbaEsc(l.title||l.url)+'</a>'+
+        '<span style="display:block;font-size:11px;color:#5f7fa8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+bbbaEsc(l.url)+'">'+bbbaEsc(l.url)+'</span></span>'+
+      '<button type="button" class="kpi-btn" style="padding:2px 8px;font-size:11px;border:1px solid #999;color:#666" onclick="bbbaFormRemoveLink('+idx+')"><i class="ti ti-x"></i> Gỡ</button>'+
+    '</div>';
+  }).join('');
 }
 function bbbaGetFilesOf(r){
   // Tương thích ngược: bản ghi cũ chỉ có 1 file (fileName/fileData) → coi như mảng 1 phần tử
@@ -45725,14 +45778,14 @@ function bbbaRenderList(){
     var klBadge = r.ketLuan==='dat'
       ? '<span style="background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7;border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:700">✅ Đạt</span>'
       : '<span style="background:#fce4e4;color:#b71c1c;border:1px solid #ef9a9a;border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:700">❌ Chưa đạt</span>';
-    var fCount=bbbaGetFilesOf(r).length;
+    var fCount=bbbaGetFilesOf(r).length, lCount=bbbaGetLinksOf(r).length;
     return '<div style="background:#fff;border:1.5px solid #e6c3c1;border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<div>'+
-        '<div style="font-weight:700;color:#333;font-size:13.5px">'+bbbaEsc(r.tenNb)+' <span style="color:#888;font-weight:400">— Mã HSBA: '+bbbaEsc(r.maHs)+'</span>'+(fCount?' <span style="color:#1b5e20;font-weight:700;font-size:11.5px"><i class="ti ti-paperclip"></i> '+fCount+'</span>':'')+'</div>'+
+        '<div style="font-weight:700;color:#333;font-size:13.5px">'+bbbaEsc(r.tenNb)+' <span style="color:#888;font-weight:400">— Mã HSBA: '+bbbaEsc(r.maHs)+'</span>'+(fCount?' <span style="color:#1b5e20;font-weight:700;font-size:11.5px"><i class="ti ti-paperclip"></i> '+fCount+'</span>':'')+(lCount?' <span style="color:#0d47a1;font-weight:700;font-size:11.5px"><i class="ti ti-link"></i> '+lCount+'</span>':'')+'</div>'+
         '<div style="font-size:11.5px;color:#666;margin-top:2px">'+kyHtml+(r.khoa?(bbbaEsc(r.khoa)+' · '):'')+'Ngày lập: '+bbbaFmtD(r.ngay)+' · Người bình: '+bbbaEsc(r.nguoiBinh)+' &nbsp; '+klBadge+'</div>'+
       '</div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-        '<button class="kpi-btn" style="padding:3px 10px;font-size:11.5px;border:1.5px solid #6a1b1a;color:#6a1b1a" onclick="bbbaOpenView(\''+r._id+'\')"><i class="ti ti-eye"></i> Xem biên bản'+(fCount?(' · '+fCount+' file'):'')+'</button>'+
+        '<button class="kpi-btn" style="padding:3px 10px;font-size:11.5px;border:1.5px solid #6a1b1a;color:#6a1b1a" onclick="bbbaOpenView(\''+r._id+'\')"><i class="ti ti-eye"></i> Xem biên bản'+(fCount?(' · '+fCount+' file'):'')+(lCount?(' · '+lCount+' link'):'')+'</button>'+
         (bbbaIsAdmin()?('<button class="kpi-btn" style="padding:3px 10px;font-size:11.5px;border:1.5px solid #c62828;color:#c62828" onclick="bbbaDeleteRecord(\''+r._id+'\')"><i class="ti ti-trash"></i> Xóa</button>'):'')+
       '</div>'+
     '</div>';
@@ -45758,20 +45811,129 @@ function bbbaOpenView(id){
       }).join('')+
       '</div>';
   }
+  var links=bbbaGetLinksOf(r);
+  var linksHtml='';
+  if(links.length){
+    linksHtml='<div style="font-weight:700;font-size:13px;color:#0d47a1;margin-bottom:6px"><i class="ti ti-link"></i> Link đính kèm ('+links.length+')</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">'+
+      links.map(function(l,idx){
+        return '<div style="display:flex;align-items:center;gap:10px;background:#eef6ff;border:1px solid #b6d8f5;border-radius:8px;padding:7px 12px">'+
+          '<i class="ti '+bbbaLinkIcon(l.url)+'" style="color:#0d47a1"></i>'+
+          '<span style="flex:1;min-width:0;font-size:12.5px;color:#0d47a1"><a href="'+bbbaEsc(l.url)+'" target="_blank" rel="noopener noreferrer" style="color:#0d47a1;font-weight:600;text-decoration:none">'+bbbaEsc(l.title||l.url)+'</a>'+
+            '<span style="display:block;font-size:11px;color:#5f7fa8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+bbbaEsc(l.url)+'">'+bbbaEsc(l.url)+'</span></span>'+
+          '<a class="kpi-btn" href="'+bbbaEsc(l.url)+'" target="_blank" rel="noopener noreferrer" style="padding:2px 9px;font-size:11px;background:#0d47a1;color:#fff;text-decoration:none"><i class="ti ti-external-link"></i> Mở</a>'+
+          '<button class="kpi-btn" title="Chép link" style="padding:2px 9px;font-size:11px;border:1px solid #0d47a1;color:#0d47a1" onclick="bbbaCopyLink(\''+id+'\','+idx+')"><i class="ti ti-copy"></i></button>'+
+          '<button class="kpi-btn" title="Xóa link" style="padding:2px 9px;font-size:11px;border:1px solid #c62828;color:#c62828" onclick="bbbaRemoveLinkFromRecord(\''+id+'\','+idx+')"><i class="ti ti-trash"></i></button>'+
+        '</div>';
+      }).join('')+
+      '</div>';
+  }
   var html='<div style="font-size:13px;margin-bottom:8px"><b>Kỳ bình:</b> '+(bbbaKyLabel(r)||'<span style="color:#b26a00">chưa ghi — bấm "Sửa biên bản" để bổ sung</span>')+' &nbsp; <b>Ngày lập:</b> '+bbbaFmtD(r.ngay)+' &nbsp; <b>Người bình:</b> '+bbbaEsc(r.nguoiBinh)+'</div>'+
     (r.khoa?('<div style="font-size:12.5px;color:#555;margin-bottom:8px"><b>Khoa/phòng điều trị:</b> '+bbbaEsc(r.khoa)+'</div>'):'')+
     '<div style="font-size:13px;margin-bottom:10px"><b>Kết luận:</b> '+klTxt+'</div>'+
-    filesHtml+
-    '<div style="margin-bottom:14px">'+
+    filesHtml+linksHtml+
+    '<div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
       '<button class="kpi-btn" style="border:1.5px solid #0d47a1;color:#0d47a1;padding:5px 11px;font-size:12.5px" onclick="document.getElementById(\'bbbaViewAttachMore\').click()"><i class="ti ti-plus"></i> Đính kèm thêm phiếu/file (.docx, .pdf, ảnh)</button>'+
       '<input type="file" id="bbbaViewAttachMore" accept=".docx,.pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="bbbaAttachMoreFiles(\''+id+'\', this.files)">'+
+      '<button class="kpi-btn" style="border:1.5px solid #00695c;color:#00695c;padding:5px 11px;font-size:12.5px" onclick="bbbaToggleLinkForm()"><i class="ti ti-link-plus"></i> Đính kèm link (Google Drive, web...)</button>'+
+    '</div>'+
+    '<div id="bbbaLinkForm" style="display:none;background:#f0faf8;border:1.5px solid #80cbc4;border-radius:10px;padding:10px 12px;margin:-6px 0 14px">'+
+      '<div style="font-size:12px;font-weight:700;color:#00695c;margin-bottom:6px"><i class="ti ti-link-plus"></i> Đính kèm link vào biên bản</div>'+
+      '<input id="bbbaLinkUrl" type="text" placeholder="Đường link — dán vào đây (ví dụ: https://drive.google.com/...). Có thể dán nhiều link, mỗi link 1 dòng/cách nhau dấu cách" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #b2dfdb;border-radius:7px;font-size:12.5px;margin-bottom:6px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();bbbaSaveLink(\''+id+'\');}">'+
+      '<input id="bbbaLinkTitle" type="text" placeholder="Tên hiển thị (không bắt buộc) — ví dụ: Thư mục hồ sơ bệnh án T9-26" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #b2dfdb;border-radius:7px;font-size:12.5px;margin-bottom:8px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();bbbaSaveLink(\''+id+'\');}">'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+        '<button class="kpi-btn" style="background:#00695c;color:#fff;padding:5px 12px;font-size:12.5px" onclick="bbbaSaveLink(\''+id+'\')"><i class="ti ti-device-floppy"></i> Lưu link</button>'+
+        '<button class="kpi-btn" style="border:1px solid #999;color:#555;padding:5px 12px;font-size:12.5px" onclick="bbbaToggleLinkForm(false)">Hủy</button>'+
+        '<span style="font-size:11px;color:#5d7f7a">Lưu ý: link Google Drive cần mở quyền "Bất kỳ ai có đường liên kết" hoặc chia sẻ cho người xem.</span>'+
+      '</div>'+
     '</div>'+
     (r.noiDung?('<div style="font-weight:700;font-size:13px;color:#6a1b1a;margin-bottom:6px">Tóm tắt/ghi chú</div><div style="white-space:pre-wrap;background:#faf3f2;border:1px solid #e6c3c1;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:10px">'+bbbaEsc(r.noiDung)+'</div>'):'')+
     (r.loi?('<div style="font-weight:700;font-size:13px;color:#c62828;margin-bottom:6px">Lỗi phát hiện nổi bật</div><div style="white-space:pre-wrap;background:#fce4e4;border:1px solid #ef9a9a;border-radius:8px;padding:10px 12px;font-size:13px">'+bbbaEsc(r.loi)+'</div>'):'')+
-    (!files.length && !r.noiDung ? '<div style="color:#999;font-style:italic;font-size:13px">Chưa có file/nội dung/ghi chú nào được lưu.</div>' : '');
+    (!files.length && !links.length && !r.noiDung ? '<div style="color:#999;font-style:italic;font-size:13px">Chưa có file/nội dung/ghi chú nào được lưu.</div>' : '');
   document.getElementById('bbbaViewBody').innerHTML=html;
   var delBtn=document.getElementById('bbbaDeleteBtn'); if(delBtn) delBtn.style.display=bbbaIsAdmin()?'inline-flex':'none';
   document.getElementById('bbbaViewOverlay').style.display='flex';
+}
+/* ── Đính kèm LINK (Google Drive, OneDrive, trang web...) cho biên bản — lưu ở records/{id}/links ── */
+function bbbaGetLinksOf(r){
+  var l=r && r.links; if(!l) return [];
+  var arr=Array.isArray(l)?l:Object.keys(l).sort().map(function(k){ return l[k]; });
+  return arr.filter(function(x){ return x && x.url; });
+}
+function bbbaNormUrl(u){
+  u=(u||'').trim(); if(!u) return '';
+  if(!/^[a-z][a-z0-9+.-]*:/i.test(u)) u='https://'+u.replace(/^\/+/,'');
+  if(!/^https?:\/\//i.test(u)) return ''; // chỉ nhận http/https — chặn javascript:, data:...
+  try{ var x=new URL(u); if(!x.hostname || x.hostname.indexOf('.')<0) return ''; return x.href; }catch(e){ return ''; }
+}
+function bbbaLinkGuessTitle(url){
+  try{
+    var h=new URL(url).hostname.replace(/^www\./,'');
+    if(/drive\.google\.com$/.test(h)) return 'Google Drive';
+    if(/docs\.google\.com$/.test(h)){
+      if(/\/spreadsheets\//.test(url)) return 'Google Trang tính';
+      if(/\/presentation\//.test(url)) return 'Google Trang trình bày';
+      if(/\/forms\//.test(url)) return 'Google Biểu mẫu';
+      return 'Google Tài liệu';
+    }
+    if(/(onedrive\.live\.com|1drv\.ms|sharepoint\.com)$/.test(h)) return 'OneDrive';
+    return h;
+  }catch(e){ return 'Link'; }
+}
+function bbbaLinkIcon(url){
+  if(/docs\.google\.com\/spreadsheets|\.xlsx?(\?|$)/i.test(url)) return 'ti-table';
+  if(/drive\.google\.com|onedrive|1drv\.ms|sharepoint/i.test(url)) return 'ti-cloud';
+  if(/\.pdf(\?|$)/i.test(url)) return 'ti-file-type-pdf';
+  return 'ti-link';
+}
+function bbbaToggleLinkForm(show){
+  var f=document.getElementById('bbbaLinkForm'); if(!f) return;
+  var on=(show==null)?(f.style.display==='none'):show;
+  f.style.display=on?'block':'none';
+  if(on){ var u=document.getElementById('bbbaLinkUrl'); if(u){ u.focus(); } }
+}
+function bbbaSaveLink(id){
+  var r=bbbaRecords[id]; if(!r){ alert('Không tìm thấy biên bản.'); return; }
+  if(!bbbaRecordsRef){ alert('Chưa kết nối được dữ liệu. Anh bấm "Làm mới" rồi thử lại.'); return; }
+  var raw=(document.getElementById('bbbaLinkUrl').value||'').trim();
+  var title=(document.getElementById('bbbaLinkTitle').value||'').trim();
+  if(!raw){ alert('Anh dán đường link vào ô "Đường link".'); document.getElementById('bbbaLinkUrl').focus(); return; }
+  // Cho phép dán nhiều link một lúc (mỗi link một dòng hoặc cách nhau bởi dấu cách)
+  var parts=raw.split(/\s+/).filter(Boolean), ok=[], bad=[];
+  parts.forEach(function(p){ var u=bbbaNormUrl(p); if(u) ok.push(u); else bad.push(p); });
+  if(!ok.length){ alert('⚠️ Đường link không hợp lệ:\n\n• '+bad.join('\n• ')+'\n\nLink phải bắt đầu bằng http:// hoặc https:// (ví dụ: https://drive.google.com/...).'); return; }
+  var links=bbbaGetLinksOf(r).slice(), trung=[];
+  var now=new Date().toISOString(), by=(bbbaCu&&bbbaCu.name)||'';
+  ok.forEach(function(u,i){
+    if(links.some(function(x){ return x.url===u; })){ trung.push(u); return; }
+    var t=title ? (ok.length>1?(title+' ('+(i+1)+')'):title) : bbbaLinkGuessTitle(u);
+    links.push({url:u, title:t, at:now, by:by});
+  });
+  var them=links.length-bbbaGetLinksOf(r).length;
+  if(!them){ alert('Link này đã có trong biên bản.'); return; }
+  bbbaRecordsRef.child(id).update({links:links, updatedAt:now}).then(function(){
+    var msg=[];
+    if(bad.length) msg.push('Bỏ qua link không hợp lệ:\n• '+bad.join('\n• '));
+    if(trung.length) msg.push('Bỏ qua link đã có:\n• '+trung.join('\n• '));
+    if(msg.length) alert('Đã đính kèm '+them+' link.\n\n'+msg.join('\n\n'));
+    bbbaOpenView(id);
+  }).catch(function(e){ alert('Lỗi lưu link: '+e.message); });
+}
+function bbbaRemoveLinkFromRecord(id, idx){
+  var r=bbbaRecords[id]; if(!r) return;
+  var links=bbbaGetLinksOf(r).slice();
+  var removed=links.splice(idx,1)[0];
+  if(!confirm('Xóa link "'+(removed?(removed.title||removed.url):'')+'" khỏi biên bản này?')) return;
+  bbbaRecordsRef.child(id).update({links:links.length?links:null, updatedAt:new Date().toISOString()}).then(function(){
+    bbbaOpenView(id);
+  }).catch(function(e){ alert('Lỗi xóa link: '+e.message); });
+}
+function bbbaCopyLink(id, idx){
+  var l=bbbaGetLinksOf(bbbaRecords[id])[idx]; if(!l) return;
+  function fallback(){ prompt('Anh bấm Ctrl + C để chép link:', l.url); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(l.url).then(function(){ alert('Đã chép link:\n'+l.url); }, fallback);
+  } else fallback();
 }
 function bbbaRemoveFileFromRecord(id, idx){
   var r=bbbaRecords[id];
@@ -45807,6 +45969,8 @@ function bbbaStartEdit(){
   bbbaKySetForm(r.kyLoai, r.kySo, r.kyNam); // biên bản cũ chưa ghi kỳ → để trống cho người dùng chọn
   bbbaAttachedFiles=bbbaGetFilesOf(r).map(function(f){ return {name:f.name, dataUrl:f.dataUrl, _existing:true}; });
   bbbaRenderAttachedChip();
+  bbbaAttachedLinks=bbbaGetLinksOf(r).map(function(l){ return {url:l.url, title:l.title||'', at:l.at||'', by:l.by||''}; });
+  bbbaRenderFormLinks();
   document.getElementById('bbbaSubmitBtn').innerHTML='<i class="ti ti-device-floppy"></i> Lưu thay đổi';
   document.getElementById('bbbaCancelEditBtn').style.display='inline-flex';
   document.getElementById('bbbaAddBox').scrollIntoView({behavior:'smooth',block:'start'});
@@ -45869,6 +46033,7 @@ function bbbaExportWord(){
     '<div class="section-title">Nội dung đánh giá</div>'+
     '<div class="content-box">'+noiDungHtml+'</div>'+
     (loiHtml?('<div class="section-title">Lỗi phát hiện / Đề xuất khắc phục</div><div class="content-box">'+loiHtml+'</div>'):'')+
+    (bbbaGetLinksOf(r).length?('<div class="section-title">Tài liệu đính kèm (link)</div><div class="content-box">'+bbbaGetLinksOf(r).map(function(l,i){ return (i+1)+'. '+bbbaEsc(l.title||'')+(l.title?': ':'')+'<a href="'+bbbaEsc(l.url)+'">'+bbbaEsc(l.url)+'</a>'; }).join('<br>')+'</div>'):'')+
     '<div style="font-size:11pt;font-style:italic;margin-top:10pt">Lưu ý: đây là bản dự thảo hỗ trợ chuyên môn; kết luận và xếp loại chính thức do Hội đồng bình bệnh án / Trưởng khoa quyết định.</div>'+
     '<div class="foot"><div class="sign"><div class="lbl">Người bình</div><div class="space"></div><div>'+bbbaEsc(r.nguoiBinh)+'</div></div></div>'+
     '</div></div><script>'+
