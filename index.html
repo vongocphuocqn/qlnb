@@ -2995,6 +2995,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
           <option value="">Tất cả</option>
           <option value="thuong">Ghi chú thường (NV thấy)</option>
           <option value="nhanh">📝 Ghi chú nhanh (NV không thấy)</option>
+          <option value="gdn">🔒 Thẻ Giấy đề nghị (chỉ Admin thấy)</option>
         </select>
         <input type="checkbox" id="fQuickNote" onchange="qnSyncGroupFilterVisibility();renderBoard()" style="display:none">
       </div>
@@ -11679,7 +11680,7 @@ function renderDt(){
   const to=document.getElementById('dtFiltTo')?document.getElementById('dtFiltTo').value:'';
   // Panel Downtime hiện với cả Nhân viên (không chỉ Admin) — phải loại Ghi chú nhanh khỏi dữ liệu
   // gốc trước khi lọc/tính toán, để không lộ nhật ký riêng của Admin qua đường này.
-  const dtBaseCards=(cu&&cu.role==='admin')?cards:cards.filter(c=>!c.quickNote && !c.hidePublic);
+  const dtBaseCards=(cu&&cu.role==='admin')?cards:cards.filter(c=>!kbHiddenForRole(c));
   let list=[...dtBaseCards];
   if(fr) list=list.filter(c=>c.date>=fr);
   if(to) list=list.filter(c=>c.date<=to);
@@ -13166,10 +13167,25 @@ function toggleCardHidePublic(id){
    - kbVisibleCards(): các thẻ mà vai trò đang đăng nhập được phép thấy — dùng cho mọi bảng thống kê.
    - Ô lọc "Loại thẻ": Tất cả / Ghi chú thường / Ghi chú nhanh.
    - Nút trên thẻ (chỉ Quản lý): chuyển thẻ thường ↔ ghi chú nhanh khi lỡ nhập nhầm chỗ. */
+// Thẻ Kanban sinh từ Giấy đề nghị / Sổ văn bản đi: CHỈ ADMIN xem. Nhân viên chỉ thấy thẻ do chính
+// mình là người soạn (để cập nhật tiến độ); chế độ "Xem kết quả Kanban" (công khai) không thấy.
+function kbIsGdnCard(c){
+  if(!c) return false;
+  if(c.vbId || c.src==='vb') return true;
+  var h=Array.isArray(c.history)?c.history:(c.history?Object.values(c.history):[]);
+  if(h.some(function(x){ return x && /T[ạa]o t[ựu] đ[ộo]ng t[ừu] (S[ổo] v[ăa]n b[ảa]n|Gi[ấa]y đ[ềe] ngh[ịi]|v[ăa]n b[ảa]n)/i.test(String(x.action||'')); })) return true;
+  return /\/GDN-/i.test(String(c.content||''));
+}
+function kbHiddenForRole(c){
+  if(typeof cu!=='undefined' && cu && cu.role==='admin') return false;
+  if(c.quickNote || c.hidePublic) return true;
+  if(kbIsGdnCard(c)) return !(cu && cu.role==='staff' && c.person===cu.name);
+  return false;
+}
 function kbVisibleCards(){
   var ds=(typeof cards!=='undefined' && cards) ? cards : [];
   if(typeof cu!=='undefined' && cu && cu.role==='admin') return ds;
-  return ds.filter(function(c){ return !c.quickNote && !c.hidePublic; });
+  return ds.filter(function(c){ return !kbHiddenForRole(c); });
 }
 function kbNoteTypeChange(){
   var sel=document.getElementById('fNoteType'), chk=document.getElementById('fQuickNote');
@@ -13183,6 +13199,8 @@ function kbNoteTypeSync(){ // các nút cũ (VD "Ghi chú nhanh" → xem trên b
   else if(!chk.checked && sel.value==='nhanh') sel.value='';
 }
 function kbQuickTag(c){
+  if(!c.quickNote && cu && cu.role==='admin' && kbIsGdnCard(c))
+    return '<div style="margin:6px 0 2px;font-size:11px;line-height:1.45;padding:3px 8px;border-radius:6px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80"><i class="ti ti-lock" style="font-size:11px"></i> <b>Thẻ Giấy đề nghị</b> — chỉ Admin thấy (Xem công khai và nhân viên KHÔNG thấy)</div>';
   if(!c.quickNote || !(cu && cu.role==='admin')) return '';
   return '<div style="margin:6px 0 2px;font-size:11px;line-height:1.45;padding:3px 8px;border-radius:6px;background:#e0f2f1;color:#00695c;border:1px solid #80cbc4"><i class="ti ti-eye-off" style="font-size:11px"></i> <b>Ghi chú nhanh</b> — nhân viên và Xem công khai KHÔNG thấy thẻ này</div>';
 }
@@ -13355,7 +13373,7 @@ function getFiltered(){
   // Ghi chú nhanh là nhật ký làm việc riêng của Admin — tuyệt đối không hiện ở bất kỳ trạng thái
   // nào (Chưa xử lý/Đang xử lý/Đã xong) với Nhân viên hay Xem công khai. Admin không bị ảnh hưởng.
   // Thẻ nào Admin đã bấm "Ẩn với NV" (c.hidePublic) cũng bị loại theo cách tương tự.
-  if(cu.role!=='admin'){ r=r.filter(c=>!c.quickNote && !c.hidePublic); }
+  if(cu.role!=='admin'){ r=r.filter(c=>!kbHiddenForRole(c)); } // gồm cả thẻ Giấy đề nghị (chỉ Admin xem)
   if(cu.role==='staff'){ r=r.filter(c=>c.person===cu.name); }
   // Lỗi có sẵn từ trước (không phải do lần sửa này): trước đây code "return" ngay ở đây cho
   // Nhân viên/Xem công khai, khiến toàn bộ ô lọc bên dưới (Tên NV, Người phụ trách, Bộ phận,
@@ -13379,7 +13397,8 @@ function getFiltered(){
   if(to)r=r.filter(c=>c.date<=to);
   if(qnOnly)r=r.filter(c=>c.quickNote===true);
   const ntype=document.getElementById('fNoteType')?document.getElementById('fNoteType').value:'';
-  if(ntype==='thuong')r=r.filter(c=>!c.quickNote); // chỉ thẻ thường (những thẻ nhân viên nhìn thấy)
+  if(ntype==='thuong')r=r.filter(c=>!c.quickNote && !kbIsGdnCard(c)); // chỉ thẻ thường (những thẻ nhân viên nhìn thấy)
+  if(ntype==='gdn')r=r.filter(c=>kbIsGdnCard(c)); // nhóm thẻ sinh từ Giấy đề nghị — chỉ Admin thấy
   if(qnOnly && qnGroup==='admin')r=r.filter(c=>typeof qnIsAdminNote==='function' && qnIsAdminNote(c));
   else if(qnOnly && qnGroup==='mine')r=r.filter(c=>(c.person||'').trim()===((cu&&cu.name)?cu.name.trim():''));
   return r;
@@ -13781,6 +13800,108 @@ function phLineBoxHtml(c){
   if(coAnh) h+='<label style="display:flex;align-items:center;gap:7px;margin-top:6px;cursor:pointer;font-size:12.5px"><input type="checkbox" id="phInImgs" '+(phSendImgs?'checked ':'')+'onchange="phSendImgs=this.checked" style="width:15px;height:15px"> Kèm '+c.imgs.length+' ảnh minh chứng của thẻ trên ảnh phiếu</label>';
   return h+'</div>';
 }
+
+/* ── BỔ SUNG NỘI DUNG CHÍNH VÀO THẺ ngay trong form "Gửi phòng ban" ──
+   Dùng khi thẻ tự sinh từ Giấy đề nghị chưa lấy đủ nội dung: mở khung, tích chọn các dòng của phiếu gốc
+   (hoặc dán/gõ tay) → đưa vào ô "Cần làm" → Lưu vào thẻ. Danh sách dòng ở khung "Nội dung chuyển..." cập nhật ngay. */
+var phKbqLines=[], phKbqVb=null;
+function phKbqNorm(t){ try{ if(window.vbKbApi) return window.vbKbApi.norm(t); }catch(e){} return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]+/g,' ').trim(); }
+function phKbqHtmlLines(h){ try{ var d=new DOMParser().parseFromString('<div>'+String(h||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|li|tr|h[1-6])>/gi,'\n').replace(/<li[^>]*>/gi,'\n• ')+'</div>','text/html'); return (d.body.textContent||'').split('\n'); }catch(e){ return String(h||'').replace(/<[^>]+>/g,'\n').split('\n'); } }
+function phKbqSafeHtml(h){ try{ var d=new DOMParser().parseFromString('<div>'+String(h||'')+'</div>','text/html'); d.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(function(x){ x.remove(); }); d.querySelectorAll('*').forEach(function(x){ [].slice.call(x.attributes).forEach(function(a){ if(/^on/i.test(a.name)||/javascript:/i.test(a.value)) x.removeAttribute(a.name); }); }); return d.body.firstChild?d.body.firstChild.innerHTML:''; }catch(e){ return phEsc(String(h||'').replace(/<[^>]+>/g,' ')); } }
+function phKbqHtml(c){
+  if(!phIsAdmin()) return '';
+  return '<div style="grid-column:1/3">'
+    +'<button type="button" onclick="phKbqToggle()" style="background:#fff8e1;color:#8a5a00;border:1.5px solid #f9a825;border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-pencil-plus"></i> Bổ sung nội dung chính vào thẻ'+(c.vbId?' (chọn từ phiếu gốc)':'')+'</button>'
+    +'<div id="phKbqPanel" style="display:none;margin-top:8px;border:1.5px solid #f9a825;border-radius:8px;padding:8px 10px;background:#fffdf5"></div></div>';
+}
+function phKbqTextLines(v){
+  var out=[], seen={};
+  var add=function(t){ t=String(t||'').replace(/ /g,' ').replace(/\s*\|\s*$/,'').replace(/^\s*\|\s*/,'').replace(/^\d{1,3}\s*\|\s*/,'').replace(/\s+/g,' ').trim();
+    if(t.length<3) return; var k=phKbqNorm(t); if(!k||seen[k]) return; seen[k]=1; out.push(t.slice(0,300)); };
+  if(v.veViec) add('V/v: '+v.veViec);
+  (v.hangMucDeNghi||[]).forEach(function(hm){ if(hm&&hm.noiDung) add(hm.noiDung+(hm.soLuong?(' — SL: '+hm.soLuong):'')); });
+  String(v.tomTat||'').split('\n').forEach(add);
+  var html=String(v.noiDungSoan||'').replace(/<\/t[dh]>/gi,' | ');
+  phKbqHtmlLines(html).forEach(add);
+  return out;
+}
+function phKbqToggle(){
+  var el=document.getElementById('phKbqPanel'); if(!el) return;
+  if(el.style.display!=='none'){ el.style.display='none'; return; }
+  el.style.display='block'; el.innerHTML='<div style="font-size:12px;color:#888">Đang tải nội dung phiếu…</div>';
+  var c=phCardOf(phTargetId); if(!c) return;
+  phKbqLines=[]; phKbqVb=null;
+  var ve=function(v){ phKbqVb=v||null; phKbqLines=v?phKbqTextLines(v):[]; phKbqRender(); };
+  if(!c.vbId){ ve(null); return; }
+  var ds=[]; try{ ds=(window.vbKbApi?window.vbKbApi.records():[])||[]; }catch(e){}
+  var v=ds.find(function(x){ return x && x.id===c.vbId; });
+  if(v){ ve(v); return; }
+  db.ref('dieuDongNhanLuc/vanBanDi/'+String(c.vbId)).once('value').then(function(sn){ var d=sn.val(); ve(d?Object.assign({id:c.vbId},d):null); }).catch(function(){ ve(null); });
+}
+function phKbqRender(){
+  var el=document.getElementById('phKbqPanel'), c=phCardOf(phTargetId); if(!el||!c) return;
+  var coSan={}; [c.content,c.todo,c.doing,c.done].join('\n').split('\n').forEach(function(t){ var k=phKbqNorm(t); if(k) coSan[k]=1; });
+  var h='';
+  var vb=phKbqVb;
+  if(vb){
+    var than=(vb.noiDungSoan&&String(vb.noiDungSoan).trim())?phKbqSafeHtml(vb.noiDungSoan):phEsc(vb.tomTat||'').replace(/\n/g,'<br>');
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px"><span style="font-size:11.5px;font-weight:700;color:#1565c0;flex:1"><i class="ti ti-file-text"></i> Phiếu gốc'+(vb.soVanBan?(' số '+phEsc(vb.soVanBan)):'')+' — bôi đen đoạn diễn giải cần lấy, Ctrl+C rồi dán (Ctrl+V) vào ô "Cần làm" bên dưới</span>'
+      +'<button type="button" onclick="phKbqCopySel()" style="background:#e3f2fd;color:#1565c0;border:1.5px solid #90caf9;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">⬇ Đưa đoạn đang bôi đen xuống</button></div>'
+      +'<div id="phKbqDoc" style="max-height:280px;overflow:auto;background:#fff;border:1.5px solid #90caf9;border-radius:6px;padding:8px 12px;font-family:\'Times New Roman\',serif;font-size:14px;line-height:1.5;user-select:text;-webkit-user-select:text">'
+      +(vb.veViec?('<div style="text-align:center;font-style:italic;margin-bottom:6px">V/v: '+phEsc(vb.veViec)+'</div>'):'')
+      +(than||'<i style="color:#999">Phiếu chưa có nội dung soạn.</i>')+'</div>'
+      +'<style>#phKbqDoc table{border-collapse:collapse;width:100%;margin:6px 0}#phKbqDoc td,#phKbqDoc th{border:1px solid #999;padding:3px 6px;font-size:13px}#phKbqDoc p{margin:3px 0}</style>';
+  }
+  if(phKbqLines.length){
+    h+='<details style="margin-top:8px"'+(vb?'':' open')+'><summary style="cursor:pointer;font-size:12px;color:#8a5a00;font-weight:700">Hoặc tích chọn nhanh từng dòng của phiếu</summary>';
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px"><span style="font-size:11.5px;font-weight:700;color:#8a5a00;flex:1"><i class="ti ti-file-text"></i> Nội dung phiếu gốc'+(phKbqVb&&phKbqVb.soVanBan?(' số '+phEsc(phKbqVb.soVanBan)):'')+' — tích những dòng chính cần đưa vào thẻ</span>'
+      +'<a href="javascript:void(0)" onclick="phKbqOpenVb()" style="font-size:11.5px;color:#1565c0">📄 Mở phiếu gốc</a></div>'
+      +'<div id="phKbqBox" style="max-height:220px;overflow:auto;background:#fff;border:1px solid #f0e0b0;border-radius:6px;padding:4px 8px">'
+      +phKbqLines.map(function(t,i){ var k=phKbqNorm(t); var da=!!coSan[k];
+        return '<label style="display:flex;align-items:flex-start;gap:7px;padding:3px 0;cursor:pointer;font-size:12.5px;line-height:1.45'+(da?';color:#999':'')+'"><input type="checkbox" class="phKbqCb" data-i="'+i+'" '+(da?'disabled ':'')+'style="margin-top:2px;width:15px;height:15px;flex-shrink:0"><span style="word-break:break-word">'+phEsc(t)+(da?' <i>(đã có trên thẻ)</i>':'')+'</span></label>'; }).join('')
+      +'</div><button type="button" onclick="phKbqAddChecked()" style="margin-top:6px;background:#fff;color:#8a5a00;border:1.5px solid #f9a825;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">⬇ Đưa các dòng đã tích xuống ô "Cần làm"</button></details>';
+  } else if(c.vbId){
+    h+='<div style="font-size:12px;color:#888;margin-bottom:6px">Không đọc được nội dung phiếu gốc trên máy này. Anh mở phiếu, chép nội dung rồi dán vào ô bên dưới.</div>';
+  }
+  h+='<label style="font-size:11.5px;font-weight:700;color:#555;display:block;margin:8px 0 3px">Cần làm (mỗi dòng 1 việc — có thể dán/gõ trực tiếp)</label>'
+    +'<textarea id="phKbqTodo" style="width:100%;min-height:110px;padding:7px 9px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:13px;font-family:inherit;box-sizing:border-box">'+phEsc(c.todo||'')+'</textarea>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button type="button" onclick="phKbqToggle()" style="background:#fff;color:#555;border:1.5px solid #bbb;border-radius:7px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit">Đóng khung</button>'
+    +'<button type="button" onclick="phKbqSave()" style="background:#f9a825;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu vào thẻ</button></div>';
+  el.innerHTML=h;
+}
+function phKbqCopySel(){
+  var ta=document.getElementById('phKbqTodo'), doc=document.getElementById('phKbqDoc'); if(!ta||!doc) return;
+  var sel=window.getSelection?window.getSelection():null, t='';
+  if(sel && sel.rangeCount && doc.contains(sel.anchorNode)) t=String(sel.toString()||'');
+  t=t.split('\n').map(function(x){ return x.replace(/\s+/g,' ').trim(); }).filter(Boolean).join('\n');
+  if(!t){ alert('Anh bôi đen (quét chọn) đoạn cần lấy trong khung Phiếu gốc trước, rồi bấm nút này.'); return; }
+  var cu0=ta.value.replace(/\s+$/,''); ta.value=(cu0?cu0+'\n':'')+t; ta.focus(); ta.scrollTop=ta.scrollHeight;
+}
+function phKbqOpenVb(){
+  if(phKbqVb && window.vbKbApi) window.vbKbApi.preview(phKbqVb);
+  else alert('Không mở được phiếu gốc trên máy này.');
+}
+function phKbqAddChecked(){
+  var ta=document.getElementById('phKbqTodo'); if(!ta) return;
+  var them=[]; document.querySelectorAll('#phKbqBox .phKbqCb').forEach(function(cb){ if(cb.checked){ var t=phKbqLines[+cb.dataset.i]; if(t) them.push(t); cb.checked=false; } });
+  if(!them.length){ alert('Anh chưa tích dòng nào.'); return; }
+  var cu0=ta.value.replace(/\s+$/,''); ta.value=(cu0?cu0+'\n':'')+them.join('\n'); ta.focus();
+}
+function phKbqSave(){
+  if(!phIsAdmin()) return;
+  var c=phCardOf(phTargetId), ta=document.getElementById('phKbqTodo'); if(!c||!ta) return;
+  var moi=ta.value.split('\n').map(function(x){ return x.replace(/\s+$/,''); }).filter(function(x){ return x.trim(); }).join('\n');
+  if(moi===String(c.todo||'').trim()){ phKbqToggle(); return; }
+  var hist=Array.isArray(c.history)?c.history.slice():(c.history?Object.values(c.history):[]);
+  hist.push({action:'Bổ sung nội dung chính vào "Cần làm" (từ form Gửi phòng ban)', actor:(cu&&cu.name)||'Quản lý', at:new Date().toISOString()});
+  var upd={todo:moi, history:hist};
+  if(c.status==='done' && moi) upd.status='doing';
+  cardsRef.child(String(c.id)).update(upd).then(function(){
+    Object.assign(c,upd);
+    if(typeof showAl==='function') showAl('Đã lưu nội dung vào thẻ.');
+    phSelKeys=null; phRenderBody(false);
+  }).catch(function(){ alert('Không lưu được. Kiểm tra kết nối mạng rồi thử lại.'); });
+}
 // Nội dung thực tế đã chuyển của 1 lần gửi (dùng cho thống kê / xuất file)
 function phNoiDungGui(c,f){
   if(f && f.sel && f.sel.items && f.sel.items.length) return f.sel.items.map(function(it){ return it.t; }).join('\n');
@@ -14115,7 +14236,9 @@ function phRenderBody(resetForm){
     +phWideBtnHtml('phOv')
     +'<button onclick="phClose(\'phOv\')" style="border:none;background:#eee;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer">×</button></div>'
     +'<div style="background:#f7f7f7;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12.5px;color:#444"><b>'+phEsc(c.person||'')+'</b>'+(c.dept?(' · '+phEsc(c.dept)):'')+' · báo ngày '+(typeof fmtD==='function'?fmtD(c.date):phEsc(c.date))
-    +'<div style="white-space:pre-wrap;margin-top:3px;max-height:90px;overflow:auto">'+phEsc(nd)+'</div></div>'
+    +'<div style="white-space:pre-wrap;margin-top:3px;max-height:90px;overflow:auto">'+phEsc(nd)+'</div>'
+    +(phIsAdmin()?('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px dashed #ddd"><span style="font-weight:700;color:#555">Mức độ ưu tiên của thẻ:</span>'+phPriPills(c.pri||'m','phSetPri')+'<span style="font-size:11px;color:#888">— in trên phiếu và tin nhắn gửi/nhắc</span></div>'):'')
+    +'</div>'
     +'<div style="font-weight:700;color:#444;margin-bottom:6px">Đã gửi ('+l.length+')</div>'
     +(phDupFind(c).length?('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff3e0;border:1.5px solid #ffb74d;border-radius:8px;padding:7px 10px;margin-bottom:8px;font-size:12.5px;color:#8a4b00"><span style="flex:1">⚠️ Có <b>'+phDupFind(c).length+' lần gửi bị ghi trùng</b> (cùng phòng, cùng người nhận, cùng ngày, đều đang chờ phản hồi) — thống kê đang đếm thừa.</span><button onclick="phDupClean()" style="background:#ef6c00;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Gộp, giữ lần đầu</button></div>'):'')
     +ds
@@ -14134,7 +14257,7 @@ function phRenderBody(resetForm){
       +'<div style="position:relative"><input id="phInNguoi" autocomplete="off" placeholder="Gõ tên hoặc số điện thoại để tìm trong toàn bộ danh bạ..." oninput="phNguoiDrop()" onfocus="phNguoiDrop()" onclick="phNguoiDrop()" onblur="setTimeout(phNguoiBlur,220)" onkeydown="if(event.key===\'Escape\'){phNguoiHide();}" style="'+inp+'">'
       +'<div id="phNguoiDropBox" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1.5px solid #6a1b9a;border-top:none;border-radius:0 0 8px 8px;max-height:240px;overflow:auto;box-shadow:0 6px 16px rgba(0,0,0,.18)"></div></div></div>'
     +'<div><label style="'+lb+'">SĐT Zalo hoặc link nhóm Zalo</label><input id="phInZalo" placeholder="VD: 0905xxxxxx hoặc https://zalo.me/g/..." style="'+inp+'"></div>'
-    +phLineBoxHtml(c)
+    +phLineBoxHtml(c)+phKbqHtml(c)
     +'<div style="grid-column:1/3"><label style="'+lb+'">Lời đề nghị / ghi chú thêm cho phòng nhận (không bắt buộc) <span style="font-weight:400;color:#888">— in trên phiếu và tin nhắn của '+(phEditIdx!=null?'lần gửi đang sửa':'lần gửi đang soạn; muốn thêm vào lần gửi ĐÃ LƯU thì bấm "Sửa" ở lần gửi đó')+'</span></label><textarea id="phInNote" rows="2" placeholder="VD: Đề nghị cử thợ kiểm tra, sửa trong tuần" style="'+inp+';resize:vertical"></textarea></div>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:#444"><span><i class="ti ti-message-circle" style="color:#0068ff"></i> Khi mở Zalo, dán sẵn:</span>'
@@ -14448,13 +14571,24 @@ function phZaloUrl(v){
 // đang làm, đã hoàn thành, đường link) + lời đề nghị riêng cho phòng nhận (nếu có ghi).
 // Màu theo mức độ ưu tiên (giống màu nhãn trên thẻ Kanban): đỏ = khẩn cấp, vàng = bình thường, xanh = thấp
 const PH_PRI={ h:{ic:'🔴',bg:'#d32f2f',c:'#ffffff'}, m:{ic:'🟡',bg:'#f9a825',c:'#3e2700'}, l:{ic:'🟢',bg:'#2e7d32',c:'#ffffff'} };
+function phGdnDtSuffix(c){ // " · đề nghị từ 15/09/2026 (29 ngày)" cho thẻ Giấy đề nghị
+  try{ if(!(typeof kbIsGdnCard==='function' && kbIsGdnCard(c)) || !c.date) return ''; var n=calcDowntime(c); return n===null?'':('  ·  đề nghị từ '+fmtD(c.date)+' ('+n+' ngày)'); }catch(e){ return ''; }
+}
 function phCardLines(c, f){
   var pri={h:'Khẩn cấp',m:'Bình thường',l:'Thấp'}[c.pri]||'Bình thường';
   var out=[];
   // Thẻ "Ghi chú nhanh" do tài khoản chung "Quản lý" tạo: không in "Bộ phận: Ghi chú nhanh" / "Người báo cáo: Quản lý" ra phiếu gửi phòng khác
   out.push(['Bộ phận báo cáo', phNorm(c.dept)==='ghi chu nhanh' ? '' : (c.dept||'')]);
-  out.push(['Người báo cáo', phIsGenericSender(c.person) ? '' : (c.person||'')]);
-  out.push(['Ngày báo cáo', (typeof fmtD==='function'&&c.date)?fmtD(c.date):(c.date||'')]);
+  var laGdn=(typeof kbIsGdnCard==='function') && kbIsGdnCard(c);
+  out.push([laGdn?'Người đề nghị':'Người báo cáo', phIsGenericSender(c.person) ? '' : (c.person||'')]);
+  out.push([laGdn?'Ngày đề nghị':'Ngày báo cáo', (typeof fmtD==='function'&&c.date)?fmtD(c.date):(c.date||'')]);
+  if(laGdn && c.date && typeof calcDowntime==='function'){
+    // Giấy đề nghị: in rõ thời gian chờ (downtime) để phòng nhận thấy đề nghị đã treo bao lâu
+    var nDt=calcDowntime(c);
+    if(nDt!==null) out.push(['Thời gian chờ', c.status==='done'
+      ? ('Đã xử lý xong sau '+nDt+' ngày')
+      : (nDt+' ngày — tính từ ngày đề nghị '+fmtD(c.date)+' đến nay, chưa được giải quyết'), false, null, nDt>=30?'#c62828':(nDt>=7?'#e65100':'#2e7d32')]);
+  }
   out.push(['Mức độ', pri, false, (c.pri==='h'||c.pri==='l')?c.pri:'m']);
   if(f && f.sel && f.sel.items && f.sel.items.length){
     // Chỉ các dòng Quản lý đã tích khi gửi. Phòng nhận không cần biết dòng đó đang nằm ở ô nào của thẻ
@@ -14484,11 +14618,11 @@ function phNguoiNhanText(f){
 }
 function phZaloText(c,f){
   var t='';
-  if(f._nhacLan) t+='🔔 NHẮC LẦN '+f._nhacLan+' — nội dung đã gửi lúc '+phDT(f.at)+', đến nay '+phDays(f)+' ngày '+(phStOf(f)==='phanhoi'?'chưa xử lý xong':'chưa nhận được phản hồi')+'. Khoa Gây mê Hồi sức kính đề nghị quan tâm, phối hợp xử lý.\n\n';
+  if(f._nhacLan) t+='🔔 NHẮC LẦN '+f._nhacLan+' — nội dung đã gửi lúc '+phDT(f.at)+', đến nay '+phDays(f)+' ngày '+(phStOf(f)==='phanhoi'?'chưa xử lý xong':'chưa nhận được phản hồi')+phGdnDtSuffix(c).replace(/^\s*·\s*/,'; ')+'. Khoa Gây mê Hồi sức kính đề nghị quan tâm, phối hợp xử lý.\n\n';
   t+='Kính gửi '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+',\n'+phLoaiInfo(f).mo+'\n';
   phCardLines(c, f).forEach(function(x){
     var nhieuDong = x[2] && x[1].indexOf('\n')>-1;
-    var giaTri = x[3] ? (PH_PRI[x[3]].ic+' '+(x[3]==='h'?x[1].toUpperCase():x[1])) : x[1];
+    var giaTri = x[3] ? (PH_PRI[x[3]].ic+' '+(x[3]==='h'?x[1].toUpperCase():x[1])) : (x[4]?('⏳ '+x[1]):x[1]);
     t+='• '+x[0]+':'+(nhieuDong?('\n'+giaTri):(' '+giaTri))+'\n';
   });
   if(f.note) t+='• Đề nghị / Ghi chú: '+f.note+'\n';
@@ -14529,7 +14663,7 @@ function phDrawCard(c,f){
     ims=ims.filter(Boolean);
     var m=document.createElement('canvas').getContext('2d');
     // 1) Tính bố cục
-    var rows=phCardLines(c, f).map(function(x){ return {lb:x[0], v:x[1], col:'#1b6b3a', pri:x[3]||''}; });
+    var rows=phCardLines(c, f).map(function(x){ return {lb:x[0], v:x[1], col:x[4]||'#1b6b3a', pri:x[3]||'', vcol:x[4]||''}; });
     if(f.note) rows.push({lb:'Đề nghị / Ghi chú', v:f.note, col:'#b71c1c'});
     rows.push({lb:'Người gửi', v:(phSenderShown(f)?(phSenderShown(f)+(phSenderPhone(f)?(' - ĐT: '+phSenderPhone(f)):'')+' - '):'')+'Khoa Gây mê Hồi sức', col:'#6a1b9a'});
     m.font=font(15,false);
@@ -14540,7 +14674,7 @@ function phDrawCard(c,f){
     m.font=font(12,false);
     var foot=phWrapText(m, 'Gửi lúc '+phDT(f.at)+(f.via?(' qua '+f.via):'')+(f._nhacLan?('  ·  Nhắc lần '+f._nhacLan+' lúc '+phDT(new Date().toISOString())):'')+'  ·  Mã thẻ: '+c.id, W-PAD*2);
     var NB=0, nbLines=[];
-    if(f._nhacLan){ m.font=font(14,true); nbLines=phWrapText(m, 'NHẮC LẦN '+f._nhacLan+'  ·  đã gửi lúc '+phDT(f.at)+'  ·  đến nay '+phDays(f)+' ngày '+(phStOf(f)==='phanhoi'?'chưa xử lý xong':'chưa có phản hồi'), W-PAD*2); NB=12+nbLines.length*20; }
+    if(f._nhacLan){ m.font=font(14,true); nbLines=phWrapText(m, 'NHẮC LẦN '+f._nhacLan+'  ·  đã gửi lúc '+phDT(f.at)+'  ·  đến nay '+phDays(f)+' ngày '+(phStOf(f)==='phanhoi'?'chưa xử lý xong':'chưa có phản hồi')+phGdnDtSuffix(c), W-PAD*2); NB=12+nbLines.length*20; }
     m.font=font(18,true);
     var tdLines=phWrapText(m, phLoaiInfo(f).td, W-PAD*2); if(!tdLines.length) tdLines=[''];
     var HEAD=40+tdLines.length*24, IW=Math.floor((W-PAD*2-16)/3), IH=Math.round(IW*0.75);
@@ -14555,7 +14689,7 @@ function phDrawCard(c,f){
     g.fillStyle=khan?'#ffe3e0':'#e3f1e6'; g.font=font(12.5,false); g.fillText('BỆNH VIỆN ĐA KHOA TRUNG TÂM — KHOA GÂY MÊ HỒI SỨC', PAD, 11);
     g.fillStyle='#ffffff'; g.font=font(18,true); tdLines.forEach(function(ln,iT){ g.fillText(ln, PAD, 31+iT*24); });
     if(NB){ // dải nhắc lại: vàng cam khi chờ dưới 30 ngày, đỏ khi từ 30 ngày hoặc đã nhắc từ lần 3
-      g.fillStyle=(phDays(f)>=30 || f._nhacLan>=3) ? (khan?'#7f0000':'#c62828') : '#ef6c00'; g.fillRect(0,HEAD,W,NB); // thẻ khẩn cấp (tiêu đề đã đỏ) → dải nhắc dùng đỏ sẫm cho tách bạch
+      g.fillStyle=(phDays(f)>=30 || f._nhacLan>=3 || (phGdnDtSuffix(c) && calcDowntime(c)>=30)) ? (khan?'#7f0000':'#c62828') : '#ef6c00'; g.fillRect(0,HEAD,W,NB); // thẻ khẩn cấp (tiêu đề đã đỏ) → dải nhắc dùng đỏ sẫm cho tách bạch
       g.fillStyle='#ffffff'; g.font=font(14,true); nbLines.forEach(function(ln,iN){ g.fillText(ln, PAD, HEAD+7+iN*20); });
     }
     var y=HEAD+NB+12;
@@ -14574,7 +14708,7 @@ function phDrawCard(c,f){
         g.lineTo(bx+rd,by+bh); g.arc(bx+rd,by+rd,rd,Math.PI/2,Math.PI*1.5); g.closePath(); g.fill();
         g.fillStyle=pc.c; g.fillText(chu, bx+13, by+4);
       } else {
-        g.fillStyle='#222222'; g.font=font(15,false);
+        g.fillStyle=r.vcol||'#222222'; g.font=font(15,!!r.vcol);
         r.lines.forEach(function(l,i){ g.fillText(l, PAD+LBW+10, y+4+i*LH); });
       }
       y+=r.h; g.fillStyle='#e6e6e6'; g.fillRect(PAD, y-2, W-PAD*2, 1);
@@ -14858,21 +14992,64 @@ function phGanGhiChuDangGo(i, xong){
   });
 }
 // "Gửi thông tin nhắc lại": ghi nhận lần nhắc thứ n vào lần gửi, rồi chép phiếu/tin nhắn có ghi "NHẮC LẦN n" và mở Zalo.
+// Ô chọn mức độ ưu tiên dạng 3 nút (dùng ở đầu form Gửi phòng ban và hộp Nhắc lại)
+var PH_PRI_TEN={l:'Thấp', m:'Bình thường', h:'Khẩn cấp'};
+function phPriPills(cur, fn){
+  return ['l','m','h'].map(function(p){
+    var on=(cur===p), P=PH_PRI[p];
+    return '<button type="button" onclick="'+fn+'(\''+p+'\')" style="border-radius:20px;padding:4px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;'
+      +(on?('background:'+P.bg+';color:'+P.c+';border:2px solid '+P.bg+';box-shadow:0 0 0 2px #fff inset'):'background:#fff;color:#555;border:1.5px solid #ccc')+'">'+P.ic+' '+PH_PRI_TEN[p]+'</button>';
+  }).join('');
+}
+function phSetPri(p, cb){
+  var c=phCardOf(phTargetId); if(!c||!phIsAdmin()||!PH_PRI[p]) return;
+  if((c.pri||'m')===p){ if(cb) cb(c); return; }
+  var hist=(c.history)?[].concat(c.history):[];
+  hist.push({action:'Đổi mức độ ưu tiên: '+PH_PRI_TEN[c.pri||'m']+' → '+PH_PRI_TEN[p], actor:(cu&&cu.name)?cu.name:'Quản lý', at:new Date().toISOString()});
+  return cardsRef.child(String(c.id)).update({pri:p, history:hist}).then(function(){
+    c.pri=p; c.history=hist;
+    if(!cb){ phRenderBody(false); if(typeof renderBoard==='function') renderBoard(); }
+    if(cb) cb(c);
+  }).catch(function(err){ alert('Không đổi được mức độ ưu tiên: '+err.message); });
+}
+// Nhắc lại: hỏi kèm chọn mức độ ưu tiên (thay cho hộp xác nhận cũ)
+var phNhacIdx=null, phNhacPri='m';
 function phNhacLai(i){
   var c=phCardOf(phTargetId); if(!c||!phIsAdmin()) return; var f=phList(c)[i]; if(!f) return;
   if(phStOf(f)==='xong'){ alert('Lần gửi này đã xử lý xong, không cần nhắc.'); return; }
+  phNhacIdx=i; phNhacPri=c.pri||'m';
+  phNhacRender();
+}
+function phNhacPick(p){ phNhacPri=p; phNhacRender(); }
+function phNhacRender(){
+  var c=phCardOf(phTargetId); if(!c) return; var f=phList(c)[phNhacIdx]; if(!f) return;
   var lan=phNhacList(f).length+1, d=phDays(f);
-  if(!confirm('Gửi NHẮC LẦN '+lan+' cho '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+'?\n\nĐã gửi lần đầu lúc '+phDT(f.at)+' — đến nay '+d+' ngày, trạng thái: '+PH_ST[phStOf(f)].t+'.'
-    +(d<PH_NHAC_NGAY?('\n(Mới '+d+' ngày, chưa tới mốc '+PH_NHAC_NGAY+' ngày — anh vẫn có thể nhắc nếu cần.)'):'')
-    +'\n\nHệ thống sẽ ghi nhận lần nhắc này, rồi chép phiếu / tin nhắn có ghi "NHẮC LẦN '+lan+'" để anh dán vào Zalo.')) return;
+  var dt=(typeof phGdnDtSuffix==='function')?phGdnDtSuffix(c).replace(/^\s*·\s*/,''):'';
+  var html='<div style="font-size:15.5px;font-weight:700;color:#b71c1c;margin-bottom:8px"><i class="ti ti-bell-ringing"></i> Gửi NHẮC LẦN '+lan+'</div>'
+    +'<div style="font-size:13px;line-height:1.55;color:#333;margin-bottom:10px">Gửi cho <b>'+phEsc(f.dept)+'</b>'+(f.nguoiNhan?(' ('+phEsc(f.nguoiNhan)+')'):'')+'<br>Đã gửi lần đầu lúc '+phDT(f.at)+' — đến nay <b>'+d+' ngày</b>, trạng thái: '+PH_ST[phStOf(f)].t+'.'+(dt?('<br><b style="color:#c62828">⏳ '+phEsc(dt.charAt(0).toUpperCase()+dt.slice(1))+'</b>'):'')+'</div>'
+    +'<div style="font-size:12.5px;font-weight:700;color:#555;margin-bottom:6px">Mức độ ưu tiên khi nhắc</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+phPriPills(phNhacPri,'phNhacPick')+'</div>'
+    +'<div style="font-size:11.5px;color:#888;margin-bottom:12px">Mức độ chọn ở đây được lưu vào thẻ và in trên phiếu / tin nhắn nhắc'+(phNhacPri==='h'?' — phiếu sẽ có tiêu đề màu <b style="color:#b71c1c">ĐỎ KHẨN CẤP</b>':'')+'.</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end"><button onclick="phClose(\'phNhacOv\')" style="background:#fff;color:#555;border:1.5px solid #bbb;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit">Hủy</button>'
+    +'<button onclick="phNhacLaiGo()" style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔔 Ghi nhận nhắc lần '+lan+' & chép phiếu</button></div>';
+  var box=document.querySelector('#phNhacOv .phBox');
+  if(box) box.innerHTML=html; else phOverlay('phNhacOv', html, 460);
+}
+function phNhacLaiGo(){
+  var i=phNhacIdx;
+  var c=phCardOf(phTargetId); if(!c||!phIsAdmin()) return; var f=phList(c)[i]; if(!f) return;
+  try{ phClose('phNhacOv'); }catch(e){ var o=document.getElementById('phNhacOv'); if(o) o.remove(); }
+  var lan=phNhacList(f).length+1, d=phDays(f);
+  var priCu=c.pri||'m', priMoi=PH_PRI[phNhacPri]?phNhacPri:priCu;
   var nguoi=''; try{ nguoi=phDefaultSender(); }catch(e){} if(!nguoi) nguoi=phSenderShown(f)||((cu&&cu.name)?cu.name:'Quản lý');
   var arr=phList(c).map(function(x){ return Object.assign({},x); });
-  arr[i].nhac=phNhacList(f).concat([{at:new Date().toISOString(), by:nguoi}]);
+  arr[i].nhac=phNhacList(f).concat([{at:new Date().toISOString(), by:nguoi, pri:priMoi}]);
   var hist=(c.history)?[].concat(c.history):[];
-  hist.push({action:'Nhắc lần '+lan+': '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+' — đã chờ '+d+' ngày', actor:(cu&&cu.name)?cu.name:'Quản lý', at:new Date().toISOString()});
+  hist.push({action:'Nhắc lần '+lan+': '+f.dept+(f.nguoiNhan?(' ('+f.nguoiNhan+')'):'')+' — đã chờ '+d+' ngày · mức độ '+PH_PRI_TEN[priMoi]+(priMoi!==priCu?(' (đổi từ '+PH_PRI_TEN[priCu]+')'):''), actor:(cu&&cu.name)?cu.name:'Quản lý', at:new Date().toISOString()});
   if(typeof setSyncStatus==='function') setSyncStatus('sync');
-  cardsRef.child(String(c.id)).update({forwards:arr, history:hist}).then(function(){
-    c.forwards=arr; c.history=hist;
+  var updN={forwards:arr, history:hist}; if(priMoi!==priCu) updN.pri=priMoi;
+  cardsRef.child(String(c.id)).update(updN).then(function(){
+    c.forwards=arr; c.history=hist; c.pri=priMoi;
     if(typeof setSyncStatus==='function') setSyncStatus('ok');
     phRenderBody(false); if(typeof renderBoard==='function') renderBoard();
     var fN=Object.assign({}, arr[i], {_nhacLan:lan}); // _nhacLan chỉ dùng để dựng phiếu/tin nhắn, không lưu
@@ -29054,6 +29231,8 @@ let vbHangMucExpanded = false; // mặc định ẨN khối "hạng mục cụ t
 let cfgFilter = { reasons:"", docTypes:"", noiNhan:"", nguoiLapBang:"", hinhThucVB:"", vbUserAuth:"", chuKyMauNV:"" };
 // ---- Sổ theo dõi văn bản đi ----
 let vbRecords = [];
+// Cho bảng Kanban (nằm ngoài khối này) đọc được phiếu gốc + mở Xem trước — dùng ở khung "Bổ sung nội dung chính vào thẻ"
+window.vbKbApi = { records: function(){ return vbRecords; }, preview: function(v){ return moXemTruocVanBan(v); }, htmlToLines: function(h){ return vbHtmlToLines(h); }, norm: function(t){ return vbKbNorm(t); } };
 let vbMauList = []; // Thư viện nội dung mẫu đã lưu (chia theo nhóm: hành chính/dược/vật tư...)
 let soTongHopList = []; // "Sổ tổng hợp": danh sách các sổ RTF gộp nhiều phiếu, mới nhất ở trên cùng
 let chuKyMauNV = {}; // Chữ ký MẪU của từng nhân viên (Họ tên -> data URL ảnh) — dùng để đối chiếu khi duyệt phép/bù
