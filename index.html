@@ -56963,9 +56963,19 @@ window.bghlXemTai=function(kieu){ var v=bghl._xem; if(!v) return; if(kieu==='exc
 /* ── Lịch sử theo ngày (đọc 1 lần, không lắng nghe liên tục) ── */
 function viewLichSu(){
   if(!bghl.histKey){ var d=new Date(); d.setDate(d.getDate()-1); bghl.histKey=dKey(d); setTimeout(function(){ napLichSu(bghl.histKey); },0); }
-  return '<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;background:#fff;border-radius:12px;padding:8px 12px;box-shadow:0 1px 4px rgba(0,0,0,.08)"><div><label style="'+LB+';margin-top:0">Chọn ngày</label><input type="date" value="'+e(bghl.histKey)+'" onchange="bghlNapNgay(this.value)" style="'+INP+';width:auto"></div>'
+  var laKhoang=!!(bghl.histDen && bghl.histDen>bghl.histKey);
+  var q='padding:5px 10px;font-size:12px;border-radius:7px;border:1.5px solid #00695c;background:#fff;color:#00695c;font-weight:700;cursor:pointer;font-family:inherit';
+  return '<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;background:#fff;border-radius:12px;padding:8px 12px;box-shadow:0 1px 4px rgba(0,0,0,.08)">'
+    +'<div><label style="'+LB+';margin-top:0">'+(laKhoang?'Từ ngày':'Chọn ngày')+'</label><input type="date" value="'+e(bghl.histKey)+'" onchange="bghlNapNgay(this.value)" style="'+INP+';width:auto"></div>'
+    +'<div><label style="'+LB+';margin-top:0">Đến ngày <span style="font-weight:400;color:#90a4ae">(để trống = xem 1 ngày)</span></label><input type="date" value="'+e(bghl.histDen||'')+'" onchange="bghlNapDen(this.value)" style="'+INP+';width:auto"></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:2px">'
+      +'<button style="'+q+'" onclick="bghlKhoangNhanh(\'1\')">Hôm qua</button>'
+      +'<button style="'+q+'" onclick="bghlKhoangNhanh(\'7\')">7 ngày qua</button>'
+      +'<button style="'+q+'" onclick="bghlKhoangNhanh(\'30\')">30 ngày qua</button>'
+      +'<button style="'+q+'" onclick="bghlKhoangNhanh(\'thang\')">Tháng này</button>'
+      +'<button style="'+q+'" onclick="bghlKhoangNhanh(\'thangtruoc\')">Tháng trước</button></div>'
     +'</div>'
-    +(bghl.histLoading?'<div style="color:#607d8b">Đang tải…</div>':viewNgay(bghl.hist, bghl.histKey, bghl.histKey===dKey()));
+    +(bghl.histLoading?'<div style="color:#607d8b">Đang tải…</div>':(laKhoang?viewKhoang():viewNgay(bghl.hist, bghl.histKey, bghl.histKey===dKey())));
 }
 function napLichSu(k){
   bghl.histKey=k; bghl.histLoading=true; render();
@@ -56973,7 +56983,53 @@ function napLichSu(k){
   var x=R('xacNhan/'+k);
   Promise.all([r.once('value'), x?x.once('value').catch(function(){ return null; }):null]).then(function(v){ bghl.hist=v[0].val()||{}; bghl.xnHist=(v[1]&&v[1].val())||{}; bghl.histLoading=false; if(bghl.tab==='lichsu') render(); }, function(){ bghl.hist={}; bghl.xnHist={}; bghl.histLoading=false; render(); });
 }
-window.bghlNapNgay=function(k){ if(k) napLichSu(k); };
+/* ── Xem lịch sử THEO KHOẢNG NGÀY (Từ ngày – Đến ngày): gom mọi lần bàn giao thành 1 bảng có cột Ngày ── */
+function napKhoang(){
+  var tu=bghl.histKey, den=bghl.histDen; bghl.histLoading=true; render();
+  taiKhoang(tu, den).then(function(list){ bghl.rangeList=list; bghl.histLoading=false; if(bghl.tab==='lichsu') render(); })
+    .catch(function(err){ bghl.rangeList=[]; bghl.histLoading=false; render(); alert('Không tải được dữ liệu: '+((err&&err.message)||err)); });
+}
+function napLai(){ if(bghl.histDen && bghl.histDen>bghl.histKey) napKhoang(); else { bghl.histDen=''; napLichSu(bghl.histKey); } }
+function cssPham(css, goc){ // gắn tiền tố cho từng bộ chọn CSS để bảng trong trang không ảnh hưởng chỗ khác
+  return css.split('}').filter(function(x){ return x.trim(); }).map(function(r){ var i=r.indexOf('{'); return r.slice(0,i).split(',').map(function(x){ return goc+' '+x.trim(); }).join(',')+r.slice(i)+'}'; }).join('');
+}
+function viewKhoang(){
+  var tu=bghl.histKey, den=bghl.histDen, all=bghl.rangeList||[], bp=bghl.rangeBp||'';
+  var list=bp?all.filter(function(r){ return r.boPhanId===bp; }):all;
+  var ngay={}, thieu=0, ghiChu=0;
+  list.forEach(function(r){ ngay[r.ngay]=(ngay[r.ngay]||0)+1;
+    var nds=Object.keys(r.sl||{}); if(nds.some(function(k){ var cs=(r.coSo||{})[k]; return cs!=null && (+r.sl[k])<(+cs); })) thieu++;
+    if(String(r.baoCao||'').trim() || Object.keys(r.dg||{}).some(function(k){ return r.dg[k]; })) ghiChu++; });
+  var soNgay=Object.keys(ngay).length;
+  var chip=function(bg,c,t){ return '<span style="background:'+bg+';color:'+c+';border-radius:8px;padding:5px 10px;font-size:12.5px;font-weight:700">'+t+'</span>'; };
+  var bpOpt='<option value="">Tất cả bộ phận</option>'+cfg().boPhan.map(function(b){ return '<option value="'+e(b.id)+'"'+(b.id===bp?' selected':'')+'>'+e(b.ten)+'</option>'; }).join('');
+  var nut='padding:6px 12px;font-size:12.5px;border-radius:8px;border:none;color:#fff;font-weight:700;cursor:pointer;font-family:inherit';
+  var ngayChips=Object.keys(ngay).sort().reverse().map(function(k){ return '<a href="javascript:void(0)" onclick="bghlMoNgay(\''+k+'\')" title="Xem chi tiết ngày này (có ký xác nhận)" style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:6px;background:#e0f2f1;color:#004d40;font-size:12px;text-decoration:none">'+fmtD(k)+' <b>('+ngay[k]+')</b></a>'; }).join('');
+  return '<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08)">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><div style="font-weight:800;font-size:16px;color:#004d40;flex:1;min-width:240px">📋 Bàn giao từ ngày '+fmtD(tu)+' đến ngày '+fmtD(den)+'</div>'
+      +'<select onchange="bghlKhoangBp(this.value)" style="'+INP+';width:auto">'+bpOpt+'</select>'
+      +'<button style="'+nut+';background:#6a1b9a" onclick="bghlKhoangXuat(\'xem\')">👁 Xem nhanh / In</button>'
+      +'<button style="'+nut+';background:#1b5e20" onclick="bghlKhoangXuat(\'excel\')">Xuất Excel</button>'
+      +'<button style="'+nut+';background:#1565c0" onclick="bghlKhoangXuat(\'word\')">Xuất Word</button></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+chip('#e0f2f1','#004d40',list.length+' lần bàn giao')+chip('#e3f2fd','#0d47a1',soNgay+' ngày có bàn giao')
+      +chip(thieu?'#ffebee':'#e8f5e9', thieu?'#c62828':'#1b5e20', (thieu?'⚠ ':'✓ ')+thieu+' lần thiếu so với cơ số')+chip('#fff8e1','#8a5a00','📝 '+ghiChu+' lần có ghi chú')+'</div>'
+    +(ngayChips?('<div style="font-size:12px;color:#607d8b;margin-bottom:8px">Bấm vào ngày để xem chi tiết & ký xác nhận: '+ngayChips+'</div>'):'')
+    +'<style>'+cssPham(BGHL_CSS_BANG,'#bghlKhoangBang')+'#bghlKhoangBang table.bg td,#bghlKhoangBang table.bg th{font-family:inherit;font-size:12.5px;padding:4px 6px;border-color:#b0bec5}</style>'
+    +'<div id="bghlKhoangBang" style="overflow-x:auto">'+(list.length?bangCot(list,{ngay:true, anhKy:true}):'<div style="color:#90a4ae;padding:14px;text-align:center">Không có lần bàn giao nào trong khoảng ngày này.</div>')+'</div></div>';
+}
+window.bghlNapNgay=function(k){ if(!k) return; bghl.histKey=k; napLai(); };
+window.bghlNapDen=function(k){ bghl.histDen=k||''; if(bghl.histDen && bghl.histDen<bghl.histKey){ var x=bghl.histKey; bghl.histKey=bghl.histDen; bghl.histDen=x; } napLai(); };
+window.bghlKhoangNhanh=function(q){
+  var d=new Date(), a=new Date(), b=new Date();
+  if(q==='1'){ b.setDate(b.getDate()-1); bghl.histKey=dKey(b); bghl.histDen=''; return napLai(); }
+  if(q==='thang'){ a=new Date(d.getFullYear(), d.getMonth(), 1); }
+  else if(q==='thangtruoc'){ a=new Date(d.getFullYear(), d.getMonth()-1, 1); b=new Date(d.getFullYear(), d.getMonth(), 0); }
+  else { a.setDate(a.getDate()-(+q)+1); }
+  bghl.histKey=dKey(a); bghl.histDen=dKey(b); napLai();
+};
+window.bghlKhoangBp=function(v){ bghl.rangeBp=v||''; render(); };
+window.bghlMoNgay=function(k){ bghl.histKey=k; bghl.histDen=''; napLichSu(k); };
+window.bghlKhoangXuat=function(kieu){ bghl.xuat={tu:bghl.histKey, den:bghl.histDen, bp:bghl.rangeBp||''}; window.bghlXuat(kieu); };
 window.bghlXuatExcel=function(){
   if(typeof XLSX==='undefined'){ alert('Chưa tải được thư viện Excel — kiểm tra mạng rồi thử lại.'); return; }
   var list=ghiNhanList(bghl.hist), nds=noiDungDung();
