@@ -56388,6 +56388,31 @@ function trangThaiBoPhan(bp, list, laHomNay, nowPhut){
   });
   return st;
 }
+/* ── KHÓA BÀN GIAO TRỄ HẠN ──
+   Trực 12h/24 (bộ phận có từ 2 mốc giờ báo trở lên, VD 07:30 & 19:30): quá mốc 6 giờ chưa giao → khóa.
+   Trực 24h (1 mốc/ngày): quá mốc 12 giờ → khóa. Được giao sớm trước mốc tối đa "som" phút.
+   Khi khóa, nhân viên KHÔNG lưu được bàn giao cho mốc đó nữa; chỉ Quản lý mới ghi bổ sung được. Số giờ chỉnh ở ⚙️ Cấu hình. */
+function khoaCfg(){ var k=(bghl.cfg&&bghl.cfg.khoa)||{}; return {bat:k.bat!==false, g12:(+k.g12>0?+k.g12:6), g24:(+k.g24>0?+k.g24:12), som:(k.som==null||k.som===''||isNaN(+k.som))?120:Math.max(0,+k.som)}; }
+function cheDo(bp){ return bp.che==='24' ? '24' : (bp.che==='12' ? '12' : (mocOf(bp).length>=2 ? '12' : '24')); }
+function hhmm(m){ var d=Math.floor(m/1440), x=((m%1440)+1440)%1440; return p2(Math.floor(x/60))+':'+p2(x%60)+(d<0?' (hôm qua)':(d>0?' (ngày mai)':'')); }
+function khoaBp(bp, now){
+  var K=khoaCfg(); if(!K.bat || !bp) return null;
+  var ms=mocOf(bp).map(phut).filter(function(x){ return x!=null; }); if(!ms.length) return null;
+  now=now||new Date(); var win=(cheDo(bp)==='12'?K.g12:K.g24)*60, t=now.getHours()*60+now.getMinutes(), cs=[];
+  [-1440,0,1440].forEach(function(o){ ms.forEach(function(m){ cs.push(m+o); }); }); cs.sort(function(a,b){ return a-b; });
+  for(var i=0;i<cs.length;i++){ if(t>=cs[i]-K.som && t<=cs[i]+win) return {khoa:false, moc:cs[i], het:cs[i]+win, gio:win/60, che:cheDo(bp)}; }
+  var tre=cs.filter(function(c){ return c+win<t; }).pop(), mo=cs.filter(function(c){ return c-K.som>t; })[0];
+  return {khoa:true, mocTre:tre, mo:(mo==null?null:mo-K.som), gio:win/60, che:cheDo(bp)};
+}
+function khoaMocQua(bp, moc, laHomNay){ // mốc chưa giao này đã bị khóa chưa
+  var K=khoaCfg(); if(!K.bat) return false; if(!laHomNay) return true;
+  var n=new Date(), t=n.getHours()*60+n.getMinutes(); return t > phut(moc)+(cheDo(bp)==='12'?K.g12:K.g24)*60;
+}
+function khoaThongBao(bp, kq){
+  return '🔒 BÀN GIAO "'+(bp.ten||'')+'" ĐANG BỊ KHÓA\n\nBộ phận trực '+(kq.che==='12'?'12h/24':'24h')+': quá mốc giờ báo '+kq.gio+' giờ mà chưa bàn giao thì hệ thống tự khóa'
+    +(kq.mocTre!=null?(' (mốc '+hhmm(kq.mocTre)+' đã quá hạn lúc '+hhmm(kq.mocTre+kq.gio*60)+')'):'')+'.'
+    +(kq.mo!=null?('\n\nMở lại cho lần bàn giao kế tiếp từ '+hhmm(kq.mo)+'.'):'')+'\n\nCần ghi bổ sung: báo Điều dưỡng trưởng / Quản lý.';
+}
 function moiNhatCua(bpId, list){ var l=list.filter(function(r){ return r.boPhanId===bpId; }); return l.length?l[l.length-1]:null; }
 function lechCua(bpId, rec){ // các món lệch so với cơ số trong lần giao gần nhất
   var out=[]; if(!rec) return out;
@@ -56508,6 +56533,8 @@ function render(){
 
 /* ── Tab Bàn giao (form nhập) ── */
 function mocKeTiep(bp){
+  var kq=khoaBp(bp, new Date());
+  if(kq && kq.khoa) return {txt:'🔒 Đã khóa'+(kq.mo!=null?(' — mở lại '+hhmm(kq.mo)):''), mau:'#5d4037', bg:'#efebe9'};
   var list=ghiNhanList(bghl.today), now=new Date(), np=now.getHours()*60+now.getMinutes();
   var st=trangThaiBoPhan(bp, list, true, np);
   var chua=st.filter(function(x){ return x.tt==='chua'; }), cho=st.filter(function(x){ return x.tt==='cho'; });
@@ -56619,7 +56646,9 @@ function bindNhap(){
   });
   document.querySelectorAll('.bghlDg').forEach(function(i){ i.oninput=function(){ bghl.form.dg=bghl.form.dg||{}; bghl.form.dg[i.dataset.nd]=i.value; }; });
 }
-window.bghlChonBp=function(id){ docForm(); if(bghl.form.bp!==id){ bghl.form.bp=id; bghl.form.sl={}; bghl.form.dg={}; } render(); };
+window.bghlChonBp=function(id){
+  if(!isAdmin() && !(bghl.form&&bghl.form.editId)){ var bpK=boPhanDung().filter(function(b){ return b.id===id; })[0], kq=khoaBp(bpK, new Date()); if(kq && kq.khoa){ alert(khoaThongBao(bpK, kq)); return; } }
+  docForm(); if(bghl.form.bp!==id){ bghl.form.bp=id; bghl.form.sl={}; bghl.form.dg={}; } render(); };
 window.bghlCong=function(ndId, d){ docForm(); var v=bghl.form.sl[ndId]; if(v==null){ var cs=coSoOf(bghl.form.bp, ndId); v=(cs==null?0:cs); } bghl.form.sl[ndId]=Math.max(0,(+v)+d); render(); };
 window.bghlDu=function(ndId){ docForm(); var cs=coSoOf(bghl.form.bp, ndId); if(cs!=null) bghl.form.sl[ndId]=cs; render(); };
 window.bghl_doiGio=function(){ docForm(); bghl.form.doiGio=true; render(); };
@@ -56637,6 +56666,11 @@ window.bghlLuu=function(){
   if(lechChuaDg.length && !confirm('Có '+lechChuaDg.length+' món chênh lệch cơ số chưa ghi diễn giải:\n• '+lechChuaDg.map(function(nd){ var d=(+f.sl[nd.id])-coSoOf(f.bp,nd.id); return nd.ten+' ('+(d>0?'dư ':'thiếu ')+Math.abs(d)+')'; }).join('\n• ')+'\n\nBấm "Hủy" để quay lại ghi lý do, hoặc "OK" để vẫn lưu.')) return;
   if(chuaNhap.length && chuaNhap.length===nds.length && !confirm('Chưa nhập số lượng món nào.\n\nNếu tất cả đủ cơ số: bấm "Hủy" rồi bấm nút "✓ Tất cả đủ cơ số".\nVẫn lưu bàn giao không có số lượng?')) return;
   if(chuaNhap.length && chuaNhap.length<nds.length && !confirm('Còn '+chuaNhap.length+' món chưa nhập số lượng:\n• '+chuaNhap.join('\n• ')+'\n\nVẫn lưu bàn giao?')) return;
+  if(!f.editId && !isAdmin()){
+    var bpK=boPhanDung().filter(function(b){ return b.id===f.bp; })[0], kq=khoaBp(bpK, new Date());
+    if(kq && kq.khoa){ alert(khoaThongBao(bpK, kq)); return; }
+    if(f.doiGio){ var lechP=Math.abs(new Date(f.gio).getTime()-Date.now())/60000; if(lechP>15){ alert('⚠️ Giờ bàn giao phải là giờ hiện tại.\n\nChỉ Quản lý mới được ghi lùi/ghi trước giờ bàn giao. Bấm "đổi" rồi để đúng giờ hiện tại, hoặc báo Quản lý.'); return; } }
+  }
   if(!f.doiGio && !f.editId){ var n0=new Date(); f.gio=dKey(n0)+'T'+hm(n0); } // không tự đổi giờ → lấy đúng thời điểm bấm Lưu
   var bp=boPhanDung().filter(function(b){ return b.id===f.bp; })[0]||{};
   var ngay=f.gio.slice(0,10), gio=f.gio.slice(11,16);
@@ -56695,7 +56729,7 @@ function viewNgay(map, ngay, laHomNay){
     var mocHtml=st.map(function(s){
       var c={dung:['#e8f5e9','#1b5e20','✓'], tre:['#fff8e1','#e65100','⏱'], chua:['#ffebee','#c62828','✗'], cho:['#eceff1','#546e7a','…']}[s.tt];
       if(s.tt==='chua') demChua++; if(s.tt==='tre') demTre++;
-      var ghi = s.tt==='dung' ? ('giao '+s.rec.gio) : s.tt==='tre' ? ('trễ '+s.tre+'′ ('+s.rec.gio+')') : s.tt==='chua' ? 'chưa giao' : 'chưa đến giờ';
+      var ghi = s.tt==='dung' ? ('giao '+s.rec.gio) : s.tt==='tre' ? ('trễ '+s.tre+'′ ('+s.rec.gio+')') : s.tt==='chua' ? ('chưa giao'+(khoaMocQua(bp, s.moc, laHomNay)?' · 🔒 đã khóa':'')) : 'chưa đến giờ';
       return '<div style="background:'+c[0]+';color:'+c[1]+';border-radius:6px;padding:2px 6px;margin:2px 0;font-size:11.5px;font-weight:700;white-space:nowrap">'+c[2]+' '+s.moc+' — '+ghi+'</div>';
     }).join('');
     var chips=ndCuaRec(bp.id, rec).filter(function(nd){ return coSoOf(bp.id, nd.id)!=null || (rec && rec.sl && rec.sl[nd.id]!=null) || (rec && rec.dg && rec.dg[nd.id]); }).map(function(nd){
@@ -57043,7 +57077,7 @@ window.bghlXuatExcel=function(){
 /* ── Cấu hình (chỉ Quản lý): bộ phận + giờ báo, nội dung bàn giao, cơ số ── */
 function viewCauHinh(){
   if(!isAdmin()) return '<div style="background:#fff3e0;border-radius:10px;padding:14px;color:#8a4b00">Chỉ Quản lý mới cấu hình được.</div>';
-  if(!bghl.editCfg){ var c=cfg(), k0=(bghl.cfg&&bghl.cfg.ky)||{}; bghl.editCfg={boPhan:c.boPhan.map(function(x){ return Object.assign({},x,{moc:mocOf(x)}); }), noiDung:c.noiDung.map(function(x){ return Object.assign({},x); }), coSo:JSON.parse(JSON.stringify(c.coSo||{})),
+  if(!bghl.editCfg){ var c=cfg(), k0=(bghl.cfg&&bghl.cfg.ky)||{}; bghl.editCfg={khoa:Object.assign({bat:true,g12:6,g24:12,som:120},(bghl.cfg&&bghl.cfg.khoa)||{}), boPhan:c.boPhan.map(function(x){ return Object.assign({},x,{moc:mocOf(x)}); }), noiDung:c.noiDung.map(function(x){ return Object.assign({},x); }), coSo:JSON.parse(JSON.stringify(c.coSo||{})),
     ky:{trai:Object.assign({chucDanh:'Người tổng hợp', ten:''}, k0.trai||{}), phai:Object.assign({chucDanh:'Điều dưỡng trưởng khoa', ten:''}, k0.phai||{})}}; }
   var E=bghl.editCfg, sm='padding:4px 8px;font-size:12px;';
   var box='background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:12px';
@@ -57051,6 +57085,7 @@ function viewCauHinh(){
     +E.boPhan.map(function(b,i){ return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;'+(b.an?'opacity:.5':'')+'">'
         +'<input value="'+e(b.ten)+'" oninput="bghlCfgSet(\'boPhan\','+i+',\'ten\',this.value)" style="'+INP+';flex:2;min-width:180px" placeholder="Tên bộ phận">'
         +'<input value="'+e((b.moc||[]).join(', '))+'" oninput="bghlCfgSet(\'boPhan\','+i+',\'mocTxt\',this.value)" style="'+INP+';flex:1;min-width:120px" placeholder="07:30, 19:30">'
+        +'<select onchange="bghlCfgSet(\'boPhan\','+i+',\'che\',this.value)" title="Chế độ trực — quyết định thời gian khóa bàn giao trễ" style="'+INP+';flex:none;width:auto;font-size:12.5px"><option value=""'+(!b.che?' selected':'')+'>Trực: tự nhận (2 mốc = 12h, 1 mốc = 24h)</option><option value="12"'+(b.che==='12'?' selected':'')+'>Trực 12h/24</option><option value="24"'+(b.che==='24'?' selected':'')+'>Trực 24h</option></select>'
         +'<button onclick="bghlCfgMove(\'boPhan\','+i+',-1)" style="'+BTN+sm+'background:#eceff1">↑</button><button onclick="bghlCfgMove(\'boPhan\','+i+',1)" style="'+BTN+sm+'background:#eceff1">↓</button>'
         +'<button onclick="bghlCfgAn(\'boPhan\','+i+')" style="'+BTN+sm+'background:#fff;color:'+(b.an?'#1b5e20':'#c62828')+';border:1px solid currentColor">'+(b.an?'Hiện lại':'Ẩn')+'</button></div>'; }).join('')
     +'<button onclick="bghlCfgThem(\'boPhan\')" style="'+BTN+'background:#fff;color:#00695c;border:1.5px dashed #00695c">+ Thêm bộ phận</button>';
@@ -57070,11 +57105,18 @@ function viewCauHinh(){
     +'</table></div>';
   var K=E.ky, h4='<div style="font-size:12px;color:#607d8b;margin-bottom:8px">In ở cuối "Báo cáo có chữ ký". Để trống tên nếu muốn ký tay.</div>'
     +['trai','phai'].map(function(k){ return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input value="'+e(K[k].chucDanh)+'" oninput="bghlCfgKy(\''+k+'\',\'chucDanh\',this.value)" placeholder="Chức danh" style="'+INP+';flex:1;min-width:180px"><input value="'+e(K[k].ten)+'" oninput="bghlCfgKy(\''+k+'\',\'ten\',this.value)" placeholder="Họ tên (không bắt buộc)" style="'+INP+';flex:1;min-width:180px"></div>'; }).join('');
-  var h=sec('cf1','1. Bộ phận bàn giao & giờ báo trước',h1,true)+sec('cf2','2. Nội dung bàn giao',h2,true)+sec('cf3','3. Cơ số từng bộ phận',h3,true)+sec('cf4','4. Chữ ký trên báo cáo',h4,false)
+  var KH=E.khoa, nI='width:70px;padding:6px;border:1px solid #cfd8dc;border-radius:6px;text-align:center;font-size:14px;margin:0 4px';
+  var h5='<label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin-bottom:8px;cursor:pointer"><input type="checkbox" '+(KH.bat!==false?'checked ':'')+'onchange="bghlCfgKhoa(\'bat\',this.checked)" style="width:17px;height:17px"> Bật khóa bàn giao khi quá hạn</label>'
+    +'<div style="font-size:13px;line-height:2">• Trực <b>12h/24</b> (2 mốc/ngày): quá mốc giờ báo<input type="number" min="1" max="23" value="'+e(KH.g12)+'" oninput="bghlCfgKhoa(\'g12\',this.value)" style="'+nI+'">giờ chưa giao → khóa<br>'
+    +'• Trực <b>24h</b> (1 mốc/ngày): quá mốc giờ báo<input type="number" min="1" max="23" value="'+e(KH.g24)+'" oninput="bghlCfgKhoa(\'g24\',this.value)" style="'+nI+'">giờ chưa giao → khóa<br>'
+    +'• Cho phép bàn giao sớm trước mốc tối đa<input type="number" min="0" max="600" value="'+e(KH.som)+'" oninput="bghlCfgKhoa(\'som\',this.value)" style="'+nI+'">phút</div>'
+    +'<div style="font-size:12px;color:#607d8b;margin-top:6px">Khi khóa, hộ lý không chọn được bộ phận đó và không lưu được bàn giao; bảng ngày ghi <b>"chưa giao · 🔒 đã khóa"</b>. Quản lý vẫn ghi bổ sung / sửa được. Nhân viên cũng không được tự đổi giờ bàn giao lệch quá 15 phút so với giờ hiện tại.</div>';
+  var h=sec('cf1','1. Bộ phận bàn giao & giờ báo trước',h1,true)+sec('cf2','2. Nội dung bàn giao',h2,true)+sec('cf3','3. Cơ số từng bộ phận',h3,true)+sec('cf4','4. Chữ ký trên báo cáo',h4,false)+sec('cf5','5. Khóa bàn giao trễ hạn',h5,true)
     +'<div style="display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:#f1f5f4;padding:8px 0"><button onclick="bghl_huyCfg()" style="'+BTN+'background:#fff;color:#555;border:1px solid #bbb">Hủy thay đổi</button><button onclick="bghlCfgLuu()" style="'+BTN+'background:#00695c;color:#fff;padding:10px 20px"><i class="ti ti-device-floppy"></i> Lưu cấu hình</button></div>';
   return h;
 }
 window.bghlCfgKy=function(k,f,v){ bghl.editCfg.ky[k][f]=v; };
+window.bghlCfgKhoa=function(k,v){ var K=bghl.editCfg.khoa; if(k==='bat') K.bat=!!v; else K[k]=(v===''?'':Math.max(0,parseInt(v,10)||0)); };
 window.bghl_huyCfg=function(){ bghl.editCfg=null; render(); };
 window.bghlCfgSet=function(loai,i,k,v){ var x=bghl.editCfg[loai][i]; if(!x) return; if(k==='mocTxt') x.moc=String(v).split(/[,;\s]+/).filter(Boolean); else x[k]=v; };
 window.bghlCfgMove=function(loai,i,d){ var a=bghl.editCfg[loai], j=i+d; if(j<0||j>=a.length) return; var t=a[i]; a[i]=a[j]; a[j]=t; render(); };
@@ -57087,10 +57129,10 @@ window.bghlCfgLuu=function(){
   E.boPhan=E.boPhan.filter(function(b){ return String(b.ten||'').trim(); });
   E.noiDung=E.noiDung.filter(function(n){ return String(n.ten||'').trim(); });
   E.boPhan.forEach(function(b){ b.ten=String(b.ten).trim(); var sai=(b.moc||[]).filter(function(m){ return phut(m)==null; }); if(sai.length) loi.push(b.ten+': giờ "'+sai.join(', ')+'" chưa đúng dạng HH:MM');
-    b.moc=(b.moc||[]).filter(function(m){ return phut(m)!=null; }).map(function(m){ var t=phut(m); return p2(Math.floor(t/60))+':'+p2(t%60); }); if(!b.an) delete b.an; });
+    b.moc=(b.moc||[]).filter(function(m){ return phut(m)!=null; }).map(function(m){ var t=phut(m); return p2(Math.floor(t/60))+':'+p2(t%60); }); if(!b.an) delete b.an; if(b.che!=='12'&&b.che!=='24') delete b.che; });
   E.noiDung.forEach(function(n){ n.ten=String(n.ten).trim(); n.dvt=String(n.dvt||'').trim(); if(!n.an) delete n.an; });
   if(loi.length){ alert('⚠️ '+loi.join('\n')); return; }
-  var luu={boPhan:E.boPhan, noiDung:E.noiDung, coSo:E.coSo, ky:E.ky, capNhat:Date.now()};
+  var KH=E.khoa||{}; var luu={boPhan:E.boPhan, noiDung:E.noiDung, coSo:E.coSo, ky:E.ky, khoa:{bat:KH.bat!==false, g12:(+KH.g12>0?+KH.g12:6), g24:(+KH.g24>0?+KH.g24:12), som:(KH.som===''||KH.som==null?120:+KH.som)}, capNhat:Date.now()};
   R('cauHinh').set(JSON.parse(JSON.stringify(luu))).then(function(){ alert('✅ Đã lưu cấu hình bàn giao hộ lý.'); bghl.editCfg=null; bghl.tab='nhap'; bghl.form=null; render(); })
     .catch(function(err){ alert('❌ Không lưu được cấu hình: '+((err&&err.message)||err)); });
 };
