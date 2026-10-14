@@ -53338,6 +53338,9 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         <select id="nvkNhomFilter" onchange="nvkRender()" style="padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="">Tất cả nhóm</option>
         </select>
+        <select id="nvkGioiTinhFilter" onchange="nvkRender()" title="Lọc theo giới tính" style="padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
+          <option value="">Nam + Nữ</option><option value="Nam">👨 Nam</option><option value="Nữ">👩 Nữ</option>
+        </select>
         <select id="nvkVanBangFilter" onchange="nvkRender()" style="padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="">Tất cả văn bằng</option>
         </select>
@@ -53374,6 +53377,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     <h3 style="margin-top:0"><i class="ti ti-user-edit"></i> <span id="nvkEditTitle">Sửa nhân viên</span></h3>
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Họ và tên</label><input type="text" id="nvkEHoTen" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Ngày sinh</label><input type="date" id="nvkENgaySinh" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Giới tính</label><select id="nvkEGioiTinh" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit"><option value="">— Chưa rõ —</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Đơn vị</label><input type="text" id="nvkEDonVi" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Nhóm</label><select id="nvkENhom" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"><option value="">— Chưa xếp nhóm —</option></select></div>
     <div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">Chức vụ (để trống nếu không có)</label><input type="text" id="nvkEChucVu" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit"></div>
@@ -54414,7 +54418,29 @@ function nvkTenChinh(hoTen){
   var parts = String(hoTen||'').trim().split(/\s+/);
   return parts.length ? parts[parts.length-1] : '';
 }
+// Giới tính: ưu tiên ô "Giới tính" đã lưu của nhân viên; chưa có thì lấy theo danh sách CNKT có sẵn (theo họ tên);
+// vẫn chưa có thì đoán theo tên đệm ("Thị" → Nữ, "Văn" → Nam). Quản lý sửa lại được ở nút "Sửa".
+var NVK_GT_SEED={"cao viet thang":"a","hoang minh hai":"a","huynh thi kim hong":"u","huynh thi su":"u","ho thai nhieu":"a","ho thi chung":"u","ho thi my":"u","hua huu tuan":"a","la thi thanh tra":"u","le quoc trieu":"a","le thi hue":"u","le thi kim sao":"u","le thi kim thinh":"u","le thi manh quyen":"u","le thi thuy van":"u","le thi ai phuong":"u","le vo thu":"a","le van kha":"a","le van long":"a","le van sang":"a","le van thuy":"a","nguyen chi bao":"a","nguyen canh muon":"a","nguyen duy my":"a","nguyen hoang son nu":"u","nguyen ha tien dung":"a","nguyen huu phuoc":"a","nguyen kim son":"a","nguyen phan anh quan":"a","nguyen thanh hoang":"a","nguyen thanh":"a","nguyen thi bich thuy":"u","nguyen thi dieu my":"u","nguyen thi hao":"u","nguyen thi hong nhi":"u","nguyen thi minh chau":"u","nguyen thi thanh nhi":"u","nguyen thi thuy hang":"u","nguyen thi xuan thao":"u","nguyen tien dung":"a","nguyen trung thanh":"a","nguyen tai thu":"a","nguyen van chinh":"a","nguyen van chung":"a","nguyen van thuong":"a","nguyen van tuy":"a","nguyen vu cam tu":"u","nguyen xuan hien":"a","nguyen xuan hoai":"a","nguyen dinh kim loan":"u","nguyen dinh thang":"a","ngo thi le":"u","ngo thi nhut":"u","phan quoc sang":"a","phan thao vy":"u","phan thi my duyen":"u","phan thi thanh nga":"u","pham thi chien":"u","pham thi hoang cuc":"u","than hoang khang":"a","than thi lieu":"u","truong ngoc bau":"u","truong thi bich lieu":"u","truong thi thu hang":"u","truong thi tin":"u","truong van phap":"a","truong dinh tri":"a","tran ba quyen":"a","tran quoc khang":"a","tran thi bich tuyen":"u","tran thi cam nhung":"u","tran thi dung":"u","tran thi my dung":"u","tran thi ngang":"u","tran thi thanh huyen":"u","tran tien thanh":"a","tran van dai":"a","tran xuan hung":"a","tran dinh ban":"a","tran dinh duy":"a","tran dang trung":"a","vo huy cuong":"a","vo ngoc binh":"a","vo ngoc phuoc":"a","vo thi tuong vi":"u","vo thi xuan viet":"u","vo dinh tay":"a","vo dong kinh":"a","dinh kim vu":"a","dinh thi thu hoai":"u","dao thi phuong thuy":"u","dang ho hong phi":"u","dang thu hien":"u","dang thi my lai":"u","dang van canh":"a","do ho my hanh":"u","do kim oanh":"u","do le thanh ngoc":"u","do ngoc vu":"a","do thanh khuong":"a","do thi ngoc diem":"u"};
+function nvkGioiTinh(e){
+  if(!e) return '';
+  if(e.gioiTinh==='Nam'||e.gioiTinh==='Nữ') return e.gioiTinh;
+  var k=nvkNoAccent(e.ten||'').replace(/\s+/g,' ').trim();
+  if(NVK_GT_SEED[k]) return NVK_GT_SEED[k]==='u'?'Nữ':'Nam';
+  var w=k.split(' ');
+  if(w.length>2 && w.slice(1,-1).indexOf('thi')>-1) return 'Nữ';
+  if(w.length>2 && w.slice(1,-1).indexOf('van')>-1) return 'Nam';
+  return '';
+}
+function nvkGioiTinhCount(){ // cập nhật số người trên ô lọc: "👨 Nam (45)"
+  var sel=document.getElementById('nvkGioiTinhFilter'); if(!sel) return;
+  var n={Nam:0,'Nữ':0,'':0}; nvkList.forEach(function(e){ n[nvkGioiTinh(e)]++; });
+  var v=sel.value;
+  sel.innerHTML='<option value="">Nam + Nữ</option><option value="Nam">👨 Nam ('+n.Nam+')</option><option value="Nữ">👩 Nữ ('+n['Nữ']+')</option>'
+    +(n['']?('<option value="?">❔ Chưa rõ giới tính ('+n['']+')</option>'):'');
+  sel.value=(v==='?'&&!n[''])?'':v;
+}
 function nvkGetFilteredList(){
+  var gioiTinh = (document.getElementById('nvkGioiTinhFilter')||{}).value || '';
   var q = nvkNoAccent((document.getElementById('nvkSearch')||{}).value || '');
   var donVi = (document.getElementById('nvkDonViFilter')||{}).value || '';
   var nhom = (document.getElementById('nvkNhomFilter')||{}).value || '';
@@ -54426,6 +54452,7 @@ function nvkGetFilteredList(){
     if(donVi && e.donVi!==donVi) return false;
     if(nhom && e.nhom!==nhom) return false;
     if(vanBang && e.vanBang!==vanBang) return false;
+    if(gioiTinh && (gioiTinh==='?' ? nvkGioiTinh(e)!=='' : nvkGioiTinh(e)!==gioiTinh)) return false;
     if(!q) return true;
     var hay = nvkNoAccent((e.ten||'')+' '+(e.donVi||'')+' '+(e.nhom||'')+' '+(e.chucVu||'')+' '+(e.vanBang||''));
     return hay.indexOf(q) > -1;
@@ -54777,6 +54804,7 @@ function nvkRender(){
   var tb = document.getElementById('nvkTbody');
   var cnt = document.getElementById('nvkCount');
   if(!tb) return;
+  nvkGioiTinhCount();
   var list = nvkGetFilteredList();
   if(cnt) cnt.textContent = list.length + ' / ' + nvkList.length + ' người';
   nvkUpdateSelBar(list);
@@ -54823,6 +54851,7 @@ function nvkOpenEdit(idx){
   document.getElementById('nvkEditTitle').textContent = (idx>=0) ? 'Sửa thông tin nhân viên' : 'Thêm nhân viên mới';
   document.getElementById('nvkEHoTen').value = e.ten||'';
   document.getElementById('nvkENgaySinh').value = e.ngaySinh||'';
+  var gtSel=document.getElementById('nvkEGioiTinh'); if(gtSel) gtSel.value = (idx>=0) ? nvkGioiTinh(e) : '';
   document.getElementById('nvkEDonVi').value = e.donVi||'';
   document.getElementById('nvkEChucVu').value = e.chucVu||'';
   document.getElementById('nvkEVanBang').value = e.vanBang||'';
@@ -54850,10 +54879,12 @@ function nvkSaveEdit(){
     soCCHN: document.getElementById('nvkESoCCHN').value.trim(),
     sdt: document.getElementById('nvkESdt').value.trim(),
     email: document.getElementById('nvkEEmail').value.trim(),
-    soDinhDanh: document.getElementById('nvkESoDinhDanh').value.trim()
+    soDinhDanh: document.getElementById('nvkESoDinhDanh').value.trim(),
+    gioiTinh: (document.getElementById('nvkEGioiTinh')||{}).value || ''
   };
   var newList = nvkList.slice();
-  if(nvkEditingIdx>=0){ newList[nvkEditingIdx] = entry; } else { newList.push(entry); }
+  // giữ các thông tin khác của nhân viên (nếu có) không nằm trên form này
+  if(nvkEditingIdx>=0){ newList[nvkEditingIdx] = Object.assign({}, nvkList[nvkEditingIdx]||{}, entry); } else { newList.push(entry); }
   nvkSaveArray(newList);
 }
 function nvkDelete(idx){
