@@ -56870,8 +56870,11 @@ function viewXuat(){
 window.bghlMoXuat=function(kieu){
   var t=bghl.xuat||(bghl.xuat={tu:'', den:'', bp:''});
   // mặc định theo tab đang xem: Lịch sử → ngày đang xem; còn lại → hôm nay
-  var md=(bghl.tab==='lichsu' && bghl.histKey) ? bghl.histKey : dKey();
-  if(!t.tu) t.tu=md; if(!t.den) t.den=md; t.kieu=kieu;
+  // Mỗi lần mở: lấy ĐÚNG khoảng ngày đang xem (Lịch sử: Từ ngày – Đến ngày + bộ phận đang lọc; tab khác: hôm nay),
+  // không giữ lại ngày của lần xuất trước (trước đây giữ lại → xuất nhầm 1 ngày cũ).
+  if(bghl.tab==='lichsu' && bghl.histKey){ t.tu=bghl.histKey; t.den=(bghl.histDen && bghl.histDen>bghl.histKey)?bghl.histDen:bghl.histKey; t.bp=(bghl.histDen && bghl.histDen>bghl.histKey)?(bghl.rangeBp||''):''; }
+  else { t.tu=dKey(); t.den=dKey(); t.bp=''; }
+  t.kieu=kieu;
   var old=document.getElementById('bghlXuatOv'); if(old) old.remove();
   var ov=document.createElement('div'); ov.id='bghlXuatOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:6000;display:flex;align-items:flex-start;justify-content:center;padding:60px 14px;overflow:auto';
