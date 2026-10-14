@@ -2967,6 +2967,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
     <div id="filterSec" style="display:none">
       <div class="fbar">
         <i class="ti ti-filter" style="color:var(--g400);font-size:15px;flex-shrink:0"></i>
+        <div class="ff" style="flex:1 1 260px;min-width:220px"><label>🔍 Tìm nội dung thẻ</label><div style="position:relative"><input type="search" id="fText" placeholder="Gõ vài chữ: xe băng ca, mời họp, số 40…" oninput="renderBoard()" title="Tìm trong toàn bộ nội dung thẻ: nội dung, cần làm, đang làm, hoàn thành, ghi chú, phòng ban đã gửi, người báo cáo… Không cần gõ dấu; nhiều từ thì thẻ phải có đủ các từ." style="width:100%;box-sizing:border-box;border:2px solid #2e7d32;font-weight:600"></div></div>
         <div class="ff"><label>Tên NV</label><input type="text" id="fName" placeholder="Tìm tên..." oninput="renderBoard()" style="width:150px"></div>
         <div class="ff"><label>Người phụ trách</label><input type="text" id="fAssignee" list="fAssigneeDatalist" autocomplete="off" placeholder="Tìm người đã phân công..." oninput="renderBoard()" onchange="renderBoard()" style="width:170px"></div>
         <datalist id="fAssigneeDatalist"></datalist>
@@ -13368,6 +13369,11 @@ function kbxWord(){
 }
 
 /* ── RENDER ── */
+function kbSearchText(c){
+  const fw=Array.isArray(c.forwards)?c.forwards:(c.forwards?Object.values(c.forwards):[]);
+  return [c.content,c.todo,c.doing,c.done,c.person,c.assignee,c.dept,c.note,c.assignNote,c.link,c.vbHeader,c.doneNote,
+    fw.map(f=>f?[f.dept,f.nguoiNhan,f.note,f.replyNote,f.doneNote].join(' '):'').join(' ')].filter(Boolean).join(' \n ');
+}
 function getFiltered(){
   let r=[...cards];
   // Ghi chú nhanh là nhật ký làm việc riêng của Admin — tuyệt đối không hiện ở bất kỳ trạng thái
@@ -13380,6 +13386,13 @@ function getFiltered(){
   // Trạng thái, Mức độ, Từ ngày, Đến ngày) không có tác dụng dù vẫn hiện trên giao diện.
   // Nay để mọi vai trò đều chạy tiếp xuống phần lọc, ô lọc hoạt động đúng cho cả NV/Xem công khai.
   const nm=document.getElementById('fName').value||'';
+  const txt=(document.getElementById('fText')||{}).value||'';
+  if(txt.trim()){
+    // Tìm theo nội dung: không phân biệt dấu/hoa-thường; nhiều từ → thẻ phải chứa ĐỦ các từ
+    const kd=x=>vnNoAccent(x).replace(/đ/g,'d');
+    const tu=kd(txt).split(/\s+/).filter(Boolean);
+    r=r.filter(c=>{ const hay=kd(kbSearchText(c)); return tu.every(w=>hay.includes(w)); });
+  }
   const asg=document.getElementById('fAssignee')?document.getElementById('fAssignee').value||'':'';
   const dp=document.getElementById('fDept')?document.getElementById('fDept').value:'';
   const st=document.getElementById('fStatus').value||'';
@@ -13413,7 +13426,7 @@ function qnSyncGroupFilterVisibility(){
   if(!chk.checked){ var sel=document.getElementById('fQuickNoteGroup'); if(sel) sel.value=''; }
 }
 function clearFilters(){
-  ['fName','fAssignee','fDept','fStatus','fPri','fFrom','fTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fText','fName','fAssignee','fDept','fStatus','fPri','fFrom','fTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const qn=document.getElementById('fQuickNote'); if(qn) qn.checked=false;
   const nty=document.getElementById('fNoteType'); if(nty) nty.value='';
   const qng=document.getElementById('fQuickNoteGroup'); if(qng) qng.value='';
