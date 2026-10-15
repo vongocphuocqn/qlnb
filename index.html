@@ -10870,7 +10870,7 @@ function notifInit(){
           var r=recSnap.val();
           if(r&&r.trangThai==='hoanthanh'&&r.ngay===homNay){
             hoanThanhCount++;
-            hoanThanhItems.push({nguon:'Bàn giao Hồi sức — '+roomSnap.key, kind:'bg', roomId:roomSnap.key, id:recSnap.key, ngay:r.ngay, gio:r.gio, nguoiGiao:r.nguoiGiao, nguoiNhan:r.nguoiNhan});
+            hoanThanhItems.push({nguon:'Bàn giao Hồi sức — '+roomSnap.key, kind:'bg', roomId:roomSnap.key, id:recSnap.key, ngay:r.ngay, gio:r.gio, nguoiGiao:r.nguoiGiao, nguoiNhan:r.nguoiNhan, kyGiao:((r.xacNhanGiao||{}).chuKy||''), kyNhan:((r.xacNhanNhan||{}).chuKy||'')});
           }
           if(r&&r.trangThai==='choduyet'){
             n++; c++;
@@ -10922,7 +10922,7 @@ function notifInit(){
           if(r&&r.ngay&&r.ngay.slice(0,7)===thangHienTai){ roomsCoBienBanThangNay[roomSnap.key]=true; }
           if(r&&r.trangThai==='hoanthanh'&&r.ngay===homNayPm){
             hoanThanhCountPm++;
-            hoanThanhItemsPm.push({nguon:'Bàn giao Phòng Mổ '+roomSnap.key, kind:'pm', roomId:roomSnap.key, id:recSnap.key, ngay:r.ngay, gio:r.gio, nguoiGiao:r.nguoiGiao, nguoiNhan:r.nguoiNhan});
+            hoanThanhItemsPm.push({nguon:'Bàn giao Phòng Mổ '+roomSnap.key, kind:'pm', roomId:roomSnap.key, id:recSnap.key, ngay:r.ngay, gio:r.gio, nguoiGiao:r.nguoiGiao, nguoiNhan:r.nguoiNhan, kyGiao:((r.xacNhanGiao||{}).chuKy||''), kyNhan:((r.xacNhanNhan||{}).chuKy||'')});
           }
           if(r&&r.trangThai==='choduyet'){
             n++; c++;
@@ -16891,6 +16891,7 @@ function briefLoadExtra(){
     }
   }
   // Bàn giao hoàn thành hôm nay — bấm vào từng dòng để xem thẳng biên bản
+  function briefKyImg(u){ return (typeof u==='string' && u.indexOf('data:image')===0) ? '<img src="'+u+'" alt="chữ ký" style="height:28px;max-width:100px;object-fit:contain;background:#fff;vertical-align:middle">' : '<span style="font-size:11px;color:#c62828">(chưa ký)</span>'; }
   var hoanThanhSection=document.getElementById('briefHoanThanhSection');
   var hoanThanhBody=document.getElementById('briefHoanThanhBody');
   var hoanThanhCountEl=document.getElementById('briefHoanThanhCount');
@@ -16907,11 +16908,13 @@ function briefLoadExtra(){
           '<td style="padding:6px 8px;border:1px solid #c8e6c9;font-weight:700;color:#2e7d32">'+esc(x.nguon)+'</td>'+
           '<td style="padding:6px 8px;border:1px solid #c8e6c9;white-space:nowrap;color:#666;font-size:11px">'+esc(x.ngay||'—')+(x.gio?(' '+esc(x.gio)):'')+'</td>'+
           '<td style="padding:6px 8px;border:1px solid #c8e6c9">'+esc(x.nguoiGiao||'—')+' → '+esc(x.nguoiNhan||'—')+'</td>'+
+          '<td style="padding:4px 8px;border:1px solid #c8e6c9;text-align:center">'+briefKyImg(x.kyGiao)+'</td>'+
+          '<td style="padding:4px 8px;border:1px solid #c8e6c9;text-align:center">'+briefKyImg(x.kyNhan)+'</td>'+
           '<td style="padding:6px 8px;border:1px solid #c8e6c9;text-align:center"><i class="ti ti-chevron-right" style="color:#2e7d32"></i></td>'+
         '</tr>';
       }).join('');
       hoanThanhBody.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
-        '<thead><tr style="background:#e8f5e9"><th style="padding:6px 8px;border:1px solid #c8e6c9;width:30px">#</th><th style="padding:6px 8px;border:1px solid #c8e6c9;text-align:left">Nguồn / Phòng</th><th style="padding:6px 8px;border:1px solid #c8e6c9">Giờ hoàn thành</th><th style="padding:6px 8px;border:1px solid #c8e6c9;text-align:left">Bàn giao → Nhận</th><th style="padding:6px 8px;border:1px solid #c8e6c9;width:30px"></th></tr></thead>'+
+        '<thead><tr style="background:#e8f5e9"><th style="padding:6px 8px;border:1px solid #c8e6c9;width:30px">#</th><th style="padding:6px 8px;border:1px solid #c8e6c9;text-align:left">Nguồn / Phòng</th><th style="padding:6px 8px;border:1px solid #c8e6c9">Giờ hoàn thành</th><th style="padding:6px 8px;border:1px solid #c8e6c9;text-align:left">Bàn giao → Nhận</th><th style="padding:6px 8px;border:1px solid #c8e6c9">Ký giao</th><th style="padding:6px 8px;border:1px solid #c8e6c9">Ký nhận</th><th style="padding:6px 8px;border:1px solid #c8e6c9;width:30px"></th></tr></thead>'+
         '<tbody>'+htRows+'</tbody></table></div>';
     } else {
       hoanThanhSection.style.display='none';
@@ -32608,6 +32611,7 @@ function buildVanBanPreviewHtml(data){
   table, td, p { page-break-inside:auto; }
   .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
   .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
+  .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;} /* ảnh không tràn khỏi trang/ô bảng */
   @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
 </style></head>
 <body>
@@ -32701,6 +32705,7 @@ function openVanBanFlipView(){
   .ddnl-pv-noinhan{font-size:11pt;font-style:italic;margin:2px 0;}
   .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
   .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
+  .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;} /* ảnh không tràn khỏi trang/ô bảng */
   @media (max-width:760px){
     .vbflip-viewport{padding:18px 14px;}
     .vbflip-side{width:42px;height:42px;font-size:18px;}
@@ -55484,15 +55489,16 @@ function nvkPrintList(){
       <button class="tbtn" onclick="gcbcBackup()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-cloud-download"></i> Sao lưu</button>
       <button class="tbtn" onclick="document.getElementById('gcbcRestoreInp').click()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-cloud-upload"></i> Phục hồi</button>
       <input type="file" id="gcbcRestoreInp" accept=".json" style="display:none" onchange="gcbcRestore(event)">
-      <button class="tbtn" id="gcbcWideBtn" onclick="kpiToggleWideBox('gcbcMainBox','gcbcWideBtn')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
+      <button class="tbtn" onclick="gcbcBlkAll(false)" title="Thu gọn tất cả các khối" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-layout-navbar-collapse"></i> Thu gọn tất cả</button><button class="tbtn" onclick="gcbcBlkAll(true)" title="Mở tất cả các khối" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-layout-navbar-expand"></i> Mở tất cả</button><button class="tbtn" id="gcbcWideBtn" onclick="kpiToggleWideBox('gcbcMainBox','gcbcWideBtn')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
     </div>
   </div>
 
   <div style="max-width:1080px;margin:0 auto;padding:16px 14px 60px;width:100%" id="gcbcMainBox">
 
     <!-- FORM GHI NHANH -->
-    <div style="background:#fff;border:1.5px dashed #d9c48a;border-radius:12px;padding:14px 16px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:#8a6d1f;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px"><i class="ti ti-square-plus"></i> Ghi chú mới</div>
+    <div id="gcbcBlk_form" style="background:#fff;border:1.5px dashed #d9c48a;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:6px"><div onclick="gcbcBlk('form')" style="flex:1;cursor:pointer;user-select:none;font-size:11px;font-weight:700;color:#8a6d1f;text-transform:uppercase;letter-spacing:.06em"><span id="gcbcChev_form" style="display:inline-block;width:12px">▾</span> <i class="ti ti-square-plus"></i> Ghi chú mới</div><button type="button" id="gcbcTgl_form" onclick="gcbcBlk('form')" title="Ẩn / hiện khối này" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-eye-off"></i> Ẩn</button><button type="button" id="gcbcZoom_form" onclick="gcbcBlkZoom('form',event)" title="Phóng to khối này" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-arrows-maximize"></i> Phóng to</button></div>
+      <div id="gcbcBody_form" style="margin-top:10px">
       <div style="display:grid;grid-template-columns:140px 1fr 220px;gap:9px;margin-bottom:9px">
         <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Ngày sự việc</label>
           <input type="date" id="gcbcNgay" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #d9c48a;border-radius:8px;font-size:13px;font-family:inherit"></div>
@@ -55520,10 +55526,13 @@ function nvkPrintList(){
       <div style="display:flex;justify-content:flex-end">
         <button onclick="gcbcSaveNote()" style="background:#8a6d1f;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-device-floppy"></i> Lưu ghi chú</button>
       </div>
+      </div>
     </div>
 
     <!-- BỘ LỌC -->
-    <div style="background:#fff;border:1.5px solid #eee0bc;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;gap:9px;flex-wrap:wrap;align-items:end">
+    <div id="gcbcBlk_loc" style="background:#fff;border:1.5px solid #eee0bc;border-radius:12px;padding:10px 16px 12px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:6px"><div onclick="gcbcBlk('loc')" style="flex:1;cursor:pointer;user-select:none;font-size:11px;font-weight:700;color:#8a6d1f;text-transform:uppercase;letter-spacing:.06em"><span id="gcbcChev_loc" style="display:inline-block;width:12px">▾</span> <i class="ti ti-filter"></i> Bộ lọc</div><button type="button" id="gcbcTgl_loc" onclick="gcbcBlk('loc')" title="Ẩn / hiện khối này" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-eye-off"></i> Ẩn</button><button type="button" id="gcbcZoom_loc" onclick="gcbcBlkZoom('loc',event)" title="Phóng to khối này" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-arrows-maximize"></i> Phóng to</button></div>
+    <div id="gcbcBody_loc" style="display:flex;gap:9px;flex-wrap:wrap;align-items:end;margin-top:8px">
       <div style="flex:1;min-width:200px"><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Tìm từ khóa</label>
         <input type="text" id="gcbcSearch" oninput="gcbcRender()" placeholder="🔍 Tìm trong nội dung, số liệu…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0d5ae;border-radius:8px;font-size:13px;font-family:inherit"></div>
       <div><label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:3px">Danh mục</label>
@@ -55535,13 +55544,41 @@ function nvkPrintList(){
       <button onclick="gcbcClearFilter()" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:8px;padding:8px 14px;font-size:12.5px;cursor:pointer;font-family:inherit">Xóa lọc</button>
       <span id="gcbcCount" style="font-size:12.5px;color:#666;white-space:nowrap;margin-left:auto"></span>
     </div>
+    </div>
 
     <!-- DANH SÁCH -->
+    <div id="gcbcBlk_list" style="background:#fff;border:1.5px solid #eee0bc;border-radius:12px;padding:10px 16px 12px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:6px"><div onclick="gcbcBlk('list')" style="flex:1;cursor:pointer;user-select:none;font-size:11px;font-weight:700;color:#8a6d1f;text-transform:uppercase;letter-spacing:.06em"><span id="gcbcChev_list" style="display:inline-block;width:12px">▾</span> <i class="ti ti-list-details"></i> Danh sách ghi chú</div><button type="button" id="gcbcTgl_list" onclick="gcbcBlk('list')" title="Ẩn / hiện khối này" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-eye-off"></i> Ẩn</button><button type="button" id="gcbcZoom_list" onclick="gcbcBlkZoom('list',event)" title="Phóng to khối này" style="background:#fff;color:#8a6d1f;border:1.5px solid #d9c48a;border-radius:7px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600"><i class="ti ti-arrows-maximize"></i> Phóng to</button></div>
+      <div id="gcbcBody_list" style="margin-top:8px">
     <div id="gcbcList"></div>
+      </div>
+    </div>
   </div>
   <div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai &nbsp;·&nbsp; Ghi chú Báo cáo (nội bộ)</div>
 </div>
 
+<script>
+/* Ghi chú Báo cáo: ẩn/hiện + phóng to từng khối (nhớ trạng thái ẩn/hiện theo máy) */
+(function(){
+  var KS=['form','loc','list'];
+  function get(k){ try{ return localStorage.getItem('gcbcBlk_'+k)!=='0'; }catch(e){ return true; } }
+  function setv(k,on){ try{ localStorage.setItem('gcbcBlk_'+k, on?'1':'0'); }catch(e){} }
+  function apply(k){
+    var on=get(k), b=document.getElementById('gcbcBody_'+k), c=document.getElementById('gcbcChev_'+k), t=document.getElementById('gcbcTgl_'+k);
+    if(b) b.style.display=on?(k==='loc'?'flex':''):'none'; // khối Bộ lọc giữ kiểu xếp ngang gốc
+    if(c) c.textContent=on?'▾':'▸';
+    if(t) t.innerHTML=on?'<i class="ti ti-eye-off"></i> Ẩn':'<i class="ti ti-eye"></i> Hiện';
+  }
+  window.gcbcBlk=function(k){ setv(k,!get(k)); apply(k); };
+  window.gcbcBlkAll=function(on){ KS.forEach(function(k){ setv(k,on); apply(k); }); };
+  window.gcbcBlkZoom=function(k,ev){
+    if(!get(k)){ setv(k,true); apply(k); }
+    genSectionZoom('gcbcBlk_'+k,'gcbcZoom_'+k,ev);
+  };
+  function init(){ KS.forEach(apply); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
 <!-- MODAL: Quản lý danh mục -->
 <!-- MODAL: Sửa ghi chú -->
 <div class="modal-bg" id="gcbcEditModal" onclick="if(event.target===this)gcbcCloseEdit()">
