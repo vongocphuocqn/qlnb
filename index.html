@@ -41732,12 +41732,13 @@ window.dctdMoveStatus=function(id,st){
           +'<td style="'+td+';white-space:nowrap;font-weight:600;color:#0d47a1">Phòng '+pmEsc(x.room)+'</td>'
           +'<td style="'+td+'">'+(r.nhomPM==='gayme'?'Gây mê':(r.nhomPM==='dungcu'?'Dụng cụ':''))+'</td>'
           +'<td style="'+td+'">'+pmEsc(r.soHieu||'—')+'</td>'
-          +'<td style="'+td+'">'+pmEsc(r.nguoiGiao||'')+'</td>'
-          +'<td style="'+td+'">'+pmEsc(r.nguoiNhan||'')+'</td>'
+          +'<td style="'+td+'">'+pmEsc(r.nguoiGiao||'')+pmStatsSig(r.xacNhanGiao)+'</td>'
+          +'<td style="'+td+'">'+pmEsc(r.nguoiNhan||'')+pmStatsSig(r.xacNhanNhan)+'</td>'
           +'<td style="'+td+';text-align:center">'+((f.thieu||f.hong)?('<span style="color:#c62828;font-weight:600">⚠️ '+f.thieu+' thiếu, '+f.hong+' hỏng</span>'):'<span style="color:#0a6b5e">✅ Đủ</span>')+'</td>'
           +'<td style="'+td+';text-align:center">'+(r.trangThai==='choduyet'?'<span style="color:#8a6100;font-weight:600">⏳ Chờ hoàn thành</span>':'<span style="color:#0a6b5e;font-weight:600">✅ Hoàn thành</span>')+'</td></tr>';
       }).join('')+'</tbody></table></div>'):'<div style="color:#999;font-size:12.5px;font-style:italic">Không có lần giao nhận nào khớp.</div>');
   };
+  function pmStatsSig(x){ var u=(x&&x.chuKy)||''; return (typeof u==='string' && u.indexOf('data:image')===0) ? '<img src="'+u+'" alt="chữ ký" style="display:block;height:30px;max-width:110px;object-fit:contain;margin-top:2px;background:#fff">' : '<div style="font-size:11px;color:#c62828">(chưa ký)</div>'; }
   // Bấm 1 kết quả tìm → mở đúng phòng rồi mở biên bản đó
   window.pmStatsOpenRec=function(room, id){
     pmCloseRoomsStats(); pmSelectRoom(room);
@@ -42665,6 +42666,8 @@ window.dctdMoveStatus=function(id,st){
     }
     var activeGroup = pmCurTab;
     var activeItems = pmRoomConfigItems(pmCurrentRoom, activeGroup);
+    // Chốt chặn: không cho lưu biên bản TRỐNG khi danh sách tài sản chưa tải được (mạng chậm…)
+    if(!activeItems.length){ pmShowFormAlert('⛔ <b>Chưa tải được danh sách tài sản</b> nhóm '+(activeGroup==='gayme'?'Gây mê':'Dụng cụ')+' của phòng PM '+pmCurrentRoom+' (đang là 0 món) nên <b>chưa lưu</b> biên bản. Vui lòng bấm <b>Làm mới</b> hoặc kiểm tra mạng, chờ danh sách tài sản hiện ra rồi kiểm tra và lưu lại.','err'); return null; }
     var notReviewedItem = activeItems.find(function(it){ var st=pmItemStates[it._id]; return !st||!st.reviewed; });
     if(notReviewedItem){
       var notReviewedCount = activeItems.filter(function(it){ var st=pmItemStates[it._id]; return !st||!st.reviewed; }).length;
@@ -42880,6 +42883,8 @@ window.dctdMoveStatus=function(id,st){
     var hasNhanSig = pmTuKiemTra ? true : !!(sigNhan && pmSigLocked.nhan);
     var activeGroup = pmCurTab; // 'gayme' hoặc 'dungcu' — biên bản CHỈ nộp cho ĐÚNG nhóm đang chọn, không gộp cả 2
     var activeItems = pmRoomConfigItems(pmCurrentRoom, activeGroup);
+    // Chốt chặn: không cho lưu biên bản TRỐNG khi danh sách tài sản chưa tải được (mạng chậm…)
+    if(!activeItems.length){ pmShowFormAlert('⛔ <b>Chưa tải được danh sách tài sản</b> nhóm '+(activeGroup==='gayme'?'Gây mê':'Dụng cụ')+' của phòng PM '+pmCurrentRoom+' (đang là 0 món) nên <b>chưa lưu</b> biên bản. Vui lòng bấm <b>Làm mới</b> hoặc kiểm tra mạng, chờ danh sách tài sản hiện ra rồi kiểm tra và lưu lại.','err'); return; }
     var notReviewedItem = activeItems.find(function(it){
       var st=pmItemStates[it._id];
       return !st || !st.reviewed;
@@ -43475,6 +43480,7 @@ window.dctdMoveStatus=function(id,st){
     pmRenderViewBody();
     var pmDelBtn=document.getElementById('pmDeleteBtn'); if(pmDelBtn) pmDelBtn.style.display=(pmCu&&pmCu.role==='admin')?'inline-flex':'none';
     var pmEdBtn=document.getElementById('pmEditBtn'); if(pmEdBtn) pmEdBtn.style.display=(pmCu&&pmCu.role==='admin')?'inline-flex':'none';
+    document.getElementById('pmViewOverlay').style.zIndex='100005'; // nổi trên cả danh sách đang phóng to (lớp 99999), không bị che
     document.getElementById('pmViewOverlay').style.display='flex';
   };
   window.pmCloseView=function(){
