@@ -28714,6 +28714,14 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
         <button type="button" class="kpi-btn" style="border:1.5px solid #0d6e6e;color:#0d6e6e" onclick="document.getElementById('pmStatsFrom').value='';document.getElementById('pmStatsTo').value='';pmOpenRoomsStats(true)"><i class="ti ti-x"></i> Bỏ lọc (xem toàn bộ)</button>
         <div id="pmStatsRangeNote" style="font-size:11.5px;color:#888;align-self:center"></div>
       </div>
+      <div style="margin-bottom:12px;background:#fff;border:1.5px solid #0d6e6e;border-radius:8px;padding:10px 12px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="pmStatsSearch" oninput="pmStatsSearchRun()" placeholder="🔍 Tìm lịch sử giao nhận: tên người giao/nhận, số hiệu, ngày (VD 15/10), phòng (VD 201), ca đêm…" style="flex:1;min-width:240px;padding:9px 12px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:14px;font-family:inherit">
+          <button type="button" class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('pmStatsSearch').value='';pmStatsSearchRun()"><i class="ti ti-x"></i> Xóa tìm</button>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:4px">Tìm trên tất cả các phòng, theo khoảng ngày đang lọc ở trên. Gõ nhiều từ để thu hẹp (VD: "201 đêm 14/10"). Bấm 1 dòng để mở biên bản.</div>
+        <div id="pmStatsSearchRes"></div>
+      </div>
       <div id="pmRoomsStatsBody">Đang tải...</div>
     </div>
   </div>
@@ -41690,6 +41698,52 @@ window.dctdMoveStatus=function(id,st){
   };
 
   var pmRoomsStatsCache=[];
+  var pmRoomsStatsData={}; // dữ liệu pmRecords đã tải cho cửa sổ thống kê — dùng cho ô tìm lịch sử
+  function pmStatsNorm(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d'); }
+  window.pmStatsSearchRun=function(){
+    var box=document.getElementById('pmStatsSearchRes'); if(!box) return;
+    var q=((document.getElementById('pmStatsSearch')||{}).value||'').trim();
+    if(!q){ box.innerHTML=''; return; }
+    var toks=pmStatsNorm(q).split(/\s+/).filter(Boolean);
+    var fr=(document.getElementById('pmStatsFrom')||{}).value||'', to=(document.getElementById('pmStatsTo')||{}).value||'';
+    var out=[], d=pmRoomsStatsData||{};
+    Object.keys(d).forEach(function(room){
+      var recs=d[room]||{};
+      Object.keys(recs).forEach(function(id){
+        var r=recs[id]; if(!r || typeof r!=='object') return;
+        if(fr && (r.ngay||'')<fr) return; if(to && (r.ngay||'')>to) return;
+        var nhom=r.nhomPM==='gayme'?'gay me':(r.nhomPM==='dungcu'?'dung cu':'');
+        var hay=pmStatsNorm(['phong '+room, room, r.nguoiGiao, r.nguoiNhan, r.soHieu, pmFmtD(r.ngay), r.ngay, r.gio, r.ca, pmCaDisplay(r), nhom,
+          r.trangThai==='choduyet'?'cho hoan thanh':'hoan thanh', r.tuKiemTra?'tu kiem tra':''].join(' '));
+        hay=' '+hay.replace(/[^a-z0-9/:]+/g,' ')+' ';
+        if(toks.every(function(t){ return /\d/.test(t) ? hay.indexOf(t)>-1 : hay.indexOf(' '+t)>-1; })) out.push({room:room, id:id, r:r});
+      });
+    });
+    out.sort(function(a,b){ return ((b.r.ngay||'')+' '+(b.r.gio||'')).localeCompare((a.r.ngay||'')+' '+(a.r.gio||'')); });
+    var MAX=200, td='padding:5px 8px;border:1px solid #cdeae4';
+    box.innerHTML='<div style="font-size:12.5px;font-weight:700;color:#0d6e6e;margin:8px 0 4px">Tìm thấy '+out.length+' lần giao nhận'+(out.length>MAX?(' — hiện '+MAX+' lần mới nhất'):'')+'</div>'
+      +(out.length?('<div style="max-height:45vh;overflow:auto;border-radius:6px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+      +'<thead><tr style="background:#daf1ec;color:#00473e;position:sticky;top:0"><th style="'+td+'">#</th><th style="'+td+'">Ngày giờ</th><th style="'+td+'">Ca</th><th style="'+td+'">Phòng</th><th style="'+td+'">Nhóm</th><th style="'+td+'">Số hiệu</th><th style="'+td+'">Người giao</th><th style="'+td+'">Người nhận</th><th style="'+td+'">Thiếu/hỏng</th><th style="'+td+'">Trạng thái</th></tr></thead><tbody>'
+      +out.slice(0,MAX).map(function(x,i){ var r=x.r, f=pmItemFlags(r);
+        return '<tr style="cursor:pointer;'+(i%2?'background:#f2fbfa':'')+'" onclick="pmStatsOpenRec(\''+pmEsc(x.room)+'\',\''+pmEsc(x.id)+'\')">'
+          +'<td style="'+td+';text-align:center">'+(i+1)+'</td>'
+          +'<td style="'+td+';white-space:nowrap">'+pmFmtD(r.ngay)+(r.gio?(' <b>'+pmEsc(r.gio)+'</b>'):'')+'</td>'
+          +'<td style="'+td+';white-space:nowrap">'+pmCaDisplay(r)+'</td>'
+          +'<td style="'+td+';white-space:nowrap;font-weight:600;color:#0d47a1">Phòng '+pmEsc(x.room)+'</td>'
+          +'<td style="'+td+'">'+(r.nhomPM==='gayme'?'Gây mê':(r.nhomPM==='dungcu'?'Dụng cụ':''))+'</td>'
+          +'<td style="'+td+'">'+pmEsc(r.soHieu||'—')+'</td>'
+          +'<td style="'+td+'">'+pmEsc(r.nguoiGiao||'')+'</td>'
+          +'<td style="'+td+'">'+pmEsc(r.nguoiNhan||'')+'</td>'
+          +'<td style="'+td+';text-align:center">'+((f.thieu||f.hong)?('<span style="color:#c62828;font-weight:600">⚠️ '+f.thieu+' thiếu, '+f.hong+' hỏng</span>'):'<span style="color:#0a6b5e">✅ Đủ</span>')+'</td>'
+          +'<td style="'+td+';text-align:center">'+(r.trangThai==='choduyet'?'<span style="color:#8a6100;font-weight:600">⏳ Chờ hoàn thành</span>':'<span style="color:#0a6b5e;font-weight:600">✅ Hoàn thành</span>')+'</td></tr>';
+      }).join('')+'</tbody></table></div>'):'<div style="color:#999;font-size:12.5px;font-style:italic">Không có lần giao nhận nào khớp.</div>');
+  };
+  // Bấm 1 kết quả tìm → mở đúng phòng rồi mở biên bản đó
+  window.pmStatsOpenRec=function(room, id){
+    pmCloseRoomsStats(); pmSelectRoom(room);
+    var mo=function(){ try{ if(pmRecords && pmRecords[id]) pmOpenView(id); else alert('Không mở được biên bản, vui lòng thử lại.'); }catch(e){ alert('Không mở được biên bản: '+e.message); } };
+    if(pmRecordsRef) pmRecordsRef.once('value').then(function(){ setTimeout(mo,50); }).catch(mo); else setTimeout(mo,400);
+  };
   function pmTuaStateForRoom(roomId, recsAll, group){
     if(!pmBoTuaConfig || pmBoTuaConfig.enabled===false) return 'off';
     var key=pmSafeKey(roomId)+'_'+group;
@@ -41741,13 +41795,17 @@ window.dctdMoveStatus=function(id,st){
           return items.some(function(it){return it.status==='thieu'||it.status==='hong';});
         }).length;
         var ngayGanNhat=recs.map(function(r){return r.ngay;}).filter(Boolean).sort().slice(-1)[0]||'—';
+        // Lần giao gần nhất (ngày + giờ + ca) để hiện đủ thời gian trên bảng thống kê
+        var ganNhat=recs.filter(function(r){return r.ngay;}).sort(function(a,b){ return ((a.ngay||'')+' '+(a.gio||'')).localeCompare((b.ngay||'')+' '+(b.gio||'')); }).slice(-1)[0]||null;
         // Trạng thái khóa bỏ tua tính trên TOÀN BỘ lịch sử của phòng (không theo bộ lọc ngày ở trên).
         var tuaGayme=pmTuaStateForRoom(room, recsAll, 'gayme');
         var tuaDungcu=pmTuaStateForRoom(room, recsAll, 'dungcu');
-        return {room:room, tong:tong, hoanThanh:hoanThanh, choHT:choHT, coSuCo:coSuCo, ngayGanNhat:ngayGanNhat, tuaGayme:tuaGayme, tuaDungcu:tuaDungcu};
+        return {room:room, tong:tong, hoanThanh:hoanThanh, choHT:choHT, coSuCo:coSuCo, ngayGanNhat:ngayGanNhat, gioGanNhat:(ganNhat&&ganNhat.gio)||'', caGanNhat:ganNhat?pmCaDisplay(ganNhat):'', tuaGayme:tuaGayme, tuaDungcu:tuaDungcu};
       });
       pmRoomsStatsCache=rows;
+      pmRoomsStatsData=d;
       pmRenderRoomsStats(rows);
+      try{ pmStatsSearchRun(); }catch(eS){}
     }).catch(function(err){
       document.getElementById('pmRoomsStatsBody').innerHTML='<div style="color:#c62828">Lỗi tải dữ liệu: '+err.message+'</div>';
     });
@@ -41769,7 +41827,7 @@ window.dctdMoveStatus=function(id,st){
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Chờ hoàn thành</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Có thiếu/hư hỏng</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Khóa bỏ tua</th>'+
-        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Ngày gần nhất</th>'+
+        '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Lần giao gần nhất</th>'+
         '<th style="padding:6px 8px;border:1px solid #a8d9d0;text-align:center">Xem</th>'+
       '</tr></thead><tbody>'+
       rows.map(function(r,i){
@@ -41780,7 +41838,7 @@ window.dctdMoveStatus=function(id,st){
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#8a6100">'+r.choHT+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;'+(r.coSuCo>0?'color:#c62828;font-weight:700':'')+'">'+r.coSuCo+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;white-space:nowrap">'+pmTuaBadgeHtml(r.tuaGayme,'GM')+pmTuaBadgeHtml(r.tuaDungcu,'DC')+'</td>'+
-          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center">'+pmFmtD(r.ngayGanNhat)+'</td>'+
+          '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;white-space:nowrap">'+pmFmtD(r.ngayGanNhat)+(r.gioGanNhat?(' <b>'+pmEsc(r.gioGanNhat)+'</b>'):'')+(r.caGanNhat?('<div style="font-size:11px;color:#607d8b">'+r.caGanNhat+'</div>'):'')+'</td>'+
           '<td style="padding:5px 8px;border:1px solid #cdeae4;text-align:center;color:#0d6e6e"><i class="ti ti-eye"></i> Chi tiết</td>'+
         '</tr>';
       }).join('')+
@@ -41823,7 +41881,7 @@ window.dctdMoveStatus=function(id,st){
         '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.hoanThanh+'</td>'+
         '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.choHT+'</td>'+
         '<td style="border:1px solid #999;padding:4px;text-align:center">'+r.coSuCo+'</td>'+
-        '<td style="border:1px solid #999;padding:4px;text-align:center">'+pmFmtD(r.ngayGanNhat)+'</td></tr>';
+        '<td style="border:1px solid #999;padding:4px;text-align:center">'+pmFmtD(r.ngayGanNhat)+(r.gioGanNhat?(' '+pmEsc(r.gioGanNhat)):'')+'</td></tr>';
     }).join('');
     var html='<html><head><meta charset="UTF-8"><title>Thống kê theo phòng - Phòng Mổ</title>'+
       '<style>body{font-family:"Times New Roman";font-size:13px}table{border-collapse:collapse;width:100%}th{background:#0d6e6e;color:#fff;border:1px solid #0a4a4a;padding:5px}</style></head><body>'+
@@ -53493,6 +53551,8 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         <select id="nvkSortMode" onchange="nvkRender()" style="padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="hoten">Sắp xếp: Họ và tên (A-Z)</option>
           <option value="ten">Sắp xếp: Tên (A-Z)</option>
+          <option value="tuoiGiam">Sắp xếp: Tuổi (cao → thấp)</option>
+          <option value="tuoiTang">Sắp xếp: Tuổi (thấp → cao)</option>
         </select>
         <span id="nvkCount" style="font-size:12.5px;color:#555;white-space:nowrap"></span>
       </div>
@@ -53508,8 +53568,8 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       </div>
       <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
         <table class="nvk-table">
-          <thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="nvkSelAll" onchange="nvkSelAllFiltered(this.checked)" title="Chọn / bỏ chọn tất cả người đang hiển thị" style="width:16px;height:16px;cursor:pointer"></th><th>#</th><th><div>Họ và tên</div><div style="margin-top:4px;font-size:10.5px;font-weight:600;color:#c5cae9">luôn xuất</div></th><th data-nvkcol="ngaySinh"><div>Ngày sinh</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="ngaySinh" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="donVi"><div>Đơn vị</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="donVi" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="nhom"><div>Nhóm</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="nhom" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="chucVu"><div>Chức vụ</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="chucVu" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="vanBang"><div>Văn bằng</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="vanBang" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="soCCHN"><div>Số CCHN</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="soCCHN" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="sdt"><div>Số điện thoại</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="sdt" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="email"><div>Email</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="email" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="soDinhDanh"><div>Số định danh cá nhân</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="soDinhDanh" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th>Thao tác</th></tr></thead>
-          <tbody id="nvkTbody"><tr><td colspan="13" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr></tbody>
+          <thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="nvkSelAll" onchange="nvkSelAllFiltered(this.checked)" title="Chọn / bỏ chọn tất cả người đang hiển thị" style="width:16px;height:16px;cursor:pointer"></th><th>#</th><th><div>Họ và tên</div><div style="margin-top:4px;font-size:10.5px;font-weight:600;color:#c5cae9">luôn xuất</div></th><th data-nvkcol="ngaySinh"><div>Ngày sinh</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="ngaySinh" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="tuoi" style="text-align:center"><div>Tuổi</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="tuoi" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="donVi"><div>Đơn vị</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="donVi" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="nhom"><div>Nhóm</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="nhom" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="chucVu"><div>Chức vụ</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="chucVu" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="vanBang"><div>Văn bằng</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="vanBang" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="soCCHN"><div>Số CCHN</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="soCCHN" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="sdt"><div>Số điện thoại</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="sdt" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="email"><div>Email</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="email" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th data-nvkcol="soDinhDanh"><div>Số định danh cá nhân</div><label title="Tích để đưa cột này vào file xuất / bản in" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:#ffe082"><input type="checkbox" class="nvkHeadCb" data-k="soDinhDanh" onchange="nvkHeadColToggle(this)" style="width:14px;height:14px;cursor:pointer"> xuất</label></th><th>Thao tác</th></tr></thead>
+          <tbody id="nvkTbody"><tr><td colspan="14" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -54553,6 +54613,12 @@ function buildPhieuBVHtml(r){
     + '<div style="font-size:10pt;color:#888;margin-top:16pt">BM.01.TCCB · Mã phiếu: '+esc(maPhieu)+'</div>'
     + '</body></html>';
 }
+// Tuổi hiện hành (tròn năm, tính đến hôm nay theo ngày sinh). Không có/không hợp lệ ngày sinh → ''.
+function nvkTuoi(e){
+  var v=String((e&&e.ngaySinh)||''), m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(!m) return '';
+  var n=new Date(), t=n.getFullYear()-(+m[1]); if((n.getMonth()+1)<(+m[2]) || ((n.getMonth()+1)===(+m[2]) && n.getDate()<(+m[3]))) t--;
+  return (t>=0 && t<120) ? t : '';
+}
 function nvkFmtD(iso){
   if(!iso) return '';
   var p = String(iso).split('-');
@@ -54603,6 +54669,11 @@ function nvkGetFilteredList(){
     var hay = nvkNoAccent((e.ten||'')+' '+(e.donVi||'')+' '+(e.nhom||'')+' '+(e.chucVu||'')+' '+(e.vanBang||''));
     return hay.indexOf(q) > -1;
   }).sort(function(a,b){
+    if(sortMode==='tuoiGiam' || sortMode==='tuoiTang'){
+      var na=a.ngaySinh||'', nb=b.ngaySinh||'';
+      if(na!==nb){ if(!na) return 1; if(!nb) return -1; return sortMode==='tuoiGiam' ? (na<nb?-1:1) : (na<nb?1:-1); }
+      return (a.ten||'').localeCompare(b.ten||'', 'vi');
+    }
     if(sortMode==='ten'){
       var r = nvkTenChinh(a.ten).localeCompare(nvkTenChinh(b.ten), 'vi');
       return r!==0 ? r : (a.ten||'').localeCompare(b.ten||'', 'vi');
@@ -54618,6 +54689,11 @@ function nvkSelKey(e){ return (e.ten||'')+'|'+(e.ngaySinh||'')+'|'+(e.soDinhDanh
 function nvkSelectedList(){ // người đã chọn (trong TOÀN BỘ danh sách, không phụ thuộc bộ lọc), theo kiểu sắp xếp đang chọn
   var sortMode = (document.getElementById('nvkSortMode')||{}).value || 'hoten';
   return nvkList.filter(function(e){ return !!nvkSel[nvkSelKey(e)]; }).sort(function(a,b){
+    if(sortMode==='tuoiGiam' || sortMode==='tuoiTang'){
+      var na=a.ngaySinh||'', nb=b.ngaySinh||'';
+      if(na!==nb){ if(!na) return 1; if(!nb) return -1; return sortMode==='tuoiGiam' ? (na<nb?-1:1) : (na<nb?1:-1); }
+      return (a.ten||'').localeCompare(b.ten||'', 'vi');
+    }
     if(sortMode==='ten'){
       var r = nvkTenChinh(a.ten).localeCompare(nvkTenChinh(b.ten), 'vi');
       return r!==0 ? r : (a.ten||'').localeCompare(b.ten||'', 'vi');
@@ -54660,6 +54736,7 @@ function nvkSelClear(){
 // Các cột có thể đưa vào danh sách xuất Word (Họ và tên luôn có). "trong" = cột để trống cho ký/ghi tay.
 var NVK_SEL_COLS = [
   {k:'ngaySinh', t:'Ngày sinh', on:false, get:function(e){ return nvkFmtD(e.ngaySinh); }, c:true},
+  {k:'tuoi', t:'Tuổi', on:false, get:function(e){ return String(nvkTuoi(e)); }, c:true},
   {k:'donVi', t:'Đơn vị', on:true, get:function(e){ return e.donVi||''; }},
   {k:'nhom', t:'Nhóm', on:false, get:function(e){ return e.nhom||''; }},
   {k:'chucVu', t:'Chức vụ', on:true, get:function(e){ return e.chucVu||''; }},
@@ -54955,11 +55032,11 @@ function nvkRender(){
   if(cnt) cnt.textContent = list.length + ' / ' + nvkList.length + ' người';
   nvkUpdateSelBar(list);
   if(!nvkList.length){
-    tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
+    tb.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
     return;
   }
   if(!list.length){
-    tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
     return;
   }
   tb.innerHTML = list.map(function(e,i){
@@ -54970,6 +55047,7 @@ function nvkRender(){
       + '<td>'+(i+1)+'</td>'
       + '<td style="font-weight:600">'+nvkEsc(e.ten)+'</td>'
       + '<td>'+nvkFmtD(e.ngaySinh)+'</td>'
+      + '<td style="text-align:center;font-weight:700;color:#283593">'+nvkTuoi(e)+'</td>'
       + '<td>'+nvkEsc(e.donVi||'')+'</td>'
       + '<td>'+(e.nhom?'<span class="nvk-badge" style="background:#e3f2fd;color:#1565c0">'+nvkEsc(e.nhom)+'</span>':'')+'</td>'
       + '<td>'+(e.chucVu?'<span class="nvk-badge">'+nvkEsc(e.chucVu)+'</span>':'')+'</td>'
@@ -55222,17 +55300,18 @@ function nvkExportExcel(){
     + '.org2{font-size:10pt;text-align:center;color:#222;font-weight:700} .th{background:#283593;color:#fff;font-weight:bold;font-size:10pt;text-align:center;border:1px solid #1a237e;padding:5px}'
     + '.td{border:1px solid #c5cfe8;padding:4px 6px;font-size:10pt;vertical-align:top} .td-c{border:1px solid #c5cfe8;padding:4px 6px;text-align:center;font-size:10pt} .ev{background:#f0f2fa}</style>'
     + '</head><body><table>'
-    + '<tr><td colspan="11" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
-    + '<tr><td colspan="11" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
-    + '<tr><td colspan="11" class="title">DANH SÁCH NHÂN VIÊN</td></tr>'
-    + '<tr><td colspan="11" class="org">Xuất ngày: '+nowStr+' &nbsp;|&nbsp; Tổng số: '+list.length+' người</td></tr><tr></tr>'
-    + '<tr><td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Ngày sinh</td><td class="th">Đơn vị</td><td class="th">Nhóm</td><td class="th">Chức vụ</td><td class="th">Văn bằng</td><td class="th">Số CCHN</td><td class="th">Số điện thoại</td><td class="th">Email</td><td class="th">Số định danh cá nhân</td></tr>';
+    + '<tr><td colspan="12" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>'
+    + '<tr><td colspan="12" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>'
+    + '<tr><td colspan="12" class="title">DANH SÁCH NHÂN VIÊN</td></tr>'
+    + '<tr><td colspan="12" class="org">Xuất ngày: '+nowStr+' &nbsp;|&nbsp; Tổng số: '+list.length+' người</td></tr><tr></tr>'
+    + '<tr><td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Ngày sinh</td><td class="th">Tuổi</td><td class="th">Đơn vị</td><td class="th">Nhóm</td><td class="th">Chức vụ</td><td class="th">Văn bằng</td><td class="th">Số CCHN</td><td class="th">Số điện thoại</td><td class="th">Email</td><td class="th">Số định danh cá nhân</td></tr>';
   list.forEach(function(e,i){
     var ev = i%2===1 ? ' ev' : '';
     html += '<tr>'
       + '<td class="td-c'+ev+'">'+(i+1)+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.ten)+'</td>'
       + '<td class="td-c'+ev+'">'+nvkFmtD(e.ngaySinh)+'</td>'
+      + '<td class="td-c'+ev+'">'+nvkTuoi(e)+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.donVi||'')+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.nhom||'')+'</td>'
       + '<td class="td'+ev+'">'+nvkEsc(e.chucVu||'')+'</td>'
@@ -55260,6 +55339,7 @@ function nvkExportWord(){
       + '<td style="border:1px solid #000;padding:3px 4px;text-align:center">'+(i+1)+'</td>'
       + '<td style="border:1px solid #000;padding:3px 4px;font-weight:bold">'+nvkEsc(e.ten)+'</td>'
       + '<td style="border:1px solid #000;padding:3px 4px;text-align:center">'+nvkFmtD(e.ngaySinh)+'</td>'
+      + '<td style="border:1px solid #000;padding:3px 4px;text-align:center">'+nvkTuoi(e)+'</td>'
       + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.donVi||'')+'</td>'
       + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.nhom||'')+'</td>'
       + '<td style="border:1px solid #000;padding:3px 4px">'+nvkEsc(e.chucVu||'')+'</td>'
@@ -55280,7 +55360,7 @@ function nvkExportWord(){
     + '<p class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</p><p class="org">KHOA GÂY MÊ HỒI SỨC</p>'
     + '<h2>DANH SÁCH NHÂN VIÊN</h2>'
     + '<p style="text-align:center">Xuất ngày: '+nowStr+' — Tổng số: '+list.length+' người</p>'
-    + '<table><tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th></tr>'+rowsHtml+'</table>'
+    + '<table><tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Tuổi</th><th>Đơn vị</th><th>Nhóm</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th></tr>'+rowsHtml+'</table>'
     + '</div></body></html>';
   var blob = new Blob(['\ufeff', html], {type:'application/msword;charset=utf-8'});
   var a = document.createElement('a');
@@ -55301,7 +55381,7 @@ function nvkPrintList(){
   // Gửi nguyên dữ liệu (đã lọc) sang cửa sổ in dưới dạng JSON, kèm 2 nút chọn sắp xếp ngay tại đó —
   // để đổi Họ và tên ⇄ Tên mà không cần quay lại màn hình chính.
   var dataJson = JSON.stringify(list.map(function(e){
-    return {ten:e.ten||'', ngaySinh:e.ngaySinh||'', donVi:e.donVi||'', chucVu:e.chucVu||'', vanBang:e.vanBang||'', soCCHN:e.soCCHN||'', sdt:e.sdt||'', email:e.email||'', soDinhDanh:e.soDinhDanh||''};
+    return {ten:e.ten||'', ngaySinh:e.ngaySinh||'', tuoi:nvkTuoi(e), donVi:e.donVi||'', chucVu:e.chucVu||'', vanBang:e.vanBang||'', soCCHN:e.soCCHN||'', sdt:e.sdt||'', email:e.email||'', soDinhDanh:e.soDinhDanh||''};
   }));
   var w = window.open('', '_blank');
   if(!w){ alert('Trình duyệt chặn cửa sổ mới. Vui lòng cho phép popup để in.'); return; }
@@ -55326,10 +55406,10 @@ function nvkPrintList(){
     + (qVal ? '<p class="sub">Lọc theo tên/từ khóa: "'+nvkEsc(qVal)+'"</p>' : '')
     + '<p class="sub" id="nvkPrintSubCount">In ngày: '+nowStr+' — Tổng số: '+list.length+' người</p>'
     + '<table><colgroup>'
-    + '<col style="width:4%"><col style="width:13%"><col style="width:8%"><col style="width:9%"><col style="width:9%">'
-    + '<col style="width:12%"><col style="width:10%"><col style="width:9%"><col style="width:17%"><col style="width:9%">'
+    + '<col style="width:4%"><col style="width:13%"><col style="width:8%"><col style="width:4%"><col style="width:9%"><col style="width:8%">'
+    + '<col style="width:11%"><col style="width:9%"><col style="width:9%"><col style="width:16%"><col style="width:9%">'
     + '</colgroup>'
-    + '<tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Đơn vị</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th></tr>'
+    + '<tr><th>STT</th><th>Họ và tên</th><th>Ngày sinh</th><th>Tuổi</th><th>Đơn vị</th><th>Chức vụ</th><th>Văn bằng</th><th>Số CCHN</th><th>Số điện thoại</th><th>Email</th><th>Số định danh cá nhân</th></tr>'
     + '<tbody id="nvkPrintTbody"></tbody></table>'
     + '<script>'
     + 'var nvkPrintData = ' + dataJson + ';'
@@ -55341,6 +55421,7 @@ function nvkPrintList(){
     + '  document.getElementById("btnSortTen").className = mode==="ten" ? "active" : "";'
     + '  var sorted = nvkPrintData.slice().sort(function(a,b){'
     + '    if(mode==="ten"){ var r = nvkPrintTenChinh(a.ten).localeCompare(nvkPrintTenChinh(b.ten),"vi"); return r!==0 ? r : a.ten.localeCompare(b.ten,"vi"); }'
+    + '    if(mode!=="hoten") return 0;'
     + '    return a.ten.localeCompare(b.ten,"vi");'
     + '  });'
     + '  document.getElementById("nvkPrintTbody").innerHTML = sorted.map(function(e,i){'
@@ -55348,6 +55429,7 @@ function nvkPrintList(){
     + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;text-align:center\\">"+(i+1)+"</td>"'
     + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;font-weight:bold\\">"+nvkPrintEsc(e.ten)+"</td>"'
     + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;text-align:center\\">"+nvkPrintFmtD(e.ngaySinh)+"</td>"'
+    + '      +"<td style=\\"border:1px solid #000;padding:3px 4px;text-align:center\\">"+(e.tuoi===""?"":e.tuoi)+"</td>"'
     + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.donVi)+"</td>"'
     + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.chucVu)+"</td>"'
     + '      +"<td style=\\"border:1px solid #000;padding:3px 4px\\">"+nvkPrintEsc(e.vanBang)+"</td>"'
@@ -56650,21 +56732,24 @@ function render(){
   var body = bghl.tab==='homnay' ? viewNgay(bghl.today, dKey(), true)
            : bghl.tab==='lichsu' ? viewLichSu()
            : bghl.tab==='cauhinh' ? viewCauHinh() : viewNhap();
+  var rong=(lsGet('bghlRong')==='1'), MW=rong?'100%':'1200px'; // Phóng to giao diện: bỏ giới hạn bề rộng, dùng hết màn hình (nhớ theo máy)
   s.innerHTML='<div style="background:linear-gradient(135deg,#00695c,#004d40);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.2)">'
     +'<button onclick="bghlClose()" style="'+BTN+'background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)"><i class="ti ti-home"></i> Trang chủ</button>'
-    +'<div style="flex:1;min-width:180px"><div style="font-weight:800;font-size:16px">🧹 Bàn giao hộ lý hằng ngày</div><div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức — '+fmtD(dKey())+'</div></div></div>'
-    +'<div style="display:flex;gap:6px;padding:10px 12px 0;flex-wrap:wrap;max-width:1200px;width:100%;margin:0 auto;box-sizing:border-box">'
+    +'<div style="flex:1;min-width:180px"><div style="font-weight:800;font-size:16px">🧹 Bàn giao hộ lý hằng ngày</div><div style="font-size:11.5px;opacity:.85">Khoa Gây mê Hồi sức — '+fmtD(dKey())+'</div></div>'
+    +'<button onclick="bghlRong()" title="'+(rong?'Thu gọn về bề rộng mặc định':'Phóng to giao diện — dùng hết bề rộng màn hình')+'" style="'+BTN+'background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)"><i class="ti ti-arrows-'+(rong?'minimize':'maximize')+'"></i> '+(rong?'Thu gọn giao diện':'Phóng to giao diện')+'</button></div>'
+    +'<div style="display:flex;gap:6px;padding:10px 12px 0;flex-wrap:wrap;max-width:'+MW+';width:100%;margin:0 auto;box-sizing:border-box">'
     +tabs.map(function(t){ var on=bghl.tab===t[0]; return '<button onclick="bghlTab(\''+t[0]+'\')" style="'+BTN+(on?'background:#00695c;color:#fff':'background:#fff;color:#00695c;border:1.5px solid #80cbc4')+'">'+t[1]+'</button>'; }).join('')
     +'<span style="flex:1"></span>'
     +'<button onclick="bghlMoXuat(\'xem\')" title="Xem nhanh danh sách bàn giao (chọn khoảng ngày, bộ phận) — có In, Tải Word/Excel" style="'+BTN+'background:#fff;color:#4a148c;border:1.5px solid #9575cd"><i class="ti ti-eye"></i> Xem nhanh</button>'
     +'<button onclick="bghlMoXuat(\'excel\')" title="Xuất danh sách bàn giao ra Excel (chọn khoảng ngày, bộ phận)" style="'+BTN+'background:#1b5e20;color:#fff"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>'
     +'<button onclick="bghlMoXuat(\'word\')" title="Xuất danh sách bàn giao ra Word (chọn khoảng ngày, bộ phận)" style="'+BTN+'background:#1565c0;color:#fff"><i class="ti ti-file-text"></i> Xuất Word</button>'
-    +'</div><div style="padding:10px 12px 30px;max-width:1200px;width:100%;margin:0 auto;box-sizing:border-box">'+body+'</div>';
+    +'</div><div style="padding:10px 12px 30px;max-width:'+MW+';width:100%;margin:0 auto;box-sizing:border-box">'+body+'</div>';
   if(bghl.tab==='nhap') bindNhap();
   if((bghl.tab==='homnay'||bghl.tab==='lichsu') && bghl.loc && (bghl.loc.q||bghl.loc.f)) bghlLoc(null,null);
 }
 
 /* ── Tab Bàn giao (form nhập) ── */
+window.bghlRong=function(){ lsSet('bghlRong', lsGet('bghlRong')==='1'?'0':'1'); render(); };
 function mocKeTiep(bp){
   var kq=khoaBp(bp, new Date());
   if(kq && kq.khoa) return {txt:'🔒 Đã khóa'+(kq.mo!=null?(' — mở lại '+hhmm(kq.mo)):''), mau:'#5d4037', bg:'#efebe9'};
