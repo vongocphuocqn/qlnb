@@ -14400,7 +14400,7 @@ function phRenderBody(resetForm){
   body.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:15.5px;font-weight:700;color:#6a1b9a;flex:1"><i class="ti ti-send"></i> Gửi phòng ban phối hợp xử lý</div>'
     +phWideBtnHtml('phOv')
     +'<button onclick="phClose(\'phOv\')" style="border:none;background:#eee;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer">×</button></div>'
-    +'<div style="background:#f7f7f7;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12.5px;color:#444"><b>'+phEsc(c.person||'')+'</b>'+(c.dept?(' · '+phEsc(c.dept)):'')+' · báo ngày '+(typeof fmtD==='function'?fmtD(c.date):phEsc(c.date))
+    +'<div style="background:#f7f7f7;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12.5px;color:#444"><b>'+phEsc(c.person||'')+'</b>'+(c.dept?(' · '+phEsc(c.dept)):'')+' · báo ngày '+(typeof fmtD==='function'?fmtD(c.date):phEsc(c.date))+(function(){ try{ var n=(c.date&&typeof calcDowntime==='function')?calcDowntime(c):null; if(n===null) return ''; var mau=n>=30?'#c62828':(n>=7?'#e65100':'#2e7d32'); return ' · <span style="font-weight:700;color:'+mau+'">⏱ Downtime: '+n+' ngày'+(c.status==='done'?' (đã xong)':'')+'</span>'; }catch(e){ return ''; } })()
     +'<div style="white-space:pre-wrap;margin-top:3px;max-height:90px;overflow:auto">'+phEsc(nd)+'</div>'
     +(phIsAdmin()?('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px dashed #ddd"><span style="font-weight:700;color:#555">Mức độ ưu tiên của thẻ:</span>'+phPriPills(c.pri||'m','phSetPri')+'<span style="font-size:11px;color:#888">— in trên phiếu và tin nhắn gửi/nhắc</span></div>'):'')
     +'</div>'
@@ -14737,7 +14737,7 @@ function phZaloUrl(v){
 // Màu theo mức độ ưu tiên (giống màu nhãn trên thẻ Kanban): đỏ = khẩn cấp, vàng = bình thường, xanh = thấp
 const PH_PRI={ h:{ic:'🔴',bg:'#d32f2f',c:'#ffffff'}, m:{ic:'🟡',bg:'#f9a825',c:'#3e2700'}, l:{ic:'🟢',bg:'#2e7d32',c:'#ffffff'} };
 function phGdnDtSuffix(c){ // " · đề nghị từ 15/09/2026 (29 ngày)" cho thẻ Giấy đề nghị
-  try{ if(!(typeof kbIsGdnCard==='function' && kbIsGdnCard(c)) || !c.date) return ''; var n=calcDowntime(c); return n===null?'':('  ·  đề nghị từ '+fmtD(c.date)+' ('+n+' ngày)'); }catch(e){ return ''; }
+  try{ if(!c || !c.date) return ''; var gdn=(typeof kbIsGdnCard==='function' && kbIsGdnCard(c)); var n=calcDowntime(c); return n===null?'':('  ·  '+(gdn?'đề nghị':'báo')+' từ '+fmtD(c.date)+' ('+n+' ngày)'); }catch(e){ return ''; }
 }
 function phCardLines(c, f){
   var pri={h:'Khẩn cấp',m:'Bình thường',l:'Thấp'}[c.pri]||'Bình thường';
@@ -14747,12 +14747,12 @@ function phCardLines(c, f){
   var laGdn=(typeof kbIsGdnCard==='function') && kbIsGdnCard(c);
   out.push([laGdn?'Người đề nghị':'Người báo cáo', phIsGenericSender(c.person) ? '' : (c.person||'')]);
   out.push([laGdn?'Ngày đề nghị':'Ngày báo cáo', (typeof fmtD==='function'&&c.date)?fmtD(c.date):(c.date||'')]);
-  if(laGdn && c.date && typeof calcDowntime==='function'){
+  if(c.date && typeof calcDowntime==='function'){ // downtime cho mọi thẻ gửi phòng ban (trước đây chỉ Giấy đề nghị)
     // Giấy đề nghị: in rõ thời gian chờ (downtime) để phòng nhận thấy đề nghị đã treo bao lâu
     var nDt=calcDowntime(c);
     if(nDt!==null) out.push(['Thời gian chờ', c.status==='done'
       ? ('Đã xử lý xong sau '+nDt+' ngày')
-      : (nDt+' ngày — tính từ ngày đề nghị '+fmtD(c.date)+' đến nay, chưa được giải quyết'), false, null, nDt>=30?'#c62828':(nDt>=7?'#e65100':'#2e7d32')]);
+      : (nDt+' ngày — tính từ ngày '+(laGdn?'đề nghị':'báo cáo')+' '+fmtD(c.date)+' đến nay, chưa được giải quyết'), false, null, nDt>=30?'#c62828':(nDt>=7?'#e65100':'#2e7d32')]);
   }
   out.push(['Mức độ', pri, false, (c.pri==='h'||c.pri==='l')?c.pri:'m']);
   if(f && f.sel && f.sel.items && f.sel.items.length){
