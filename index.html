@@ -12687,6 +12687,7 @@ function confirmMoveTime(){
   const noteInput=document.getElementById('moveTimeNote');
   const noteVal = noteInput ? noteInput.value.trim() : '';
   moveCard(moveTargetId, moveTargetStatus, val, noteVal);
+  if(typeof bnvMoi==='function') bnvMoi(moveTargetId, moveTargetStatus, val, noteVal); // [bnv 17/10] hiện khung báo tiến độ cho NV
   // Nếu modal "Sửa báo cáo" của đúng thẻ này đang mở, cập nhật ngay badge trạng thái (không cần đóng mở lại)
   if(typeof editTargetId!=='undefined' && editTargetId!==null && String(editTargetId)===String(moveTargetId)){
     const c0=cards.find(x=>String(x.id)===String(editTargetId)); if(c0) c0.status=moveTargetStatus;
@@ -57671,6 +57672,412 @@ window.bghlCfgLuu=function(){
 
 // Khởi động lắng nghe ngay khi mở trang để khung Thông báo Trang chủ (Quản lý) cập nhật realtime
 try{ ensureListeners(); }catch(x){ console.warn('[Bàn giao hộ lý]', x); }
+})();
+</script>
+
+
+<!-- ═══ BÁO TIẾN ĐỘ CHO NHÂN VIÊN (bnv) — bổ sung 17/10/2026 ═══
+     Khi Quản lý chuyển thẻ Kanban sang "Đang xử lý" hoặc "Đã xong" (khung chọn ngày → Xác nhận),
+     hiện khung soạn sẵn tin nhắn báo cho nhân viên đã báo cáo thẻ đó, gửi qua SMS hoặc Zalo (bán tự động:
+     Quản lý bấm Gửi trên điện thoại / dán vào Zalo). Trang web KHÔNG tự gửi tin được (cần dịch vụ trả phí + máy chủ).
+     - SĐT: chỉ ĐỌC từ "Danh sách nhân viên" qua phStaffPhone() có sẵn; không ghi gì vào danh sách đó.
+     - Firebase: chỉ THÊM trường mới cards/<id>/thongBaoNV/<pushId> = {at, st, kenh, by, sdt}. Không đụng trường cũ.
+     - Không sửa hàm cũ nào; chỉ được gọi 1 dòng từ confirmMoveTime(). -->
+<div class="modal-bg" id="bnvModal" style="z-index:2300" onclick="if(event.target===this)bnvDong()">
+  <div class="modal" style="max-width:500px">
+    <h3 style="margin-bottom:10px"><i class="ti ti-message-2-share"></i> Báo tiến độ cho nhân viên</h3>
+    <div id="bnvInfo" style="background:#f8fbf4;border:1.5px solid var(--bd);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:12.5px;color:var(--tx2)"></div>
+    <div class="fg">
+      <label>Số điện thoại nhân viên</label>
+      <input id="bnvSdt" type="tel" placeholder="VD: 0905123456" oninput="bnvCapNhatNut()">
+      <div id="bnvSdtGhiChu" style="font-size:11px;color:var(--tx3);margin-top:4px"></div>
+    </div>
+    <div class="fg">
+      <label>Kiểu gửi</label>
+      <div style="display:flex;gap:6px">
+        <button type="button" id="bnvKieuAnh" onclick="bnvChonKieu('anh')" style="flex:1;border-radius:8px;padding:7px 8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🖼 Ảnh thẻ (đẹp, rõ)</button>
+        <button type="button" id="bnvKieuChu" onclick="bnvChonKieu('chu')" style="flex:1;border-radius:8px;padding:7px 8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📝 Tin nhắn chữ</button>
+      </div>
+    </div>
+    <div class="fg" id="bnvKhungAnh" style="display:none">
+      <label>Xem trước ảnh thẻ</label>
+      <div id="bnvAnhPrev" style="text-align:center;max-height:46vh;overflow:auto;background:#f3f3f3;border-radius:8px;padding:6px;font-size:12px;color:var(--tx3)">⏳ Đang tạo ảnh thẻ...</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:11px;color:var(--tx3)">
+        <span>SMS không gửi được ảnh — nút Gửi SMS sẽ gửi bản chữ.</span>
+        <a href="#" onclick="bnvTaiAnh();return false" style="color:#00695c;font-weight:700;white-space:nowrap"><i class="ti ti-download"></i> Tải ảnh về</a>
+      </div>
+    </div>
+    <div class="fg" id="bnvKhungChu">
+      <label>Nội dung tin nhắn (sửa được trước khi gửi)</label>
+      <textarea id="bnvNoiDung" style="min-height:170px;resize:vertical;font-size:13px"></textarea>
+    </div>
+    <div id="bnvDaBao" style="font-size:11.5px;color:var(--tx3);margin-bottom:8px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" id="bnvBtnZalo" class="btnp" style="flex:1;min-width:120px;background:#0068ff" onclick="bnvGui('zalo')"><i class="ti ti-message-circle"></i> Gửi Zalo</button>
+      <a id="bnvBtnSms" class="btnp" style="flex:1;min-width:120px;text-align:center;text-decoration:none" href="#" onclick="return bnvGui('sms')"><i class="ti ti-message"></i> Gửi SMS</a>
+      <button type="button" class="btne" style="flex:1;min-width:90px" onclick="bnvGui('chep')"><i class="ti ti-copy"></i> Chỉ chép</button>
+      <button type="button" class="btne" style="flex:1;min-width:90px" onclick="bnvDong()"><i class="ti ti-x"></i> Bỏ qua</button>
+    </div>
+    <div style="font-size:11px;color:var(--tx3);margin-top:8px;line-height:1.5">
+      <i class="ti ti-info-circle"></i> <b>Gửi SMS</b> mở ứng dụng Tin nhắn trên điện thoại với số và nội dung điền sẵn — anh/chị chỉ bấm Gửi
+      (trên máy tính có thể không mở được). <b>Gửi Zalo</b> (khuyên dùng trên máy tính): tự chép (ảnh thẻ hoặc chữ, theo Kiểu gửi) và mở thẳng chat Zalo PC của nhân viên — chỉ cần Ctrl + V rồi Enter.
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--tx3);margin-top:8px;cursor:pointer">
+      <input type="checkbox" id="bnvTatCb" onchange="bnvTatSet(this.checked)" style="width:14px;height:14px"> Không tự hiện khung này nữa trên máy này
+    </label>
+  </div>
+</div>
+<script>
+(function(){
+  var bnvCur=null; // {id, st, ngay, note, ten}
+  function E(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function D(iso){ var a=String(iso||'').slice(0,10).split('-'); return a.length===3?(a[2]+'/'+a[1]+'/'+a[0]):String(iso||''); }
+  function soNgay(tu, den){ try{ var a=new Date(String(tu).slice(0,10)), b=new Date(String(den).slice(0,10)); var n=Math.round((b-a)/86400000); return isNaN(n)?null:Math.max(0,n); }catch(e){ return null; } }
+  function chuanSdt(v){ var d=String(v||'').replace(/[^0-9]/g,''); if(d.indexOf('84')===0 && d.length>=11) d='0'+d.slice(2); return (d.length>=9 && d.length<=11)?d:''; }
+  function rutGon(s,n){ s=String(s||'').replace(/\s+/g,' ').trim(); return s.length>n?(s.slice(0,n-1)+'…'):s; }
+  function laTat(){ try{ return localStorage.getItem('bnvTat')==='1'; }catch(e){ return false; } }
+  window.bnvTatSet=function(on){ try{ localStorage.setItem('bnvTat', on?'1':'0'); }catch(e){} };
+
+  function timSdt(ten){
+    try{ if(typeof phStaffInit==='function' && typeof db!=='undefined' && db && db.ref) phStaffInit(); }catch(e){}
+    try{ return (typeof phStaffPhone==='function') ? (phStaffPhone(ten)||'') : ''; }catch(e){ return ''; }
+  }
+  function soanTin(c, st, ngay, note){
+    var nd=rutGon(c.content || c.todo || c.doing || '', 160);
+    var n=soNgay(c.date, ngay||new Date().toISOString());
+    var L=[];
+    L.push('[Khoa GMHS] THÔNG BÁO TIẾN ĐỘ XỬ LÝ');
+    L.push('Kính gửi anh/chị '+(c.person||'')+',');
+    L.push('Nội dung anh/chị báo ngày '+D(c.date)+(nd?(': "'+nd+'"'):'')+'.');
+    if(st==='doing') L.push('➡ Trạng thái: ĐANG XỬ LÝ (bắt đầu từ ngày '+D(ngay)+(n!==null?(', sau '+n+' ngày kể từ ngày báo'):'')+').');
+    else L.push('✅ Trạng thái: ĐÃ XỬ LÝ XONG (ngày '+D(ngay)+(n!==null?(', tổng thời gian '+n+' ngày'):'')+').');
+    if(note) L.push((st==='doing'?'Đang thực hiện: ':'Kết quả: ')+rutGon(note,300));
+    if(c.assignee) L.push('Người phụ trách: '+c.assignee+'.');
+    L.push('Người cập nhật: '+((typeof cu!=='undefined'&&cu&&cu.name)?cu.name:'Lãnh đạo khoa')+'.');
+    L.push('Cảm ơn anh/chị đã phản ánh!');
+    return L.join('\n');
+  }
+  // ── [17/10 22:40] KIỂU GỬI: ẢNH THẺ / CHỮ ──
+  var bnvAnh={blob:null, p:null, ten:''};
+  function kieuGui(){ try{ return localStorage.getItem('bnvKieu')==='chu' ? 'chu' : 'anh'; }catch(e){ return 'anh'; } }
+  window.bnvChonKieu=function(k){
+    try{ localStorage.setItem('bnvKieu', k==='chu'?'chu':'anh'); }catch(e){}
+    var laAnh=kieuGui()==='anh', a=document.getElementById('bnvKieuAnh'), b=document.getElementById('bnvKieuChu');
+    function st(el,on){ el.style.background=on?'#1b6b3a':'#fff'; el.style.color=on?'#fff':'#1b6b3a'; el.style.border='1.5px solid #1b6b3a'; }
+    st(a,laAnh); st(b,!laAnh);
+    document.getElementById('bnvKhungAnh').style.display=laAnh?'':'none';
+    document.getElementById('bnvKhungChu').style.display=laAnh?'none':'';
+    if(laAnh && bnvCur && !bnvAnh.p) taoAnh();
+  };
+  function vietGio(iso){ var d=iso?new Date(iso):new Date(), p=function(n){return String(n).padStart(2,'0');}; return p(d.getHours())+':'+p(d.getMinutes())+' '+p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); }
+  function wrap(g, t, w){ if(typeof phWrapText==='function') return phWrapText(g, t, w); return String(t||'').split('\n'); }
+  function loadImg(src){ return (typeof phLoadImg==='function') ? phLoadImg(src) : Promise.resolve(null); }
+  // Vẽ ảnh thẻ thông báo cho NV → Promise<canvas>
+  function veAnh(c, st, ngay, note, coAnh){
+    var S=2, W=640, PAD=20, LBW=165, LH=22, FONT='"Segoe UI",Arial,"Helvetica Neue",sans-serif';
+    var VW=W-PAD*2-LBW-12;
+    function font(px,b){ return (b?'bold ':'')+px+'px '+FONT; }
+    var laXong=st==='done', MAU=laXong?'#2e7d32':'#1565C0', NHAT=laXong?'#e8f5e9':'#e3f2fd';
+    var srcs=(coAnh && c.imgs && c.imgs.length) ? c.imgs.slice(0,3) : [];
+    return Promise.all(srcs.map(loadImg)).then(function(ims){
+      ims=ims.filter(Boolean);
+      var n=soNgay(c.date, ngay||new Date().toISOString());
+      var mauNgay = n===null ? '#333' : (n>=30?'#c62828':(n>=7?'#e65100':'#2e7d32'));
+      var pri={h:'🔴 Khẩn cấp',m:'🟡 Bình thường',l:'🟢 Thấp'}[c.pri]||'🟡 Bình thường';
+      var rows=[];
+      rows.push({lb:'Nội dung báo cáo', v:c.content||c.todo||c.doing||'', b:true});
+      if(c.todo && c.content) rows.push({lb:'Cần làm', v:c.todo});
+      rows.push({lb:'Ngày báo cáo', v:D(c.date)});
+      if(c.dept) rows.push({lb:'Bộ phận', v:c.dept});
+      rows.push({lb:'Mức độ', v:pri});
+      rows.push({lb:laXong?'Ngày hoàn thành':'Ngày bắt đầu xử lý', v:D(ngay), b:true, col:MAU});
+      if(n!==null) rows.push(laXong
+        ? {lb:'Tổng thời gian xử lý', v:n+' ngày (từ ngày báo cáo đến khi hoàn thành)', b:true, col:mauNgay}
+        : {lb:'Tiếp nhận xử lý sau', v:n+' ngày (kể từ ngày báo cáo)', b:true, col:mauNgay});
+      rows.push({lb:laXong?'Kết quả xử lý':'Đang thực hiện', v:note || (laXong?'Đã xử lý xong.':'Lãnh đạo khoa đã tiếp nhận và đang tổ chức xử lý.'), b:true, col:'#4a148c'});
+      if(c.assignee) rows.push({lb:'Người phụ trách', v:c.assignee});
+      rows.push({lb:'Người cập nhật', v:((typeof cu!=='undefined'&&cu&&cu.name)?cu.name:'Lãnh đạo khoa')+' — Khoa Gây mê Hồi sức'});
+      var m=document.createElement('canvas').getContext('2d');
+      rows.forEach(function(r){ m.font=font(15,!!r.b); r.lines=wrap(m, r.v, VW); if(!r.lines.length) r.lines=['']; r.h=r.lines.length*LH+12; });
+      m.font=font(15,true); var kg=wrap(m, 'Kính gửi: anh/chị '+(c.person||''), W-PAD*2);
+      var HEAD=74, BAND=46, IW=Math.floor((W-PAD*2-16)/3), IH=Math.round(IW*0.75);
+      var H=HEAD+BAND+14+kg.length*LH+8+rows.reduce(function(t,r){return t+r.h;},0)+(ims.length?(IH+16):0)+12+46;
+      var cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+      var g=cv.getContext('2d'); g.scale(S,S); g.textBaseline='top';
+      g.fillStyle='#fff'; g.fillRect(0,0,W,H);
+      g.fillStyle='#1b6b3a'; g.fillRect(0,0,W,HEAD);
+      g.fillStyle='#e3f1e6'; g.font=font(12.5,false); g.fillText('BỆNH VIỆN ĐA KHOA TRUNG TÂM TỈNH GIA LAI — KHOA GÂY MÊ HỒI SỨC', PAD, 13);
+      g.fillStyle='#fff'; g.font=font(21,true); g.fillText('THÔNG BÁO TIẾN ĐỘ XỬ LÝ', PAD, 34);
+      g.fillStyle=MAU; g.fillRect(0,HEAD,W,BAND);
+      g.fillStyle='#fff'; g.font=font(19,true); g.fillText(laXong?'✅  ĐÃ XỬ LÝ XONG':'➡  ĐANG XỬ LÝ', PAD, HEAD+12);
+      g.font=font(14,true); var tN='Ngày '+D(ngay); g.fillText(tN, W-PAD-g.measureText(tN).width, HEAD+15);
+      var y=HEAD+BAND+14;
+      g.fillStyle='#6a1b9a'; g.font=font(15,true); kg.forEach(function(l){ g.fillText(l, PAD, y); y+=LH; }); y+=8;
+      rows.forEach(function(r,i){
+        g.fillStyle=i%2?'#ffffff':NHAT; g.fillRect(PAD-6, y, W-PAD*2+12, r.h);
+        g.fillStyle='#555'; g.font=font(13.5,true); g.fillText(r.lb, PAD, y+7);
+        g.fillStyle=r.col||'#222'; g.font=font(15,!!r.b);
+        r.lines.forEach(function(l,k){ g.fillText(l, PAD+LBW+12, y+6+k*LH); });
+        y+=r.h;
+      });
+      g.strokeStyle=MAU; g.lineWidth=1; g.strokeRect(PAD-6, HEAD+BAND+14+kg.length*LH+8, W-PAD*2+12, y-(HEAD+BAND+14+kg.length*LH+8));
+      if(ims.length){
+        y+=10;
+        ims.forEach(function(im,k){
+          var x=PAD+k*(IW+8), r=Math.min(IW/im.width, IH/im.height), w=im.width*r, h=im.height*r;
+          g.fillStyle='#f1f1f1'; g.fillRect(x,y,IW,IH);
+          try{ g.drawImage(im, x+(IW-w)/2, y+(IH-h)/2, w, h); }catch(e){}
+        });
+        y+=IH+6;
+      }
+      y+=12;
+      g.fillStyle='#1b6b3a'; g.font=font(14,true); g.fillText('Cảm ơn anh/chị đã phản ánh!', PAD, y);
+      g.fillStyle='#888'; g.font=font(11.5,false); g.fillText('Cập nhật lúc '+vietGio()+'  ·  Mã thẻ: '+c.id+'  ·  Kanban Khoa GMHS', PAD, y+22);
+      g.strokeStyle=MAU; g.lineWidth=3; g.strokeRect(1.5,1.5,W-3,H-3);
+      return cv;
+    });
+  }
+  function canvasBlob(cv){ return new Promise(function(res,rej){ try{ cv.toBlob(function(b){ b?res(b):rej(new Error('toBlob')); }, 'image/png'); }catch(e){ rej(e); } }); }
+  function taoAnh(){
+    if(!bnvCur || !bnvCur.c) return;
+    var x=bnvCur, pv=document.getElementById('bnvAnhPrev');
+    pv.innerHTML='⏳ Đang tạo ảnh thẻ...';
+    bnvAnh={blob:null, p:null, ten:'ThongBao_'+String(x.ten||'NV').replace(/[^0-9a-zA-ZÀ-ỹ]+/g,'_')+'_'+(x.st==='done'?'DaXong':'DangXuLy')+'_'+x.id+'.png'};
+    var p=veAnh(x.c, x.st, x.ngay, x.note, true).then(canvasBlob)
+      .catch(function(){ return veAnh(x.c, x.st, x.ngay, x.note, false).then(canvasBlob); }); // ảnh hiện trường lỗi/khác nguồn → vẽ lại không kèm ảnh
+    bnvAnh.p=p;
+    p.then(function(b){ if(bnvAnh.p!==p) return; bnvAnh.blob=b;
+      pv.innerHTML='<img src="'+URL.createObjectURL(b)+'" style="width:100%;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.2)" alt="Ảnh thẻ">'; },
+      function(e){ pv.innerHTML='<span style="color:#c62828">❌ Không tạo được ảnh thẻ — dùng "Tin nhắn chữ".</span>'; });
+  }
+  window.bnvTaiAnh=function(){
+    if(!bnvAnh.blob){ alert('Ảnh chưa tạo xong, anh/chị chờ một chút.'); return; }
+    if(typeof phDownloadBlob==='function') phDownloadBlob(bnvAnh.blob, bnvAnh.ten);
+    else { var a=document.createElement('a'); a.href=URL.createObjectURL(bnvAnh.blob); a.download=bnvAnh.ten; document.body.appendChild(a); a.click(); a.remove(); }
+  };
+  function chepAnh(){
+    if(!bnvAnh.blob) return Promise.reject(new Error('Ảnh chưa tạo xong'));
+    if(typeof phImgWriteClipboard==='function') return phImgWriteClipboard(bnvAnh.blob);
+    if(!(navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem!=='undefined')) return Promise.reject(new Error('Trình duyệt không hỗ trợ chép ảnh'));
+    return navigator.clipboard.write([new ClipboardItem({'image/png':bnvAnh.blob})]);
+  }
+
+  window.bnvCapNhatNut=function(){
+    var sdt=chuanSdt(document.getElementById('bnvSdt').value), msg=document.getElementById('bnvNoiDung').value;
+    var a=document.getElementById('bnvBtnSms');
+    a.href = sdt ? ('sms:'+sdt+'?&body='+encodeURIComponent(msg)) : '#';
+    a.style.opacity = sdt ? '1' : '.5';
+    document.getElementById('bnvBtnZalo').style.opacity = sdt ? '1' : '.5';
+  };
+
+  // Gọi từ confirmMoveTime() sau khi đã lưu trạng thái. Không ảnh hưởng việc lưu dù có lỗi.
+  window.bnvMoi=function(id, st, ngay, note){
+    try{
+      if(st!=='doing' && st!=='done') return;
+      if(typeof cu==='undefined' || !cu || cu.role!=='admin') return;
+      var c=(typeof cards!=='undefined'&&cards||[]).find(function(x){ return String(x.id)===String(id); });
+      if(!c || !c.person) return;
+      var laChung=(typeof phIsGenericSender==='function') ? phIsGenericSender(c.person) : /^(quản lý|admin)$/i.test(String(c.person).trim());
+      if(laChung || c.byAdmin===true) return;               // thẻ do Quản lý tự tạo (Ghi chú nhanh) → không báo
+      if(cu.name && String(cu.name).trim()===String(c.person).trim()) return;
+      // [17/10 19:50] Thông báo TRONG APP cho NV (NV bấm "Đã nhận"). Ghi đè theo mốc → mỗi lần chuyển lại là thông báo mới.
+      try{ if(typeof cardsRef!=='undefined') cardsRef.child(String(id)).child('thongBaoApp').child(st).set({
+        at:new Date().toISOString(), ngay:ngay||'', note:note||'', by:(cu&&cu.name)?cu.name:'Quản lý' }); }catch(e){}
+      if(laTat()) return;
+      bnvCur={id:id, st:st, ngay:ngay, note:note||'', ten:c.person, c:c};
+      bnvAnh={blob:null, p:null, ten:''};
+      var sdt=timSdt(c.person);
+      document.getElementById('bnvInfo').innerHTML='Gửi cho: <b>'+E(c.person)+'</b>'+(c.dept?(' · '+E(c.dept)):'')
+        +'<br>Mốc: <b style="color:'+(st==='doing'?'#1565C0':'#2e7d32')+'">'+(st==='doing'?'Đang xử lý':'Đã xong')+'</b> · ngày '+E(D(ngay));
+      document.getElementById('bnvSdt').value=sdt;
+      document.getElementById('bnvSdtGhiChu').innerHTML = sdt
+        ? '<i class="ti ti-check"></i> Lấy từ Danh sách nhân viên.'
+        : '<span style="color:#c62828"><i class="ti ti-alert-triangle"></i> Chưa tìm thấy SĐT của "'+E(c.person)+'" trong Danh sách nhân viên — nhập tay để gửi lần này (không lưu vào danh sách).</span>';
+      document.getElementById('bnvNoiDung').value=soanTin(c, st, ngay, note);
+      var ds=c.thongBaoNV?Object.keys(c.thongBaoNV).map(function(k){ return c.thongBaoNV[k]; }):[];
+      document.getElementById('bnvDaBao').innerHTML = ds.length
+        ? ('<i class="ti ti-history"></i> Đã báo NV '+ds.length+' lần, gần nhất: '+E(ds.sort(function(a,b){ return String(b.at).localeCompare(String(a.at)); }).slice(0,1).map(function(x){
+            return (x.st==='doing'?'Đang xử lý':'Đã xong')+' – '+(x.kenh||'')+' – '+new Date(x.at).toLocaleString('vi-VN'); })[0]))
+        : '';
+      document.getElementById('bnvTatCb').checked=false;
+      bnvCapNhatNut();
+      bnvChonKieu(kieuGui());
+      setTimeout(function(){ document.getElementById('bnvModal').classList.add('on'); }, 120);
+    }catch(e){ try{ console.warn('bnvMoi', e); }catch(_){} }
+  };
+  window.bnvDong=function(){ document.getElementById('bnvModal').classList.remove('on'); bnvCur=null; };
+
+  function ghiNhan(kenh, sdt, x){
+    try{
+      x=x||bnvCur;
+      if(!x || typeof cardsRef==='undefined') return;
+      cardsRef.child(String(x.id)).child('thongBaoNV').push({
+        at:new Date().toISOString(), st:x.st, kenh:kenh, sdt:sdt||'',
+        by:(cu&&cu.name)?cu.name:'Quản lý'
+      });
+    }catch(e){}
+  }
+  function chep(txt){
+    var ok=false;
+    try{ if(typeof phCopySync==='function') ok=phCopySync(txt); }catch(e){}
+    if(!ok){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); ok=true; } }catch(e){} }
+    return ok;
+  }
+  function moZalo(sdt){
+    var laDT=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+    if(laDT){ window.location.href='https://zalo.me/'+sdt; }
+    else { window.location.href='zalo://conversation?phone='+sdt; }
+  }
+  window.bnvGui=function(kenh){
+    var sdt=chuanSdt(document.getElementById('bnvSdt').value), msg=document.getElementById('bnvNoiDung').value;
+    if((kenh==='sms'||kenh==='zalo') && !sdt){ alert('Chưa có số điện thoại hợp lệ của nhân viên.\nVí dụ: 0905123456'); return false; }
+    if(kenh==='sms'){
+      bnvCapNhatNut(); ghiNhan('SMS', sdt);
+      if(typeof showAl==='function') showAl('Đang mở ứng dụng Tin nhắn — bấm Gửi trên điện thoại.');
+      setTimeout(bnvDong, 300);
+      return true; // để thẻ <a href="sms:..."> mở ứng dụng Tin nhắn
+    }
+    if(kieuGui()==='anh'){
+      var x0=bnvCur, sdt0=sdt;
+      if(!bnvAnh.blob){ alert('Ảnh thẻ chưa tạo xong, anh/chị chờ 1–2 giây rồi bấm lại.'); return false; }
+      chepAnh().then(function(){
+        ghiNhan(kenh==='zalo'?'Zalo (ảnh)':'Chép ảnh', sdt0, x0);
+        bnvDong();
+        if(kenh==='zalo') moZalo(sdt0);
+        if(typeof showAl==='function') showAl('Đã chép ẢNH thẻ. '+(kenh==='zalo'?('Zalo đang mở chat với '+(x0?x0.ten:'')+' ('+sdt0+') — '):'')+'bấm Ctrl + V rồi Enter để gửi.');
+      }, function(e){
+        alert('Trình duyệt chưa cho chép ảnh tự động ('+((e&&e.message)||e)+').\nAnh/chị bấm "Tải ảnh về" rồi kéo thả ảnh vào Zalo, hoặc chọn kiểu "Tin nhắn chữ".');
+      });
+      return false;
+    }
+    var ok=chep(msg);
+    if(kenh==='zalo'){
+      // [17/10 19:45] Mở THẲNG cuộc trò chuyện Zalo của nhân viên theo số:
+      //  - Máy tính: gọi ứng dụng Zalo PC (zalo://conversation?phone=...) — cần đã cài và đăng nhập Zalo PC.
+      //  - Điện thoại: mở zalo.me/<số> → tự chuyển sang app Zalo.
+      // Không dùng cài đặt "Cách mở Zalo" của phần Gửi phòng ban (phần đó giữ nguyên).
+      var laDT=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+      var ten=bnvCur?bnvCur.ten:'';
+      ghiNhan('Zalo', sdt);
+      bnvDong();
+      moZalo(sdt);
+      if(typeof showAl==='function') showAl((ok?'Đã chép nội dung. ':'Chưa chép được, hãy chép tay. ')+'Zalo đang mở chat với '+ten+' ('+sdt+') — bấm Ctrl + V rồi Enter để gửi.');
+      return false;
+    } else {
+      ghiNhan('Chép', sdt);
+      if(typeof showAl==='function') showAl(ok?'Đã chép nội dung tin nhắn!':'Không chép tự động được.', ok?undefined:'warn');
+    }
+    bnvDong();
+    return false;
+  };
+})();
+</script>
+
+<!-- ═══ NV XÁC NHẬN "ĐÃ NHẬN" THÔNG BÁO TIẾN ĐỘ (bnvx) — bổ sung 17/10/2026 ═══
+     - NV đăng nhập: thẻ của mình có thông báo mới (cards/<id>/thongBaoApp/<doing|done> chưa có daNhanAt) → hiện khung, bấm "Đã nhận".
+     - Ghi thêm daNhanAt, daNhanBy vào đúng thông báo đó. Không đụng trường cũ.
+     - Gắn nhãn "✔ NV đã nhận …" / "✉ Chờ NV xác nhận" vào thẻ sau khi bảng vẽ xong (không sửa renderCard/renderBoard). -->
+<div class="modal-bg" id="bnvxModal" style="z-index:2250">
+  <div class="modal" style="max-width:520px">
+    <h3 style="margin-bottom:6px"><i class="ti ti-bell-ringing"></i> Thông báo tiến độ xử lý</h3>
+    <div style="font-size:12.5px;color:var(--tx2);margin-bottom:10px">Lãnh đạo khoa đã cập nhật các nội dung anh/chị báo cáo. Vui lòng xem và bấm <b>Đã nhận</b>.</div>
+    <div id="bnvxList" style="max-height:55vh;overflow:auto"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button type="button" class="btnp" style="flex:1" onclick="bnvxNhanHet()"><i class="ti ti-checks"></i> Đã nhận tất cả</button>
+      <button type="button" class="btne" style="flex:1" onclick="bnvxDeSau()"><i class="ti ti-clock"></i> Để sau</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  function E(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function D(iso){ var a=String(iso||'').slice(0,10).split('-'); return a.length===3?(a[2]+'/'+a[1]+'/'+a[0]):String(iso||''); }
+  function GioNgay(iso){ try{ var d=new Date(iso); if(isNaN(d)) return ''; var p=function(n){return String(n).padStart(2,'0');}; return p(d.getHours())+':'+p(d.getMinutes())+' '+p(d.getDate())+'/'+p(d.getMonth()+1); }catch(e){ return ''; } }
+  function N(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/\s+/g,' ').trim(); }
+  function rutGon(s,n){ s=String(s||'').replace(/\s+/g,' ').trim(); return s.length>n?(s.slice(0,n-1)+'…'):s; }
+  function dsThe(){ try{ return (typeof kbVisibleCards==='function') ? kbVisibleCards() : ((typeof cards!=='undefined'&&cards)||[]); }catch(e){ return []; } }
+  var daVe='';
+  var daHoan={}; // các thông báo NV bấm "Để sau" trong phiên này
+
+  function choNhan(){ // [{c, st, tb, key}]
+    if(typeof cu==='undefined' || !cu || cu.role!=='staff' || !cu.name) return [];
+    var me=N(cu.name), out=[];
+    dsThe().forEach(function(c){
+      if(!c || !c.thongBaoApp || N(c.person)!==me) return;
+      ['doing','done'].forEach(function(st){
+        var tb=c.thongBaoApp[st];
+        if(tb && tb.at && !tb.daNhanAt && c.status===st) out.push({c:c, st:st, tb:tb, key:c.id+'|'+st+'|'+tb.at});
+      });
+    });
+    return out;
+  }
+  function veDs(ds){
+    document.getElementById('bnvxList').innerHTML = ds.map(function(x){
+      var c=x.c, tb=x.tb, laXong=x.st==='done';
+      return '<div style="border:1.5px solid '+(laXong?'#a5d6a7':'#90caf9')+';background:'+(laXong?'#f1f8e9':'#e3f2fd')+';border-radius:10px;padding:9px 11px;margin-bottom:8px">'
+        +'<div style="font-weight:700;color:'+(laXong?'#2e7d32':'#1565C0')+';font-size:13px">'+(laXong?'✅ ĐÃ XỬ LÝ XONG':'➡ ĐANG XỬ LÝ')+' · ngày '+E(D(tb.ngay||tb.at))+'</div>'
+        +'<div style="font-size:13px;margin:4px 0">'+E(rutGon(c.content||c.todo||c.doing||'',200))+'</div>'
+        +'<div style="font-size:11.5px;color:var(--tx3)">Anh/chị báo ngày '+E(D(c.date))+(tb.note?(' · '+(laXong?'Kết quả: ':'Đang làm: ')+E(rutGon(tb.note,200))):'')+' · Người cập nhật: '+E(tb.by||'')+'</div>'
+        +'<div style="text-align:right;margin-top:6px"><button type="button" class="btnp" style="padding:5px 14px;font-size:12.5px" onclick="bnvxNhan(\''+E(String(c.id))+'\',\''+x.st+'\')"><i class="ti ti-check"></i> Đã nhận</button></div>'
+        +'</div>';
+    }).join('');
+  }
+  function ghiNhan(id, st){
+    try{
+      if(typeof cardsRef==='undefined') return Promise.resolve();
+      var at=new Date().toISOString(), by=(cu&&cu.name)?cu.name:'';
+      var c=((typeof cards!=='undefined'&&cards)||[]).find(function(x){ return String(x.id)===String(id); });
+      if(c && c.thongBaoApp && c.thongBaoApp[st]){ c.thongBaoApp[st].daNhanAt=at; c.thongBaoApp[st].daNhanBy=by; }
+      return cardsRef.child(String(id)).child('thongBaoApp').child(st).update({daNhanAt:at, daNhanBy:by});
+    }catch(e){ return Promise.resolve(); }
+  }
+  function capNhatKhung(){
+    var ds=choNhan().filter(function(x){ return !daHoan[x.key]; });
+    var m=document.getElementById('bnvxModal');
+    if(!ds.length){ m.classList.remove('on'); daVe=''; return; }
+    var sig=ds.map(function(x){ return x.key; }).join(',');
+    if(sig!==daVe){ veDs(ds); daVe=sig; }   // chỉ vẽ lại khi danh sách thay đổi (tránh trượt cú bấm)
+    if(!m.classList.contains('on')) m.classList.add('on');
+  }
+  window.bnvxNhan=function(id, st){
+    ghiNhan(id, st).then(function(){ if(typeof showAl==='function') showAl('Đã xác nhận nhận thông báo. Cảm ơn anh/chị!'); }, function(e){ alert('Chưa lưu được xác nhận: '+(e&&e.message||e)); });
+    capNhatKhung(); bnvxGanNhan();
+  };
+  window.bnvxNhanHet=function(){
+    var ds=choNhan(); ds.forEach(function(x){ ghiNhan(x.c.id, x.st); });
+    if(ds.length && typeof showAl==='function') showAl('Đã xác nhận '+ds.length+' thông báo. Cảm ơn anh/chị!');
+    capNhatKhung(); bnvxGanNhan();
+  };
+  window.bnvxDeSau=function(){ choNhan().forEach(function(x){ daHoan[x.key]=1; }); document.getElementById('bnvxModal').classList.remove('on'); };
+
+  // Gắn nhãn trên thẻ (Quản lý + chính NV đó). Chạy lại định kỳ vì bảng được vẽ lại khi dữ liệu thay đổi.
+  var RE_ID=/(?:toggleCardHistory|openEditModal|askMoveCard|deleteCard|openAssignModal|openNoteModal)\(\s*['"]?([^,'")\s]+)/;
+  window.bnvxGanNhan=function(){
+    try{
+      if(typeof cu==='undefined' || !cu || (cu.role!=='admin' && cu.role!=='staff')) return;
+      var map={}; ((typeof cards!=='undefined'&&cards)||[]).forEach(function(c){ map[String(c.id)]=c; });
+      ['colTd','colDg','colDn'].forEach(function(col){
+        var box=document.getElementById(col); if(!box) return;
+        box.querySelectorAll('.card').forEach(function(el){
+          var btn=el.querySelector('[onclick]'), id=null;
+          el.querySelectorAll('[onclick]').forEach(function(b){ if(id) return; var m=RE_ID.exec(b.getAttribute('onclick')||''); if(m) id=m[1]; });
+          var c=id?map[id]:null, cu0=el.querySelector('.bnvx-tag');
+          var tb=(c && c.thongBaoApp) ? c.thongBaoApp[c.status] : null;
+          if(!tb || (cu.role==='staff' && N(c.person)!==N(cu.name))){ if(cu0) cu0.remove(); return; }
+          var html = tb.daNhanAt
+            ? '<span class="bnvx-tag" title="Nhân viên đã bấm Đã nhận thông báo '+(c.status==='done'?'Đã xong':'Đang xử lý')+'" style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;margin-left:4px">✔ '+(cu.role==='staff'?'Đã nhận':'NV đã nhận')+' '+E(GioNgay(tb.daNhanAt))+'</span>'
+            : '<span class="bnvx-tag" title="Đã báo lúc '+E(GioNgay(tb.at))+' — nhân viên chưa bấm Đã nhận" style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;margin-left:4px">✉ Chờ NV xác nhận</span>';
+          var sig=(tb.daNhanAt||'')+'|'+tb.at;
+          if(cu0 && cu0.getAttribute('data-sig')===sig) return;
+          if(cu0) cu0.remove();
+          var host=el.querySelector('.cdate')||el;
+          host.insertAdjacentHTML('beforeend', html);
+          var t=host.querySelector('.bnvx-tag:last-child')||host.lastElementChild; if(t) t.setAttribute('data-sig', sig);
+        });
+      });
+    }catch(e){}
+  };
+  setInterval(function(){ try{ capNhatKhung(); bnvxGanNhan(); }catch(e){} }, 2000);
 })();
 </script>
 
