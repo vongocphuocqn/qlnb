@@ -23735,7 +23735,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     <div class="qt-tabpane on" id="qtPaneManual">
       <label>Tên quy trình *</label><input id="qt_ten">
       <label>Mã số</label><input id="qt_ma">
-      <label>Khoa/Phòng quản lý</label><input id="qt_khoa">
+      <label>Khoa/Phòng quản lý</label><input id="qt_khoa" list="qtKhoaDatalist" placeholder="Chọn tên có sẵn để lọc gọn">
       <label>Nhóm quy trình</label>
       <select id="qt_nhom">
         <option>An toàn phẫu thuật</option><option>Kiểm soát nhiễm khuẩn</option>
@@ -23913,6 +23913,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     <p id="qtv_tenqt" style="font-size:12.5px;color:#5d4037;margin:2px 0 0"></p>
     <label>Mã số quy trình — điền/sửa nếu trước đó để trống hoặc ghi "Chưa quy định"</label>
     <input id="qtv_ma" placeholder="VD: QT.22.KSNK, hoặc số quyết định gốc như 3916/QĐ-BYT">
+    <label>Khoa/Phòng quản lý — chọn tên có sẵn trong danh sách để lọc gọn, tránh gõ mỗi lần một kiểu</label>
+    <input id="qtv_khoa" list="qtKhoaDatalist" placeholder="VD: Khoa Gây mê Hồi sức">
     <label>Ngày hiệu lực (dd/mm/yyyy) — dùng để tính Năm và hạn rà soát</label>
     <input id="qtv_ngay" placeholder="VD: 01/01/2024 (nếu quy trình dẫn theo Bộ Y tế, không có ngày BV ban hành, có thể điền năm ban hành của văn bản Bộ Y tế, hoặc ngày bệnh viện áp dụng)">
     <label>Chu kỳ rà soát (năm) — mặc định 2 năm/lần, chỉ áp dụng cho quy trình nội bộ BV</label>
@@ -23934,6 +23936,20 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     <div class="qt-modal-actions">
       <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtValidityOv').classList.remove('open')">Hủy</button>
       <button class="qt-btn solid" style="color:#fff" onclick="qtSaveValidity()">Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+<datalist id="qtKhoaDatalist"></datalist>
+
+<div class="qt-modal-ov" id="qtKhoaMergeOv">
+  <div class="qt-modal" style="max-width:640px">
+    <h3>🔀 Chuẩn hóa / gộp tên Khoa–Phòng</h3>
+    <p style="font-size:12px;color:#5d4037;margin:2px 0 10px">Sửa ô "Đổi thành" cho giống hệt nhau thì các quy trình sẽ được gộp chung một mục lọc. VD: đổi “Khoa Gây mê Hồi sức (GMHS)” → “Khoa Gây mê Hồi sức”. Chỉ đổi tên hiển thị, không ảnh hưởng nội dung quy trình, lượt đọc, lượt tra cứu.</p>
+    <div id="qtKhoaMergeBox" style="max-height:55vh;overflow:auto"></div>
+    <p id="qtKhoaMergeInfo" style="font-size:12px;color:#a9631a;font-weight:700;margin:10px 0 0"></p>
+    <div class="qt-modal-actions">
+      <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtKhoaMergeOv').classList.remove('open')">Hủy</button>
+      <button class="qt-btn solid" style="color:#fff" onclick="qtSaveKhoaMerge()">Lưu thay đổi</button>
     </div>
   </div>
 </div>
@@ -24117,10 +24133,55 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       var count = k==='Tất cả'?qtSops.length:qtSops.filter(function(s){return qtFieldValue(s,f)===k;}).length;
       html+='<div class="qt-filter '+(k===qtActiveFilter?'on':'')+'" onclick="qtSetFilter(\''+k.replace(/'/g,"\\'")+'\')"><span>'+k+'</span><span class="c">'+count+'</span></div>';
     });
+    if(qtGroupMode==='khoa' && qtIsAdmin()){
+      html+='<button onclick="qtOpenKhoaMerge()" style="margin-top:8px;width:100%;border:1.5px dashed #a1887f;background:#fff;color:#5d4037;border-radius:7px;padding:7px 6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔀 Gộp / sửa tên khoa</button>';
+    }
     sb.innerHTML=html;
+    var dl=document.getElementById('qtKhoaDatalist');
+    if(dl) dl.innerHTML=qtKhoaNames().map(function(n){return '<option value="'+qtEsc(n)+'">';}).join('');
   }
   window.qtSetGroup=function(m){qtGroupMode=m;qtActiveFilter='Tất cả';qtRender();};
   window.qtSetFilter=function(k){qtActiveFilter=k;qtRender();};
+
+  // ── Gộp / chuẩn hóa tên Khoa–Phòng ──
+  function qtKhoaNames(){
+    var set={}; qtSops.forEach(function(s){ var k=(s.khoa||'').trim(); if(k) set[k]=(set[k]||0)+1; });
+    return Object.keys(set).sort(function(a,b){return set[b]-set[a] || a.localeCompare(b,'vi');});
+  }
+  window.qtOpenKhoaMerge=function(){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được sửa tên khoa.'); return; }
+    var names=qtKhoaNames();
+    var html='<table class="qt-tb"><tr><th style="width:auto">Tên đang dùng</th><th style="width:44px;text-align:center">Số QT</th><th style="width:auto">Đổi thành</th></tr>'+
+      names.map(function(n,i){
+        var c=qtSops.filter(function(s){return (s.khoa||'').trim()===n;}).length;
+        return '<tr><td>'+qtEsc(n)+'</td><td style="text-align:center">'+c+'</td><td><input class="qt-km-in" data-old="'+qtEsc(n)+'" value="'+qtEsc(n)+'" list="qtKhoaDatalist" oninput="qtKhoaMergeCount()" style="width:100%;border:1.5px solid #e0d2c8;border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit"></td></tr>';
+      }).join('')+'</table>';
+    document.getElementById('qtKhoaMergeBox').innerHTML=html;
+    qtKhoaMergeCount();
+    document.getElementById('qtKhoaMergeOv').classList.add('open');
+  };
+  window.qtKhoaMergeCount=function(){
+    var n=0, after={};
+    Array.prototype.forEach.call(document.querySelectorAll('.qt-km-in'),function(el){
+      var v=el.value.trim(); if(v && v!==el.dataset.old) n++; after[v||el.dataset.old]=1;
+    });
+    document.getElementById('qtKhoaMergeInfo').textContent = n ? ('Sẽ đổi '+n+' tên → còn '+Object.keys(after).length+' mục khoa/phòng.') : '';
+  };
+  window.qtSaveKhoaMerge=function(){
+    var map={};
+    Array.prototype.forEach.call(document.querySelectorAll('.qt-km-in'),function(el){
+      var v=el.value.trim(); if(v && v!==el.dataset.old) map[el.dataset.old]=v;
+    });
+    var updates={}, cnt=0;
+    qtSops.forEach(function(s){ var k=(s.khoa||'').trim(); if(map[k]){ updates[s._id+'/khoa']=map[k]; cnt++; } });
+    if(!cnt){ document.getElementById('qtKhoaMergeOv').classList.remove('open'); return; }
+    if(!confirm('Đổi tên khoa/phòng cho '+cnt+' quy trình?')) return;
+    db.ref('quyTrinh').update(updates).then(function(){
+      qtActiveFilter='Tất cả';
+      try{ if(typeof showAl==='function') showAl('Đã gộp tên khoa cho '+cnt+' quy trình!'); }catch(e){}
+    }).catch(function(e){ alert('Lỗi lưu: '+e.message); });
+    document.getElementById('qtKhoaMergeOv').classList.remove('open');
+  };
 
   function qtRenderStats(){
     var total=qtSops.length, newCount=qtSops.filter(function(s){return qtIsNewRec(s);}).length;
@@ -25060,6 +25121,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được chỉnh hiệu lực quy trình.'); return; }
     document.getElementById('qtv_tenqt').textContent = s.ma+' — '+s.ten;
     document.getElementById('qtv_ma').value = (s.ma && s.ma!=='—') ? s.ma : '';
+    document.getElementById('qtv_khoa').value = s.khoa || '';
     document.getElementById('qtv_ngay').value = (s.ngay && s.ngay!=='—') ? s.ngay : '';
     document.getElementById('qtv_chuky').value = (typeof s.chuKyNam==='number') ? s.chuKyNam : 2;
     document.getElementById('qtv_khonggh').checked = s.khongGioiHan===true;
@@ -25079,6 +25141,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var het = document.getElementById('qtv_hethieuluc').checked;
     var updates = {chuKyNam:chuKy, khongGioiHan:khongGh, hetHieuLuc:het, apDungNhom:qtReadApDungBox('qtv'), dinhKem:qtDkRead('qtv')};
     if(maVal) updates.ma = maVal;
+    var khoaVal = document.getElementById('qtv_khoa').value.trim();
+    if(khoaVal) updates.khoa = khoaVal;
     if(ngayVal){
       if(!qtParseDate(ngayVal)){ alert('Ngày hiệu lực chưa đúng định dạng dd/mm/yyyy. Vui lòng nhập lại (VD: 01/01/2024).'); return; }
       updates.ngay = ngayVal;
