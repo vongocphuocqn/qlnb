@@ -23667,6 +23667,20 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 .qt-tabbtn.on{opacity:1;background:#faf6f3;font-weight:700;border-color:#6d4c41;color:#4e342e}
 .qt-tabpane{display:none}
 .qt-tabpane.on{display:block}
+.qt-dk-list{display:flex;flex-direction:column;gap:6px}
+.qt-dk-item{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1.5px solid #e0d2c8;border-radius:8px;background:#faf6f3;text-decoration:none;color:#3e2723;font-size:12.8px}
+.qt-dk-item:hover{background:#efe6e2;border-color:#bcaaa4}
+.qt-dk-item .ic{font-size:17px;flex-shrink:0}
+.qt-dk-item .nm{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qt-dk-item .src{font-size:10.5px;color:#795548;flex-shrink:0}
+.qt-dk-edit{background:#faf6f3;border:1.5px dashed #d7ccc8;border-radius:9px;padding:10px;margin-top:10px}
+.qt-dk-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.qt-dk-row input{margin:0}
+.qt-dk-row .t{flex:0 0 38%}
+.qt-dk-row .u{flex:1;min-width:0}
+.qt-dk-row button{border:1px solid #e57373;background:#fff;color:#c62828;border-radius:6px;padding:5px 8px;cursor:pointer;flex-shrink:0}
+.qt-dk-add{border:1px solid #6d4c41;background:#fff;color:#5d4037;border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer;font-weight:600;font-family:inherit}
+@media(max-width:560px){.qt-dk-row{flex-wrap:wrap}.qt-dk-row .t{flex:1 1 100%}}
 .qt-empty{text-align:center;padding:50px 16px;color:#795548;opacity:.7;font-size:13px}
 .qt-myban{background:linear-gradient(135deg,#eef6f3,#dcece6);border:1.5px solid #bfe0cc;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .qt-myban.warn{background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#ffcc80}
@@ -23744,6 +23758,12 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       <label>Dán nguyên khối kết quả Claude trả về</label>
       <textarea id="qt_quick" style="min-height:200px;font-family:monospace;font-size:11.5px"
         placeholder="Tên: ...&#10;Mã số: ...&#10;Khoa: ...&#10;Nhóm: ...&#10;Ngày hiệu lực: ...&#10;Mục đích: ...&#10;Trách nhiệm:&#10;- Vị trí — việc&#10;Các bước:&#10;- bước 1&#10;Lưu ý: ..."></textarea>
+    </div>
+    <div class="qt-dk-edit">
+      <label style="margin-top:0">📎 Văn bản gốc / tài liệu đính kèm (dán đường link)</label>
+      <div id="qt_dk_box"></div>
+      <button type="button" class="qt-dk-add" onclick="qtDkAddRow('qt')">➕ Thêm link</button>
+      <div style="font-size:10.8px;color:#8d6e63;margin-top:6px;line-height:1.45">VD: “QĐ 3916/QĐ-BYT – bản gốc” + link Google Drive/iDesk/Cổng TTĐT Bộ Y tế. Với Google Drive: bấm <b>Chia sẻ → “Bất kỳ ai có đường liên kết” → Người xem</b>, nếu không nhân viên sẽ bị đòi quyền truy cập.</div>
     </div>
     <div class="qt-modal-actions">
       <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtModalOv').classList.remove('open')">Hủy</button>
@@ -23888,8 +23908,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 </div>
 
 <div class="qt-modal-ov" id="qtValidityOv">
-  <div class="qt-modal" style="max-width:420px">
-    <h3>Sửa hiệu lực / ngày ban hành</h3>
+  <div class="qt-modal" style="max-width:520px">
+    <h3>Sửa hiệu lực / ngày ban hành / đính kèm</h3>
     <p id="qtv_tenqt" style="font-size:12.5px;color:#5d4037;margin:2px 0 0"></p>
     <label>Mã số quy trình — điền/sửa nếu trước đó để trống hoặc ghi "Chưa quy định"</label>
     <input id="qtv_ma" placeholder="VD: QT.22.KSNK, hoặc số quyết định gốc như 3916/QĐ-BYT">
@@ -23905,6 +23925,12 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     </label>
     <label style="margin-top:12px">Áp dụng cho nhóm chuyên môn (không tick gì = áp dụng mọi người)</label>
     <div id="qtv_apdungnhom_box" style="display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;font-weight:400;margin-bottom:6px"></div>
+    <div class="qt-dk-edit">
+      <label style="margin-top:0">📎 Văn bản gốc / tài liệu đính kèm (dán đường link)</label>
+      <div id="qtv_dk_box"></div>
+      <button type="button" class="qt-dk-add" onclick="qtDkAddRow('qtv')">➕ Thêm link</button>
+      <div style="font-size:10.8px;color:#8d6e63;margin-top:6px;line-height:1.45">VD: “QĐ 3916/QĐ-BYT – bản gốc” + link Google Drive/iDesk/Cổng TTĐT Bộ Y tế. Với Google Drive: bấm <b>Chia sẻ → “Bất kỳ ai có đường liên kết” → Người xem</b>, nếu không nhân viên sẽ bị đòi quyền truy cập.</div>
+    </div>
     <div class="qt-modal-actions">
       <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtValidityOv').classList.remove('open')">Hủy</button>
       <button class="qt-btn solid" style="color:#fff" onclick="qtSaveValidity()">Lưu thay đổi</button>
@@ -24159,6 +24185,70 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     return list;
   }
 
+  // ── Đính kèm văn bản gốc / link ──
+  function qtEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function qtDkList(s){
+    var d = s && s.dinhKem; if(!d) return [];
+    if(!Array.isArray(d)) d = Object.keys(d).map(function(k){return d[k];});
+    return d.filter(function(x){return x && x.url;});
+  }
+  function qtDkNormUrl(u){
+    u=(u||'').trim(); if(!u) return '';
+    if(!/^https?:\/\//i.test(u)) u='https://'+u.replace(/^\/+/, '');
+    return u;
+  }
+  function qtDkKind(url){
+    var u=(url||'').toLowerCase();
+    if(/drive\.google|docs\.google/.test(u)){
+      if(/spreadsheets/.test(u)) return {ic:'📊',src:'Google Sheets'};
+      if(/presentation/.test(u)) return {ic:'📽️',src:'Google Slides'};
+      if(/document/.test(u)) return {ic:'📝',src:'Google Docs'};
+      if(/folders/.test(u)) return {ic:'📁',src:'Thư mục Drive'};
+      return {ic:'📄',src:'Google Drive'};
+    }
+    if(/youtube\.com|youtu\.be/.test(u)) return {ic:'🎬',src:'YouTube'};
+    if(/\.pdf(\?|#|$)/.test(u)) return {ic:'📕',src:'PDF'};
+    if(/\.docx?(\?|#|$)/.test(u)) return {ic:'📘',src:'Word'};
+    if(/\.xlsx?(\?|#|$)/.test(u)) return {ic:'📗',src:'Excel'};
+    if(/\.pptx?(\?|#|$)/.test(u)) return {ic:'📙',src:'PowerPoint'};
+    if(/onedrive|sharepoint|1drv\.ms/.test(u)) return {ic:'☁️',src:'OneDrive'};
+    if(/idesk|\.gov\.vn/.test(u)) return {ic:'🏛️',src:'Văn bản điện tử'};
+    try{ return {ic:'🔗',src:new URL(url).hostname.replace(/^www\./,'')}; }catch(e){ return {ic:'🔗',src:'Liên kết'}; }
+  }
+  function qtDkSectionHtml(s){
+    var list=qtDkList(s); if(!list.length) return '';
+    return '<div class="qt-sec"><h4>📎 Văn bản gốc / tài liệu đính kèm</h4><div class="qt-dk-list">'+
+      list.map(function(d){var k=qtDkKind(d.url);
+        return '<a class="qt-dk-item" href="'+qtEsc(d.url)+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">'+
+          '<span class="ic">'+k.ic+'</span><span class="nm">'+qtEsc(d.ten||d.url)+'</span><span class="src">'+qtEsc(k.src)+' ↗</span></a>';
+      }).join('')+'</div></div>';
+  }
+  function qtDkRowHtml(d){
+    return '<div class="qt-dk-row"><input class="t" placeholder="Tên hiển thị (VD: QĐ gốc)" value="'+qtEsc(d&&d.ten)+'">'+
+      '<input class="u" placeholder="https://drive.google.com/..." value="'+qtEsc(d&&d.url)+'">'+
+      '<button type="button" title="Xóa dòng" onclick="this.parentNode.remove()">🗑</button></div>';
+  }
+  function qtDkRender(prefix, list){
+    var box=document.getElementById(prefix+'_dk_box'); if(!box) return;
+    list = list||[];
+    box.innerHTML = (list.length?list:[{}]).map(qtDkRowHtml).join('');
+  }
+  window.qtDkAddRow=function(prefix){
+    var box=document.getElementById(prefix+'_dk_box'); if(!box) return;
+    box.insertAdjacentHTML('beforeend', qtDkRowHtml({}));
+    var ins=box.querySelectorAll('.qt-dk-row .t'); if(ins.length) ins[ins.length-1].focus();
+  };
+  function qtDkRead(prefix){
+    var box=document.getElementById(prefix+'_dk_box'); if(!box) return [];
+    var out=[];
+    Array.prototype.forEach.call(box.querySelectorAll('.qt-dk-row'), function(r){
+      var ten=r.querySelector('.t').value.trim(), url=qtDkNormUrl(r.querySelector('.u').value);
+      if(!url) return;
+      out.push({ten: ten || qtDkKind(url).src, url:url});
+    });
+    return out;
+  }
+
   function qtRenderCards(){
     var list = qtGetFilteredList();
     var wrap=document.getElementById('qtCardList');
@@ -24179,7 +24269,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
               '<span class="qt-nhom" style="background:#eef2f5;color:#37474f;border-color:#cfd8dc">Năm '+qtYearOf(s)+'</span>'+
               '<span class="qt-nhom" style="background:'+qtValidityStatus(s).bg+';color:'+qtValidityStatus(s).fg+';border-color:'+qtValidityStatus(s).bd+'">'+qtValidityStatus(s).label+'</span>'+
               (s.apDungNhom && s.apDungNhom.length && s.apDungNhom.indexOf('ALL')<0 ? '<span class="qt-nhom" style="background:#ede7f6;color:#4527a0;border-color:#d1c4e9">Áp dụng: '+s.apDungNhom.join(', ')+'</span>' : '')+
-              (qtIsAdmin() ? '<button onclick="event.stopPropagation();qtOpenValidityModal(\''+s._id+'\')" style="font-size:10px;border:1px solid #bcaaa4;background:#fff;color:#5d4037;border-radius:4px;padding:1px 6px;cursor:pointer">✏️ Sửa hiệu lực</button>' : '')+
+              (qtDkList(s).length ? '<span class="qt-nhom" style="background:#fff8e1;color:#8a5a00;border-color:#ffe082" title="Có văn bản gốc/tài liệu đính kèm">📎 '+qtDkList(s).length+' tài liệu</span>' : '')+
+              (qtIsAdmin() ? '<button onclick="event.stopPropagation();qtOpenValidityModal(\''+s._id+'\')" style="font-size:10px;border:1px solid #bcaaa4;background:#fff;color:#5d4037;border-radius:4px;padding:1px 6px;cursor:pointer">✏️ Sửa hiệu lực / đính kèm</button>' : '')+
               (qtIsNewRec(s)?'<span class="qt-new">MỚI</span>':'')+'</div>'+
             '<p class="qt-title">'+s.ten+'</p>'+
             '<div class="qt-meta">'+s.khoa+' · hiệu lực '+s.ngay+' · '+readCount+'/'+scopeTotal+' đã đọc · 👁 '+(qtViews[s._id]||0)+' lượt tra cứu</div>'+
@@ -24190,6 +24281,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
             (s.trachnhiem||[]).map(function(r){return '<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>';}).join('')+'</table></div>'+
           '<div class="qt-sec"><h4>Các bước cốt lõi</h4><ol class="qt-steps">'+(s.buoc||[]).map(function(b){return '<li>'+b+'</li>';}).join('')+'</ol></div>'+
           '<div class="qt-sec"><h4>⚠ Lưu ý / rủi ro an toàn</h4><div class="qt-warn">'+s.luuy+'</div></div>'+
+          qtDkSectionHtml(s)+
           '<div class="qt-foot"><span style="font-size:11.5px;color:#4e342e;font-weight:700">Đã đọc: '+readCount+'/'+scopeTotal+'</span>'+
             (qtIsAdmin() && scopeTotal>0 && readCount<scopeTotal ? '<button class="qt-readbtn" style="border-color:#a9631a;color:#a9631a" onclick="event.stopPropagation();qtRemindUnread(\''+s._id+'\')">📣 Nhắc đọc ('+(scopeTotal-readCount)+' người)</button>' : '')+
             (qtIsAdmin() ? '<button class="qt-readbtn" style="border-color:#0068ff;color:#0068ff" onclick="event.stopPropagation();qtShowRemindText(\''+s._id+'\')">📋 Nhắc Zalo</button>' : '')+
@@ -24836,13 +24928,14 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   window.qtExportExcel=function(){
     var list = qtResolveExportList();
     if(list.length===0){ alert('Không có quy trình nào phù hợp để xuất.'); return; }
-    var header=['Mã số','Tên quy trình','Khoa/Phòng','Nhóm chuyên môn','Ngày hiệu lực','Trạng thái hiệu lực','Đã đọc','Tổng nhân viên','Lượt tra cứu'];
+    var header=['Mã số','Tên quy trình','Khoa/Phòng','Nhóm chuyên môn','Ngày hiệu lực','Trạng thái hiệu lực','Đã đọc','Tổng nhân viên','Lượt tra cứu','Văn bản gốc / tài liệu đính kèm (link)'];
     var rows=[header.join(';')];
     list.forEach(function(s){
       var readers=qtReadersFor(s._id);
       var readCount=readers.filter(function(r){return r.read;}).length;
       rows.push([qtCsvEscape(s.ma),qtCsvEscape(s.ten),qtCsvEscape(s.khoa),qtCsvEscape(s.nhom),qtCsvEscape(s.ngay),
-        qtCsvEscape(qtValidityStatus(s).label),readCount,readers.length,(qtViews[s._id]||0)].join(';'));
+        qtCsvEscape(qtValidityStatus(s).label),readCount,readers.length,(qtViews[s._id]||0),
+        qtCsvEscape(qtDkList(s).map(function(d){return (d.ten||'Link')+': '+d.url;}).join('\n'))].join(';'));
     });
     var csv = '\uFEFF'+rows.join('\r\n'); // BOM để Excel hiển thị đúng tiếng Việt; dùng ; làm phân cách theo mặc định Excel vùng miền VN
     qtDownloadBlob(csv, 'danh_sach_quy_trinh_'+today()+'.csv', 'text/csv;charset=utf-8;');
@@ -24854,16 +24947,19 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       var readers=qtReadersFor(s._id);
       var readCount=readers.filter(function(r){return r.read;}).length;
       return '<tr><td>'+(i+1)+'</td><td>'+s.ma+'</td><td>'+s.ten+'</td><td>'+s.khoa+'</td><td>'+(s.nhom||'')+'</td>'+
-        '<td>'+s.ngay+'</td><td>'+qtValidityStatus(s).label+'</td><td>'+readCount+'/'+readers.length+'</td></tr>';
+        '<td>'+s.ngay+'</td><td>'+qtValidityStatus(s).label+'</td><td style="text-align:center">'+readCount+'/'+readers.length+'</td>'+
+        '<td>'+(qtDkList(s).map(function(d){return '<a href="'+qtEsc(d.url)+'">'+qtEsc(d.ten||'Link')+'</a>';}).join('<br>')||'<span style="color:#888">—</span>')+'</td></tr>';
     }).join('');
     var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
       '<head><meta charset="UTF-8"><title>Danh sách Quy trình</title>'+
       '<style>body{font-family:"Times New Roman",serif;font-size:13px}h2{text-align:center}table{border-collapse:collapse;width:100%}'+
-      'th,td{border:1px solid #333;padding:5px 7px;font-size:12px}th{background:#eee}thead{display:table-header-group}</style></head><body>'+
+      'th,td{border:1px solid #333;padding:5px 7px;font-size:12px;vertical-align:top}th{background:#eee}thead{display:table-header-group}a{color:#1a4fa0}'+
+      '@page Section1{size:841.9pt 595.3pt;mso-page-orientation:landscape;margin:1.5cm 1.5cm 1.5cm 2cm}div.Section1{page:Section1}</style></head><body><div class="Section1">'+
       '<h2>DANH SÁCH QUY TRÌNH — KHOA GÂY MÊ HỒI SỨC<br>BVĐK TRUNG TÂM TỈNH GIA LAI</h2>'+
       '<p>Ngày xuất: '+today()+' — Tổng số: '+list.length+' quy trình</p>'+
-      '<table><thead><tr><th>STT</th><th>Mã số</th><th>Tên quy trình</th><th>Khoa/Phòng</th><th>Nhóm CM</th><th>Ngày hiệu lực</th><th>Trạng thái</th><th>Đã đọc</th></tr></thead><tbody>'+
-      rowsHtml+'</tbody></table></body></html>';
+      '<table><thead><tr><th>STT</th><th>Mã số</th><th>Tên quy trình</th><th>Khoa/Phòng</th><th>Nhóm CM</th><th>Ngày hiệu lực</th><th>Trạng thái</th><th>Đã đọc</th><th>Văn bản gốc / đính kèm</th></tr></thead><tbody>'+
+      rowsHtml+'</tbody></table>'+
+      '<p style="font-size:11px;font-style:italic">Ghi chú: bấm giữ Ctrl + nhấp vào tên tài liệu để mở văn bản gốc.</p></div></body></html>';
     qtDownloadBlob(html, 'danh_sach_quy_trinh_'+today()+'.doc', 'application/msword;charset=utf-8;');
   };
 
@@ -24969,6 +25065,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     document.getElementById('qtv_khonggh').checked = s.khongGioiHan===true;
     document.getElementById('qtv_hethieuluc').checked = s.hetHieuLuc===true;
     qtRenderApDungBox('qtv', s.apDungNhom||[]);
+    qtDkRender('qtv', qtDkList(s));
     document.getElementById('qtValidityOv').dataset.sopid = sopId;
     document.getElementById('qtValidityOv').classList.add('open');
   };
@@ -24980,7 +25077,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var chuKy = parseInt(document.getElementById('qtv_chuky').value,10) || 2;
     var khongGh = document.getElementById('qtv_khonggh').checked;
     var het = document.getElementById('qtv_hethieuluc').checked;
-    var updates = {chuKyNam:chuKy, khongGioiHan:khongGh, hetHieuLuc:het, apDungNhom:qtReadApDungBox('qtv')};
+    var updates = {chuKyNam:chuKy, khongGioiHan:khongGh, hetHieuLuc:het, apDungNhom:qtReadApDungBox('qtv'), dinhKem:qtDkRead('qtv')};
     if(maVal) updates.ma = maVal;
     if(ngayVal){
       if(!qtParseDate(ngayVal)){ alert('Ngày hiệu lực chưa đúng định dạng dd/mm/yyyy. Vui lòng nhập lại (VD: 01/01/2024).'); return; }
@@ -25127,6 +25224,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   window.qtOpenAddModal=function(){
     if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được thêm quy trình. Vui lòng đăng nhập.'); return; }
     qtRenderApDungBox('qt', []);
+    qtDkRender('qt', []);
     document.getElementById('qtModalOv').classList.add('open');
   };
 
@@ -25160,6 +25258,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
         hetHieuLuc: document.getElementById('qt_hethieuluc').checked,
         apDungNhom: qtReadApDungBox('qt')};
     }
+    rec.dinhKem = qtDkRead('qt');
     rec.createdAt = Date.now();
     var newScopeCount = (function(){
       if(rec.apDungNhom && rec.apDungNhom.length && rec.apDungNhom.indexOf('ALL')<0){
