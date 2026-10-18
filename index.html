@@ -14770,6 +14770,8 @@ function phCardLines(c, f){
     out.push(['Đã hoàn thành', (c.done||'').trim(), true]);
     out.push(['Đường link', (c.link||'').trim()]);
   }
+  // [18/10] Gỡ ký hiệu định dạng của ô soạn thẻ ([giữa], [phải], **đậm**, __nghiêng__, ++gạch chân++, {đỏ:…}) — ảnh thẻ & bản chữ Zalo không in nguyên ký hiệu
+  if(typeof aeStrip==='function') out.forEach(function(x){ if(typeof x[1]==='string') x[1]=aeStrip(x[1]); });
   return out.filter(function(x){ return x[1]; });
 }
 // Số điện thoại người nhận (chỉ khi ô Zalo là SỐ, không phải link nhóm) — viết liền dạng 0xxxxxxxxx
@@ -14832,8 +14834,8 @@ function phDrawCard(c,f){
     var rows=phCardLines(c, f).map(function(x){ return {lb:x[0], v:x[1], col:x[4]||'#1b6b3a', pri:x[3]||'', vcol:x[4]||''}; });
     if(f.note) rows.push({lb:'Đề nghị / Ghi chú', v:f.note, col:'#b71c1c'});
     rows.push({lb:'Người gửi', v:(phSenderShown(f)?(phSenderShown(f)+(phSenderPhone(f)?(' - ĐT: '+phSenderPhone(f)):'')+' - '):'')+'Khoa Gây mê Hồi sức', col:'#6a1b9a'});
-    m.font=font(15,false);
-    rows.forEach(function(r){ r.lines=phWrapText(m, r.v, VW); r.h=Math.max(1,r.lines.length)*LH+10; });
+    // [18/10] Đo xuống dòng bằng ĐÚNG kiểu chữ sẽ vẽ (dòng có màu như "Thời gian chờ" vẽ chữ đậm) → không tràn viền phải
+    rows.forEach(function(r){ m.font=font(15,!!r.vcol); r.lines=phWrapText(m, r.v, VW); r.h=Math.max(1,r.lines.length)*LH+10; });
     m.font=font(15,true);
     var nn=phNguoiNhanText(f);
     var kg=phWrapText(m, 'Kính gửi: '+f.dept+(nn?(' ('+nn+')'):''), W-PAD*2);
@@ -57734,7 +57736,8 @@ try{ ensureListeners(); }catch(x){ console.warn('[Bàn giao hộ lý]', x); }
   function D(iso){ var a=String(iso||'').slice(0,10).split('-'); return a.length===3?(a[2]+'/'+a[1]+'/'+a[0]):String(iso||''); }
   function soNgay(tu, den){ try{ var a=new Date(String(tu).slice(0,10)), b=new Date(String(den).slice(0,10)); var n=Math.round((b-a)/86400000); return isNaN(n)?null:Math.max(0,n); }catch(e){ return null; } }
   function chuanSdt(v){ var d=String(v||'').replace(/[^0-9]/g,''); if(d.indexOf('84')===0 && d.length>=11) d='0'+d.slice(2); return (d.length>=9 && d.length<=11)?d:''; }
-  function rutGon(s,n){ s=String(s||'').replace(/\s+/g,' ').trim(); return s.length>n?(s.slice(0,n-1)+'…'):s; }
+  function sach(s){ try{ return (typeof aeStrip==='function') ? aeStrip(s) : String(s||''); }catch(e){ return String(s||''); } } // gỡ [giữa], **…** …
+  function rutGon(s,n){ s=sach(s).replace(/\s+/g,' ').trim(); return s.length>n?(s.slice(0,n-1)+'…'):s; }
   function laTat(){ try{ return localStorage.getItem('bnvTat')==='1'; }catch(e){ return false; } }
   window.bnvTatSet=function(on){ try{ localStorage.setItem('bnvTat', on?'1':'0'); }catch(e){} };
 
@@ -57785,8 +57788,8 @@ try{ ensureListeners(); }catch(x){ console.warn('[Bàn giao hộ lý]', x); }
       var mauNgay = n===null ? '#333' : (n>=30?'#c62828':(n>=7?'#e65100':'#2e7d32'));
       var pri={h:'🔴 Khẩn cấp',m:'🟡 Bình thường',l:'🟢 Thấp'}[c.pri]||'🟡 Bình thường';
       var rows=[];
-      rows.push({lb:'Nội dung báo cáo', v:c.content||c.todo||c.doing||'', b:true});
-      if(c.todo && c.content) rows.push({lb:'Cần làm', v:c.todo});
+      rows.push({lb:'Nội dung báo cáo', v:sach(c.content||c.todo||c.doing||''), b:true});
+      if(c.todo && c.content) rows.push({lb:'Cần làm', v:sach(c.todo)});
       rows.push({lb:'Ngày báo cáo', v:D(c.date)});
       if(c.dept) rows.push({lb:'Bộ phận', v:c.dept});
       rows.push({lb:'Mức độ', v:pri});
@@ -57794,7 +57797,7 @@ try{ ensureListeners(); }catch(x){ console.warn('[Bàn giao hộ lý]', x); }
       if(n!==null) rows.push(laXong
         ? {lb:'Tổng thời gian xử lý', v:n+' ngày (từ ngày báo cáo đến khi hoàn thành)', b:true, col:mauNgay}
         : {lb:'Tiếp nhận xử lý sau', v:n+' ngày (kể từ ngày báo cáo)', b:true, col:mauNgay});
-      rows.push({lb:laXong?'Kết quả xử lý':'Đang thực hiện', v:note || (laXong?'Đã xử lý xong.':'Lãnh đạo khoa đã tiếp nhận và đang tổ chức xử lý.'), b:true, col:'#4a148c'});
+      rows.push({lb:laXong?'Kết quả xử lý':'Đang thực hiện', v:sach(note) || (laXong?'Đã xử lý xong.':'Lãnh đạo khoa đã tiếp nhận và đang tổ chức xử lý.'), b:true, col:'#4a148c'});
       if(c.assignee) rows.push({lb:'Người phụ trách', v:c.assignee});
       rows.push({lb:'Người cập nhật', v:((typeof cu!=='undefined'&&cu&&cu.name)?cu.name:'Lãnh đạo khoa')+' — Khoa Gây mê Hồi sức'});
       var m=document.createElement('canvas').getContext('2d');
@@ -57994,7 +57997,8 @@ try{ ensureListeners(); }catch(x){ console.warn('[Bàn giao hộ lý]', x); }
   function D(iso){ var a=String(iso||'').slice(0,10).split('-'); return a.length===3?(a[2]+'/'+a[1]+'/'+a[0]):String(iso||''); }
   function GioNgay(iso){ try{ var d=new Date(iso); if(isNaN(d)) return ''; var p=function(n){return String(n).padStart(2,'0');}; return p(d.getHours())+':'+p(d.getMinutes())+' '+p(d.getDate())+'/'+p(d.getMonth()+1); }catch(e){ return ''; } }
   function N(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/\s+/g,' ').trim(); }
-  function rutGon(s,n){ s=String(s||'').replace(/\s+/g,' ').trim(); return s.length>n?(s.slice(0,n-1)+'…'):s; }
+  function sach(s){ try{ return (typeof aeStrip==='function') ? aeStrip(s) : String(s||''); }catch(e){ return String(s||''); } } // gỡ [giữa], **…** …
+  function rutGon(s,n){ s=sach(s).replace(/\s+/g,' ').trim(); return s.length>n?(s.slice(0,n-1)+'…'):s; }
   function dsThe(){ try{ return (typeof kbVisibleCards==='function') ? kbVisibleCards() : ((typeof cards!=='undefined'&&cards)||[]); }catch(e){ return []; } }
   var daVe='';
   var daHoan={}; // các thông báo NV bấm "Để sau" trong phiên này
