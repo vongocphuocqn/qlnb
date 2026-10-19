@@ -461,7 +461,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
 .nb-tab{flex:1;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
   border:none;background:transparent;color:#1565C0;display:flex;align-items:center;
   justify-content:center;gap:6px;font-family:inherit;transition:all .15s}
-.nb-tab.on{background:linear-gradient(135deg,#1565C0,#0d47a1) !important;color:#fff !important;box-shadow:0 2px 8px rgba(21,101,192,.3)}
+.nb-tab.on{background:linear-gradient(135deg,#1565C0,#0d47a1) !important;color:#fff !important;box-shadow:0 2px 8px transparent}
 #npScreen .nb-tab.on{background:linear-gradient(135deg,#00695c,#004d40) !important;box-shadow:0 2px 8px rgba(0,105,92,.3)}
 /* Form card */
 .nb-form-card{background:#fff;border:1.5px solid #c5cfe8;border-radius:14px;padding:18px 20px;margin-bottom:14px}
@@ -23942,7 +23942,10 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 <datalist id="qtKhoaDatalist"></datalist>
 
 <div class="qt-modal-ov" id="qtKhoaMergeOv">
-  <div class="qt-modal" style="max-width:640px">
+  <div class="qt-modal" id="qtKhoaMergeBoxM" style="max-width:min(980px,95vw)">
+    <div style="position:absolute;top:16px;right:20px;display:flex;gap:6px">
+      <button class="qt-maxbtn" id="qtKhoaMergeMaxBtn" onclick="var m=document.getElementById('qtKhoaMergeBoxM');var on=m.classList.toggle('qt-maximized');this.textContent=on?'🗗 Thu nhỏ':'⛶ Phóng to';document.getElementById('qtKhoaMergeBox').style.maxHeight=on?'72vh':'55vh';">⛶ Phóng to</button>
+    </div>
     <h3>🔀 Chuẩn hóa / gộp tên Khoa–Phòng</h3>
     <p style="font-size:12px;color:#5d4037;margin:2px 0 10px">Sửa ô "Đổi thành" cho giống hệt nhau thì các quy trình sẽ được gộp chung một mục lọc. VD: đổi “Khoa Gây mê Hồi sức (GMHS)” → “Khoa Gây mê Hồi sức”. Chỉ đổi tên hiển thị, không ảnh hưởng nội dung quy trình, lượt đọc, lượt tra cứu.</p>
     <div id="qtKhoaMergeBox" style="max-height:55vh;overflow:auto"></div>
@@ -24121,8 +24124,19 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     return (s[f]||'Chưa phân loại');
   }
 
+  // ── LỌC KẾT HỢP (19/10/2026): Khoa/phòng + Năm + Nhóm CM + Hiệu lực cùng lúc ──
+  var qtExtra = {khoa:'', nhom:'', nam:'', hieuluc:''};
+  var QT_MODE_FIELD = {khoa:'khoa', nhom:'nhom', nam:'__nam', hieuluc:'__hieuluc'};
+  var QT_MODE_LABEL = {khoa:'Khoa/phòng', nhom:'Nhóm CM', nam:'Năm', hieuluc:'Hiệu lực'};
+  function qtPassExtra(s, boQuaMode){
+    for(var m in qtExtra){ if(m!==boQuaMode && qtExtra[m] && qtFieldValue(s, QT_MODE_FIELD[m])!==qtExtra[m]) return false; }
+    return true;
+  }
+  window.qtSetExtra = function(m, v){ qtExtra[m] = (v==='Tất cả' ? '' : (v||'')); qtRender(); };
+  window.qtClearAllFilters = function(){ for(var m in qtExtra) qtExtra[m]=''; qtActiveFilter='Tất cả'; qtRender(); };
   function qtRenderSidebar(){
     var sb=document.getElementById('qtSidebar'), f=qtGroupField(), list=qtGroupList();
+    var base = qtSops.filter(function(s){ return qtPassExtra(s, qtGroupMode); });
     var html='<div class="qt-toggle" style="flex-wrap:wrap"><button class="'+(qtGroupMode==='khoa'?'on':'')+'" onclick="qtSetGroup(\'khoa\')" style="flex-basis:48%">Khoa/phòng</button>'+
       '<button class="'+(qtGroupMode==='nhom'?'on':'')+'" onclick="qtSetGroup(\'nhom\')" style="flex-basis:48%">Nhóm CM</button>'+
       '<button class="'+(qtGroupMode==='nam'?'on':'')+'" onclick="qtSetGroup(\'nam\')" style="flex-basis:48%">Năm</button>'+
@@ -24130,9 +24144,29 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var eyebrowMap={khoa:'Lọc theo khoa/phòng', nam:'Lọc theo năm ban hành', hieuluc:'Lọc theo trạng thái hiệu lực', nhom:'Lọc theo nhóm chuyên môn'};
     html+='<div class="eyebrow">'+(eyebrowMap[qtGroupMode]||'Lọc theo nhóm chuyên môn')+'</div>';
     list.forEach(function(k){
-      var count = k==='Tất cả'?qtSops.length:qtSops.filter(function(s){return qtFieldValue(s,f)===k;}).length;
+      var count = k==='Tất cả'?base.length:base.filter(function(s){return qtFieldValue(s,f)===k;}).length;
+      if(k!=='Tất cả' && count===0 && k!==qtActiveFilter) return; // ẩn mục không còn quy trình nào khi đang lọc kết hợp
       html+='<div class="qt-filter '+(k===qtActiveFilter?'on':'')+'" onclick="qtSetFilter(\''+k.replace(/'/g,"\\'")+'\')"><span>'+k+'</span><span class="c">'+count+'</span></div>';
     });
+    // Ô lọc kết hợp cho các tiêu chí còn lại
+    html+='<div class="eyebrow" style="margin-top:14px">Lọc kết hợp thêm</div>';
+    ['khoa','nam','nhom','hieuluc'].forEach(function(m){
+      if(m===qtGroupMode) return;
+      var fm = QT_MODE_FIELD[m], dem = {};
+      qtSops.forEach(function(s){ if(!qtPassExtra(s, m)) return; if(qtActiveFilter!=='Tất cả' && qtFieldValue(s,f)!==qtActiveFilter) return; var v=qtFieldValue(s,fm); dem[v]=(dem[v]||0)+1; });
+      var keys = Object.keys(dem); if(m==='nam') keys.sort().reverse(); else keys.sort(function(a,b){return a.localeCompare(b,'vi');});
+      if(qtExtra[m] && keys.indexOf(qtExtra[m])<0) keys.unshift(qtExtra[m]);
+      html+='<label style="display:block;font-size:11px;font-weight:700;color:#5d4037;margin:6px 0 2px">'+QT_MODE_LABEL[m]+'</label>'+
+        '<select onchange="qtSetExtra(\''+m+'\', this.value)" style="width:100%;border:1.5px solid '+(qtExtra[m]?'#6d4c41':'#e0d2c8')+';background:'+(qtExtra[m]?'#efe6e2':'#fff')+';border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;color:#3e2723">'+
+        '<option value="Tất cả">— Tất cả —</option>'+
+        keys.map(function(k){ return '<option value="'+qtEsc(k)+'"'+(qtExtra[m]===k?' selected':'')+'>'+qtEsc(k)+' ('+(dem[k]||0)+')</option>'; }).join('')+'</select>';
+    });
+    var dangLoc = []; if(qtActiveFilter!=='Tất cả') dangLoc.push(qtActiveFilter);
+    for(var mm in qtExtra){ if(qtExtra[mm]) dangLoc.push(qtExtra[mm]); }
+    if(dangLoc.length>1 || (dangLoc.length && Object.keys(qtExtra).some(function(k){return qtExtra[k];}))){
+      html+='<div style="margin-top:10px;background:#efe6e2;border-radius:7px;padding:7px 8px;font-size:11.5px;color:#3e2723"><b>Đang lọc:</b> '+dangLoc.map(qtEsc).join(' · ')+
+        '<button onclick="qtClearAllFilters()" style="display:block;margin-top:6px;width:100%;border:1px solid #a1887f;background:#fff;color:#5d4037;border-radius:6px;padding:4px;font-size:11.5px;cursor:pointer;font-family:inherit">✕ Bỏ tất cả bộ lọc</button></div>';
+    }
     if(qtGroupMode==='khoa' && qtIsAdmin()){
       html+='<button onclick="qtOpenKhoaMerge()" style="margin-top:8px;width:100%;border:1.5px dashed #a1887f;background:#fff;color:#5d4037;border-radius:7px;padding:7px 6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔀 Gộp / sửa tên khoa</button>';
     }
@@ -24140,7 +24174,15 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var dl=document.getElementById('qtKhoaDatalist');
     if(dl) dl.innerHTML=qtKhoaNames().map(function(n){return '<option value="'+qtEsc(n)+'">';}).join('');
   }
-  window.qtSetGroup=function(m){qtGroupMode=m;qtActiveFilter='Tất cả';qtRender();};
+  window.qtSetGroup=function(m){
+    if(m===qtGroupMode) return;
+    // Chuyển tab lọc nhưng GIỮ lựa chọn cũ thành bộ lọc kết hợp (VD: đang chọn 1 khoa -> bấm "Năm" = xem các năm của riêng khoa đó)
+    qtExtra[qtGroupMode] = (qtActiveFilter!=='Tất cả') ? qtActiveFilter : '';
+    qtGroupMode=m;
+    qtActiveFilter = qtExtra[m] || 'Tất cả';
+    qtExtra[m] = '';
+    qtRender();
+  };
   window.qtSetFilter=function(k){qtActiveFilter=k;qtRender();};
 
   // ── Gộp / chuẩn hóa tên Khoa–Phòng ──
@@ -24151,10 +24193,10 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   window.qtOpenKhoaMerge=function(){
     if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được sửa tên khoa.'); return; }
     var names=qtKhoaNames();
-    var html='<table class="qt-tb"><tr><th style="width:auto">Tên đang dùng</th><th style="width:44px;text-align:center">Số QT</th><th style="width:auto">Đổi thành</th></tr>'+
+    var html='<table class="qt-tb" style="table-layout:fixed"><colgroup><col style="width:40%"><col style="width:56px"><col></colgroup><tr><th style="width:auto">Tên đang dùng</th><th style="text-align:center">Số QT</th><th style="width:auto">Đổi thành</th></tr>'+
       names.map(function(n,i){
         var c=qtSops.filter(function(s){return (s.khoa||'').trim()===n;}).length;
-        return '<tr><td>'+qtEsc(n)+'</td><td style="text-align:center">'+c+'</td><td><input class="qt-km-in" data-old="'+qtEsc(n)+'" value="'+qtEsc(n)+'" list="qtKhoaDatalist" oninput="qtKhoaMergeCount()" style="width:100%;border:1.5px solid #e0d2c8;border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit"></td></tr>';
+        return '<tr><td>'+qtEsc(n)+'</td><td style="text-align:center">'+c+'</td><td><input class="qt-km-in" data-old="'+qtEsc(n)+'" value="'+qtEsc(n)+'" list="qtKhoaDatalist" oninput="qtKhoaMergeCount()" title="'+qtEsc(n)+'" style="width:100%;box-sizing:border-box;border:1.5px solid #e0d2c8;border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit"></td></tr>';
       }).join('')+'</table>';
     document.getElementById('qtKhoaMergeBox').innerHTML=html;
     qtKhoaMergeCount();
@@ -24228,7 +24270,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   function qtGetFilteredList(){
     var q=(document.getElementById('qtSearchInput').value||'').trim().toLowerCase();
     var f=qtGroupField();
-    var list=qtSops.filter(function(s){return qtActiveFilter==='Tất cả' || qtFieldValue(s,f)===qtActiveFilter;});
+    var list=qtSops.filter(function(s){return qtPassExtra(s, qtGroupMode) && (qtActiveFilter==='Tất cả' || qtFieldValue(s,f)===qtActiveFilter);});
     if(q) list=list.filter(function(s){return (s.ten+s.ma+s.khoa+(s.nhom||'')+s.mucdich+' '+(s.ngay||'')+' '+qtYearOf(s)).toLowerCase().indexOf(q)>=0;});
     if(qtQuickFilter==='new') list=list.filter(function(s){return qtIsNewRec(s);});
     else if(qtQuickFilter==='review') list=list.filter(function(s){var st=qtValidityStatus(s).key; return st==='het'||st==='sap';});
@@ -29144,8 +29186,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 .ddnl-combo-opt{padding:8px 12px;font-size:13px;cursor:pointer;}
 .ddnl-combo-opt:hover{background:var(--ddnl-g50,#eef3f2);}
 .ddnl-combo-empty{padding:8px 12px;font-size:12px;color:var(--ddnl-ink-soft);}
-.ddnl-col-resize-handle:hover{background:#1565C0;opacity:.75;}
-.ddnl-row-resize-handle:hover{background:#1565C0;opacity:.75;}
+.ddnl-col-resize-handle:hover{background:linear-gradient(to right,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px);}
+.ddnl-row-resize-handle:hover{background:linear-gradient(to bottom,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px);}
 /* Chặn TRIỆT ĐỂ mọi phần tử dán từ Word (kể cả khung/div bọc ngoài có độ rộng cứng theo file gốc,
    không riêng gì bảng) vượt quá bề ngang khung soạn — dùng !important để đè lên style cứng của Word. */
 #ddnlNoiDungEditable{overflow-x:hidden !important;}
@@ -29158,6 +29200,24 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 /* 19/10/2026 — KHUNG SOẠN = ĐÚNG KHỔ CHỮ TRANG IN (rộng 16,4 cm, Times New Roman 13pt) để chữ xuống dòng
    trong app GIỐNG HỆT khi Xem trước / In / Xuất Word — căn chỉnh 1 lần là xong, không phải sửa lại trong Word. */
 #ddnlNoiDungEditable{max-width:164mm;margin-left:auto !important;margin-right:auto !important;font-size:13pt;line-height:1.4;box-sizing:border-box;}
+/* 19/10/2026 (13:00) — GIAO DIỆN TRANG GIẤY THẬT: nền xám + tờ A4 trắng đúng kích thước, lề chuẩn hành chính
+   (trên 20 – dưới 20 – trái 30 – phải 20 mm), chọn khổ Dọc/Ngang. Vùng soạn = đúng bề rộng chữ khi in/xuất Word. */
+#ddnlNoiDungOverlay .ddnl-ban-giay{background:#d5d9de;padding:22px 14px;border-radius:8px;overflow-x:auto;}
+#ddnlNoiDungOverlay .ddnl-doc.ddnl-trang{width:210mm;min-width:0;min-height:297mm;box-sizing:border-box;padding:20mm 20mm 20mm 30mm;margin:0 auto;
+  font-family:"Times New Roman",Times,serif;font-size:13pt;line-height:1.4;color:#000;box-shadow:0 3px 14px rgba(0,0,0,.28);
+  background:#fff repeating-linear-gradient(to bottom,transparent 0,transparent calc(297mm - 1px),#e57373 calc(297mm - 1px),#e57373 297mm);}
+#ddnlNoiDungOverlay .ddnl-doc.ddnl-trang.ddnl-trang-ngang{width:297mm;min-height:210mm;
+  background:#fff repeating-linear-gradient(to bottom,transparent 0,transparent calc(210mm - 1px),#e57373 calc(210mm - 1px),#e57373 210mm);}
+#ddnlNoiDungOverlay .ddnl-trang .ddnl-doc-hospital{font-size:11.5pt;}
+#ddnlNoiDungOverlay .ddnl-trang .ddnl-doc-dept{font-size:12.5pt;}
+#ddnlNoiDungOverlay .ddnl-trang .ddnl-doc-so{font-size:13pt;}
+#ddnlNoiDungOverlay .ddnl-trang .ddnl-doc-quochieu{font-size:12.5pt;}
+#ddnlNoiDungOverlay .ddnl-trang .ddnl-doc-tieungu{font-size:13pt;}
+#ddnlNoiDungOverlay .ddnl-trang .ddnl-doc-place{font-size:13pt;}
+#ddnlNoiDungOverlay .ddnl-trang .ddnl-doc-title{font-size:15pt;}
+#ddnlNoiDungOverlay .ddnl-trang #ddnlNoiDungEditable{max-width:none;width:100%;padding:0 !important;border:none !important;border-radius:0 !important;outline:1px dashed #b0bec5;outline-offset:3px;}
+#ddnlNoiDungOverlay .ddnl-trang #ddnlNoiDungEditable td, #ddnlNoiDungOverlay .ddnl-trang #ddnlNoiDungEditable th{border:1px solid #000 !important;box-shadow:none !important;}
+#ddnlNoiDungOverlay .ddnl-kho-btn.on{background:#1565c0 !important;color:#fff !important;border-color:#0d47a1 !important;}
 #ddnlNoiDungEditable table{font-size:inherit !important;}
 #ddnlNoiDungEditable th{font-size:inherit !important;background:transparent !important;}
 #ddnlNoiDungEditable *{position:static !important;}
@@ -31401,7 +31461,7 @@ function bindVanBanEvents(){
     const v = vbRecords.find(x=>x.id===b.dataset.trackEdit);
     if(!v) return;
     editingVBId = v.id;
-    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
+    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"", khoGiay:v.khoGiay||"" };
     collapsedCards.delete('vb-form'); // xem giải thích ở nút Sửa trong danh sách văn bản đi
     render();
     const card = document.getElementById('ddnlCard_vb-form');
@@ -31496,7 +31556,7 @@ function bindVanBanEvents(){
       trangThai: "Đang soạn", tomTat: v.tomTat||"", dinhKemLink: "", ghiChu: "", ghiChuTienDo: "",
       nguoiLapLabel: v.nguoiLapLabel||"", chucDanhKy: v.chucDanhKy||"",
       hangMucDeNghi: (v.hangMucDeNghi||[]).map(hm=>({ noiDung: hm.noiDung, trangThai: HANG_MUC_TRANG_THAI[0] })),
-      dinhKemFiles: [], mauDangChon: "", noiDungSoan: ""
+      dinhKemFiles: [], mauDangChon: "", noiDungSoan: "", khoGiay: v.khoGiay||""
     };
     render();
     const card = document.getElementById('ddnlCard_vb-form');
@@ -31626,7 +31686,7 @@ function bindVanBanEvents(){
     if(!(isAdmin() || v.nguoiSoan===currentUserName)){ alert("Bạn chỉ có thể sửa văn bản do chính mình soạn. Liên hệ Admin nếu cần sửa văn bản của người khác."); return; }
     vbLastSaveNotice = null;
     editingVBId = v.id;
-    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"" };
+    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"", khoGiay:v.khoGiay||"" };
     collapsedCards.delete('vb-form'); // luôn mở thẻ "Sửa văn bản" ra, tránh trường hợp thẻ đang bị Ẩn
     // khiến bấm Sửa cuộn tới đúng chỗ nhưng form bên trong lại không hiện ra, nhìn như chưa chạy vào.
     render();
@@ -32468,34 +32528,36 @@ function layoutTableResizeHandles(container){
   if(getComputedStyle(container).position === 'static') container.style.position = 'relative';
   container.querySelectorAll(':scope > .ddnl-col-resize-handle, :scope > .ddnl-row-resize-handle').forEach(h=>h.remove());
   const contRect = container.getBoundingClientRect();
+  // 19/10/2026: hệ số thu phóng (khi phóng to/thu nhỏ trang giấy) — đổi toạ độ màn hình về toạ độ thật của khung soạn
+  const kZ = (container.offsetWidth && contRect.width) ? (contRect.width/container.offsetWidth) : 1;
   container.querySelectorAll('table').forEach(table=>{
     table.style.tableLayout = 'fixed';
     const firstRow = table.rows[0];
     if(!firstRow || !firstRow.cells.length) return;
     const soCot = firstRow.cells.length;
     const tableRect = table.getBoundingClientRect();
-    const topRel = tableRect.top - contRect.top + container.scrollTop;
-    const botRel = tableRect.bottom - contRect.top + container.scrollTop;
-    const leftRel = tableRect.left - contRect.left + container.scrollLeft;
+    const topRel = (tableRect.top - contRect.top)/kZ + container.scrollTop;
+    const botRel = (tableRect.bottom - contRect.top)/kZ + container.scrollTop;
+    const leftRel = (tableRect.left - contRect.left)/kZ + container.scrollLeft;
     // --- Tay cầm CỘT: 1 thanh dọc tại mỗi đường viền cột, kéo dài suốt chiều cao bảng ---
     for(let idx=0; idx<soCot; idx++){
       const cell = firstRow.cells[idx];
       const cellRect = cell.getBoundingClientRect();
-      const xRel = cellRect.right - contRect.left + container.scrollLeft;
+      const xRel = (cellRect.right - contRect.left)/kZ + container.scrollLeft;
       const handle = document.createElement('div');
       handle.contentEditable = 'false';
       handle.className = 'ddnl-col-resize-handle';
       handle.title = 'Kéo để chỉnh chiều rộng cột';
-      handle.style.cssText = `position:absolute !important;left:${Math.round(xRel-4)}px !important;top:${Math.round(topRel)}px !important;width:8px !important;height:${Math.round(botRel-topRel)}px !important;cursor:col-resize;z-index:50;user-select:none;background:rgba(21,101,192,.3);`;
+      handle.style.cssText = `position:absolute !important;left:${Math.round(xRel-4)}px !important;top:${Math.round(topRel)}px !important;width:8px !important;height:${Math.round(botRel-topRel)}px !important;cursor:col-resize;z-index:50;user-select:none;background:transparent;`;
       container.appendChild(handle);
-      handle.addEventListener('mouseenter', ()=>{ handle.style.background='#1565C0'; handle.style.opacity='.75'; });
-      handle.addEventListener('mouseleave', ()=>{ handle.style.background='rgba(21,101,192,.3)'; handle.style.opacity='1'; });
+      handle.addEventListener('mouseenter', ()=>{ handle.style.background='linear-gradient(to right,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px)'; handle.style.opacity='1'; });
+      handle.addEventListener('mouseleave', ()=>{ handle.style.background='transparent'; handle.style.opacity='1'; });
       handle.addEventListener('mousedown', function(e){
         e.preventDefault(); e.stopPropagation();
         const startX = e.clientX;
         const startWidth = cell.getBoundingClientRect().width;
         function onMove(e2){
-          const newWidth = Math.max(30, Math.round(startWidth + (e2.clientX - startX)));
+          const newWidth = Math.max(30, Math.round((startWidth + (e2.clientX - startX))/kZ));
           Array.from(table.rows).forEach(r=>{ if(r.cells[idx]) r.cells[idx].style.width = newWidth+'px'; });
           layoutTableResizeHandles(container);
         }
@@ -32510,21 +32572,21 @@ function layoutTableResizeHandles(container){
     // --- Tay cầm HÀNG: 1 thanh ngang tại mỗi đường viền hàng, kéo dài suốt chiều rộng bảng ---
     Array.from(table.rows).forEach(row=>{
       const rowRect = row.getBoundingClientRect();
-      const yRel = rowRect.bottom - contRect.top + container.scrollTop;
+      const yRel = (rowRect.bottom - contRect.top)/kZ + container.scrollTop;
       const handle = document.createElement('div');
       handle.contentEditable = 'false';
       handle.className = 'ddnl-row-resize-handle';
       handle.title = 'Kéo để chỉnh chiều cao hàng';
-      handle.style.cssText = `position:absolute !important;left:${Math.round(leftRel)}px !important;top:${Math.round(yRel-4)}px !important;width:${Math.round(tableRect.width)}px !important;height:8px !important;cursor:row-resize;z-index:50;user-select:none;background:rgba(21,101,192,.3);`;
+      handle.style.cssText = `position:absolute !important;left:${Math.round(leftRel)}px !important;top:${Math.round(yRel-4)}px !important;width:${Math.round(tableRect.width/kZ)}px !important;height:8px !important;cursor:row-resize;z-index:50;user-select:none;background:transparent;`;
       container.appendChild(handle);
-      handle.addEventListener('mouseenter', ()=>{ handle.style.background='#1565C0'; handle.style.opacity='.75'; });
-      handle.addEventListener('mouseleave', ()=>{ handle.style.background='rgba(21,101,192,.3)'; handle.style.opacity='1'; });
+      handle.addEventListener('mouseenter', ()=>{ handle.style.background='linear-gradient(to bottom,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px)'; handle.style.opacity='1'; });
+      handle.addEventListener('mouseleave', ()=>{ handle.style.background='transparent'; handle.style.opacity='1'; });
       handle.addEventListener('mousedown', function(e){
         e.preventDefault(); e.stopPropagation();
         const startY = e.clientY;
         const startHeight = row.getBoundingClientRect().height;
         function onMove(e2){
-          const newHeight = Math.max(20, Math.round(startHeight + (e2.clientY - startY)));
+          const newHeight = Math.max(20, Math.round((startHeight + (e2.clientY - startY))/kZ));
           Array.from(row.cells).forEach(c=>{ c.style.height = newHeight+'px'; });
           layoutTableResizeHandles(container);
         }
@@ -32558,7 +32620,8 @@ function htmlToRtf(html){
     let maxCols = 0;
     rows.forEach(tr=>{ maxCols = Math.max(maxCols, tr.querySelectorAll(':scope > td, :scope > th').length); });
     if(!maxCols) return;
-    const totalWidth = 9300; // twips, khớp bề rộng trang đang dùng cho các bảng khác trong file
+    // 19/10/2026: bề rộng bảng = đúng bề rộng vùng chữ của trang (A4, lề trái 30 – phải 20 mm): dọc 160 mm, ngang 247 mm
+    const totalWidth = window.__ddnlRtfNgang ? 14003 : (window.__ddnlRtfKhoTrang ? 9071 : 9300);
     // Nếu anh đã tự kéo chỉnh độ rộng từng cột trong app (mỗi ô hàng đầu có sẵn style="width:...px"),
     // GIỮ ĐÚNG TỶ LỆ đó khi xuất Word thay vì chia đều lại từ đầu.
     let colWidths;
@@ -32570,9 +32633,9 @@ function htmlToRtf(html){
     const measured = (function(){
       try{
         const box = document.createElement('div');
-        box.style.cssText = 'position:absolute;left:-20000px;top:0;visibility:hidden;width:164mm;font-family:"Times New Roman",Times,serif;font-size:13pt;line-height:1.4;';
+        box.style.cssText = 'position:absolute;left:-20000px;top:0;visibility:hidden;width:'+(window.__ddnlRtfNgang?'247mm':(window.__ddnlRtfKhoTrang?'160mm':'164mm'))+';font-family:"Times New Roman",Times,serif;font-size:13pt;line-height:1.4;';
         const t = tableEl.cloneNode(true);
-        t.style.width = '100%'; t.style.borderCollapse = 'collapse'; t.style.tableLayout = 'auto';
+        t.style.width = '100%'; t.style.borderCollapse = 'collapse'; // giữ nguyên table-layout như trong app (app dùng 'fixed')
         t.querySelectorAll('td, th').forEach(c=>{ c.style.padding='5px 8px'; c.style.border='1px solid #000'; c.style.fontSize=''; });
         box.appendChild(t); document.body.appendChild(box);
         const trs = Array.from(t.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr'));
@@ -32857,10 +32920,12 @@ function buildVanBanBodyInnerHtml(data){
 }
 function buildVanBanPreviewHtml(data){
   const soVanBan = data.soVanBan, hinhThucVB = data.hinhThucVB;
+  const ngang = data.khoGiay==='ngang';
   return `<!doctype html><html><head><meta charset="utf-8"><title>Xem trước — ${esc(soVanBan||hinhThucVB||'Văn bản')}</title>
 <style>
-  @page{size:A4;margin:15mm;}
-  body{font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;max-width:210mm;margin:0 auto;padding:16px 15mm 30mm;}
+  @page{size:A4 ${ngang?'landscape':'portrait'};margin:20mm 20mm 20mm 30mm;}
+  html{background:#d5d9de;}
+  body{font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;width:${ngang?'297mm':'210mm'};max-width:100%;box-sizing:border-box;margin:16px auto;padding:20mm 20mm 20mm 30mm;background:#fff;box-shadow:0 3px 14px rgba(0,0,0,.28);}
   table.ddnl-pv-head{width:100%;table-layout:fixed;}
   table.ddnl-pv-head td{vertical-align:top;padding:0;}
   .ddnl-pv-center{text-align:center;white-space:nowrap;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
@@ -32876,7 +32941,7 @@ function buildVanBanPreviewHtml(data){
   .ddnl-pv-content table{font-size:13pt;}
   .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:middle;}
   .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;} /* ảnh không tràn khỏi trang/ô bảng */
-  @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
+  @media print{ .ddnl-pv-no-print{display:none !important;} html{background:#fff;} body{padding:0;max-width:none;width:auto;margin:0;box-shadow:none;} }
 </style></head>
 <body>
   <div class="ddnl-pv-toolbar ddnl-pv-no-print">
@@ -33106,7 +33171,8 @@ function moXemTruocVanBan(v){
       soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
       noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
       nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy,
-      noiDungHtml: (v.noiDungSoan&&v.noiDungSoan.trim())?v.noiDungSoan:'', tomTat: v.tomTat||'', isBlank: !(v.noiDungSoan&&v.noiDungSoan.trim())&&!v.tomTat
+      noiDungHtml: (v.noiDungSoan&&v.noiDungSoan.trim())?v.noiDungSoan:'', tomTat: v.tomTat||'', isBlank: !(v.noiDungSoan&&v.noiDungSoan.trim())&&!v.tomTat,
+      khoGiay: v.khoGiay||''
     });
     const blob = new Blob([html], {type:'text/html'});
     const url = URL.createObjectURL(blob);
@@ -33132,7 +33198,7 @@ function moXemTruocDraft(){
       soVanBan: soVanBanTam, ngayLapParts, hinhThucVB: draftVB.hinhThucVB, veViec: draftVB.veViec,
       noiNhan: draftVB.noiNhan, nguoiSoan: draftVB.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: draftVB.nguoiKy,
       nguoiLapLabel: draftVB.nguoiLapLabel, chucDanhKy: draftVB.chucDanhKy,
-      noiDungHtml: (draftVB.noiDungSoan&&draftVB.noiDungSoan.trim())?draftVB.noiDungSoan:'', tomTat: draftVB.tomTat||'',
+      noiDungHtml: (draftVB.noiDungSoan&&draftVB.noiDungSoan.trim())?draftVB.noiDungSoan:'', tomTat: draftVB.tomTat||'', khoGiay: draftVB.khoGiay||'',
       isBlank: !(draftVB.noiDungSoan&&draftVB.noiDungSoan.trim())&&!draftVB.tomTat
     });
     const blob = new Blob([html], {type:'text/html'});
@@ -33210,11 +33276,18 @@ function exportVanBanToWord(v){
   // ƯU TIÊN nội dung đã soạn NGAY TRONG APP (đây mới là bản mới nhất, đúng với những gì đang thấy
   // trên màn hình lúc soạn) — chỉ dùng file đính kèm cũ (nếu có) khi CHƯA soạn gì trong app cả.
   if(v.noiDungSoan && v.noiDungSoan.trim()){
-    const body = buildVanBanRtfBody({
+    // 19/10/2026: in đúng khổ giấy đã chọn trong app (A4 dọc/ngang, lề 20-20-20-30 mm)
+    const ngang = v.khoGiay==='ngang';
+    window.__ddnlRtfKhoTrang = true; window.__ddnlRtfNgang = ngang;
+    let bodyNoiDung;
+    try{ bodyNoiDung = htmlToRtf(v.noiDungSoan); } finally { window.__ddnlRtfKhoTrang = false; window.__ddnlRtfNgang = false; }
+    const thietLapTrang = (ngang ? '\\paperw16838\\paperh11906\\landscape' : '\\paperw11906\\paperh16838')
+      + '\\margl1701\\margr1134\\margt1134\\margb1134\\sectd' + (ngang ? '\\lndscpsxn\\pgwsxn16838\\pghsxn11906' : '\\pgwsxn11906\\pghsxn16838') + '\n';
+    const body = thietLapTrang + buildVanBanRtfBody({
       soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
       noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
       nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy,
-      bodyRtf: htmlToRtf(v.noiDungSoan), tomTat: v.tomTat||'', isBlank: false
+      bodyRtf: bodyNoiDung, tomTat: v.tomTat||'', isBlank: false
     });
     downloadRtf(`VanBan_${(v.soVanBan||v.id).replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, body);
     return;
@@ -33286,10 +33359,22 @@ function openNoiDungSoanModal(){
           <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaCot" title="Xóa cột đang đặt con trỏ">➖ Cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnCaoHang" title="Nhập số chính xác cho chiều cao hàng đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↕ Cao hàng</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnRongCot" title="Nhập số chính xác cho chiều rộng cột đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↔ Rộng cột</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnTuGianCot" title="Tự chia lại độ rộng các cột theo nội dung (giống AutoFit của Word) cho bảng đang đặt con trỏ — cột chữ dài rộng ra, cột ngắn (Stt, ngày) hẹp lại, tránh chữ bị bẻ dòng">⇔ Tự giãn cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChonCot" title="Chọn cả cột đang đặt con trỏ (hoặc giữ Alt + bấm vào 1 ô) — sau đó bấm B / I / U / Trái / Giữa / Đều 2 bên sẽ áp dụng cho cả cột; Delete để xóa chữ cả cột; Esc hoặc bấm ra chỗ khác để bỏ chọn">▥ Chọn cột</button>
+          <span style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding-left:8px;border-left:1px solid var(--ddnl-line);font-size:12px;font-weight:600;color:var(--ddnl-ink-soft);">Khổ giấy:
+            <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm ddnl-kho-btn ${draftVB.khoGiay==='ngang'?'':'on'}" id="ddnlBtnKhoDoc" title="A4 khổ dọc — Xem trước & Xuất Word in đúng khổ này">▯ Dọc</button>
+            <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm ddnl-kho-btn ${draftVB.khoGiay==='ngang'?'on':''}" id="ddnlBtnKhoNgang" title="A4 khổ ngang — dùng cho bảng nhiều cột; Xem trước & Xuất Word in đúng khổ này">▭ Ngang</button>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding-left:8px;border-left:1px solid var(--ddnl-line);font-size:12px;font-weight:600;color:var(--ddnl-ink-soft);">🔍 Phóng đại:
+            <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnZoomNho" title="Thu nhỏ trang giấy (chỉ thay đổi cách nhìn, KHÔNG đổi cỡ chữ khi in)">−</button>
+            <span id="ddnlZoomNhan" style="min-width:42px;text-align:center;font-weight:700;color:#1565c0;">100%</span>
+            <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnZoomTo" title="Phóng to trang giấy để chỉnh chi tiết (chỉ thay đổi cách nhìn, KHÔNG đổi cỡ chữ khi in)">+</button>
+            <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnZoom100" title="Về đúng kích thước thật 100%">100%</button>
+            <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnZoomVua" title="Thu/phóng cho cả bề ngang trang vừa khít khung soạn">↔ Vừa khung</button>
+          </span>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="undo">↶ Hoàn tác</button>
         </div>
-        <div class="ddnl-doc" id="ddnlPrintArea">
+        <div class="ddnl-ban-giay"><div class="ddnl-doc ddnl-trang ${draftVB.khoGiay==='ngang'?'ddnl-trang-ngang':''}" id="ddnlPrintArea">
           <div class="ddnl-doc-letterhead">
             <div class="ddnl-col">
               <div class="ddnl-doc-hospital">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
@@ -33322,7 +33407,7 @@ function openNoiDungSoanModal(){
               <div style="font-weight:700;">${esc((draftVB.nguoiKy||"").toUpperCase())}</div>
             </div>
           </div>
-        </div>
+        </div></div>
       </div>
     </div>
   `;
@@ -33572,6 +33657,70 @@ function openNoiDungSoanModal(){
       return apDungLenh(cmd);
     };
   })();
+  // ── KHỔ GIẤY DỌC / NGANG (19/10/2026) ──
+  function ddnlDatKhoGiay(kho){
+    draftVB.khoGiay = (kho==='ngang') ? 'ngang' : '';
+    const trang = document.getElementById('ddnlPrintArea');
+    if(trang) trang.classList.toggle('ddnl-trang-ngang', kho==='ngang');
+    const bD=document.getElementById('ddnlBtnKhoDoc'), bN=document.getElementById('ddnlBtnKhoNgang');
+    if(bD) bD.classList.toggle('on', kho!=='ngang'); if(bN) bN.classList.toggle('on', kho==='ngang');
+    try{ layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable')); }catch(e){}
+    window.dispatchEvent(new Event('resize'));
+  }
+  window.__ddnlDatKhoGiay = ddnlDatKhoGiay;
+  // ── PHÓNG ĐẠI TRANG GIẤY (19/10/2026) — chỉ đổi cách NHÌN trên màn hình, không đổi cỡ chữ/khổ khi in hay xuất Word ──
+  let ddnlZoom = 1;
+  try{ const z = parseFloat(localStorage.getItem('ddnlZoomTrang')); if(z>=0.5 && z<=2) ddnlZoom = z; }catch(e){}
+  function ddnlApZoom(z){
+    ddnlZoom = Math.min(2, Math.max(0.5, Math.round(z*100)/100));
+    const trang = document.getElementById('ddnlPrintArea');
+    if(trang) trang.style.zoom = ddnlZoom;
+    const nh = document.getElementById('ddnlZoomNhan'); if(nh) nh.textContent = Math.round(ddnlZoom*100)+'%';
+    try{ localStorage.setItem('ddnlZoomTrang', String(ddnlZoom)); }catch(e){}
+    try{ layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable')); }catch(e){}
+    window.dispatchEvent(new Event('resize'));
+  }
+  document.getElementById('ddnlBtnZoomNho').onclick = (e)=>{ e.preventDefault(); ddnlApZoom(ddnlZoom-0.1); };
+  document.getElementById('ddnlBtnZoomTo').onclick = (e)=>{ e.preventDefault(); ddnlApZoom(ddnlZoom+0.1); };
+  document.getElementById('ddnlBtnZoom100').onclick = (e)=>{ e.preventDefault(); ddnlApZoom(1); };
+  document.getElementById('ddnlBtnZoomVua').onclick = (e)=>{
+    e.preventDefault();
+    const trang = document.getElementById('ddnlPrintArea'), khung = trang && trang.parentElement;
+    if(!trang || !khung) return;
+    ddnlApZoom((khung.clientWidth - 30) / trang.offsetWidth);
+  };
+  // Ctrl + lăn chuột trên trang giấy = phóng to/thu nhỏ trang (giống Word)
+  document.getElementById('ddnlPrintArea').addEventListener('wheel', (e)=>{
+    if(!e.ctrlKey) return;
+    e.preventDefault();
+    ddnlApZoom(ddnlZoom + (e.deltaY<0 ? 0.1 : -0.1));
+  }, {passive:false});
+  if(ddnlZoom!==1) setTimeout(()=>ddnlApZoom(ddnlZoom), 0);
+  // ── TỰ GIÃN CỘT THEO NỘI DUNG (giống AutoFit của Word) ──
+  document.getElementById('ddnlBtnTuGianCot').onclick = (e)=>{
+    e.preventDefault();
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    const cell = timOConTroHienTai();
+    const bang = (cell && ed.contains(cell)) ? [cell.closest('table')] : Array.from(ed.querySelectorAll('table'));
+    if(!bang.length){ alert('Chưa có bảng nào trong nội dung.'); return; }
+    bang.forEach(t=>{
+      const cells = Array.from(t.querySelectorAll('td, th'));
+      const cu = cells.map(c=>c.style.width);
+      cells.forEach(c=>{ c.style.width=''; });
+      t.style.tableLayout = 'auto';
+      const hang = Array.from(t.rows).find(r=>Array.from(r.cells).every(c=>(c.colSpan||1)===1)) || t.rows[0];
+      const kZ2 = (ed.offsetWidth && ed.getBoundingClientRect().width) ? ed.getBoundingClientRect().width/ed.offsetWidth : 1;
+      // Ô dùng box-sizing:border-box -> width = đúng bề rộng ô đo được; làm tròn LÊN + chừa 2px để không bẻ chữ, phần dư trừ vào cột rộng nhất
+      const w = Array.from(hang.cells).map(c=>Math.ceil(c.getBoundingClientRect().width/kZ2)+2);
+      if(w.length>1){ const tong = w.reduce((x,y)=>x+y,0), rongBang = Math.floor(t.getBoundingClientRect().width/kZ2); let du = Math.max(0, tong - rongBang); const tb = tong/w.length; const lon = w.map((x,i)=>i).filter(i=>w[i]>tb); const tongLon = lon.reduce((x,i)=>x+w[i],0)||1; lon.forEach(i=>{ const bot = Math.min(du, Math.ceil(du*w[i]/tongLon)); w[i]-=bot; }); }
+      if(!w.every(x=>x>0)){ cells.forEach((c,i)=>{ c.style.width=cu[i]; }); t.style.tableLayout='fixed'; return; }
+      Array.from(t.rows).forEach(r=>{ Array.from(r.cells).forEach((c,i)=>{ if(w[i] && (c.colSpan||1)===1) c.style.width = w[i]+'px'; }); });
+      t.style.tableLayout = 'fixed';
+    });
+    layoutTableResizeHandles(ed);
+  };
+  document.getElementById('ddnlBtnKhoDoc').onclick = (e)=>{ e.preventDefault(); ddnlDatKhoGiay('doc'); };
+  document.getElementById('ddnlBtnKhoNgang').onclick = (e)=>{ e.preventDefault(); ddnlDatKhoGiay('ngang'); };
   const modalEl = overlay.querySelector('.ddnl-modal');
   // Khi dán nội dung từ Word (đặc biệt là bảng), dọn lại độ rộng cột/bảng CỨNG (tính bằng pixel từ file
   // gốc) — nếu không sẽ bị tràn ra ngoài khung soạn, lệch cả 2 bên. Cho bảng luôn co giãn vừa đúng khung.
@@ -33848,7 +33997,7 @@ document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     const rec = {
       ten: (ten||tenMauMacDinh).trim(), nhom,
       hinhThucVB: draftVB.hinhThucVB||'', loaiVanBan: draftVB.loaiVanBan||'', veViec: draftVB.veViec||'',
-      noiDungSoan: html, nguoiTao: currentUserName||'', ngayTao: Date.now()
+      noiDungSoan: html, khoGiay: draftVB.khoGiay||'', nguoiTao: currentUserName||'', ngayTao: Date.now()
     };
     const ok = await ddMauVanBanRef.push(rec).then(()=>true).catch(()=>false);
     if(ok){ alert(`Đã lưu vào nhóm "${nhom}". Lần sau vào khung soạn này, chọn nhóm rồi bấm "Dùng mẫu này" là lấy lại được ngay.`); }
@@ -33875,6 +34024,7 @@ document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     if(!confirm(`Dùng mẫu "${mau.ten}"? Nội dung đang soạn dở trong khung này (nếu có) sẽ bị THAY THẾ hoàn toàn.`)) return;
     const ed = document.getElementById('ddnlNoiDungEditable');
     ed.innerHTML = mau.noiDungSoan || '';
+    if(window.__ddnlDatKhoGiay) window.__ddnlDatKhoGiay(mau.khoGiay==='ngang'?'ngang':'doc');
     enableTableColResize(ed); enableTableRowResize(ed);
   };
   const btnXoaMau = document.getElementById('ddnlBtnXoaMauDaLuu');
@@ -58429,5 +58579,17 @@ try{ ensureListeners(); }catch(x){ console.warn('[Bàn giao hộ lý]', x); }
 })();
 </script>
 
+<script>
+/* 19/10/2026 — BẢN CHẠY THỬ: tải file lên GitHub với tên thu.html (vongocphuocqn.github.io/qlnb/thu.html)
+   thì hiện dải đỏ nhắc "đây là bản thử, dữ liệu là dữ liệu THẬT". index.html không bị ảnh hưởng. */
+(function(){ try{
+  if(!/\/thu[^\/]*\.html?$/i.test(location.pathname)) return;
+  var d=document.createElement('div');
+  d.textContent='🧪 BẢN CHẠY THỬ (thu.html) — dùng dữ liệu THẬT của khoa, thao tác cẩn thận. Ổn rồi thì tải lên lại với tên index.html';
+  d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:2147483646;background:#c62828;color:#fff;font:700 12.5px/1.2 Arial,sans-serif;text-align:center;padding:6px 10px;pointer-events:none;opacity:.92';
+  (document.body||document.documentElement).appendChild(d);
+  document.title='[THỬ] '+document.title;
+}catch(e){} })();
+</script>
 </body>
 </html>
