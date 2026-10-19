@@ -33232,6 +33232,7 @@ function openNoiDungSoanModal(){
           <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaCot" title="Xóa cột đang đặt con trỏ">➖ Cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnCaoHang" title="Nhập số chính xác cho chiều cao hàng đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↕ Cao hàng</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnRongCot" title="Nhập số chính xác cho chiều rộng cột đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↔ Rộng cột</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChonCot" title="Chọn cả cột đang đặt con trỏ (hoặc giữ Alt + bấm vào 1 ô) — sau đó bấm B / I / U / Trái / Giữa / Đều 2 bên sẽ áp dụng cho cả cột; Delete để xóa chữ cả cột; Esc hoặc bấm ra chỗ khác để bỏ chọn">▥ Chọn cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-cmd="undo">↶ Hoàn tác</button>
         </div>
         <div class="ddnl-doc" id="ddnlPrintArea">
@@ -33286,7 +33287,7 @@ function openNoiDungSoanModal(){
   // làm mất nội dung đang gõ dở. Giờ chỉ đóng khi bấm đúng nút ✕ ở góc trên.
   document.getElementById('ddnlBtnCloseNoiDungSoan').onclick = ()=>overlay.remove();
   overlay.querySelectorAll('[data-cmd]').forEach(b=>{
-    b.onclick = (e)=>{ e.preventDefault(); document.getElementById('ddnlNoiDungEditable').focus(); document.execCommand(b.dataset.cmd, false, null); };
+    b.onclick = (e)=>{ e.preventDefault(); if(window.__ddnlCotLenh && window.__ddnlCotLenh(b.dataset.cmd)) return; document.getElementById('ddnlNoiDungEditable').focus(); document.execCommand(b.dataset.cmd, false, null); };
   });
   document.getElementById('ddnlBtnChenBang').onclick = (e)=>{
     e.preventDefault();
@@ -33409,6 +33410,114 @@ function openNoiDungSoanModal(){
     Array.from(table.rows).forEach(row=>{ if(row.cells[idx]) row.cells[idx].style.width = Math.round(px)+'px'; });
     layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
   };
+  // ── CHỌN CẢ CỘT (19/10/2026) ──
+  // Trình duyệt không cho bôi đen theo cột (kéo chuột sẽ bôi theo hàng). Nút "▥ Chọn cột" (hoặc Alt + bấm
+  // vào 1 ô) đánh dấu cả cột; khi đang chọn cột, các nút B / I / U / Trái / Giữa / Đều 2 bên áp dụng cho MỌI ô
+  // trong cột. Khung tô màu là lớp phủ nằm NGOÀI vùng soạn thảo nên không lẫn vào nội dung được lưu/in.
+  (function(){
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    let cotDangChon = null; // {table, idx}
+    const phu = document.createElement('div');
+    phu.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483000;display:none;background:rgba(25,118,210,.16);border:2px solid #1976d2;border-radius:2px;box-sizing:border-box';
+    const nhan = document.createElement('div');
+    nhan.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483001;display:none;background:#1976d2;color:#fff;font:600 11px/1.6 Arial,sans-serif;padding:0 7px;border-radius:4px 4px 0 0;white-space:nowrap';
+    document.body.appendChild(phu); document.body.appendChild(nhan);
+    function oTrongCot(){
+      if(!cotDangChon || !cotDangChon.table.isConnected) return [];
+      return Array.from(cotDangChon.table.rows).map(r=>r.cells[cotDangChon.idx]).filter(Boolean);
+    }
+    function veLai(){
+      if(!ed.isConnected){ phu.remove(); nhan.remove(); window.removeEventListener('scroll', veLai, true); window.removeEventListener('resize', veLai); return; }
+      const cells = oTrongCot();
+      if(!cells.length){ cotDangChon=null; phu.style.display='none'; nhan.style.display='none'; return; }
+      let t=Infinity,l=Infinity,b=-Infinity,r=-Infinity;
+      cells.forEach(c=>{ const k=c.getBoundingClientRect(); t=Math.min(t,k.top); l=Math.min(l,k.left); b=Math.max(b,k.bottom); r=Math.max(r,k.right); });
+      Object.assign(phu.style,{display:'block',top:t+'px',left:l+'px',width:(r-l)+'px',height:(b-t)+'px'});
+      nhan.textContent = '▥ Đang chọn cột '+(cotDangChon.idx+1)+' — B/I/U/căn lề áp dụng cả cột · Esc để bỏ';
+      Object.assign(nhan.style,{display:'block',left:l+'px',top:Math.max(0,t-18)+'px'});
+    }
+    function chonCot(cell){
+      cotDangChon = {table: cell.closest('table'), idx: cell.cellIndex};
+      const btn = document.getElementById('ddnlBtnChonCot'); if(btn) btn.style.background='#e3f2fd';
+      veLai();
+    }
+    function boChon(){
+      if(!cotDangChon) return;
+      cotDangChon=null; phu.style.display='none'; nhan.style.display='none';
+      const btn = document.getElementById('ddnlBtnChonCot'); if(btn) btn.style.background='';
+    }
+    window.addEventListener('scroll', veLai, true);
+    window.addEventListener('resize', veLai);
+    document.getElementById('ddnlBtnChonCot').onclick = (e)=>{
+      e.preventDefault();
+      if(cotDangChon){ boChon(); return; }
+      const cell = timOConTroHienTai();
+      if(!cell || !ed.contains(cell)){ alert('Đặt con trỏ vào 1 ô bất kỳ trong cột muốn chọn trước đã (hoặc giữ phím Alt rồi bấm vào ô đó).'); return; }
+      chonCot(cell);
+    };
+    ed.addEventListener('mousedown', (e)=>{
+      const cell = e.target.closest && e.target.closest('td, th');
+      if(e.altKey && cell && ed.contains(cell)){
+        e.preventDefault();
+        datConTroVaoO(cell, false);
+        chonCot(cell);
+        return;
+      }
+      boChon();
+    });
+    ed.addEventListener('keydown', (e)=>{
+      if(!cotDangChon) return;
+      if(e.key==='Escape'){ e.preventDefault(); boChon(); return; }
+      if(e.key==='Delete' || e.key==='Backspace'){
+        e.preventDefault();
+        const cells = oTrongCot();
+        if(!confirm('Xóa toàn bộ chữ trong '+cells.length+' ô của cột đang chọn?')) return;
+        cells.forEach(c=>{ c.innerHTML='&nbsp;'; });
+        veLai();
+        return;
+      }
+      if(e.ctrlKey && ['b','i','u'].indexOf(e.key.toLowerCase())>=0){
+        e.preventDefault();
+        apDungLenh({b:'bold',i:'italic',u:'underline'}[e.key.toLowerCase()]);
+        return;
+      }
+      if(e.key.length===1 || e.key==='Enter') boChon(); // gõ chữ bình thường thì thôi chế độ chọn cột
+    });
+    ed.addEventListener('input', veLai);
+    function apDungLenh(cmd){
+      const cells = oTrongCot();
+      if(!cells.length) return false;
+      const canLe = {justifyLeft:'left', justifyCenter:'center', justifyRight:'right', justifyFull:'justify'};
+      if(canLe[cmd]){
+        cells.forEach(c=>{
+          c.style.textAlign = canLe[cmd];
+          c.querySelectorAll('[style*="text-align"]').forEach(x=>{ x.style.textAlign=''; });
+          c.querySelectorAll('[align]').forEach(x=>x.removeAttribute('align'));
+        });
+        veLai(); return true;
+      }
+      if(cmd==='bold' || cmd==='italic' || cmd==='underline'){
+        ed.focus();
+        const sel = window.getSelection();
+        const chon = (c)=>{ const rg=document.createRange(); rg.selectNodeContents(c); sel.removeAllRanges(); sel.addRange(rg); };
+        const coChu = cells.filter(c=>c.textContent.replace(/\u00a0/g,'').trim());
+        // Giống Word: còn ô nào chưa đậm -> làm đậm cả cột; tất cả đã đậm -> bỏ đậm cả cột
+        const muonBat = coChu.some(c=>{ chon(c); return !document.queryCommandState(cmd); });
+        coChu.forEach(c=>{
+          chon(c);
+          if(document.queryCommandState(cmd)!==muonBat) document.execCommand(cmd, false, null);
+        });
+        datConTroVaoO(cells[0], false);
+        veLai(); return true;
+      }
+      return false; // các lệnh khác (danh sách, hoàn tác…) giữ nguyên cách cũ
+    }
+    window.__ddnlCotLenh = function(cmd){
+      if(!cotDangChon || !ed.isConnected) return false;
+      if(cmd==='undo'){ boChon(); return false; }
+      return apDungLenh(cmd);
+    };
+  })();
   const modalEl = overlay.querySelector('.ddnl-modal');
   // Khi dán nội dung từ Word (đặc biệt là bảng), dọn lại độ rộng cột/bảng CỨNG (tính bằng pixel từ file
   // gốc) — nếu không sẽ bị tràn ra ngoài khung soạn, lệch cả 2 bên. Cho bảng luôn co giãn vừa đúng khung.
