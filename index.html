@@ -29154,7 +29154,12 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
 #ddnlNoiDungEditable p,
 #ddnlNoiDungEditable img{max-width:100% !important; box-sizing:border-box !important;}
 #ddnlNoiDungEditable table{width:100% !important;border-collapse:collapse;}
-#ddnlNoiDungEditable td, #ddnlNoiDungEditable th{border:1px solid #999;padding:6px 8px;}
+#ddnlNoiDungEditable td, #ddnlNoiDungEditable th{border:1px solid #999;padding:5px 8px;}
+/* 19/10/2026 — KHUNG SOẠN = ĐÚNG KHỔ CHỮ TRANG IN (rộng 16,4 cm, Times New Roman 13pt) để chữ xuống dòng
+   trong app GIỐNG HỆT khi Xem trước / In / Xuất Word — căn chỉnh 1 lần là xong, không phải sửa lại trong Word. */
+#ddnlNoiDungEditable{max-width:164mm;margin-left:auto !important;margin-right:auto !important;font-size:13pt;line-height:1.4;box-sizing:border-box;}
+#ddnlNoiDungEditable table{font-size:inherit !important;}
+#ddnlNoiDungEditable th{font-size:inherit !important;background:transparent !important;}
 #ddnlNoiDungEditable *{position:static !important;}
 #ddnlNoiDungEditable table, #ddnlNoiDungEditable div, #ddnlNoiDungEditable p{margin-left:0 !important;}
 .ddnl-img-wrap{display:inline-block;overflow:hidden;resize:both;max-width:100%;min-width:40px;min-height:30px;vertical-align:top;border:1px solid transparent;box-sizing:border-box;}
@@ -32560,7 +32565,27 @@ function htmlToRtf(html){
     const firstRowCells = rows[0] ? Array.from(rows[0].querySelectorAll(':scope > td, :scope > th')) : [];
     const pxWidths = firstRowCells.map(c=>parseFloat(c.style && c.style.width) || 0);
     const hasCustomWidths = pxWidths.length===maxCols && pxWidths.every(w=>w>0);
-    if(hasCustomWidths){
+    // 19/10/2026: ƯU TIÊN đo độ rộng cột THẬT bằng cách dựng tạm bảng (ẩn) đúng khổ 16,4 cm, Times New Roman 13pt —
+    // giống hệt khung soạn trong app -> Word chia cột đúng như anh thấy trong app, không còn cột bị bóp hẹp.
+    const measured = (function(){
+      try{
+        const box = document.createElement('div');
+        box.style.cssText = 'position:absolute;left:-20000px;top:0;visibility:hidden;width:164mm;font-family:"Times New Roman",Times,serif;font-size:13pt;line-height:1.4;';
+        const t = tableEl.cloneNode(true);
+        t.style.width = '100%'; t.style.borderCollapse = 'collapse'; t.style.tableLayout = 'auto';
+        t.querySelectorAll('td, th').forEach(c=>{ c.style.padding='5px 8px'; c.style.border='1px solid #000'; c.style.fontSize=''; });
+        box.appendChild(t); document.body.appendChild(box);
+        const trs = Array.from(t.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr'));
+        const full = trs.find(tr=>{ const cs = tr.querySelectorAll(':scope > td, :scope > th'); return cs.length===maxCols && Array.from(cs).every(c=>(c.colSpan||1)===1); });
+        const w = full ? Array.from(full.querySelectorAll(':scope > td, :scope > th')).map(c=>c.getBoundingClientRect().width) : null;
+        box.remove();
+        return (w && w.every(x=>x>0)) ? w : null;
+      }catch(e){ return null; }
+    })();
+    if(measured){
+      const sumM = measured.reduce((a,b)=>a+b,0);
+      colWidths = measured.map(w=>Math.round((w/sumM)*totalWidth));
+    } else if(hasCustomWidths){
       const sumPx = pxWidths.reduce((a,b)=>a+b,0);
       colWidths = pxWidths.map(w=>Math.round((w/sumPx)*totalWidth));
     } else {
@@ -32580,7 +32605,7 @@ function htmlToRtf(html){
     }
     // Đảm bảo mỗi cột có độ rộng TỐI THIỂU (đủ chỗ cho tiêu đề ngắn như "STT" không bị co dúm lại),
     // lấy phần chênh lệch bù từ (các) cột đang rộng nhất để tổng vẫn khớp đúng bề ngang trang.
-    const MIN_COL_WIDTH = 900; // ~1.6cm
+    const MIN_COL_WIDTH = measured ? 560 : 900; // ~1cm khi đã đo thật (cột Stt hẹp vẫn đẹp), ~1.6cm khi phải ước lượng
     let deficit = 0;
     colWidths = colWidths.map(w=>{ if(w<MIN_COL_WIDTH){ deficit += MIN_COL_WIDTH-w; return MIN_COL_WIDTH; } return w; });
     if(deficit>0){
@@ -32612,7 +32637,20 @@ function htmlToRtf(html){
       // (ví dụ dòng "Tổng khoản: ..." bị tách thành 1 bảng riêng lẻ ngay sau bảng chính, dù nhìn liền
       // mạch trên màn hình) nhiều khả năng là hàng NỘI DUNG/tiếp nối, không phải hàng tiêu đề thật sự.
       const isHeaderArr = cells.map(cell=> (rowIdx===0 && rows.length>1) || cell.tagName.toLowerCase()==='th');
-      out += '\\trowd\\trgaph108\\trleft0';
+      // 19/10/2026: giữ CĂN LỀ từng ô đúng như trong app (nút Trái/Giữa/Đều 2 bên, kể cả khi chọn cả cột)
+      const canNgang = cells.map((cell,i)=>{
+        let ta = (cell.style && cell.style.textAlign) || cell.getAttribute('align') || '';
+        if(!ta){ const con = Array.from(cell.children).filter(e=>/^(P|DIV)$/.test(e.tagName)); if(con.length && con.every(e=>e.style.textAlign && e.style.textAlign===con[0].style.textAlign)) ta = con[0].style.textAlign; }
+        ta = String(ta).toLowerCase();
+        if(ta==='center') return '\\qc '; if(ta==='right') return '\\qr '; if(ta==='justify') return '\\qj '; if(ta==='left') return '\\ql ';
+        return isHeaderArr[i] ? '\\qc ' : '\\ql ';
+      });
+      const canDoc = cells.map(cell=>{
+        const va = String((cell.style && cell.style.verticalAlign) || cell.getAttribute('valign') || '').toLowerCase();
+        return va==='top' ? '\\clvertalt' : (va==='bottom' ? '\\clvertalb' : '\\clvertalc'); // mặc định giữa dọc — giống app & xem trước
+      });
+      const caoPx = Math.max(0, ...cells.map(c=>parseFloat(c.style && c.style.height)||0));
+      out += '\\trowd\\trgaph108\\trleft0' + (caoPx>0 ? '\\trrh'+Math.round(caoPx*15) : '');
       let acc = 0;
       for(let c=0;c<maxCols;c++){
         acc += colWidths[c];
@@ -32620,7 +32658,7 @@ function htmlToRtf(html){
         // Ép TƯỜNG MINH canh trên (\clvertalt) cho MỌI ô nội dung thường — không để trống nữa.
         // Để trống từng khiến 1 vài cột (ví dụ cột dán từ Excel có sẵn vertical-align riêng) bị lệch
         // canh giữa trong khi các cột khác cùng hàng vẫn canh trên, nhìn lệch pha ngay trong 1 hàng.
-        const vAlign = isHeaderArr[c] ? '\\clvertalc' : '\\clvertalt';
+        const vAlign = canDoc[c] || '\\clvertalc';
         out += cellBorder+vAlign+'\\cellx'+acc;
       }
       out += '\n';
@@ -32631,7 +32669,7 @@ function htmlToRtf(html){
         // \\fi0\\li0 : ép THỤT LỀ = 0 một cách TƯỜNG MINH cho ô bảng — trước đây chỉ BỎ QUA không set thụt lề,
         // để "trống" cho Word tự điền theo mặc định style Normal của MÁY người dùng (nhiều mẫu văn bản hành
         // chính VN đặt sẵn thụt 1cm dòng đầu cho Normal), nên khi mở lại bằng Word, Word tự thụt lề vào.
-        out += '\\intbl\\fi0\\li0 ' + (isHeader?'\\qc ':'\\ql ') + (isHeader?'\\b \\fs24 ':'');
+        out += '\\intbl\\fi0\\li0 ' + canNgang[idx] + (isHeader?'\\b \\fs26 ':'');
         // Nội dung trong ô: gom lại thành text đơn giản (đậm/nghiêng cơ bản vẫn giữ qua đệ quy walk).
         // Truyền inCell=true để các thẻ <p>/<div> lồng bên trong ô (Word hay bọc vậy) KHÔNG bị coi là
         // đoạn văn cấp tài liệu (\pard\par sẽ phá vỡ luôn cấu trúc bảng) — chỉ xuống dòng nhẹ trong ô.
@@ -32648,13 +32686,21 @@ function htmlToRtf(html){
   function walk(node, inCell, stripCtx){
     if(node.nodeType===3){
       let t = node.textContent;
+      // 19/10/2026: gộp khoảng trắng/xuống dòng trong mã HTML thành 1 dấu cách (đúng như trình duyệt hiển thị);
+      // bỏ hẳn khoảng trắng "rỗng" nằm giữa các khối (p/div/bảng) — trước đây chúng thành dấu cách thừa đầu ô/đầu dòng.
+      t = t.replace(/[\t\r\n ]+/g, ' ');
+      if(t===' '){
+        const KHOI = /^(P|DIV|LI|UL|OL|TABLE|TBODY|THEAD|TR|TD|TH|BR|H[1-6])$/;
+        const truoc = node.previousSibling, sau = node.nextSibling;
+        if(!truoc || !sau || (truoc.nodeType===1 && KHOI.test(truoc.tagName)) || (sau.nodeType===1 && KHOI.test(sau.tagName))) return;
+      }
       // Nhiều văn bản được gõ TAB thủ công ở đầu đoạn để tạo thụt lề (thói quen soạn thảo hành chính) —
       // 1 ký tự Tab thật trong RTF nhảy nguyên 1 tab-stop (~1.27cm) CHỈ ở dòng đầu tiên hiển thị, khiến
       // đoạn văn bị lệch "thụt dòng đầu quá rộng" trong khi các dòng xuống hàng tự động lại thẳng lề trái
       // như bình thường. Cắt bỏ tab/khoảng trắng/nbsp thừa ở NGAY ĐẦU mỗi đoạn (p/div/li) để tránh việc này;
       // KHÔNG đụng tới khoảng trắng ở giữa hay cuối đoạn.
       if(stripCtx && stripCtx.pending){
-        const stripped = t.replace(/^[\t\u00A0 ]+/, '');
+        const stripped = t.replace(/^[\t\r\n\u00A0\u200B\uFEFF\u2002\u2003\u2009 ]+/, '');
         if(stripped.length){ stripCtx.pending = false; }
         t = stripped;
       }
@@ -32665,7 +32711,13 @@ function htmlToRtf(html){
     if(tag==='style'||tag==='script'||tag==='meta'||tag==='xml') return; // an toàn 2 lớp, phòng khi querySelectorAll không khớp (thẻ lạ/namespace)
     if(node.style && node.style.display==='none') return; // Word hay chèn đoạn ẩn (mso-hide) không nên hiện ra
     if(tag==='table'){ walkTable(node); return; } // Bảng xử lý riêng ở trên, không đi tiếp xuống dưới
-    if(tag==='br'){ out += '\\line '; return; }
+    if(tag==='br'){
+      // <br> CUỐI CÙNG của 1 đoạn/ô (vd <p><br></p> = 1 dòng trống) không tạo thêm dòng — trước đây sinh 2 dòng trống, đẩy bảng xuống thấp
+      let sau = node.nextSibling;
+      while(sau && sau.nodeType===3 && !sau.textContent.replace(/[\t\r\n ]+/g,'')) sau = sau.nextSibling;
+      if(!sau && node.parentNode && /^(P|DIV|LI|TD|TH)$/.test(node.parentNode.tagName||'')) return;
+      out += '\\line '; return;
+    }
     let openC='', closeC='';
     if(tag==='b'||tag==='strong'){ openC+='\\b '; closeC='\\b0 '+closeC; }
     if(tag==='i'||tag==='em'){ openC+='\\i '; closeC='\\i0 '+closeC; }
@@ -32821,7 +32873,8 @@ function buildVanBanPreviewHtml(data){
   .ddnl-pv-toolbar span{color:#666;font-size:12px;margin-left:10px;}
   table, td, p { page-break-inside:auto; }
   .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
-  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
+  .ddnl-pv-content table{font-size:13pt;}
+  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:middle;}
   .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;} /* ảnh không tràn khỏi trang/ô bảng */
   @media print{ .ddnl-pv-no-print{display:none !important;} body{padding:0;max-width:none;} }
 </style></head>
@@ -32915,7 +32968,8 @@ function openVanBanFlipView(){
   .ddnl-pv-so{display:inline-block;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
   .ddnl-pv-noinhan{font-size:11pt;font-style:italic;margin:2px 0;}
   .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;}
-  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:top;}
+  .ddnl-pv-content table{font-size:13pt;}
+  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:middle;}
   .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;} /* ảnh không tràn khỏi trang/ô bảng */
   @media (max-width:760px){
     .vbflip-viewport{padding:18px 14px;}
