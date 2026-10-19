@@ -16329,7 +16329,7 @@ function briefGoToQt(id){
   setTimeout(function(){
     try{
       if(typeof qtSetFilter==='function') qtSetFilter('Tất cả');
-      var s=document.getElementById('qtSearchInput'); if(s){ s.value=''; }
+      var s=document.getElementById('qtSearchInput'); if(s){ s.value=''; } var s2=document.getElementById('qtSearchBig'); if(s2){ s2.value=''; }
       qtToggle(id);
       setTimeout(function(){
         var el=document.querySelector('.qt-card[data-id="'+id+'"]');
@@ -23681,6 +23681,12 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 .qt-dk-row button{border:1px solid #e57373;background:#fff;color:#c62828;border-radius:6px;padding:5px 8px;cursor:pointer;flex-shrink:0}
 .qt-dk-add{border:1px solid #6d4c41;background:#fff;color:#5d4037;border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer;font-weight:600;font-family:inherit}
 @media(max-width:560px){.qt-dk-row{flex-wrap:wrap}.qt-dk-row .t{flex:1 1 100%}}
+.qt-timlon{display:flex;align-items:center;gap:8px;background:#fff;border:2px solid #a1887f;border-radius:10px;padding:8px 12px;margin-bottom:10px;box-shadow:0 1px 4px rgba(62,39,35,.08)}
+.qt-timlon:focus-within{border-color:#6d4c41;box-shadow:0 0 0 3px rgba(109,76,65,.15)}
+.qt-timlon input{flex:1;border:none;outline:none;font-size:14.5px;font-family:inherit;color:#3e2723;background:transparent;min-width:0}
+.qt-timlon button{border:none;background:#efe6e2;color:#5d4037;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:13px}
+#qtSearchInfo{font-size:12.5px;color:#5d4037;margin:-4px 0 10px 4px}
+#qtSearchInfo button{border:1px solid #a1887f;background:#fff;color:#5d4037;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;margin-left:6px;font-family:inherit}
 .qt-empty{text-align:center;padding:50px 16px;color:#795548;opacity:.7;font-size:13px}
 .qt-myban{background:linear-gradient(135deg,#eef6f3,#dcece6);border:1.5px solid #bfe0cc;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .qt-myban.warn{background:linear-gradient(135deg,#fff3e0,#ffe0b2);border-color:#ffcc80}
@@ -23702,7 +23708,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     </div>
     <div class="qt-search">
       <span style="margin-right:6px;opacity:.8">🔍</span>
-      <input id="qtSearchInput" placeholder="Tìm theo tên, mã số, từ khóa..." oninput="qtRender()">
+      <input id="qtSearchInput" placeholder="Tìm theo tên, mã số, từ khóa..." oninput="qtSyncSearch(this.value,'top')">
     </div>
     <button class="qt-btn solid" id="qtAddBtn" style="display:none" onclick="qtOpenAddModal()"><i class="ti ti-plus"></i> Thêm quy trình</button>
     <button class="qt-btn" id="qtStatsBtn" style="display:none" onclick="qtOpenStatsModal()"><i class="ti ti-chart-bar"></i> Thống kê tuân thủ</button>
@@ -23717,6 +23723,12 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   <div class="qt-main" id="qtMainBox">
     <div class="qt-sidebar" id="qtSidebar"></div>
     <div class="qt-body">
+      <div class="qt-timlon">
+        <span style="font-size:18px">🔍</span>
+        <input id="qtSearchBig" autocomplete="off" placeholder="Tìm quy trình: gõ tên, mã số, từ khóa… (gõ có dấu hoặc không dấu đều được)" oninput="qtSyncSearch(this.value,'big')" onkeydown="if(event.key==='Escape'){qtSyncSearch('');}">
+        <button type="button" id="qtSearchClear" onclick="qtSyncSearch('');document.getElementById('qtSearchBig').focus();" title="Xóa nội dung tìm" style="display:none">✕</button>
+      </div>
+      <div id="qtSearchInfo" style="display:none"></div>
       <div id="qtMyBanner"></div>
       <div class="qt-stats" id="qtStats"></div>
       <div id="qtCardList"></div>
@@ -24268,10 +24280,17 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   };
 
   function qtGetFilteredList(){
-    var q=(document.getElementById('qtSearchInput').value||'').trim().toLowerCase();
+    var q=qtBoDau((document.getElementById('qtSearchInput').value||'').trim());
     var f=qtGroupField();
     var list=qtSops.filter(function(s){return qtPassExtra(s, qtGroupMode) && (qtActiveFilter==='Tất cả' || qtFieldValue(s,f)===qtActiveFilter);});
-    if(q) list=list.filter(function(s){return (s.ten+s.ma+s.khoa+(s.nhom||'')+s.mucdich+' '+(s.ngay||'')+' '+qtYearOf(s)).toLowerCase().indexOf(q)>=0;});
+    if(q){
+      var tuKhoa = q.split(/\s+/).filter(Boolean);
+      list=list.filter(function(s){
+        var tn = (s.trachnhiem||[]).map(function(r){return (r||[]).join(' ');}).join(' ');
+        var nd = qtBoDau([s.ten,s.ma,s.khoa,s.nhom,s.mucdich,s.ngay,qtYearOf(s),(s.buoc||[]).join(' '),s.luuy,tn,qtDkList(s).map(function(d){return d.ten;}).join(' ')].join(' '));
+        return tuKhoa.every(function(k){ return nd.indexOf(k)>=0; }); // mọi từ gõ vào đều phải có (không cần đúng thứ tự)
+      });
+    }
     if(qtQuickFilter==='new') list=list.filter(function(s){return qtIsNewRec(s);});
     else if(qtQuickFilter==='review') list=list.filter(function(s){var st=qtValidityStatus(s).key; return st==='het'||st==='sap';});
     else if(qtQuickFilter==='unread') list=list.filter(function(s){
@@ -24352,8 +24371,27 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     return out;
   }
 
+  // ── TÌM KIẾM (19/10/2026): ô tìm lớn ngay trên danh sách, đồng bộ với ô tìm trên thanh tiêu đề; tìm không dấu ──
+  function qtBoDau(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d'); }
+  window.qtSyncSearch = function(v, nguon){
+    var a=document.getElementById('qtSearchInput'), b=document.getElementById('qtSearchBig');
+    if(a && nguon!=='top') a.value=v; if(b && nguon!=='big') b.value=v;
+    qtRender();
+  };
+  window.qtSearchAll = function(){ for(var m in qtExtra) qtExtra[m]=''; qtActiveFilter='Tất cả'; qtQuickFilter='all'; qtRender(); };
+  function qtRenderSearchInfo(n){
+    var q=(document.getElementById('qtSearchInput').value||'').trim();
+    var info=document.getElementById('qtSearchInfo'), x=document.getElementById('qtSearchClear');
+    if(x) x.style.display = q ? '' : 'none';
+    if(!info) return;
+    if(!q){ info.style.display='none'; return; }
+    var dangLoc = qtActiveFilter!=='Tất cả' || qtQuickFilter!=='all' || Object.keys(qtExtra).some(function(k){return qtExtra[k];});
+    info.style.display='';
+    info.innerHTML = 'Tìm thấy <b>'+n+'</b> quy trình cho “'+qtEsc(q)+'”' + (dangLoc ? ' <i>(trong bộ lọc đang chọn)</i><button onclick="qtSearchAll()">Tìm trong TẤT CẢ quy trình</button>' : '');
+  }
   function qtRenderCards(){
     var list = qtGetFilteredList();
+    qtRenderSearchInfo(list.length);
     var wrap=document.getElementById('qtCardList');
     if(list.length===0){wrap.innerHTML='<div class="qt-empty">Không tìm thấy quy trình phù hợp.</div>';return;}
     wrap.innerHTML=list.map(function(s){
