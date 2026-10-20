@@ -11416,11 +11416,37 @@ function aeSync(){
   });
 }
 try{ document.addEventListener('selectionchange', function(){ try{ aeSync(); }catch(x){} }); }catch(x){}
+/* ── DÁN KHÔNG CÒN DẤU * (20/10/2026): chữ chép từ ChatGPT/Gemini/Zalo hay kèm ký hiệu Markdown.
+   **chữ** → giữ thành CHỮ ĐẬM (đúng kiểu đậm của app); mọi dấu * lẻ khác bị bỏ; "* " / "• " đầu dòng → "- ";
+   "### Tiêu đề" → bỏ dấu #. Áp dụng khi DÁN vào ô Nội dung/Cần làm/Đang làm/Hoàn thành (cả màn hình Phóng to). */
+function aeLamSachDan(t){
+  return String(t||'').replace(/\r\n?/g,'\n').replace(/\u00a0/g,' ').split('\n').map(function(l){
+    l = l.replace(/^(\s*)#{1,6}\s+/, '$1')
+         .replace(/^(\s*)[*•]\s+/, '$1- ')
+         .replace(/\*{3,}([^*\n]+?)\*{3,}/g, '**$1**');
+    var giu = [];
+    l = l.replace(/\*\*\s*([^*\n]*?\S)\s*\*\*/g, function(_, x){ giu.push(x); return '\u0001'+(giu.length-1)+'\u0002'; });
+    l = l.replace(/\*/g, '');
+    return l.replace(/\u0001(\d+)\u0002/g, function(_, i){ return '**'+giu[+i]+'**'; });
+  }).join('\n');
+}
 function aePaste(ev){
   ev.preventDefault();
-  var t=(ev.clipboardData||window.clipboardData).getData('text/plain')||'';
-  document.execCommand('insertText', false, t.replace(/\r\n/g,'\n'));
+  var t=aeLamSachDan((ev.clipboardData||window.clipboardData).getData('text/plain')||'');
+  if(/\*\*.+?\*\*/.test(t)){
+    // có chữ đậm → dán dạng định dạng để thấy ngay chữ đậm (không hiện dấu **)
+    var h=t.split('\n').map(function(l){ return esc(l).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>'); }).join('<br>');
+    document.execCommand('insertHTML', false, h);
+  } else document.execCommand('insertText', false, t);
 }
+// Các ô chữ thường (textarea) của thẻ: dán cũng được làm sạch (giữ **…** = chữ đậm khi hiển thị)
+try{ document.addEventListener('paste', function(ev){
+  var ta=ev.target; if(!ta || ta.tagName!=='TEXTAREA' || !/^(edit|in|new)(Content|Todo|Doing|Done)(FsTa)?$/.test(ta.id||'')) return;
+  var raw=(ev.clipboardData||window.clipboardData).getData('text/plain')||'';
+  var t=aeLamSachDan(raw); if(t===raw.replace(/\r\n?/g,'\n')) return; // không có gì cần sửa → để trình duyệt dán bình thường
+  ev.preventDefault(); ta.focus();
+  if(!document.execCommand('insertText', false, t)){ var a=ta.selectionStart, b=ta.selectionEnd; ta.value=ta.value.slice(0,a)+t+ta.value.slice(b); ta.selectionStart=ta.selectionEnd=a+t.length; ta.dispatchEvent(new Event('input',{bubbles:true})); }
+}, true); }catch(x){}
 /* Trình bày "Ghi chú QT" theo cấu trúc ý mẹ / ý con, tự nhận diện dấu ngăn cách phổ biến */
 function fmtQTNote(note){
   const raw=String(note||'').trim();
