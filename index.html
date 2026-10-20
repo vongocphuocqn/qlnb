@@ -54157,7 +54157,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
   <div style="max-width:1000px;margin:0 auto;padding:16px 14px 60px;width:100%" id="nvkMainBox">
     <div class="nvk-box">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-        <input type="text" id="nvkSearch" placeholder="🔍 Tìm theo tên, đơn vị, chức vụ, văn bằng…" oninput="nvkRender()" style="flex:1;min-width:220px;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit">
+        <input type="text" id="nvkSearch" placeholder="🔍 Tìm theo tên, đơn vị, chức vụ, văn bằng…" oninput="nvkSearchInput()" oncompositionstart="nvkComposing=true" oncompositionend="nvkComposing=false;nvkSearchInput()" autocomplete="off" style="flex:1;min-width:220px;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit">
         <select id="nvkDonViFilter" onchange="nvkRender()" style="padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="">Tất cả đơn vị</option>
         </select>
@@ -55284,10 +55284,11 @@ function nvkGioiTinhCount(){ // cập nhật số người trên ô lọc: "👨
   if(ds){ var dv=nvkList.filter(function(e){ return e&&e.dangVien; }).length, v2=ds.value;
     ds.innerHTML='<option value="">ĐV + Không ĐV</option><option value="1">☭ Chỉ đảng viên ('+dv+')</option><option value="0">Không phải đảng viên ('+(nvkList.length-dv)+')</option>'; ds.value=v2; }
 }
-function nvkGetFilteredList(){
+function nvkHay(e){ return nvkNoAccent((e.ten||'')+' '+(e.donVi||'')+' '+(e.nhom||'')+' '+(e.chucVu||'')+' '+(e.vanBang||'')); }
+function nvkGetFilteredList(skipSearch){
   var gioiTinh = (document.getElementById('nvkGioiTinhFilter')||{}).value || '';
   var dvLoc = (document.getElementById('nvkDangVienFilter')||{}).value || '';
-  var q = nvkNoAccent((document.getElementById('nvkSearch')||{}).value || '');
+  var q = skipSearch ? '' : nvkNoAccent((document.getElementById('nvkSearch')||{}).value || '').trim();
   var donVi = (document.getElementById('nvkDonViFilter')||{}).value || '';
   var nhom = (document.getElementById('nvkNhomFilter')||{}).value || '';
   var vanBang = (document.getElementById('nvkVanBangFilter')||{}).value || '';
@@ -55302,8 +55303,7 @@ function nvkGetFilteredList(){
     if(vanBang && e.vanBang!==vanBang) return false;
     if(gioiTinh && (gioiTinh==='?' ? nvkGioiTinh(e)!=='' : nvkGioiTinh(e)!==gioiTinh)) return false;
     if(!q) return true;
-    var hay = nvkNoAccent((e.ten||'')+' '+(e.donVi||'')+' '+(e.nhom||'')+' '+(e.chucVu||'')+' '+(e.vanBang||''));
-    return hay.indexOf(q) > -1;
+    return nvkHay(e).indexOf(q) > -1;
   }).sort(function(a,b){
     if(sortMode==='tuoiGiam' || sortMode==='tuoiTang'){
       var na=a.ngaySinh||'', nb=b.ngaySinh||'';
@@ -55693,9 +55693,10 @@ function nvkRender(){
   var cnt = document.getElementById('nvkCount');
   if(!tb) return;
   nvkGioiTinhCount();
-  var list = nvkGetFilteredList();
+  nvkRowCache = null;
+  var list = nvkGetFilteredList(true); // lọc theo các ô chọn, CHƯA lọc theo ô tìm (ô tìm xử lý bằng ẩn/hiện dòng — nhanh)
   if(cnt) cnt.textContent = list.length + ' / ' + nvkList.length + ' người';
-  nvkUpdateSelBar(list);
+  if(!list.length) nvkUpdateSelBar(list);
   if(!nvkList.length){
     tb.innerHTML = '<tr><td colspan="17" style="text-align:center;padding:24px;color:#999">Đang tải danh sách…</td></tr>';
     return;
@@ -55704,7 +55705,7 @@ function nvkRender(){
     tb.innerHTML = '<tr><td colspan="17" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
     return;
   }
-  tb.innerHTML = list.map(function(e,i){
+  var htmlRows = list.map(function(e,i){
     var idx = nvkList.indexOf(e);
     var daChon = !!nvkSel[nvkSelKey(e)];
     return '<tr'+(daChon?' style="background:#fff8e1"':'')+'>'
@@ -55732,7 +55733,36 @@ function nvkRender(){
       + '</td>'
       + '</tr>';
   }).join('');
+  tb.innerHTML = htmlRows + '<tr id="nvkNoMatchRow" style="display:none"><td colspan="17" style="text-align:center;padding:24px;color:#999">Không tìm thấy ai khớp với tìm kiếm.</td></tr>';
+  nvkRowCache = {listRef:nvkList, base:list, hay:list.map(nvkHay), trs:Array.prototype.slice.call(tb.children, 0, list.length), q:null};
+  nvkApplySearch();
   nvkApplyColView();
+}
+/* ── Ô TÌM NHANH (20/10/2026): gõ tìm KHÔNG vẽ lại cả bảng, chỉ ẩn/hiện dòng có sẵn + đánh lại số thứ tự;
+   chờ ngắt gõ 150 ms mới lọc (gõ tiếng Việt Unikey/Telex mỗi phím sinh nhiều sự kiện) */
+var nvkRowCache = null, nvkSearchTimer = null, nvkComposing = false;
+function nvkSearchInput(){
+  if(nvkComposing) return;
+  clearTimeout(nvkSearchTimer);
+  nvkSearchTimer = setTimeout(function(){
+    var c = nvkRowCache, tb = document.getElementById('nvkTbody');
+    if(!c || c.listRef!==nvkList || !tb || !c.trs.length || c.trs[0].parentNode!==tb){ nvkRender(); return; }
+    nvkApplySearch();
+  }, 150);
+}
+function nvkApplySearch(){
+  var c = nvkRowCache; if(!c) return;
+  var q = nvkNoAccent((document.getElementById('nvkSearch')||{}).value || '').trim();
+  var vis = [], n = 0;
+  for(var i=0;i<c.trs.length;i++){
+    var ok = !q || c.hay[i].indexOf(q) > -1, tr = c.trs[i];
+    if(ok){ n++; vis.push(c.base[i]); var td = tr.children[1]; if(td && td.textContent!==String(n)) td.textContent = n; }
+    var d = ok ? '' : 'none'; if(tr.style.display!==d) tr.style.display = d;
+  }
+  var nm = document.getElementById('nvkNoMatchRow'); if(nm) nm.style.display = n ? 'none' : '';
+  var cnt = document.getElementById('nvkCount'); if(cnt) cnt.textContent = n + ' / ' + nvkList.length + ' người';
+  c.q = q;
+  nvkUpdateSelBar(vis);
 }
 var nvkEditingIdx = -1;
 function nvkOpenEdit(idx){
