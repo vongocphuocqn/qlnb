@@ -29768,6 +29768,12 @@ function newDraftVB(){
 }
 // Số văn bản TỰ ĐỘNG, chạy chung 1 mạch cho TOÀN KHOA (không tính riêng theo từng người hay từng loại văn bản) —
 // dựa theo năm của "Ngày lập". VD: văn bản thứ 7 trong năm 2026 -> "07/2026/GDN-GMHS".
+// Số hiển thị/in tạm cho văn bản đang soạn: đã có số thì dùng, chưa có thì lấy số kế tiếp
+// (giống ô "Số văn bản" trên form). Số chỉ thực sự được chốt khi bấm Ghi nhận.
+function vbSoTamDraft(){
+  if(!draftVB) return "";
+  return draftVB.soVanBan || vbNextSoVanBan(draftVB.ngayLap);
+}
 function vbNextSoVanBan(ngayLap){
   const year = (ngayLap || todayISO()).split("-")[0];
   const seq = vbRecords.filter(v=>v.ngayLap && v.ngayLap.startsWith(year)).length + 1;
@@ -31682,7 +31688,8 @@ function bindVanBanEvents(){
     // Văn bản MỚI: nếu chưa có số (trường hợp thường gặp vì ô này tự động, không cho gõ tay
     // với người không phải Admin) thì tự sinh số tại đúng thời điểm lưu — tránh trùng số nếu
     // nhiều người cùng mở form một lúc (số chỉ "chốt" khi thực sự bấm Ghi nhận, không phải lúc gõ nháp).
-    if(!editingVBId && !draftVB.soVanBan){
+    // (Áp dụng cả khi SỬA văn bản cũ mà trước đó bị lưu thiếu số — để bản in/Word không bị trống số.)
+    if(!draftVB.soVanBan){
       draftVB.soVanBan = vbNextSoVanBan(draftVB.ngayLap);
     }
     const rec = { ...draftVB, updatedAt: Date.now() };
@@ -32258,7 +32265,7 @@ function taoFileExcelTrongDeSoan(){
   const rows = [];
   rows.push(["BỆNH VIỆN ĐA KHOA TRUNG TÂM", "", "", "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"]);
   rows.push(["KHOA GÂY MÊ HỒI SỨC", "", "", "Độc lập - Tự do - Hạnh phúc"]);
-  rows.push(["Số: " + (draftVB.soVanBan||"…………"), "", "", `Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}`]);
+  rows.push(["Số: " + (vbSoTamDraft()||"…………"), "", "", `Gia Lai, ngày ${ngayLapParts[2]} tháng ${ngayLapParts[1]} năm ${ngayLapParts[0]}`]);
   rows.push([]);
   rows.push([(draftVB.hinhThucVB||"GIẤY ĐỀ NGHỊ").toUpperCase()]);
   if(draftVB.veViec) rows.push([`(V/v ${draftVB.veViec})`]);
@@ -33325,7 +33332,7 @@ function taoFileWordTrongDeSoan(){
   const ngayLapParts = (draftVB.ngayLap||todayISO()).split("-");
   const signer = (config.signers||[]).find(x=>x.ten===draftVB.nguoiKy) || { chucDanh:"Trưởng khoa" };
   const body = buildVanBanRtfBody({
-    soVanBan: draftVB.soVanBan, ngayLapParts, hinhThucVB: draftVB.hinhThucVB, veViec: draftVB.veViec,
+    soVanBan: vbSoTamDraft(), ngayLapParts, hinhThucVB: draftVB.hinhThucVB, veViec: draftVB.veViec,
     noiNhan: draftVB.noiNhan, nguoiSoan: draftVB.nguoiSoan, chucDanh: signer.chucDanh, nguoiKy: draftVB.nguoiKy,
     nguoiLapLabel: draftVB.nguoiLapLabel, chucDanhKy: draftVB.chucDanhKy,
     isBlank: true
@@ -33444,7 +33451,7 @@ function openNoiDungSoanModal(){
               <div class="ddnl-doc-hospital">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
               <div class="ddnl-doc-dept">KHOA GÂY MÊ HỒI SỨC</div>
               <div class="ddnl-doc-line"></div>
-              <div class="ddnl-doc-so">Số: ${esc(draftVB.soVanBan||"(tự động)")}</div>
+              <div class="ddnl-doc-so">Số: ${esc(vbSoTamDraft()||"(tự động)")}</div>
             </div>
             <div class="ddnl-col right">
               <div class="ddnl-doc-quochieu">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
