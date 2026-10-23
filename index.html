@@ -9827,6 +9827,37 @@ var fbAuthState={ok:false, uid:null, err:null, done:false};
     });
   }, function(e){ fbAuthState.err=e; clearTimeout(hetGio); noiLai('Lỗi xác thực ('+(e&&e.code||e)+')'); });
 })();
+/* [23/10/2026] BẢO MẬT GĐ2 — sau khi đã khóa Rules (auth != null) và bật Enforce App Check:
+   - Nếu máy nào bị Firebase từ chối (bản app cũ trong bộ nhớ đệm, đăng nhập ẩn danh lỗi, App Check không đạt)
+     thì hiện dải báo đỏ hướng dẫn tải lại trang, thay vì màn hình trống không rõ lý do.
+   - Admin gõ  kiemTraBaoMat()  trong Console (F12) để xem nhanh trạng thái bảo mật của máy đang dùng. */
+(function fbBaoMatKiemTra(){
+  function hienBao(lyDo){
+    if(document.getElementById('fbBaoMatBanner')) return;
+    var b=document.createElement('div'); b.id='fbBaoMatBanner';
+    b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2147483000;background:#b71c1c;color:#fff;font:600 14px/1.45 Arial,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+    b.innerHTML='🔒 Máy này chưa được Firebase cho phép đọc dữ liệu ('+lyDo+'). Vui lòng bấm <b>Ctrl + F5</b> (điện thoại: tắt hẳn trình duyệt rồi mở lại) để tải bản app mới nhất. Nếu vẫn lỗi, báo Admin khoa. <button type="button" style="margin-left:10px;padding:3px 10px;border:0;border-radius:4px;cursor:pointer" onclick="location.reload()">Tải lại</button>';
+    (document.body||document.documentElement).appendChild(b);
+  }
+  function thu(lan){
+    if(!fbAuthState.done){ if(lan<40) setTimeout(function(){ thu(lan+1); }, 300); return; }
+    db.ref('config/adminPwd').once('value').then(function(){ fbAuthState.docDuoc=true; }).catch(function(e){
+      fbAuthState.docDuoc=false; fbAuthState.loiDoc=e;
+      var ma=String((e&&e.code)||e||'');
+      if(/permission/i.test(ma)) hienBao(fbAuthState.ok ? 'bị chặn bởi App Check/Rules' : 'chưa đăng nhập được Firebase');
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ thu(0); }); else thu(0);
+  window.kiemTraBaoMat=function(){
+    var kq={
+      'App Check đã bật trong app': fbAppCheckState.ok ? 'CÓ' : ('KHÔNG — '+fbAppCheckState.err),
+      'Đăng nhập ẩn danh': fbAuthState.ok ? ('CÓ (uid '+fbAuthState.uid+')') : ('CHƯA — '+(fbAuthState.err&&(fbAuthState.err.code||fbAuthState.err)||'đang chờ')),
+      'Đọc được dữ liệu': fbAuthState.docDuoc===true ? 'CÓ' : (fbAuthState.docDuoc===false ? ('KHÔNG — '+((fbAuthState.loiDoc&&fbAuthState.loiDoc.code)||fbAuthState.loiDoc)) : 'đang kiểm tra')
+    };
+    try{ console.table(kq); }catch(e){ console.log(kq); }
+    return kq;
+  };
+})();
 let kpiStorage = null; // dùng cho tính năng đính kèm file danh mục KPI — độc lập với Database
 try{ kpiStorage = firebase.storage(); }catch(e){ console.warn('Firebase Storage chưa sẵn sàng (có thể chưa bật trong Console):', e); }
 const cardsRef = db.ref('cards');
@@ -11839,7 +11870,15 @@ function restoreAllData(evt){
         localStorage.setItem('gmhs_staff', JSON.stringify(obj.staffLocal));
       }
       setSyncStatus('sync');
-      db.ref('/').set(rootData).then(function(){
+      // [23/10/2026] Bảo mật GĐ2: Rules KHÔNG cho ghi đè cả gốc dữ liệu một lần (chống xóa sạch toàn bộ),
+      // nên phục hồi theo TỪNG node gốc: node có trong file -> ghi đè; node hiện có mà file không có -> xóa.
+      // Kết quả giống hệt cách cũ db.ref('/').set(rootData).
+      db.ref('/').once('value').then(function(curSnap){
+        var capNhat = {};
+        Object.keys(curSnap.val()||{}).forEach(function(k){ capNhat[k] = null; });
+        Object.keys(rootData||{}).forEach(function(k){ capNhat[k] = rootData[k]; });
+        return db.ref().update(capNhat);
+      }).then(function(){
         showAl('✅ Phục hồi TOÀN BỘ ứng dụng thành công! Vui lòng tải lại trang (F5) để mọi chức năng cập nhật đầy đủ.');
         setSyncStatus('ok');
       }).catch(function(err){
