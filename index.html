@@ -32688,8 +32688,29 @@ function htmlToRtf(html){
   function walkTable(tableEl){
     const rows = Array.from(tableEl.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr'));
     if(!rows.length) return;
+    // 23/10/2026: tính số cột THẬT theo lưới (cộng colspan, trừ chỗ bị rowspan hàng trên chiếm) —
+    // trước đây chỉ đếm số thẻ <td>, nên ô gộp (vd "TỔNG CỘNG" gộp 4 cột) xuất Word bị dồn sai cột.
+    const spanOf = c=>({ cs: Math.max(1, parseInt(c.getAttribute('colspan'),10)||1), rs: Math.max(1, parseInt(c.getAttribute('rowspan'),10)||1) });
+    const grid = []; // grid[r] = [{cell, start, cs, rs}] theo đúng vị trí cột logic
+    const chiem = []; // chiem[r][c] = {cell, top:boolean} — ô logic bị chiếm bởi rowspan của hàng trên
     let maxCols = 0;
-    rows.forEach(tr=>{ maxCols = Math.max(maxCols, tr.querySelectorAll(':scope > td, :scope > th').length); });
+    rows.forEach((tr, r)=>{
+      chiem[r] = chiem[r] || [];
+      const list = []; let col = 0;
+      Array.from(tr.querySelectorAll(':scope > td, :scope > th')).forEach(cell=>{
+        while(chiem[r][col]) col++;
+        const {cs, rs} = spanOf(cell);
+        const rsThat = Math.min(rs, rows.length - r);
+        list.push({cell, start: col, cs, rs: rsThat});
+        for(let k=1;k<rsThat;k++){
+          chiem[r+k] = chiem[r+k] || [];
+          for(let j=0;j<cs;j++) chiem[r+k][col+j] = {cell, start: col, cs, vungDuoi: true};
+        }
+        col += cs;
+      });
+      grid[r] = list;
+      maxCols = Math.max(maxCols, col, chiem[r].length);
+    });
     if(!maxCols) return;
     // 19/10/2026: bề rộng bảng = đúng bề rộng vùng chữ của trang (A4, lề trái 30 – phải 20 mm): dọc 160 mm, ngang 247 mm
     const totalWidth = window.__ddnlRtfNgang ? 14003 : (window.__ddnlRtfKhoTrang ? 9071 : 9300);
@@ -32698,7 +32719,7 @@ function htmlToRtf(html){
     let colWidths;
     const firstRowCells = rows[0] ? Array.from(rows[0].querySelectorAll(':scope > td, :scope > th')) : [];
     const pxWidths = firstRowCells.map(c=>parseFloat(c.style && c.style.width) || 0);
-    const hasCustomWidths = pxWidths.length===maxCols && pxWidths.every(w=>w>0);
+    const hasCustomWidths = pxWidths.length===maxCols && pxWidths.every(w=>w>0) && firstRowCells.every(c=>spanOf(c).cs===1);
     // 19/10/2026: ƯU TIÊN đo độ rộng cột THẬT bằng cách dựng tạm bảng (ẩn) đúng khổ 16,4 cm, Times New Roman 13pt —
     // giống hệt khung soạn trong app -> Word chia cột đúng như anh thấy trong app, không còn cột bị bóp hẹp.
     const measured = (function(){
@@ -32726,9 +32747,8 @@ function htmlToRtf(html){
       // Chưa tự kéo chỉnh cột nào -> tính độ rộng theo ĐỘ DÀI CHỮ dài nhất trong từng cột (giống cách
       // trình duyệt tự nhiên co giãn cột theo nội dung), thay vì chia đều — khớp với hiển thị trong app hơn.
       const maxLenPerCol = new Array(maxCols).fill(3); // tối thiểu 3 ký tự mỗi cột, tránh cột quá hẹp
-      rows.forEach(tr=>{
-        const cs = Array.from(tr.querySelectorAll(':scope > td, :scope > th'));
-        cs.forEach((cell,i)=>{ maxLenPerCol[i] = Math.max(maxLenPerCol[i], (cell.textContent||'').trim().length); });
+      grid.forEach(list=>{
+        list.forEach(g=>{ if(g.cs===1 && g.start<maxCols) maxLenPerCol[g.start] = Math.max(maxLenPerCol[g.start], (g.cell.textContent||'').trim().length); });
       });
       const sumLen = maxLenPerCol.reduce((a,b)=>a+b,0);
       // Dùng CĂN BẬC HAI của độ dài thay vì tỷ lệ tuyệt đối — để cột có chữ RẤT dài (như "Diễn giải")
@@ -32785,34 +32805,37 @@ function htmlToRtf(html){
       });
       const caoPx = Math.max(0, ...cells.map(c=>parseFloat(c.style && c.style.height)||0));
       out += '\\trowd\\trgaph108\\trleft0' + (caoPx>0 ? '\\trrh'+Math.round(caoPx*15) : '');
-      let acc = 0;
-      for(let c=0;c<maxCols;c++){
-        acc += colWidths[c];
-        // Tiêu đề: canh giữa theo chiều DỌC trong ô (\clvertalc). Ô nội dung thường: giữ canh trên mặc định.
-        // Ép TƯỜNG MINH canh trên (\clvertalt) cho MỌI ô nội dung thường — không để trống nữa.
-        // Để trống từng khiến 1 vài cột (ví dụ cột dán từ Excel có sẵn vertical-align riêng) bị lệch
-        // canh giữa trong khi các cột khác cùng hàng vẫn canh trên, nhìn lệch pha ngay trong 1 hàng.
-        const vAlign = canDoc[c] || '\\clvertalc';
-        out += cellBorder+vAlign+'\\cellx'+acc;
+      // Dựng danh sách "ô RTF" của hàng theo đúng vị trí cột logic:
+      //  - ô gộp NGANG (colspan) -> 1 ô RTF rộng bằng tổng các cột nó chiếm (Word hiểu đúng, không dồn cột);
+      //  - ô gộp DỌC (rowspan) -> ô đầu \clvmgf, các hàng dưới là ô trống \clvmrg nối vào.
+      const theoCot = {}; grid[rowIdx].forEach((g,idx)=>{ theoCot[g.start] = {...g, idx}; });
+      const oRtf = [];
+      for(let c=0;c<maxCols;){
+        const tren = chiem[rowIdx] && chiem[rowIdx][c];
+        if(tren){ oRtf.push({kieu:'noi', start:c, cs:tren.cs, cell:tren.cell}); c += tren.cs; continue; }
+        const g = theoCot[c];
+        if(g){ const cs = Math.min(g.cs, maxCols-c); oRtf.push({kieu:'that', start:c, cs, rs:g.rs, idx:g.idx}); c += cs; continue; }
+        oRtf.push({kieu:'trong', start:c, cs:1}); c += 1; // hàng thiếu ô -> bù ô trống
       }
+      oRtf.forEach(o=>{
+        let acc = 0; for(let k=0;k<o.start+o.cs;k++) acc += colWidths[k];
+        let vAlign = '\\clvertalc', gop = '';
+        if(o.kieu==='that'){ vAlign = canDoc[o.idx] || '\\clvertalc'; if(o.rs>1) gop = '\\clvmgf'; }
+        else if(o.kieu==='noi'){ gop = '\\clvmrg'; const vaGoc = String((o.cell.style && o.cell.style.verticalAlign)||'').toLowerCase(); vAlign = vaGoc==='top'?'\\clvertalt':(vaGoc==='bottom'?'\\clvertalb':'\\clvertalc'); }
+        out += gop + cellBorder + vAlign + '\\cellx' + acc;
+      });
       out += '\n';
-      cells.forEach((cell,idx)=>{
+      oRtf.forEach(o=>{
+        if(o.kieu!=='that'){ out += '\\intbl\\fi0\\li0\\ql \\cell\n'; return; }
+        const idx = o.idx, cell = cells[idx];
         const isHeader = isHeaderArr[idx];
-        // Tiêu đề: canh giữa ngang (\qc). Ô nội dung thường (kể cả cột trái): canh THẲNG LỀ TRÁI (\ql),
-        // đúng thể thức hành chính — trước đây MỌI ô đều bị ép \qc khiến nội dung cột trái trông lệch.
-        // \\fi0\\li0 : ép THỤT LỀ = 0 một cách TƯỜNG MINH cho ô bảng — trước đây chỉ BỎ QUA không set thụt lề,
-        // để "trống" cho Word tự điền theo mặc định style Normal của MÁY người dùng (nhiều mẫu văn bản hành
-        // chính VN đặt sẵn thụt 1cm dòng đầu cho Normal), nên khi mở lại bằng Word, Word tự thụt lề vào.
-        out += '\\intbl\\fi0\\li0 ' + canNgang[idx] + (isHeader?'\\b \\fs26 ':'');
-        // Nội dung trong ô: gom lại thành text đơn giản (đậm/nghiêng cơ bản vẫn giữ qua đệ quy walk).
-        // Truyền inCell=true để các thẻ <p>/<div> lồng bên trong ô (Word hay bọc vậy) KHÔNG bị coi là
-        // đoạn văn cấp tài liệu (\pard\par sẽ phá vỡ luôn cấu trúc bảng) — chỉ xuống dòng nhẹ trong ô.
+        const damO = !isHeader && isBoldCell(cell); // ô in đậm bằng style (vd hàng TỔNG CỘNG) -> Word cũng đậm
+        out += '\\intbl\\fi0\\li0 ' + canNgang[idx] + (isHeader?'\\b \\fs26 ':'') + (damO?'\\b ':'');
         Array.from(cell.childNodes).forEach(n=>walk(n, true, {pending:true}));
         if(isHeader) out += '\\fs26 \\b0 ';
+        if(damO) out += '\\b0 ';
         out += '\\cell\n';
       });
-      // Nếu hàng thiếu ô so với hàng dài nhất, bù thêm ô trống cho khớp số cột
-      for(let c=cells.length;c<maxCols;c++) out += '\\intbl\\fi0\\li0\\ql \\cell\n';
       out += '\\row\n';
     });
     out += '\\pard\\par\n';
