@@ -9858,6 +9858,147 @@ var fbAuthState={ok:false, uid:null, err:null, done:false};
     return kq;
   };
 })();
+/* ══════════════════════════════
+   [24/10/2026] GIẢM LƯỢNG TẢI FIREBASE — "BẢN TÓM TẮT NHẸ" (_lite)
+   Vấn đề: Trang chủ / thông báo / Giao ban sáng / Theo dõi giao nhận trực trước đây tải NGUYÊN các mục
+   lớn (Bàn giao PM/HS, Nghỉ phép, Nghỉ bù, CNKT, Giấy đề nghị, Lịch trực ~90 MB) MỖI LẦN MỞ APP, chủ yếu là
+   ẢNH CHỮ KÝ / ảnh chụp / file đính kèm — trong khi các màn đó chỉ cần ngày, ca, trạng thái...
+   Cách làm:
+   - Giữ 1 bản sao "_lite/<mục>" y hệt dữ liệu gốc nhưng BỎ ảnh/file (thay bằng "[bin#độ dài]"),
+     biên bản bàn giao chỉ giữ các khoản mục thiếu/hỏng/đã xử lý (bỏ khoản "đủ").
+   - Mọi lệnh ghi (set/update/remove/push/transaction) vào các mục này TỰ ĐỘNG ghi kèm bản tóm tắt.
+   - 2 ngày/lần, máy đầu tiên mở app sẽ dựng lại bản tóm tắt từ dữ liệu gốc (chống lệch do bản app cũ còn
+     trong bộ nhớ đệm của ai đó) — có khóa để chỉ 1 máy làm.
+   - Các màn chi tiết (mở phiếu, ký, sửa...) VẪN đọc dữ liệu gốc đầy đủ như cũ — không đổi gì.
+   ══════════════════════════════ */
+var LITE_ROOT='_lite', LITE_VER=1, LITE_REBUILD_MS=48*3600*1000, LITE_LOCK_MS=10*60*1000;
+var LITE_NODES=['pmRecords','bgRecords','nghiPhep','nghiBu','cnktEntries','dieuDongNhanLuc/vanBanDi','lichTruc'];
+function liteRef(n){ return db.ref(LITE_ROOT+'/'+n); }
+function liteIsBin(s){ return typeof s==='string' && s.lastIndexOf('[bin#',0)===0; }
+function liteStrip(v){
+  if(typeof v==='string'){
+    if(v.length>800 && (v.lastIndexOf('data:',0)===0 || /^[A-Za-z0-9+\/]{120}/.test(v.slice(0,120)))) return '[bin#'+v.length+']';
+    // Nội dung HTML có dán ảnh bên trong (Giấy đề nghị...) -> chỉ thay phần ảnh, giữ chữ
+    if(v.length>800 && v.indexOf(';base64,')>=0) return v.replace(/data:[\w.+\/-]+;base64,[A-Za-z0-9+\/=]+/g, '[bin]');
+    return v;
+  }
+  if(v && typeof v==='object'){
+    if(Array.isArray(v)) return v.map(liteStrip);
+    var o={}; Object.keys(v).forEach(function(k){ o[k]=liteStrip(v[k]); }); return o;
+  }
+  return v;
+}
+// Biên bản bàn giao (pmRecords/bgRecords): bỏ các khoản mục "đủ" chưa từng có xử lý — Trang chủ/Giao ban chỉ cần mục thiếu/hỏng
+function liteTrimRec(r){
+  if(!r || typeof r!=='object' || !r.items || typeof r.items!=='object') return r;
+  var it={};
+  Object.keys(r.items).forEach(function(k){ var x=r.items[k]; if(x && typeof x==='object' && ((x.status && x.status!=='du') || x.xuLy)) it[k]=x; });
+  return Object.assign({}, r, {items:it});
+}
+function liteShape(n, rel, v){
+  if(v==null) return null;
+  v=liteStrip(v);
+  if(n!=='pmRecords' && n!=='bgRecords') return v;
+  var d=rel.length;
+  if(d===2) return liteTrimRec(v);
+  if(d===1 && typeof v==='object'){ var o={}; Object.keys(v).forEach(function(k){ o[k]=liteTrimRec(v[k]); }); return liteTrimRec(o); }
+  if(d===0 && typeof v==='object'){
+    var o2={};
+    Object.keys(v).forEach(function(room){
+      var rv=v[room];
+      if(rv && typeof rv==='object' && !rv.items){ var o3={}; Object.keys(rv).forEach(function(k){ o3[k]=liteTrimRec(rv[k]); }); o2[room]=o3; }
+      else o2[room]=liteTrimRec(rv);
+    });
+    return o2;
+  }
+  return v;
+}
+function litePathOf(ref){
+  try{ var u=new URL(ref.toString()); return u.pathname.split('/').filter(Boolean).map(decodeURIComponent).join('/'); }catch(e){ return null; }
+}
+var liteOrig={};
+// Tính các đường dẫn _lite cần ghi tương ứng với 1 lệnh ghi vào dữ liệu gốc
+function liteOpsFor(kind, path, value){
+  var ops={};
+  if(path==null || path===LITE_ROOT || path.lastIndexOf(LITE_ROOT+'/',0)===0) return ops;
+  function handle(p, v){ // ghi đè giá trị v tại p
+    LITE_NODES.forEach(function(n){
+      if(p===n || p.lastIndexOf(n+'/',0)===0){
+        var rel=(p===n)?[]:p.slice(n.length+1).split('/');
+        ops[LITE_ROOT+'/'+p]=(v==null)?null:liteShape(n, rel, v);
+      } else if(p==='' || n.lastIndexOf(p+'/',0)===0){
+        var sub=v, parts=(p==='' ? n : n.slice(p.length+1)).split('/');
+        for(var i=0;i<parts.length && sub!=null;i++){ sub=(typeof sub==='object') ? sub[parts[i]] : undefined; }
+        ops[LITE_ROOT+'/'+n]=(sub==null)?null:liteShape(n, [], sub);
+      }
+    });
+  }
+  if(kind==='update'){
+    Object.keys(value||{}).forEach(function(k){ var kk=String(k).replace(/^\/+|\/+$/g,''); handle(path ? (kk?path+'/'+kk:path) : kk, value[k]); });
+  } else {
+    handle(path, kind==='remove' ? null : value);
+  }
+  return ops;
+}
+function liteApply(ops){
+  try{
+    var keys=Object.keys(ops); if(!keys.length) return;
+    var up=liteOrig.update ? liteOrig.update.bind(db.ref()) : db.ref().update.bind(db.ref());
+    up(ops).catch(function(e){ console.warn('[Tóm tắt] Không ghi được bản tóm tắt', e&&e.code||e); });
+  }catch(e){ console.warn('[Tóm tắt] lỗi', e); }
+}
+(function litePatchWrites(){
+  try{
+    var R=firebase.database && firebase.database.Reference;
+    var P=R && R.prototype;
+    if(!P || !P.set){ console.warn('[Tóm tắt] Không tìm thấy firebase.database.Reference — chỉ dựa vào dựng lại định kỳ.'); return; }
+    ['set','update','remove','push','transaction','setWithPriority'].forEach(function(m){ if(typeof P[m]==='function') liteOrig[m]=P[m]; });
+    function afterOk(p, fn){ try{ if(p && typeof p.then==='function') p.then(function(r){ try{ fn(r); }catch(e){} }, function(){}); }catch(e){} }
+    P.set=function(value){ var p=liteOrig.set.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('set', path, value)); }); return p; };
+    if(liteOrig.setWithPriority) P.setWithPriority=function(value){ var p=liteOrig.setWithPriority.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('set', path, value)); }); return p; };
+    P.update=function(values){ var p=liteOrig.update.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('update', path, values)); }); return p; };
+    P.remove=function(){ var p=liteOrig.remove.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('remove', path, null)); }); return p; };
+    if(liteOrig.push) P.push=function(value){
+      var t=liteOrig.push.apply(this, arguments);
+      if(arguments.length && value!==undefined){ var base=litePathOf(this); var key=t && t.key; if(key) afterOk(t, function(){ liteApply(liteOpsFor('set', base+'/'+key, value)); }); }
+      return t;
+    };
+    if(liteOrig.transaction) P.transaction=function(){
+      var p=liteOrig.transaction.apply(this, arguments); var path=litePathOf(this);
+      afterOk(p, function(res){ if(res && res.committed && res.snapshot) liteApply(liteOpsFor('set', path, res.snapshot.val())); });
+      return p;
+    };
+  }catch(e){ console.warn('[Tóm tắt] Không gắn được bộ ghi kèm', e); }
+})();
+// Dựng lại bản tóm tắt (lần đầu, hoặc đã quá 2 ngày) — làm TUẦN TỰ từng mục, có khóa để chỉ 1 máy làm
+function liteEnsureBuilt(){
+  db.ref(LITE_ROOT+'/_meta').once('value').then(function(s){
+    var meta=s.val()||{};
+    var chain=Promise.resolve();
+    LITE_NODES.forEach(function(n){
+      var k=n.replace(/\//g,'__'), m=meta[k]||{}, now=Date.now();
+      if(m.v===LITE_VER && m.at && now-m.at<LITE_REBUILD_MS) return;
+      if(m.lock && now-m.lock<LITE_LOCK_MS) return;
+      chain=chain.then(function(){
+        return db.ref(LITE_ROOT+'/_meta/'+k+'/lock').transaction(function(cur){
+          if(cur && Date.now()-cur<LITE_LOCK_MS) return; return Date.now();
+        }).then(function(res){
+          if(!res || !res.committed) return;
+          return db.ref(n).once('value').then(function(full){
+            var up={};
+            up[LITE_ROOT+'/'+n]=liteShape(n, [], full.val());
+            up[LITE_ROOT+'/_meta/'+k]={v:LITE_VER, at:Date.now()};
+            return liteOrig.update ? liteOrig.update.call(db.ref(), up) : db.ref().update(up);
+          }).then(function(){ console.log('[Tóm tắt] Đã dựng lại bản tóm tắt: '+n); });
+        }).catch(function(e){ console.warn('[Tóm tắt] Lỗi dựng lại '+n, e&&e.code||e); });
+      });
+    });
+  }).catch(function(e){ console.warn('[Tóm tắt] Không đọc được _meta', e&&e.code||e); });
+}
+(function(){
+  var lan=0;
+  (function cho(){ if(!fbAuthState.done && lan++<60){ setTimeout(cho, 500); return; } setTimeout(liteEnsureBuilt, 4000); })();
+})();
 let kpiStorage = null; // dùng cho tính năng đính kèm file danh mục KPI — độc lập với Database
 try{ kpiStorage = firebase.storage(); }catch(e){ console.warn('Firebase Storage chưa sẵn sàng (có thể chưa bật trong Console):', e); }
 const cardsRef = db.ref('cards');
@@ -10908,7 +11049,7 @@ function notifInit(){
     });
   }catch(e){ console.warn('notifInit dctd:',e); }
   try{
-    db.ref('bgRecords').on('value',function(snap){
+    liteRef('bgRecords').on('value',function(snap){ // [24/10] đọc bản tóm tắt (không ảnh) — đủ cho đếm/thông báo
       var n=0, roomsMap={}, khanItems=[], treHanItems=[], hoanThanhItems=[], roomsIssueMap={};
       var TRE_HAN_MS=4*3600*1000;
       var homNay=new Date().toISOString().slice(0,10);
@@ -10956,7 +11097,7 @@ function notifInit(){
     });
   }catch(e){ console.warn('notifInit bg:',e); }
   try{
-    db.ref('pmRecords').on('value',function(snap){
+    liteRef('pmRecords').on('value',function(snap){ // [24/10] bản tóm tắt
       var n=0, roomsMap={}, khanItems=[], treHanItems=[];
       var TRE_HAN_MS=4*3600*1000;
       var thangHienTai=new Date().toISOString().slice(0,7); // YYYY-MM
@@ -11018,21 +11159,21 @@ function notifInit(){
     });
   }catch(e){ console.warn('notifInit dt:',e); }
   try{
-    db.ref('nghiPhep').on('value',function(snap){
+    liteRef('nghiPhep').on('value',function(snap){ // [24/10] bản tóm tắt
       var d=snap.val()||{}, n=0;
       Object.values(d).forEach(function(r){ if(r&&r.status==='pending') n++; });
       notifCounts.np=n; notifRenderHome();
     });
   }catch(e){ console.warn('notifInit np:',e); }
   try{
-    db.ref('nghiBu').on('value',function(snap){
+    liteRef('nghiBu').on('value',function(snap){ // [24/10] bản tóm tắt
       var d=snap.val()||{}, n=0;
       Object.values(d).forEach(function(r){ if(r&&r.status==='pending') n++; });
       notifCounts.nb=n; notifRenderHome();
     });
   }catch(e){ console.warn('notifInit nb:',e); }
   try{
-    db.ref('cnktEntries').on('value',function(snap){
+    liteRef('cnktEntries').on('value',function(snap){ // [24/10] bản tóm tắt (không file minh chứng)
       var n=0;
       snap.forEach(function(personSnap){
         personSnap.forEach(function(entrySnap){
@@ -11045,7 +11186,7 @@ function notifInit(){
   }catch(e){ console.warn('notifInit cnkt:',e); }
   // Số phiếu "Giấy đề nghị" (Sổ văn bản đi) LẬP TRONG NGÀY HÔM NAY — chỉ để thống kê, không tính vào badge "cần xử lý"
   try{
-    db.ref('dieuDongNhanLuc/vanBanDi').on('value',function(snap){
+    liteRef('dieuDongNhanLuc/vanBanDi').on('value',function(snap){ // [24/10] bản tóm tắt
       var d=snap.val()||{};
       var homNayGdn=new Date().toISOString().slice(0,10);
       var n=0;
@@ -16527,7 +16668,7 @@ function loadGiaoNhanStats(){
   var roomWrap=document.getElementById('gnStatsRoomWrap');
   var roomBody=document.getElementById('gnStatsRoomBody');
   if(ovEl) ovEl.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:10px">Đang tải...</div>';
-  Promise.all([ db.ref('bgRecords').once('value'), db.ref('pmRecords').once('value') ]).then(function(results){
+  Promise.all([ liteRef('bgRecords').once('value'), liteRef('pmRecords').once('value') ]) /* [24/10] bản tóm tắt */.then(function(results){
     var rows=[]; // {nguon, room, tong, hoanThanh, choHT, coSuCo}
     function inRange(ngay){
       if(!ngay) return false;
@@ -16854,7 +16995,7 @@ function briefToggleBgPmHistory(){
   if(body.style.display!=='none'){ body.style.display='none'; return; }
   body.style.display='block';
   body.innerHTML='Đang tải...';
-  Promise.all([ db.ref('bgRecords').once('value'), db.ref('pmRecords').once('value') ]).then(function(results){
+  Promise.all([ liteRef('bgRecords').once('value'), liteRef('pmRecords').once('value') ]) /* [24/10] bản tóm tắt */.then(function(results){
     var items=[];
     results[0].forEach(function(roomSnap){
       var roomId=roomSnap.key;
@@ -17003,7 +17144,7 @@ function briefLoadExtra(){
     }
   }
   // Bàn giao hoàn thành hôm nay — bấm vào từng dòng để xem thẳng biên bản
-  function briefKyImg(u){ if(u==='—') return '<span style="color:#90a4ae">—</span>'; return (typeof u==='string' && u.indexOf('data:image')===0) ? '<img src="'+u+'" alt="chữ ký" style="height:28px;max-width:100px;object-fit:contain;background:#fff;vertical-align:middle">' : '<span style="font-size:11px;color:#c62828">(chưa ký)</span>'; }
+  function briefKyImg(u){ if(u==='—') return '<span style="color:#90a4ae">—</span>'; if(liteIsBin(u)) return '<span style="font-size:11.5px;color:#2e7d32;font-weight:700">✍️ Đã ký</span>'; return (typeof u==='string' && u.indexOf('data:image')===0) ? '<img src="'+u+'" alt="chữ ký" style="height:28px;max-width:100px;object-fit:contain;background:#fff;vertical-align:middle">' : '<span style="font-size:11px;color:#c62828">(chưa ký)</span>'; }
   var hoanThanhSection=document.getElementById('briefHoanThanhSection');
   var hoanThanhBody=document.getElementById('briefHoanThanhBody');
   var hoanThanhCountEl=document.getElementById('briefHoanThanhCount');
@@ -17111,7 +17252,7 @@ function briefLoadExtra(){
   }
   var elBg=document.getElementById('briefBgPmBody');
   if(elBg){
-    Promise.all([ db.ref('bgRecords').once('value'), db.ref('pmRecords').once('value') ]).then(function(results){
+    Promise.all([ liteRef('bgRecords').once('value'), liteRef('pmRecords').once('value') ]) /* [24/10] bản tóm tắt */.then(function(results){
       var list=[];
       results[0].forEach(function(roomSnap){
         var roomId=roomSnap.key;
@@ -23333,8 +23474,8 @@ function homeTBRender(){
 
   // Lấy dữ liệu từ Firebase
   var promises=[
-    db.ref('nghiBu').once('value'),
-    db.ref('nghiPhep').once('value'),
+    liteRef('nghiBu').once('value'),   // [24/10] bản tóm tắt — trước đây tải nguyên kèm ảnh chữ ký mỗi 2 phút
+    liteRef('nghiPhep').once('value'),
     db.ref('doiTruc').once('value')
   ];
 
@@ -23487,7 +23628,7 @@ function ltHomeNoticeInit(){
   if(_ltNoticeLoaded) return;
   _ltNoticeLoaded=true;
   try{
-    db.ref('lichTruc').on('value', function(snap){
+    liteRef('lichTruc').on('value', function(snap){ // [24/10] bản tóm tắt (không kèm file lịch)
       var data=snap.val()||{};
       var cutoff=Date.now()-LT_NOTICE_DAYS*24*60*60*1000;
       var recentItems=[];
@@ -23525,11 +23666,11 @@ function homeUpdatePendingBadge(){
   var detail=document.getElementById('homePendingDetail');
   if(!badge||!detail)return;
   // Đọc song song nghỉ phép, nghỉ bù và đổi trực
-  var nbProm=db.ref('nghiBu').once('value').then(function(s){
+  var nbProm=liteRef('nghiBu').once('value').then(function(s){ // [24/10] bản tóm tắt
     var d=s.val()||{};var arr=Object.values(d);
     return arr.filter(function(r){return r&&r.status==='pending';}).length;
   }).catch(function(){return 0;});
-  var npProm=db.ref('nghiPhep').once('value').then(function(s){
+  var npProm=liteRef('nghiPhep').once('value').then(function(s){ // [24/10] bản tóm tắt
     var d=s.val()||{};var arr=Object.values(d);
     return arr.filter(function(r){return r&&r.status==='pending';}).length;
   }).catch(function(){return 0;});
@@ -29782,7 +29923,7 @@ let cfgFilter = { reasons:"", docTypes:"", noiNhan:"", nguoiLapBang:"", hinhThuc
 // ---- Sổ theo dõi văn bản đi ----
 let vbRecords = [];
 // Cho bảng Kanban (nằm ngoài khối này) đọc được phiếu gốc + mở Xem trước — dùng ở khung "Bổ sung nội dung chính vào thẻ"
-window.vbKbApi = { records: function(){ return vbRecords; }, preview: function(v){ return moXemTruocVanBan(v); }, htmlToLines: function(h){ return vbHtmlToLines(h); }, norm: function(t){ return vbKbNorm(t); } };
+window.vbKbApi = { records: function(){ try{ window.ddnlEnsureLoaded && window.ddnlEnsureLoaded(); }catch(e){} return vbRecords; }, preview: function(v){ try{ window.ddnlEnsureLoaded && window.ddnlEnsureLoaded(); }catch(e){} return moXemTruocVanBan(v); }, htmlToLines: function(h){ return vbHtmlToLines(h); }, norm: function(t){ return vbKbNorm(t); } };
 let vbMauList = []; // Thư viện nội dung mẫu đã lưu (chia theo nhóm: hành chính/dược/vật tư...)
 let soTongHopList = []; // "Sổ tổng hợp": danh sách các sổ RTF gộp nhiều phiếu, mới nhất ở trên cùng
 let chuKyMauNV = {}; // Chữ ký MẪU của từng nhân viên (Họ tên -> data URL ảnh) — dùng để đối chiếu khi duyệt phép/bù
@@ -35705,9 +35846,16 @@ function bindConfigEvents(){
 // không phụ thuộc DOM) — nếu để render() chạy trước mà lỡ render() gặp lỗi bất ngờ, loadAll() phía
 // sau sẽ không kịp chạy nữa, khiến TOÀN BỘ dữ liệu (danh mục nhân lực, phiếu...) không bao giờ tải
 // được dù đợi bao lâu. Đảo thứ tự + bọc try/catch để loadAll() luôn chạy được, tránh lặp lại lỗi này.
-try{ loadAll(); }catch(e){ console.error('[ddnl] loadAll() lỗi:', e); }
+// [24/10/2026] GIẢM LƯỢNG TẢI: KHÔNG tải dữ liệu Điều động / Giấy đề nghị (~8,5 MB, nhiều ảnh chữ ký, file đính kèm)
+// ngay lúc mở app nữa — chỉ tải khi có người MỞ màn này (hoặc chức năng khác cần tới danh sách văn bản/nhân viên).
+var ddnlDaTai = false;
+function ddnlEnsureLoaded(){
+  if(ddnlDaTai) return; ddnlDaTai = true;
+  try{ loadAll(); }catch(e){ console.error('[ddnl] loadAll() lỗi:', e); }
+}
+window.ddnlEnsureLoaded = ddnlEnsureLoaded;
 try{ render(); }catch(e){ console.error('[ddnl] render() lỗi:', e); }
-window.ddnlOpenTab = function(tab){ ddnlMode = (tab === 'vanban') ? 'vanban' : 'dieudong'; activeTab = tab; render(); }; // Trang chủ gọi hàm này để mở thẳng đúng tab VÀ đúng bộ tab tương ứng
+window.ddnlOpenTab = function(tab){ ddnlEnsureLoaded(); ddnlMode = (tab === 'vanban') ? 'vanban' : 'dieudong'; activeTab = tab; render(); }; // Trang chủ gọi hàm này để mở thẳng đúng tab VÀ đúng bộ tab tương ứng
 
 })();
 
@@ -39708,7 +39856,13 @@ window.dctdMoveStatus=function(id,st){
   function bgMigrateLegacyRecords(){
     // Dữ liệu cũ (trước khi có khái niệm "phòng") nằm phẳng ngay dưới bgRecords/{pushId}.
     // Nếu phát hiện, tự động chuyển vào phòng mặc định "Phòng Hồi sức" để không mất dữ liệu.
-    db.ref('bgRecords').once('value').then(function(snap){
+    // [24/10] Kiểm tra trên bản tóm tắt (nhẹ); chỉ khi thật sự còn biên bản kiểu cũ mới tải bản gốc để chuyển
+    liteRef('bgRecords').once('value').then(function(ls){
+      var ld=ls.val()||{};
+      var coCu=Object.keys(ld).some(function(k){ var v=ld[k]; return v && typeof v==='object' && (v.ngay!==undefined || v.nguoiGiao!==undefined); });
+      return coCu ? db.ref('bgRecords').once('value') : null;
+    }).then(function(snap){
+      if(!snap) return;
       var d=snap.val();
       if(!d) return;
       var legacyKeys=Object.keys(d).filter(function(k){
@@ -41789,7 +41943,7 @@ window.dctdMoveStatus=function(id,st){
     var pending=rooms.length;
     if(!pending){ document.getElementById('pmTuaCfgTableBody').innerHTML='Chưa có phòng nào.'; return; }
     rooms.forEach(function(roomId){
-      db.ref('pmRecords').child(roomId).orderByKey().limitToLast(20).once('value').then(function(snap){
+      liteRef('pmRecords').child(roomId).orderByKey().limitToLast(20).once('value') /* [24/10] bản tóm tắt — chỉ cần ngày/giờ/ca/nhóm */.then(function(snap){
         var d=snap.val()||{};
         var byGroup={gayme:[], dungcu:[]};
         Object.values(d).forEach(function(r){ byGroup[r.nhomPM==='dungcu'?'dungcu':'gayme'].push(r); });
@@ -42702,7 +42856,7 @@ window.dctdMoveStatus=function(id,st){
     var pending=rooms.length;
     if(!pending) return;
     rooms.forEach(function(roomId){
-      db.ref('pmRecords').child(roomId).orderByKey().limitToLast(20).once('value').then(function(snap){
+      liteRef('pmRecords').child(roomId).orderByKey().limitToLast(20).once('value') /* [24/10] bản tóm tắt — chỉ cần ngày/giờ/ca/nhóm */.then(function(snap){
         var d=snap.val()||{};
         var latest={gayme:null, dungcu:null};
         var byGroup={gayme:[], dungcu:[]};
@@ -45735,7 +45889,7 @@ window.dctdMoveStatus=function(id,st){
    ══════════════════════════════════════════════════════ */
 const btdRef = db.ref('banGiaoTrucPhong'); // chỉ lưu CẤU HÌNH (tên nhóm/phòng, giờ hạn) — KHÔNG lưu trạng thái đã/chưa giao
 let btdBgRecordsRef = null;
-try{ btdBgRecordsRef = db.ref('bgRecords'); }catch(e){ console.warn('Không đọc được dữ liệu Bàn giao trực Hồi sức cho module theo dõi.', e); }
+try{ btdBgRecordsRef = liteRef('bgRecords'); /* [24/10] bản tóm tắt — chỉ cần ngày/ca */ }catch(e){ console.warn('Không đọc được dữ liệu Bàn giao trực Hồi sức cho module theo dõi.', e); }
 
 const BTD_DEFAULT = {
   groups: {
@@ -45785,7 +45939,7 @@ let btdBgLoaded = false;
 let btdPmLoaded = false;
 let btdResetLoaded = false;
 let btdPmRecordsRef = null;
-try{ btdPmRecordsRef = db.ref('pmRecords'); }catch(e){ console.warn('Không đọc được dữ liệu Bàn giao Phòng Mổ cho module theo dõi.', e); }
+try{ btdPmRecordsRef = liteRef('pmRecords'); /* [24/10] bản tóm tắt — chỉ cần ngày/ca */ }catch(e){ console.warn('Không đọc được dữ liệu Bàn giao Phòng Mổ cho module theo dõi.', e); }
 let _btdDpGid = null;
 let btdCollapsed = {}; // {groupId: true/false} — chỉ nhớ trong phiên đang mở, không lưu Firebase
 let btdActiveFilter = 'all'; // 'all' | 'ok' | 'over' | 'pend' — lọc theo thẻ tổng quan đang bấm
