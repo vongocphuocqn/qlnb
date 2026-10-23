@@ -33488,7 +33488,7 @@ function openNoiDungSoanModal(){
             <div style="font-weight:bold;flex-shrink:0;width:85px;">Kính gửi:</div>
             <div style="flex:1;">${(draftVB.noiNhan&&draftVB.noiNhan.length) ? draftVB.noiNhan.map((n,i)=>`<p style="margin:2px 0 ${i===draftVB.noiNhan.length-1?10:2}px;">– ${esc(n)};</p>`).join("") : `<p class="ddnl-hint">(chưa chọn nơi nhận ở form bên ngoài)</p>`}</div>
           </div>
-          <div id="ddnlNoiDungEditable" contenteditable="true" style="min-height:260px;border:1px dashed var(--ddnl-line);border-radius:6px;padding:10px 12px;margin-top:10px;outline:none;overflow-x:auto;">${draftVB.noiDungSoan || '<p>Kính đề nghị… (đánh nội dung tại đây)</p>'}</div>
+          <div id="ddnlNoiDungEditable" contenteditable="true" data-goi-y="Đánh nội dung tại đây…" style="position:relative;min-height:260px;border:1px dashed var(--ddnl-line);border-radius:6px;padding:10px 12px;margin-top:10px;outline:none;overflow-x:auto;">${(draftVB.noiDungSoan||'').split('<p>Kính đề nghị… (đánh nội dung tại đây)</p>').join('').trim() || '<p><br></p>'}</div>
           <div class="ddnl-signs">
             <div class="ddnl-sign-col">
               <div class="ddnl-sign-title">NGƯỜI LẬP BẢNG</div>
@@ -33514,6 +33514,19 @@ function openNoiDungSoanModal(){
   (function(){
     const ed0 = document.getElementById('ddnlNoiDungEditable');
     enableTableColResize(ed0); enableTableRowResize(ed0);
+    // 23/10/2026: bỏ dòng chữ mẫu "Kính đề nghị… (đánh nội dung tại đây)" — chỉ hiện gợi ý MỜ khi khung
+    // còn trống (gợi ý này không phải nội dung, không lưu, không in, không xuất Word).
+    if(!document.getElementById('ddnlGoiYCss')){
+      const st = document.createElement('style'); st.id = 'ddnlGoiYCss';
+      st.textContent = '#ddnlNoiDungEditable.ddnl-rong::before{content:attr(data-goi-y);position:absolute;left:12px;top:10px;color:#9aa4b2;font-style:italic;pointer-events:none;}@media print{#ddnlNoiDungEditable.ddnl-rong::before{content:none;}}';
+      document.head.appendChild(st);
+    }
+    const capNhatRong = ()=>{
+      const rong = !(ed0.textContent||'').replace(/[\s\u00A0\u200B]+/g,'') && !ed0.querySelector('table,img,hr,li');
+      ed0.classList.toggle('ddnl-rong', rong);
+    };
+    ['input','keyup','paste','drop','focus','blur'].forEach(ev=>ed0.addEventListener(ev, ()=>setTimeout(capNhatRong,0)));
+    capNhatRong();
   })();
   // KHÔNG tự đóng khi bấm/kéo chuột ra ngoài khung — vì lúc anh bôi đen chữ để xóa/sửa,
   // nếu chuột kéo lố ra viền ngoài, trình duyệt dễ hiểu nhầm thành "bấm ra ngoài" và tự đóng,
@@ -34061,7 +34074,7 @@ document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     // Dọn thuộc tính HTML border="1" cũ (nếu phiếu này được tạo trước bản sửa lỗi) — thuộc tính này
     // xung đột với CSS border-collapse, gây ra 1 vệt viền lạ/lệch ở góc bảng khi xem trước hoặc in.
     ed.querySelectorAll('table[border]').forEach(t=>t.removeAttribute('border'));
-    return ed.innerHTML.trim();
+    return ed.innerHTML.split('<p>Kính đề nghị… (đánh nội dung tại đây)</p>').join('').trim();
   }
   document.getElementById('ddnlBtnLuuLamMau').onclick = async ()=>{
     const ed = document.getElementById('ddnlNoiDungEditable');
