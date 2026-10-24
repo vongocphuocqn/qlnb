@@ -9871,15 +9871,24 @@ var fbAuthState={ok:false, uid:null, err:null, done:false};
      trong bộ nhớ đệm của ai đó) — có khóa để chỉ 1 máy làm.
    - Các màn chi tiết (mở phiếu, ký, sửa...) VẪN đọc dữ liệu gốc đầy đủ như cũ — không đổi gì.
    ══════════════════════════════ */
-var LITE_ROOT='_lite', LITE_VER=1, LITE_REBUILD_MS=48*3600*1000, LITE_LOCK_MS=10*60*1000;
-var LITE_NODES=['pmRecords','bgRecords','nghiPhep','nghiBu','cnktEntries','dieuDongNhanLuc/vanBanDi','lichTruc'];
+var LITE_ROOT='_lite', LITE_VER=2, LITE_REBUILD_MS=48*3600*1000, LITE_LOCK_MS=10*60*1000;
+var LITE_NODES=['pmRecords','bgRecords','nghiPhep','nghiBu','cnktEntries','dieuDongNhanLuc/vanBanDi','lichTruc','cards'];
 function liteRef(n){ return db.ref(LITE_ROOT+'/'+n); }
 function liteIsBin(s){ return typeof s==='string' && s.lastIndexOf('[bin#',0)===0; }
+// Dấu thay thế ảnh/file: "[bin#độ dài#mã]" — mã tính từ nội dung để khi cần LƯU LẠI thì tìm đúng ảnh gốc mà khôi phục
+function liteMk(s){
+  var h=2166136261, n=s.length, step=Math.max(1, Math.floor(n/211));
+  for(var i=0;i<n;i+=step){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  h^=s.charCodeAt(n-1); h=Math.imul(h,16777619);
+  return '[bin#'+n+'#'+(h>>>0).toString(36)+']';
+}
+var LITE_EMB_RE=/data:[\w.+\/-]+;base64,[A-Za-z0-9+\/=]+/g;
+function liteIsWholeBin(v){ return v.length>800 && (v.lastIndexOf('data:',0)===0 || /^[A-Za-z0-9+\/]{120}/.test(v.slice(0,120))); }
 function liteStrip(v){
   if(typeof v==='string'){
-    if(v.length>800 && (v.lastIndexOf('data:',0)===0 || /^[A-Za-z0-9+\/]{120}/.test(v.slice(0,120)))) return '[bin#'+v.length+']';
+    if(liteIsWholeBin(v)) return liteMk(v);
     // Nội dung HTML có dán ảnh bên trong (Giấy đề nghị...) -> chỉ thay phần ảnh, giữ chữ
-    if(v.length>800 && v.indexOf(';base64,')>=0) return v.replace(/data:[\w.+\/-]+;base64,[A-Za-z0-9+\/=]+/g, '[bin]');
+    if(v.length>800 && v.indexOf(';base64,')>=0) return v.replace(LITE_EMB_RE, function(m){ return liteMk(m); });
     return v;
   }
   if(v && typeof v==='object'){
@@ -9913,6 +9922,57 @@ function liteShape(n, rel, v){
   }
   return v;
 }
+function liteHasMarker(v){
+  if(typeof v==='string') return v.indexOf('[bin#')>=0;
+  if(v && typeof v==='object'){ for(var k in v){ if(Object.prototype.hasOwnProperty.call(v,k) && liteHasMarker(v[k])) return true; } }
+  return false;
+}
+function liteCollect(v, map){
+  if(typeof v==='string'){
+    if(liteIsWholeBin(v)){ map[liteMk(v)]=v; var ko='[bin#'+v.length+']'; map[ko]=(map[ko]===undefined)?v:(map[ko]===v?v:null); }
+    else if(v.length>800 && v.indexOf(';base64,')>=0){ (v.match(LITE_EMB_RE)||[]).forEach(function(m){ map[liteMk(m)]=m; }); }
+    return;
+  }
+  if(v && typeof v==='object') Object.keys(v).forEach(function(k){ liteCollect(v[k], map); });
+}
+var LITE_TOKEN_RE=/\[bin#\d+(?:#[0-9a-z]+)?\]/g;
+function liteRestore(v, map, miss){
+  if(typeof v==='string'){
+    if(v.indexOf('[bin#')<0) return v;
+    return v.replace(LITE_TOKEN_RE, function(t){ var o=map[t]; if(typeof o==='string') return o; miss.push(t); return t; });
+  }
+  if(v && typeof v==='object'){
+    var o=Array.isArray(v)?[]:{};
+    Object.keys(v).forEach(function(k){ o[k]=liteRestore(v[k], map, miss); });
+    return o;
+  }
+  return v;
+}
+function liteNodeOf(path){
+  if(path==null) return null;
+  for(var i=0;i<LITE_NODES.length;i++){ var n=LITE_NODES[i]; if(path===n || path.lastIndexOf(n+'/',0)===0) return n; }
+  return null;
+}
+// Trả về Promise<giá trị đã khôi phục ảnh gốc>. Không khôi phục được -> TỪ CHỐI GHI (không bao giờ ghi đè mất ảnh).
+function liteGuardValue(path, value){
+  var n=liteNodeOf(path);
+  var map={};
+  return db.ref(path).once('value').then(function(cur){
+    liteCollect(cur.val(), map);
+    var miss=[]; var out=liteRestore(value, map, miss);
+    if(!miss.length) return out;
+    return db.ref(n).once('value').then(function(full){
+      liteCollect(full.val(), map);
+      var miss2=[]; var out2=liteRestore(value, map, miss2);
+      if(miss2.length){
+        try{ alert('⚠️ Không lưu được: dữ liệu đang mở là bản rút gọn và không tìm thấy ảnh/file gốc tương ứng.\nVui lòng tải lại trang (Ctrl+F5) rồi thao tác lại — dữ liệu cũ vẫn còn nguyên, không bị mất.'); }catch(e){}
+        var err=new Error('LITE_RESTORE_FAILED'); err.code='lite/restore-failed'; throw err;
+      }
+      return out2;
+    });
+  });
+}
+function liteNeedsGuard(path, value){ return !!liteNodeOf(path) && liteHasMarker(value); }
 function litePathOf(ref){
   try{ var u=new URL(ref.toString()); return u.pathname.split('/').filter(Boolean).map(decodeURIComponent).join('/'); }catch(e){ return null; }
 }
@@ -9954,11 +10014,41 @@ function liteApply(ops){
     if(!P || !P.set){ console.warn('[Tóm tắt] Không tìm thấy firebase.database.Reference — chỉ dựa vào dựng lại định kỳ.'); return; }
     ['set','update','remove','push','transaction','setWithPriority'].forEach(function(m){ if(typeof P[m]==='function') liteOrig[m]=P[m]; });
     function afterOk(p, fn){ try{ if(p && typeof p.then==='function') p.then(function(r){ try{ fn(r); }catch(e){} }, function(){}); }catch(e){} }
-    P.set=function(value){ var p=liteOrig.set.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('set', path, value)); }); return p; };
-    if(liteOrig.setWithPriority) P.setWithPriority=function(value){ var p=liteOrig.setWithPriority.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('set', path, value)); }); return p; };
-    P.update=function(values){ var p=liteOrig.update.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('update', path, values)); }); return p; };
+    P.set=function(value){
+      var self=this, args=Array.prototype.slice.call(arguments), path=litePathOf(this);
+      if(liteNeedsGuard(path, value)){
+        var cb=(typeof args[1]==='function')?args[1]:null;
+        return liteGuardValue(path, value).then(function(v){ args[0]=v; return P.set.apply(self, args); }, function(e){ if(cb) try{ cb(e); }catch(_){} throw e; });
+      }
+      var p=liteOrig.set.apply(this, arguments); afterOk(p, function(){ liteApply(liteOpsFor('set', path, value)); }); return p;
+    };
+    if(liteOrig.setWithPriority) P.setWithPriority=function(value){
+      var self=this, args=Array.prototype.slice.call(arguments), path=litePathOf(this);
+      if(liteNeedsGuard(path, value)) return liteGuardValue(path, value).then(function(v){ args[0]=v; return P.setWithPriority.apply(self, args); });
+      var p=liteOrig.setWithPriority.apply(this, arguments); afterOk(p, function(){ liteApply(liteOpsFor('set', path, value)); }); return p;
+    };
+    P.update=function(values){
+      var self=this, args=Array.prototype.slice.call(arguments), path=litePathOf(this);
+      var canBao=values && typeof values==='object' ? Object.keys(values).filter(function(k){ var kk=String(k).replace(/^\/+|\/+$/g,''); return liteNeedsGuard(path?(kk?path+'/'+kk:path):kk, values[k]); }) : [];
+      if(canBao.length){
+        var cb=(typeof args[1]==='function')?args[1]:null;
+        var moi=Object.assign({}, values);
+        return Promise.all(canBao.map(function(k){ var kk=String(k).replace(/^\/+|\/+$/g,''); return liteGuardValue(path?(kk?path+'/'+kk:path):kk, values[k]).then(function(v){ moi[k]=v; }); }))
+          .then(function(){ args[0]=moi; return P.update.apply(self, args); }, function(e){ if(cb) try{ cb(e); }catch(_){} throw e; });
+      }
+      var p=liteOrig.update.apply(this, arguments); afterOk(p, function(){ liteApply(liteOpsFor('update', path, values)); }); return p;
+    };
     P.remove=function(){ var p=liteOrig.remove.apply(this, arguments); var path=litePathOf(this); afterOk(p, function(){ liteApply(liteOpsFor('remove', path, null)); }); return p; };
     if(liteOrig.push) P.push=function(value){
+      if(arguments.length && value!==undefined && liteNeedsGuard(litePathOf(this), value)){
+        // Dữ liệu mới có dấu ảnh rút gọn (vd sao chép từ thẻ khác) -> khôi phục ảnh gốc rồi mới ghi
+        var cb=(typeof arguments[1]==='function')?arguments[1]:null;
+        var self=this, key=liteOrig.push.call(this).key, child=this.child(key);
+        // trả về 1 tham chiếu MỚI (không có .then) để Promise không tự gọi lại chính nó
+        var pr=liteGuardValue(litePathOf(this)+'/'+key, value).then(function(v){ return self.child(key).set(v, cb||undefined); }).then(function(){ return self.child(key); });
+        child.then=function(a,b){ return pr.then(a,b); }; child.catch=function(b){ return pr.catch(b); };
+        return child;
+      }
       var t=liteOrig.push.apply(this, arguments);
       if(arguments.length && value!==undefined){ var base=litePathOf(this); var key=t && t.key; if(key) afterOk(t, function(){ liteApply(liteOpsFor('set', base+'/'+key, value)); }); }
       return t;
@@ -11706,10 +11796,11 @@ function kanbanStartAutoRefresh(){
   }, 3*60*1000);
 }
 
-function startListening(){
-  setSyncStatus('sync');
-  setTimeout(kanbanStartAutoRefresh, 2000); // Bắt đầu auto-refresh sau 2s
-  cardsRef.on('value', snap=>{
+/* [24/10/2026] GIẢM LƯỢNG TẢI KANBAN: lúc mở app chỉ đọc bản tóm tắt thẻ (không ảnh ~6,5 MB) — đủ cho Trang chủ,
+   Giao ban sáng, KPI, thống kê... Khi VÀO MÀN KANBAN mới tải đầy đủ kèm ảnh (kbEnsureFullCards), y như trước.
+   Nếu vì lý do gì bản tóm tắt chưa có, sau 15 giây tự quay về cách cũ (tải đầy đủ) để không chức năng nào thiếu dữ liệu. */
+var kbFullCards=false, kbLiteCb=null, kbLiteCoDuLieu=false;
+function kbOnCardsSnap(snap){
     const data=snap.val()||{};
     cards=Object.values(data);
     renderBoard();
@@ -11718,7 +11809,25 @@ function startListening(){
     // (VD: khi mở trên 2 thiết bị cùng lúc, hoặc admin vừa tick/ghi chú xong).
     var _qnModalLive=document.getElementById('qnModal');
     if(_qnModalLive && _qnModalLive.classList.contains('on') && typeof qnRenderTodayList==='function') qnRenderTodayList();
-  }, err=>{setSyncStatus('err');});
+}
+function kbEnsureFullCards(){
+  if(kbFullCards) return;
+  kbFullCards=true;
+  setSyncStatus('sync');
+  cardsRef.on('value', kbOnCardsSnap, err=>{setSyncStatus('err');});
+  try{ if(kbLiteCb) liteRef('cards').off('value', kbLiteCb); }catch(e){}
+}
+function startListening(){
+  setSyncStatus('sync');
+  setTimeout(kanbanStartAutoRefresh, 2000); // Bắt đầu auto-refresh sau 2s
+  try{
+    kbLiteCb = liteRef('cards').on('value', function(snap){
+      if(kbFullCards) return;
+      if(snap.exists()) kbLiteCoDuLieu=true;
+      kbOnCardsSnap(snap);
+    }, function(err){ kbEnsureFullCards(); });
+  }catch(e){ kbEnsureFullCards(); }
+  setTimeout(function(){ if(!kbFullCards && !kbLiteCoDuLieu) kbEnsureFullCards(); }, 15000);
 
   function fillSharedStaffDatalists(){
     var opts=staffList.map(function(n){return '<option value="'+String(n).replace(/"/g,'&quot;')+'">';}).join('');
@@ -11809,7 +11918,7 @@ function doLoginA(){
 function enterApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('homeScreen').style.display='none';
-  document.getElementById('appScreen').style.display='block';
+  document.getElementById('appScreen').style.display='block'; try{ kbEnsureFullCards(); }catch(e){}
   const isA=cu.role==='admin';
   document.getElementById('tName').textContent=cu.name;
   document.getElementById('tAv').textContent=ini(cu.name);
@@ -11915,6 +12024,7 @@ function editRefreshPrev(){
 }
 function editRmImg(i){editPendingImgs.splice(i,1);editRefreshPrev();}
 function openLbox(idx,src,cid){
+  try{ kbEnsureFullCards(); }catch(e){}
   let s='';
   if(src==='p')s=pendingImgs[idx];
   else if(src==='e')s=editPendingImgs[idx];
@@ -12806,7 +12916,7 @@ function qnRenderTodayListInner(wrap){
           ${adminTag}
         </div>
         <div style="font-size:14px;white-space:pre-wrap;">${escNl(c.todo||c.content||'')}</div>
-        ${(c.imgs&&c.imgs.length)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;">${c.imgs.map((b,i)=>`<img src="${b}" alt="ảnh" loading="lazy" onclick="openLbox(${i},'c',${c.id})" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;">`).join('')}</div>`:''}
+        ${(c.imgs&&c.imgs.length)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;">${c.imgs.map((b,i)=>liteIsBin(b)?'':`<img src="${b}" alt="ảnh" loading="lazy" onclick="openLbox(${i},'c',${c.id})" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;">`).join('')}</div>`:''}
         ${c.link?`<div style="margin:4px 0;"><a href="${esc(c.link)}" target="_blank" rel="noopener" style="font-size:12.5px;color:#00695c;word-break:break-all;"><i class="ti ti-link"></i> ${esc(c.link)}</a></div>`:''}
         <div style="font-size:11px;color:#999;margin-bottom:6px;">— ${esc(c.person||'')}</div>
         <div style="display:flex;gap:6px;align-items:center;">
@@ -13338,6 +13448,7 @@ function editTickDoingDone(idx){
   editCheckAutoComplete(doneTa);
 }
 function openEditModal(id){
+  try{ kbEnsureFullCards(); }catch(e){}
   const c=cards.find(x=>x.id===id);if(!c)return;
   editTargetId=id;
   const box=document.getElementById('editModalBox');
@@ -15050,7 +15161,7 @@ function phDrawCard(c,f){
   var S=2, W=640, PAD=18, LBW=150, FONT='"Segoe UI",Arial,"Helvetica Neue",sans-serif';
   var VW=W-PAD*2-LBW-10, LH=22;
   function font(px,bold){ return (bold?'bold ':'')+px+'px '+FONT; }
-  var srcs=(c.imgs && c.imgs.length && !(f && f.noImgs)) ? c.imgs.slice(0,6) : [];
+  var srcs=(c.imgs && c.imgs.length && !(f && f.noImgs)) ? c.imgs.filter(function(b){ return !liteIsBin(b); }).slice(0,6) : [];
   return Promise.all(srcs.map(phLoadImg)).then(function(ims){
     ims=ims.filter(Boolean);
     var m=document.createElement('canvas').getContext('2d');
@@ -16228,6 +16339,7 @@ function renderCard(c){
   var imgTags='';
   if(c.imgs&&c.imgs.length){
     c.imgs.forEach(function(b,i){
+      if(liteIsBin(b)) return; // ảnh đang tải (bản tóm tắt) — giữ đúng thứ tự i cho nút phóng to
       imgTags+='<img class="cimg" src="'+b+'" alt="ảnh" onclick="openLbox('+i+',\'c\','+c.id+')" loading="lazy">';
     });
   }
@@ -18041,7 +18153,7 @@ function authConfirm(){
     var _ek=function(role){
       cu={name:name,role:role};
       document.getElementById('homeScreen').style.display='none';
-      document.getElementById('appScreen').style.display='block';
+      document.getElementById('appScreen').style.display='block'; try{ kbEnsureFullCards(); }catch(e){}
       document.getElementById('tName').textContent=cu.name+(_vw?' 👁':'');
       document.getElementById('tAv').textContent=ini(cu.name);
       document.getElementById('abanner').style.display='none';
@@ -18322,7 +18434,7 @@ function goNghiBu(){openStaffAuthModal('nghibu');}
 function goKanbanViewPublic(){
   cu={name:'Khách xem',role:'viewer'};
   document.getElementById('homeScreen').style.display='none';
-  document.getElementById('appScreen').style.display='block';
+  document.getElementById('appScreen').style.display='block'; try{ kbEnsureFullCards(); }catch(e){}
   document.getElementById('tName').textContent='👁 Xem công khai';
   document.getElementById('tAv').textContent='👁';
   document.getElementById('abanner').style.display='none';
@@ -24835,7 +24947,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
   }
   try{
     if(typeof cardsRef!=='undefined'){
-      cardsRef.on('value', function(snap){ qtUpdateHomeBroadcastBadge(snap.val()); });
+      liteRef('cards').on('value', function(snap){ qtUpdateHomeBroadcastBadge(snap.val()); }); // [24/10] bản tóm tắt (không ảnh)
     }
   }catch(e){ console.warn('Không gắn được listener cảnh báo quy trình:', e); }
 
@@ -58605,7 +58717,7 @@ try{ ensureListeners(); }catch(x){ console.warn('[Bàn giao hộ lý]', x); }
     var VW=W-PAD*2-LBW-12;
     function font(px,b){ return (b?'bold ':'')+px+'px '+FONT; }
     var laXong=st==='done', MAU=laXong?'#2e7d32':'#1565C0', NHAT=laXong?'#e8f5e9':'#e3f2fd';
-    var srcs=(coAnh && c.imgs && c.imgs.length) ? c.imgs.slice(0,3) : [];
+    var srcs=(coAnh && c.imgs && c.imgs.length) ? c.imgs.filter(function(b){ return !liteIsBin(b); }).slice(0,3) : [];
     return Promise.all(srcs.map(loadImg)).then(function(ims){
       ims=ims.filter(Boolean);
       var n=soNgay(c.date, ngay||new Date().toISOString());
