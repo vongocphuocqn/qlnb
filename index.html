@@ -57049,6 +57049,24 @@ function gcbcClearFilter(){
   document.getElementById('gcbcFilterDenNgay').value='';
   gcbcRender();
 }
+/* [24/10/2026] Tô vàng từ khóa tìm kiếm (không phân biệt dấu/hoa thường) — trả về HTML đã an toàn */
+function gcbcHi(text, qNorm){
+  text = (text===undefined||text===null) ? '' : String(text);
+  if(!qNorm) return gcbcEsc(text);
+  var norm='', map=[];
+  for(var i=0;i<text.length;i++){
+    var n=text[i].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d');
+    for(var j=0;j<n.length;j++){ norm+=n[j]; map.push(i); }
+  }
+  var out='', last=0, pos=0;
+  while((pos=norm.indexOf(qNorm, pos))!==-1){
+    var a=map[pos], b=map[pos+qNorm.length-1]+1;
+    if(a<last){ pos++; continue; }
+    out += gcbcEsc(text.slice(last,a)) + '<mark style="background:#ffe082;color:inherit;border-radius:3px;padding:0 1px">' + gcbcEsc(text.slice(a,b)) + '</mark>';
+    last=b; pos+=qNorm.length;
+  }
+  return out + gcbcEsc(text.slice(last));
+}
 function gcbcRender(){
   var wrap = document.getElementById('gcbcList');
   var cnt = document.getElementById('gcbcCount');
@@ -57057,10 +57075,16 @@ function gcbcRender(){
   if(cnt) cnt.textContent = list.length + ' / ' + gcbcNotes.length + ' ghi chú';
   if(!list.length){ wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#999;background:#fff;border-radius:12px;border:1.5px solid #eee0bc">Chưa có ghi chú nào phù hợp bộ lọc.</div>'; return; }
   var isA = gcbcIsAdmin();
-  wrap.innerHTML = list.map(function(e){
+  var qN = ((document.getElementById('gcbcSearch')||{}).value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').trim();
+  // [24/10/2026] Gom theo NHÓM DANH MỤC (theo thứ tự danh mục), mỗi nhóm có dòng tiêu đề + số ghi chú
+  var byCat={}, catOrder=[];
+  list.forEach(function(e){ var c=e.danhMuc||'Khác'; if(!byCat[c]){ byCat[c]=[]; catOrder.push(c); } byCat[c].push(e); });
+  var thuTu=gcbcSortedCats();
+  catOrder.sort(function(a,b){ var ia=thuTu.indexOf(a), ib=thuTu.indexOf(b); if(ia<0) ia=9999; if(ib<0) ib=9999; return ia!==ib ? ia-ib : a.localeCompare(b,'vi'); });
+  var oneCard = function(e){
     return '<div style="background:#fff;border:1.5px solid #eee0bc;border-radius:11px;padding:11px 14px;margin-bottom:9px">'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">'
-      + '<span style="font-size:11px;font-weight:700;color:#8a6d1f;background:#fbf1d6;border-radius:6px;padding:2px 8px">'+gcbcEsc(e.danhMuc||'Khác')+'</span>'
+      + '<span style="font-size:11px;font-weight:700;color:#8a6d1f;background:#fbf1d6;border-radius:6px;padding:2px 8px">'+gcbcHi(e.danhMuc||'Khác', qN)+'</span>'
       + '<span style="font-size:11.5px;color:#888">'+gcbcFmtD(e.ngay)+'</span>'
       + (e.nguoiGhi ? '<span style="font-size:11.5px;color:#aaa">· '+gcbcEsc(e.nguoiGhi)+'</span>' : '')
       + (isA ? '<span style="margin-left:auto;display:flex;gap:6px">'
@@ -57068,10 +57092,18 @@ function gcbcRender(){
              + '<button onclick="gcbcDeleteNote(\''+e.id+'\')" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;font-family:inherit">Xóa</button>'
              + '</span>' : '')
       + '</div>'
-      + '<div style="font-size:13.5px;color:#222;line-height:1.5;white-space:pre-wrap">'+gcbcEsc(e.noiDung||'')+'</div>'
-      + (e.soLieu ? '<div style="font-size:12.5px;color:#4a6030;margin-top:4px"><i class="ti ti-chart-bar" style="vertical-align:-2px"></i> '+gcbcEsc(e.soLieu)+'</div>' : '')
+      + '<div style="font-size:13.5px;color:#222;line-height:1.5;white-space:pre-wrap">'+gcbcHi(e.noiDung||'', qN)+'</div>'
+      + (e.soLieu ? '<div style="font-size:12.5px;color:#4a6030;margin-top:4px"><i class="ti ti-chart-bar" style="vertical-align:-2px"></i> '+gcbcHi(e.soLieu, qN)+'</div>' : '')
       + gcbcRenderAttChips(e.dinhKem)
       + '</div>';
+  };
+  wrap.innerHTML = catOrder.map(function(c){
+    return '<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px;padding:7px 12px;background:linear-gradient(90deg,#f6e7b8,#fffaf0);border-left:4px solid #b8860b;border-radius:8px">'
+      + '<i class="ti ti-folder" style="color:#8a6d1f;font-size:16px"></i>'
+      + '<span style="font-weight:800;color:#6b4f0f;font-size:13.5px">'+gcbcHi(c, qN)+'</span>'
+      + '<span style="font-size:12px;color:#8a6d1f;background:#fff;border:1px solid #e6d29a;border-radius:10px;padding:1px 8px">'+byCat[c].length+' ghi chú</span>'
+      + '</div>'
+      + byCat[c].map(oneCard).join('');
   }).join('');
 }
 function gcbcRenderAttChips(list){
