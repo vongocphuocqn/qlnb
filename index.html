@@ -32899,6 +32899,7 @@ function vbInPdf(mode, chiPhieu){
   .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13pt;}
   .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:middle;}
   .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;}
+  ${vbPvKhopWordCss()}
   ${barCss}
   @media print{ html{background:#fff;} .vbpdf-sheet{width:auto !important;max-width:none;margin:0;padding:0;box-shadow:none;} }
 </style></head><body>${toolbar}${pages}</body></html>`;
@@ -33466,10 +33467,59 @@ function rtfHeader(){
 // tính năng "dán tự động về font mặc định" được thêm vào) -> khi XEM TRƯỚC, luôn ép về đúng font của
 // văn bản (thừa hưởng từ CSS body), chỉ bỏ font-family/color/font-size/background, GIỮ NGUYÊN các
 // thuộc tính bố cục khác (width, text-align...) để bảng biểu không bị xô lệch so với lúc soạn.
+/* ===== 27/10/2026: Xem trước / Lật trang / PDF hiển thị GIỐNG FILE WORD ĐÃ XUẤT =====
+   Word (htmlToRtf): chữ 13pt, giãn dòng đơn, KHÔNG cách đoạn trên/dưới, thụt đầu dòng 1 cm mỗi đoạn
+   (trừ trong ô bảng), bảng luôn vừa đúng bề ngang vùng chữ. Trước đây bản xem có cách đoạn rộng,
+   không thụt đầu dòng, giãn dòng 1.4 và bảng có thể tràn ra lề phải (cột cuối bị cắt). */
+function vbPvKhopWordCss(){
+  return `.ddnl-pv-content{font-size:13pt;line-height:1.15;}
+  .ddnl-pv-content p, .ddnl-pv-content div, .ddnl-pv-content h1, .ddnl-pv-content h2, .ddnl-pv-content h3, .ddnl-pv-content h4{margin:0 !important;text-indent:1cm;font-size:13pt;}
+  .ddnl-pv-content ul, .ddnl-pv-content ol{margin:0 !important;padding-left:1cm;}
+  .ddnl-pv-content li{margin:0 !important;text-indent:0;}
+  .ddnl-pv-content table{width:100% !important;max-width:100% !important;margin:0 0 1.15em 0 !important;border-collapse:collapse;box-sizing:border-box;}
+  .ddnl-pv-content table.vbpv-codinh{table-layout:fixed;}
+  .ddnl-pv-content td, .ddnl-pv-content th{word-wrap:break-word;overflow-wrap:break-word;line-height:1.15;padding:3px 7px;}
+  .ddnl-pv-content td p, .ddnl-pv-content td div, .ddnl-pv-content th p, .ddnl-pv-content th div{text-indent:0 !important;margin:0 !important;}
+  .ddnl-pv-content tr{page-break-inside:avoid;break-inside:avoid;}
+  .ddnl-pv-content table tr:first-child:not(:only-child) > td, .ddnl-pv-content table tr:first-child:not(:only-child) > th, .ddnl-pv-content th, .ddnl-pv-content td.vbpv-dam{font-weight:bold;}
+  .ddnl-pv-content table tr:first-child:not(:only-child) > td:not([style*="text-align"]), .ddnl-pv-content th:not([style*="text-align"]){text-align:center;}
+  table.ddnl-pv-head, .ddnl-pv-title, .ddnl-pv-veviec, .ddnl-pv-noinhan{line-height:1.2;}
+  .vbpv-kinhgui{line-height:1.2;margin:2px 0 !important;}
+  .vbpv-kinhgui > div > div{margin:0 !important;}
+  .vbpv-kinhgui > div > div:last-child{margin-bottom:1.15em !important;}`;
+}
+function vbPvChuanBang(root){
+  try{
+    root.querySelectorAll('table').forEach(t=>{
+      t.style.removeProperty('width'); t.style.removeProperty('min-width'); t.style.removeProperty('max-width');
+      t.removeAttribute('width'); t.style.removeProperty('margin-left'); t.style.removeProperty('margin-right');
+      const rows = Array.from(t.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr'));
+      if(!rows.length) return;
+      const cellsOf = tr=>Array.from(tr.querySelectorAll(':scope > td, :scope > th'));
+      // ô in đậm (font-weight ≥ 600) — Word xuất ra in đậm, nên đánh dấu lại trước khi bỏ kiểu chữ
+      rows.forEach(tr=>cellsOf(tr).forEach(c=>{ const fw = String((c.style && c.style.fontWeight)||'').toLowerCase(); if(fw==='bold'||fw==='bolder'||parseInt(fw,10)>=600) c.classList.add('vbpv-dam'); }));
+      const pxOf = c=>{ const w = c.style && c.style.width; return (w && /px$/i.test(w)) ? parseFloat(w) : (c.getAttribute('width') && !/%/.test(c.getAttribute('width')) ? parseFloat(c.getAttribute('width')) : 0); };
+      // hàng mẫu: hàng đầu tiên không có ô gộp ngang và mọi ô đều có bề rộng px
+      const mau = rows.find(tr=>{ const cs = cellsOf(tr); return cs.length && cs.every(c=>(c.colSpan||1)===1 && pxOf(c)>0); });
+      let tyLe = null;
+      if(mau){ const ws = cellsOf(mau).map(pxOf); const tong = ws.reduce((a,b)=>a+b,0); if(tong>0) tyLe = ws.map(w=>w/tong*100); }
+      // xóa bề rộng px trên mọi ô (để không ô nào đẩy bảng tràn trang)
+      rows.forEach(tr=>cellsOf(tr).forEach(c=>{ if(c.style && /px$/i.test(c.style.width||'')) c.style.removeProperty('width'); c.style.removeProperty('min-width'); if(c.getAttribute('width') && !/%/.test(c.getAttribute('width'))) c.removeAttribute('width'); }));
+      t.querySelectorAll(':scope > colgroup').forEach(cg=>cg.remove());
+      if(tyLe){
+        const cg = document.createElement('colgroup');
+        tyLe.forEach(p=>{ const col = document.createElement('col'); col.style.width = p.toFixed(2)+'%'; cg.appendChild(col); });
+        t.insertBefore(cg, t.firstChild);
+        t.classList.add('vbpv-codinh');
+      }
+    });
+  }catch(e){ console.warn('vbPvChuanBang', e); }
+}
 function ddnlChuanHoaFontXemTruoc(html){
   if(!html) return html;
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
+  vbPvChuanBang(tmp);
   const boLoaiBo = ['font-family','color','background','background-color','font-size','font','font-weight','line-height'];
   tmp.querySelectorAll('[style]').forEach(el=>{
     const conLai = (el.getAttribute('style')||'').split(';').map(s=>s.trim()).filter(Boolean).filter(khaiBao=>{
@@ -33508,7 +33558,7 @@ function buildVanBanBodyInnerHtml(data){
   </tr></table>
   <div class="ddnl-pv-title">${esc((hinhThucVB||'GIẤY ĐỀ NGHỊ').toUpperCase())}</div>
   ${veViec?`<div class="ddnl-pv-veviec">(V/v ${esc(veViec)})</div>`:''}
-  <div style="display:flex;margin:4px 0;">
+  <div class="vbpv-kinhgui" style="display:flex;margin:4px 0;">
     <div class="ddnl-pv-bold" style="flex-shrink:0;width:85px;">Kính gửi:</div>
     <div style="flex:1;">${kinhGuiPhan}</div>
   </div>
@@ -33554,6 +33604,7 @@ function buildVanBanPreviewHtml(data){
   .ddnl-pv-content table{font-size:13pt;}
   .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:middle;}
   .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;} /* ảnh không tràn khỏi trang/ô bảng */
+  ${vbPvKhopWordCss()}
   @media print{ .ddnl-pv-no-print{display:none !important;} html{background:#fff;} body{padding:0;max-width:none;width:auto;margin:0;box-shadow:none;} }
 </style></head>
 <body>
@@ -33649,6 +33700,7 @@ function openVanBanFlipView(){
   .ddnl-pv-content table{font-size:13pt;}
   .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:middle;}
   .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;} /* ảnh không tràn khỏi trang/ô bảng */
+  ${vbPvKhopWordCss()}
   @media (max-width:760px){
     .vbflip-viewport{padding:18px 14px;}
     .vbflip-side{width:42px;height:42px;font-size:18px;}
