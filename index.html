@@ -33310,7 +33310,9 @@ function htmlToRtf(html){
       // CHỈ coi hàng đầu tiên là tiêu đề khi bảng có NHIỀU HƠN 1 hàng — một bảng chỉ có ĐÚNG 1 hàng
       // (ví dụ dòng "Tổng khoản: ..." bị tách thành 1 bảng riêng lẻ ngay sau bảng chính, dù nhìn liền
       // mạch trên màn hình) nhiều khả năng là hàng NỘI DUNG/tiếp nối, không phải hàng tiêu đề thật sự.
-      const isHeaderArr = cells.map(cell=> (rowIdx===0 && rows.length>1) || cell.tagName.toLowerCase()==='th');
+      // 27/10/2026: bảng DÁN TỪ WORD (data-w) -> giữ đúng như Word gốc, không tự ép hàng đầu thành tiêu đề đậm/căn giữa
+      const bangTuWord = tableEl.hasAttribute && tableEl.hasAttribute('data-w');
+      const isHeaderArr = cells.map(cell=> (!bangTuWord && rowIdx===0 && rows.length>1) || cell.tagName.toLowerCase()==='th');
       // 19/10/2026: giữ CĂN LỀ từng ô đúng như trong app (nút Trái/Giữa/Đều 2 bên, kể cả khi chọn cả cột)
       const canNgang = cells.map((cell,i)=>{
         let ta = (cell.style && cell.style.textAlign) || cell.getAttribute('align') || '';
@@ -33358,7 +33360,8 @@ function htmlToRtf(html){
       });
       out += '\\row\n';
     });
-    out += '\\pard\\par\n';
+    // bảng dán từ Word: đoạn kết thúc bảng chỉ cao ~1pt (Word gốc không có dòng trống sau bảng)
+    out += (tableEl.hasAttribute && tableEl.hasAttribute('data-w')) ? '\\pard\\fs2\\sl20\\slmult0\\par\\fs26\n' : '\\pard\\par\n';
   }
   function walk(node, inCell, stripCtx){
     if(node.nodeType===3){
@@ -33406,7 +33409,20 @@ function htmlToRtf(html){
     // Thụt đầu dòng 1cm cho mỗi đoạn văn (p/div) — đúng thể thức hành chính; danh sách (li) đã có
     // thụt lề riêng qua \bullet\tab nên không cộng thêm. KHÔNG áp dụng trong ô bảng.
     const firstLineIndent = (tag==='p'||tag==='div') && !inCell ? '\\fi567 ' : '';
-    if(isBlock) out += '\\pard '+firstLineIndent+align;
+    // 27/10/2026: đoạn DÁN TỪ WORD (có data-w) -> dùng đúng thụt đầu dòng / cách đoạn trước-sau / giãn dòng của Word gốc
+    let kieuDoanWord = '';
+    if(isBlock && node.hasAttribute && node.hasAttribute('data-w')){
+      const twip = v=>{ const m = /^(-?[\d.]+)\s*(pt|px|cm|mm|in)?$/i.exec(String(v||'').trim()); if(!m) return 0; const n=parseFloat(m[1]); const u=(m[2]||'px').toLowerCase(); return Math.round(u==='pt'?n*20:u==='cm'?n*567:u==='mm'?n*56.7:u==='in'?n*1440:n*15); };
+      const fi = twip(node.style.textIndent), sb = Math.max(0,twip(node.style.marginTop)), sa = Math.max(0,twip(node.style.marginBottom));
+      let sl = '';
+      const lh = String(node.style.lineHeight||'').trim();
+      let m;
+      if((m = /^([\d.]+)%$/.exec(lh))) sl = '\\sl'+Math.round(240*parseFloat(m[1])/100)+'\\slmult1 ';
+      else if((m = /^([\d.]+)$/.exec(lh))) sl = '\\sl'+Math.round(240*parseFloat(m[1]))+'\\slmult1 ';
+      else if(/(pt|px)$/i.test(lh)) sl = '\\sl-'+Math.abs(twip(lh))+'\\slmult0 ';
+      kieuDoanWord = '\\fi'+fi+' '+(sb?'\\sb'+sb+' ':'')+(sa?'\\sa'+sa+' ':'')+sl;
+    }
+    if(isBlock) out += '\\pard '+(kieuDoanWord || firstLineIndent)+align;
     if(tag==='li' && !inCell) out += '\\bullet\\tab ';
     out += openC;
     // Mỗi đoạn/dòng (p/div/li) mở lại "chờ cắt tab đầu dòng" TỪ ĐẦU — kể cả khi tab đầu dòng đó
@@ -33473,7 +33489,8 @@ function rtfHeader(){
    không thụt đầu dòng, giãn dòng 1.4 và bảng có thể tràn ra lề phải (cột cuối bị cắt). */
 function vbPvKhopWordCss(){
   return `.ddnl-pv-content{font-size:13pt;line-height:1.15;}
-  .ddnl-pv-content p, .ddnl-pv-content div, .ddnl-pv-content h1, .ddnl-pv-content h2, .ddnl-pv-content h3, .ddnl-pv-content h4{margin:0 !important;text-indent:1cm;font-size:13pt;}
+  .ddnl-pv-content p:not([data-w]), .ddnl-pv-content div:not([data-w]), .ddnl-pv-content h1:not([data-w]), .ddnl-pv-content h2:not([data-w]), .ddnl-pv-content h3:not([data-w]), .ddnl-pv-content h4:not([data-w]){margin:0 !important;text-indent:1cm;font-size:13pt;}
+  .ddnl-pv-content [data-w]{font-size:13pt;margin-left:0;margin-right:0;}
   .ddnl-pv-content ul, .ddnl-pv-content ol{margin:0 !important;padding-left:1cm;}
   .ddnl-pv-content li{margin:0 !important;text-indent:0;}
   .ddnl-pv-content table{width:100% !important;max-width:100% !important;margin:0 0 1.15em 0 !important;border-collapse:collapse;box-sizing:border-box;}
@@ -33481,8 +33498,9 @@ function vbPvKhopWordCss(){
   .ddnl-pv-content td, .ddnl-pv-content th{word-wrap:break-word;overflow-wrap:break-word;line-height:1.15;padding:3px 7px;}
   .ddnl-pv-content td p, .ddnl-pv-content td div, .ddnl-pv-content th p, .ddnl-pv-content th div{text-indent:0 !important;margin:0 !important;}
   .ddnl-pv-content tr{page-break-inside:avoid;break-inside:avoid;}
-  .ddnl-pv-content table tr:first-child:not(:only-child) > td, .ddnl-pv-content table tr:first-child:not(:only-child) > th, .ddnl-pv-content th, .ddnl-pv-content td.vbpv-dam{font-weight:bold;}
-  .ddnl-pv-content table tr:first-child:not(:only-child) > td:not([style*="text-align"]), .ddnl-pv-content th:not([style*="text-align"]){text-align:center;}
+  .ddnl-pv-content table:not([data-w]) tr:first-child:not(:only-child) > td, .ddnl-pv-content table:not([data-w]) tr:first-child:not(:only-child) > th, .ddnl-pv-content th, .ddnl-pv-content td.vbpv-dam{font-weight:bold;}
+  .ddnl-pv-content table:not([data-w]) tr:first-child:not(:only-child) > td:not([style*="text-align"]), .ddnl-pv-content th:not([style*="text-align"]){text-align:center;}
+  .ddnl-pv-content table[data-w]{margin-bottom:0 !important;}
   table.ddnl-pv-head, .ddnl-pv-title, .ddnl-pv-veviec, .ddnl-pv-noinhan{line-height:1.2;}
   .vbpv-kinhgui{line-height:1.2;margin:2px 0 !important;}
   .vbpv-kinhgui > div > div{margin:0 !important;}
@@ -33522,8 +33540,10 @@ function ddnlChuanHoaFontXemTruoc(html){
   vbPvChuanBang(tmp);
   const boLoaiBo = ['font-family','color','background','background-color','font-size','font','font-weight','line-height'];
   tmp.querySelectorAll('[style]').forEach(el=>{
+    const giuGianDong = el.hasAttribute('data-w'); // đoạn dán từ Word: giữ giãn dòng gốc
     const conLai = (el.getAttribute('style')||'').split(';').map(s=>s.trim()).filter(Boolean).filter(khaiBao=>{
       const thuocTinh = khaiBao.split(':')[0].trim().toLowerCase();
+      if(giuGianDong && thuocTinh==='line-height') return true;
       return !boLoaiBo.includes(thuocTinh);
     });
     if(conLai.length) el.setAttribute('style', conLai.join('; ')); else el.removeAttribute('style');
@@ -34452,6 +34472,38 @@ function ddnlLaHtmlTuWord(html){
 function ddnlDanGiuDinhDangWord(html, ed){
   const tmp = document.createElement('div');
   let h = String(html||'');
+  // Đọc các quy tắc kiểu trong khối <style> của Word (p.MsoNormal{margin-bottom:8pt;line-height:107%} …)
+  const quyTac = {};
+  (String(html||'').match(/<style[^>]*>([\s\S]*?)<\/style>/gi)||[]).forEach(khoi=>{
+    const css = khoi.replace(/<\/?style[^>]*>/gi,'').replace(/<!--|-->/g,'').replace(/\/\*[\s\S]*?\*\//g,'');
+    let mm; const re = /([^{}@]+)\{([^}]*)\}/g;
+    while((mm = re.exec(css))){
+      mm[1].split(',').map(x=>x.trim().toLowerCase()).forEach(sel=>{
+        const k = /^(p|div|li|h[1-6])?(?:\.([\w-]+))?$/.exec(sel); if(!k || (!k[1] && !k[2])) return;
+        const key = (k[1]||'*')+'.'+(k[2]||''); quyTac[key] = (quyTac[key]||'')+';'+mm[2];
+      });
+    }
+  });
+  const docKieu = (chuoi, ten)=>{ let v=''; String(chuoi||'').split(';').forEach(kv=>{ const i=kv.indexOf(':'); if(i<0) return; const k=kv.slice(0,i).trim().toLowerCase(); if(k===ten) v=kv.slice(i+1).trim(); }); return v; };
+  const kieuDoan = el=>{
+    const tag = el.tagName.toLowerCase(); const lop = (el.getAttribute('class')||'').toLowerCase().split(/\s+/).filter(Boolean);
+    let gop = (quyTac[tag+'.']||'');
+    lop.forEach(c=>{ gop += ';'+(quyTac['*.'+c]||'')+';'+(quyTac[tag+'.'+c]||''); });
+    gop += ';'+(el.getAttribute('style')||'');
+    // margin gộp (margin:0cm 0cm 8.0pt) -> tách trên/dưới
+    let mt = docKieu(gop,'margin-top'), mb = docKieu(gop,'margin-bottom');
+    const mAll = docKieu(gop,'margin');
+    if(mAll){ const p = mAll.split(/\s+/); const top=p[0], bot=p.length>2?p[2]:p[0]; if(!/margin-top/i.test(gop.slice(gop.lastIndexOf('margin:')))) mt = mt||top; if(!/margin-bottom/i.test(gop.slice(gop.lastIndexOf('margin:')))) mb = mb||bot; }
+    // lấy giá trị KHAI BÁO SAU CÙNG (inline đè class)
+    const sau = (ten)=>{ const arr = gop.split(';').map(x=>x.trim()).filter(x=>x.toLowerCase().startsWith(ten+':')); return arr.length ? arr[arr.length-1].slice(ten.length+1).trim() : ''; };
+    const ketQua = { mt: sau('margin-top') || mt, mb: sau('margin-bottom') || mb, ti: sau('text-indent'), lh: sau('line-height') };
+    const ok = v=>/^-?[\d.]+\s*(pt|px|cm|mm|in)$/i.test(v) || /^0$/.test(v);
+    return {
+      mt: ok(ketQua.mt) ? ketQua.mt : '0pt', mb: ok(ketQua.mb) ? ketQua.mb : '0pt',
+      ti: ok(ketQua.ti) ? ketQua.ti : '0cm',
+      lh: (/^[\d.]+%$/.test(ketQua.lh) || /^[\d.]+\s*(pt|px)$/i.test(ketQua.lh) || /^[\d.]+$/.test(ketQua.lh)) ? ketQua.lh : ''
+    };
+  };
   const sf = h.indexOf('<!--StartFragment-->'), ef = h.indexOf('<!--EndFragment-->');
   if(sf>=0 && ef>sf) h = h.slice(sf+20, ef);
   tmp.innerHTML = h;
@@ -34505,6 +34557,8 @@ function ddnlDanGiuDinhDangWord(html, ed){
       const gach = /underline/i.test(String(st.textDecoration||st.textDecorationLine||''));
       const ta = canLe(child), va = (tag==='TD'||tag==='TH') ? canDoc(child) : '';
       const cs = child.getAttribute('colspan'), rs = child.getAttribute('rowspan');
+      const laDoan = /^(P|DIV|H[1-6])$/.test(tag) && !child.closest('td,th') && !child.querySelector('p,div,table');
+      const kd = laDoan ? kieuDoan(child) : null;
       if(!giuThe.has(tag)){
         while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
         child.remove(); return;
@@ -34515,6 +34569,12 @@ function ddnlDanGiuDinhDangWord(html, ed){
       if(ta && tag!=='SPAN' && tag!=='A' && tag!=='B' && tag!=='I' && tag!=='U') child.style.textAlign = ta;
       if(va) child.style.verticalAlign = va;
       if(tag==='TD'||tag==='TH') child.style.padding = '5px 8px';
+      if(kd){
+        child.setAttribute('data-w','1');
+        child.style.marginTop = kd.mt.replace(/^0$/,'0pt'); child.style.marginBottom = kd.mb.replace(/^0$/,'0pt');
+        child.style.textIndent = kd.ti.replace(/^0$/,'0cm');
+        if(kd.lh) child.style.lineHeight = kd.lh;
+      }
       don(child);
       // kiểu chữ ghi bằng style (WPS/Excel hay dùng) -> đổi thành thẻ b/i/u để app & Word đều hiểu
       if(tag==='TD' || tag==='TH'){
@@ -34527,9 +34587,20 @@ function ddnlDanGiuDinhDangWord(html, ed){
       if((tag==='P'||tag==='DIV') && !child.textContent.replace(/[\s ]+/g,'') && !child.querySelector('img,table,br')) child.innerHTML = '<br>';
     });
   })(tmp);
+  // 2b) trong ô bảng: gỡ vỏ <p>/<div> (Word bọc mỗi ô bằng 1 đoạn) -> căn lề chuyển lên ô, nhiều đoạn nối bằng xuống dòng.
+  //     Nếu để nguyên, file Word xuất ra bị thêm 1 dòng trống trong MỖI ô (hàng cao bất thường) và mất căn giữa.
+  tmp.querySelectorAll('td, th').forEach(td=>{
+    const con = Array.from(td.childNodes).filter(n=>!(n.nodeType===3 && !n.textContent.replace(/[\s\u00a0]+/g,'')));
+    if(!con.length || !con.every(n=>n.nodeType===1 && /^(P|DIV)$/.test(n.tagName))) return;
+    const canCon = con.map(n=>n.style.textAlign||'');
+    if(!td.style.textAlign && canCon[0] && canCon.every(x=>x===canCon[0])) td.style.textAlign = canCon[0];
+    const phan = con.map(n=>n.innerHTML.replace(/(<br\s*\/?>\s*)+$/i,'')).filter((x,i,a)=>!(i===a.length-1 && !x.replace(/&nbsp;|\s/g,'')));
+    td.innerHTML = phan.join('<br>') || '&nbsp;';
+  });
   // 3) đặt lại độ rộng cột theo đúng tỷ lệ Word, quy ra px theo bề ngang khung soạn
   const beNgang = Math.max(300, (ed && ed.clientWidth) ? ed.clientWidth - 4 : 600);
   tmp.querySelectorAll('table').forEach(t=>{
+    t.setAttribute('data-w','1');
     t.style.width = '100%'; t.style.borderCollapse = 'collapse'; t.style.tableLayout = 'fixed';
     const tl = tyLeBang.get(t); if(!tl) return;
     const tong = tl.ws.reduce((a,b)=>a+b,0); if(!(tong>0)) return;
