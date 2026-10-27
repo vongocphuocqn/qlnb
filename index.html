@@ -30043,7 +30043,7 @@ let vbLoaded = false;
 let draftVB = null;
 let editingVBId = null;
 let vbLastSaveNotice = null; // { soVanBan, tenSo, ok } — hiện ngay tại ô "Gộp vào Sổ tổng hợp" sau khi lưu, để không phải cuộn xuống bảng bên dưới kiểm tra
-let vbFilter = { loai:"", trangThai:"", nguoiSoan:"", tu:"", den:"", keyword:"", soTongHopId:"" };
+let vbFilter = { loai:"", trangThai:"", nguoiSoan:"", tu:"", den:"", keyword:"", soTongHopId:"", noiDung:"" };
 let vbListPage = 1; // trang hiện tại của bảng "Danh sách văn bản đi"
 let vbTrackPage = 1; // trang hiện tại của "Bảng theo dõi tiến độ xử lý"
 let vbDonePage = 1; // trang hiện tại của "Danh sách đã hoàn thành"
@@ -30879,6 +30879,63 @@ function renderList(){
 /* ============================================================
    TAB: SỔ VĂN BẢN ĐI (dùng chung cho mọi loại giấy đề nghị)
    ============================================================ */
+/* ===== 27/10/2026: TÌM TRONG NỘI DUNG PHIẾU ĐỀ NGHỊ (không dấu, nhiều từ) ===== */
+function vbBoDau(s){
+  return String(s||"").normalize("NFC").replace(/[đĐ]/g,"d").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+}
+var vbNdCache = {};
+var vbNdDecodeEl = null;
+function vbNdHtmlToText(h){
+  h = String(h||""); if(!h) return "";
+  h = h.replace(/<(br|\/p|\/div|\/li|\/tr|\/h[1-6])\b[^>]*>/gi," · ").replace(/<\/t[dh]>/gi," ").replace(/<[^>]+>/g," ");
+  if(h.indexOf("&")>=0){ try{ if(!vbNdDecodeEl) vbNdDecodeEl=document.createElement("textarea"); vbNdDecodeEl.innerHTML=h; h=vbNdDecodeEl.value; }catch(e){} }
+  return h;
+}
+// Văn bản thô (giữ dấu) để hiện đoạn trích + bản không dấu (cùng độ dài, từng ký tự khớp vị trí) để tìm
+function vbNdHay(v){
+  const key = (v.updatedAt||v.createdAt||0)+"|"+((v.noiDungSoan||"").length)+"|"+((v.hangMucDeNghi||[]).length);
+  const c = vbNdCache[v.id];
+  if(c && c.key===key) return c;
+  const parts = [v.veViec, v.tomTat];
+  (v.hangMucDeNghi||[]).forEach(hm=>{ if(hm && hm.noiDung) parts.push(hm.noiDung+(hm.soLuong?(" — SL: "+hm.soLuong):"")); });
+  parts.push(vbNdHtmlToText(v.noiDungSoan));
+  parts.push((v.noiNhan||[]).join(", "), v.ghiChu, v.ghiChuTienDo, v.soVanBan);
+  try{ (vbGetFiles(v)||[]).forEach(f=>{ if(f && f.ten) parts.push(f.ten); }); }catch(e){}
+  const raw = parts.filter(Boolean).join(" · ").replace(/\s+/g," ").replace(/( ?· ?)+/g," · ").replace(/^ ?· ?| ?· ?$/g,"").trim().normalize("NFC");
+  let fold = "";
+  for(const ch of raw){ const f = vbBoDau(ch); fold += (f.length===1 ? f : (f.length ? f[0] : " ")) + (ch.length===2 ? " " : ""); }
+  const res = { key, raw, fold };
+  vbNdCache[v.id] = res;
+  return res;
+}
+function vbNdTuKhoa(){
+  return vbBoDau(vbFilter.noiDung||"").split(/\s+/).filter(Boolean);
+}
+// Đoạn trích quanh chỗ tìm thấy, tô vàng các từ khóa
+function vbNdTrich(v){
+  const words = vbNdTuKhoa(); if(!words.length) return "";
+  const h = vbNdHay(v); const raw = h.raw, fold = h.fold;
+  const p = fold.indexOf(words[0]); if(p<0) return "";
+  let a = Math.max(0, p-45), b = Math.min(raw.length, p+words[0].length+90);
+  const seg = raw.slice(a,b), segF = fold.slice(a,b);
+  const marks = new Array(seg.length).fill(false);
+  words.forEach(w=>{ let i = segF.indexOf(w); while(i>=0){ for(let k=i;k<i+w.length;k++) marks[k]=true; i = segF.indexOf(w, i+w.length); } });
+  let out = "", on = false;
+  for(let i=0;i<seg.length;i++){
+    if(marks[i] && !on){ out += '<mark style="background:#fff176;padding:0 1px;border-radius:2px;">'; on = true; }
+    if(!marks[i] && on){ out += '</mark>'; on = false; }
+    out += esc(seg[i]);
+  }
+  if(on) out += '</mark>';
+  return `<div style="font-size:11px;color:#5d4037;margin-top:4px;line-height:1.45;border-left:3px solid #fbc02d;padding-left:6px;" title="Đoạn nội dung phiếu có chứa từ đang tìm">🔎 ${a>0?"…":""}${out}${b<raw.length?"…":""}</div>`;
+}
+var vbNdTimer = null, vbNdComposing = false;
+function vbNdSet(val, now){
+  clearTimeout(vbNdTimer);
+  const go = ()=>{ vbFilter.noiDung = val; vbListPage = 1; render(); };
+  if(now) go(); else vbNdTimer = setTimeout(go, 250);
+}
+
 function vbFiltered(){
   return vbRecords.filter(v=>{
     // Không phải Admin -> LUÔN chỉ thấy văn bản do CHÍNH MÌNH soạn, không phụ thuộc "Xem toàn khoa"
@@ -30898,6 +30955,10 @@ function vbFiltered(){
       const kw = vbFilter.keyword.toLowerCase();
       const hay = [v.soVanBan, v.tomTat, v.ghiChu, v.nguoiSoan, v.nguoiKy, v.loaiVanBan].filter(Boolean).join(" ").toLowerCase();
       if(!hay.includes(kw)) return false;
+    }
+    if(vbFilter.noiDung){
+      const words = vbNdTuKhoa();
+      if(words.length){ const fold = vbNdHay(v).fold; if(!words.every(w=>fold.includes(w))) return false; }
     }
     return true;
   }).sort((a,b)=> (b.ngayLap||"").localeCompare(a.ngayLap||"") || (b.createdAt||0)-(a.createdAt||0));
@@ -31146,6 +31207,16 @@ function renderVanBan(){
       <div class="ddnl-field"><label>Từ ngày lập</label><input type="date" id="ddnlVBFl_tu" value="${vbFilter.tu}"></div>
       <div class="ddnl-field"><label>Đến ngày lập</label><input type="date" id="ddnlVBFl_den" value="${vbFilter.den}"></div>
     </div>
+    <div class="ddnl-toolbar" style="align-items:flex-end;margin-top:4px;">
+      <div class="ddnl-field" style="flex:1 1 420px;min-width:260px;">
+        <label>🔎 Tìm trong NỘI DUNG phiếu đề nghị <span class="ddnl-hint" style="font-weight:400;">(về việc, các mục/vật tư đề nghị, nội dung soạn, nơi nhận… — gõ không dấu được, nhiều từ không cần đúng thứ tự; kết hợp với Sổ tổng hợp &amp; các ô lọc trên)</span></label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" id="ddnlVBFl_noiDung" autocomplete="off" placeholder="VD: ong noi khi quan, sugammadex, kim gay te…" value="${esc(vbFilter.noiDung||"")}" style="flex:1;background:#fffde7;border:1.5px solid #fbc02d;">
+          ${vbFilter.noiDung?`<button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlVBFl_noiDungXoa" title="Xóa ô tìm nội dung (phím Esc)">✕ Xóa</button>`:""}
+        </div>
+      </div>
+      ${vbFilter.noiDung && vbNdTuKhoa().length ? `<div class="ddnl-hint" style="align-self:center;font-weight:600;color:${list.length?"#2e7d32":"#c62828"};">${list.length?`Tìm thấy ${list.length} phiếu có nội dung "${esc(vbFilter.noiDung.trim())}"`:`Không có phiếu nào chứa "${esc(vbFilter.noiDung.trim())}"`}${vbFilter.soTongHopId?" (trong sổ đang chọn)":""}</div>` : ""}
+    </div>
 
     ${list.length===0?`<div class="ddnl-empty"><div class="ddnl-big">🗂️</div>Chưa có văn bản nào phù hợp bộ lọc.</div>`:`
     <div class="ddnl-rows-wrap"><table>
@@ -31165,7 +31236,7 @@ function renderVanBan(){
           return `<tr>
           <td>${esc(v.soVanBan||"")}</td>
           <td>${esc(v.loaiVanBan||"")}</td>
-          <td>${esc(v.veViec||"")}</td>
+          <td>${esc(v.veViec||"")}${vbFilter.noiDung?vbNdTrich(v):""}</td>
           <td>${esc(v.nguoiSoan||"")}</td>
           <td>${esc(v.nguoiKy||"")}</td>
           <td>${esc((v.noiNhan||[]).join(", "))}</td>
@@ -32117,6 +32188,14 @@ document.querySelectorAll('[data-create-card]').forEach(b=>b.onclick=async ()=>{
   const flTu=document.getElementById('ddnlVBFl_tu'); if(flTu) flTu.onchange=()=>{ vbFilter.tu=flTu.value; vbListPage = 1; render(); };
   const flDen=document.getElementById('ddnlVBFl_den'); if(flDen) flDen.onchange=()=>{ vbFilter.den=flDen.value; vbListPage = 1; render(); };
   const flKeyword=document.getElementById('ddnlVBFl_keyword'); if(flKeyword) flKeyword.oninput=()=>{ vbFilter.keyword=flKeyword.value; vbListPage = 1; render(); };
+  const flNoiDung=document.getElementById('ddnlVBFl_noiDung');
+  if(flNoiDung){
+    flNoiDung.addEventListener('compositionstart', ()=>{ vbNdComposing = true; });
+    flNoiDung.addEventListener('compositionend', ()=>{ vbNdComposing = false; vbNdSet(flNoiDung.value); });
+    flNoiDung.oninput=()=>{ if(vbNdComposing) return; vbNdSet(flNoiDung.value); };
+    flNoiDung.onkeydown=(e)=>{ if(e.key==='Escape'){ flNoiDung.value=''; vbNdSet('', true); } else if(e.key==='Enter'){ vbNdSet(flNoiDung.value, true); } };
+  }
+  const flNoiDungXoa=document.getElementById('ddnlVBFl_noiDungXoa'); if(flNoiDungXoa) flNoiDungXoa.onclick=()=>{ vbNdSet('', true); };
   set('ddnlVBPageFirst', el=>el.onclick=()=>{ vbListPage=1; render(); });
   set('ddnlVBPagePrev', el=>el.onclick=()=>{ vbListPage=Math.max(1,vbListPage-1); render(); });
   set('ddnlVBPageNext', el=>el.onclick=()=>{ vbListPage=vbListPage+1; render(); });
