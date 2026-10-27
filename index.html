@@ -34442,6 +34442,107 @@ function openNoiDungSoanModal(){
 // khỏi font mặc định của văn bản. Hàm này "lột" hết style rác (font-family, color, font-size,
 // background, class kiểu MsoNormal...) nhưng vẫn giữ cấu trúc (bảng, in đậm/nghiêng/gạch chân,
 // đoạn văn, danh sách) để nội dung dán vào luôn đồng bộ font với phần đã soạn.
+/* ===== 27/10/2026: DÁN TỪ WORD / WPS / EXCEL — GIỮ ĐỊNH DẠNG =====
+   Giữ: căn lề đoạn & ô (trái/giữa/phải/đều), căn dọc ô, chữ đậm/nghiêng/gạch chân, gộp ô (colspan/rowspan),
+   TỶ LỆ ĐỘ RỘNG CỘT của bảng, dòng trống. Bỏ: phông/cỡ/màu chữ, lề đoạn, mã rác của Word (mso-…) —
+   phông chữ luôn theo chuẩn văn bản (Times New Roman 13). Muốn dán chữ trơn: Ctrl+Shift+V. */
+function ddnlLaHtmlTuWord(html){
+  return /urn:schemas-microsoft-com:office|class="?Mso|mso-[a-z]|ProgId|Excel\.Sheet|Word\.Document|kingsoft|wps-|x:str|class="?xl\d/i.test(html||'');
+}
+function ddnlDanGiuDinhDangWord(html, ed){
+  const tmp = document.createElement('div');
+  let h = String(html||'');
+  const sf = h.indexOf('<!--StartFragment-->'), ef = h.indexOf('<!--EndFragment-->');
+  if(sf>=0 && ef>sf) h = h.slice(sf+20, ef);
+  tmp.innerHTML = h;
+  const giuThe = new Set(['B','STRONG','I','EM','U','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','P','BR','UL','OL','LI','SPAN','DIV','A','SUP','SUB','H1','H2','H3','H4']);
+  const xoaHan = new Set(['STYLE','SCRIPT','HEAD','TITLE','META','LINK','NOSCRIPT','XML','TEMPLATE','IFRAME','OBJECT','EMBED','COLGROUP','COL']);
+  const canLe = el=>{
+    let ta = (el.style && el.style.textAlign) || el.getAttribute('align') || '';
+    ta = String(ta).toLowerCase().trim();
+    if(ta==='middle') ta='center'; if(ta==='both'||ta==='distribute') ta='justify';
+    return ['left','center','right','justify'].includes(ta) ? ta : '';
+  };
+  const canDoc = el=>{
+    let va = (el.style && el.style.verticalAlign) || el.getAttribute('valign') || '';
+    va = String(va).toLowerCase().trim(); if(va==='center') va='middle';
+    return ['top','middle','bottom'].includes(va) ? va : '';
+  };
+  // 1) đọc tỷ lệ cột của từng bảng TRƯỚC khi bỏ kiểu (Word: width=…/style width:…pt; Excel: <col width>)
+  const doRong = el=>{
+    const w = el.style && el.style.width;
+    if(w){ const m = /^([\d.]+)\s*(pt|px|cm|mm|in)?$/i.exec(w.trim()); if(m){ const v=parseFloat(m[1]); const u=(m[2]||'px').toLowerCase(); return u==='pt'?v*4/3:u==='cm'?v*37.8:u==='mm'?v*3.78:u==='in'?v*96:v; } }
+    const a = el.getAttribute('width'); if(a && !/%/.test(a)) return parseFloat(a)||0;
+    return 0;
+  };
+  const tyLeBang = new Map();
+  tmp.querySelectorAll('table').forEach(t=>{
+    const rows = Array.from(t.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr'));
+    let soCot = 0; rows.forEach(tr=>{ let c=0; Array.from(tr.cells).forEach(td=>c+=Math.max(1,td.colSpan||1)); soCot=Math.max(soCot,c); });
+    let ws = null;
+    const cols = Array.from(t.querySelectorAll(':scope > colgroup > col, :scope > col'));
+    if(cols.length){ const arr=[]; cols.forEach(c=>{ const n=Math.max(1,parseInt(c.getAttribute('span'),10)||1); const w=doRong(c); for(let k=0;k<n;k++) arr.push(w); }); if(arr.length===soCot && arr.every(x=>x>0)) ws = arr; }
+    if(!ws){ const mau = rows.find(tr=>tr.cells.length===soCot && Array.from(tr.cells).every(td=>(td.colSpan||1)===1 && doRong(td)>0)); if(mau) ws = Array.from(mau.cells).map(doRong); }
+    if(ws && soCot>0) tyLeBang.set(t, {ws, soCot});
+  });
+  // 2) dọn từng thẻ
+  (function don(node){
+    Array.from(node.childNodes).forEach(child=>{
+      if(child.nodeType===8){ child.remove(); return; }
+      if(child.nodeType!==1) return;
+      const tag = child.tagName;
+      if(xoaHan.has(tag)){ child.remove(); return; }
+      if(tag.includes(':')){
+        // <o:p>&nbsp;</o:p> của Word = dòng trống -> giữ chữ bên trong, bỏ vỏ
+        while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
+        child.remove(); return;
+      }
+      const st = child.style || {};
+      if(st.display==='none' || /mso-hide\s*:\s*all/i.test(child.getAttribute('style')||'')){ child.remove(); return; }
+      const fw = String(st.fontWeight||'').toLowerCase();
+      const dam = fw==='bold'||fw==='bolder'||parseInt(fw,10)>=600;
+      const nghieng = String(st.fontStyle||'').toLowerCase()==='italic';
+      const gach = /underline/i.test(String(st.textDecoration||st.textDecorationLine||''));
+      const ta = canLe(child), va = (tag==='TD'||tag==='TH') ? canDoc(child) : '';
+      const cs = child.getAttribute('colspan'), rs = child.getAttribute('rowspan');
+      if(!giuThe.has(tag)){
+        while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
+        child.remove(); return;
+      }
+      Array.from(child.attributes).map(a=>a.name).forEach(n=>{ if(!(tag==='A' && n==='href')) child.removeAttribute(n); });
+      if(cs && parseInt(cs,10)>1) child.setAttribute('colspan', cs);
+      if(rs && parseInt(rs,10)>1) child.setAttribute('rowspan', rs);
+      if(ta && tag!=='SPAN' && tag!=='A' && tag!=='B' && tag!=='I' && tag!=='U') child.style.textAlign = ta;
+      if(va) child.style.verticalAlign = va;
+      if(tag==='TD'||tag==='TH') child.style.padding = '5px 8px';
+      don(child);
+      // kiểu chữ ghi bằng style (WPS/Excel hay dùng) -> đổi thành thẻ b/i/u để app & Word đều hiểu
+      if(tag==='TD' || tag==='TH'){
+        if(dam) child.style.fontWeight = '700'; if(nghieng) child.style.fontStyle = 'italic';
+      } else if(tag==='SPAN' || ((tag==='P' || tag==='DIV') && !child.querySelector('p,div,table,ul,ol,li,h1,h2,h3,h4'))){
+        const boc = (theTen)=>{ const w=document.createElement(theTen); while(child.firstChild) w.appendChild(child.firstChild); child.appendChild(w); };
+        if(gach) boc('u'); if(nghieng) boc('i'); if(dam) boc('b');
+      }
+      if(tag==='SPAN'){ while(child.firstChild) child.parentNode.insertBefore(child.firstChild, child); child.remove(); return; }
+      if((tag==='P'||tag==='DIV') && !child.textContent.replace(/[\s ]+/g,'') && !child.querySelector('img,table,br')) child.innerHTML = '<br>';
+    });
+  })(tmp);
+  // 3) đặt lại độ rộng cột theo đúng tỷ lệ Word, quy ra px theo bề ngang khung soạn
+  const beNgang = Math.max(300, (ed && ed.clientWidth) ? ed.clientWidth - 4 : 600);
+  tmp.querySelectorAll('table').forEach(t=>{
+    t.style.width = '100%'; t.style.borderCollapse = 'collapse'; t.style.tableLayout = 'fixed';
+    const tl = tyLeBang.get(t); if(!tl) return;
+    const tong = tl.ws.reduce((a,b)=>a+b,0); if(!(tong>0)) return;
+    let px = tl.ws.map(w=>Math.round(w/tong*beNgang));
+    // cột quá hẹp (vd "STT") -> nới tối thiểu 56px cho khỏi rớt chữ, bù lại từ cột rộng nhất để tổng không đổi
+    let thieu = 0; px = px.map(w=>{ if(w<56){ thieu += 56-w; return 56; } return w; });
+    if(thieu>0){ let iMax=0; px.forEach((w,i)=>{ if(w>px[iMax]) iMax=i; }); px[iMax] = Math.max(56, px[iMax]-thieu); }
+    Array.from(t.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr')).forEach(tr=>{
+      if(tr.cells.length===tl.soCot && Array.from(tr.cells).every(td=>(td.colSpan||1)===1)) Array.from(tr.cells).forEach((td,i)=>{ td.style.width = px[i]+'px'; });
+    });
+  });
+  return tmp.innerHTML;
+}
 function ddnlSanitizePasteHtml(html){
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
@@ -34586,9 +34687,11 @@ document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     }
     // Dán "thường" (không phải dán bảng đè vào 1 ô có sẵn) -> luôn ép về font mặc định của văn bản,
     // bỏ hết font/màu/cỡ chữ mang theo từ Word/Excel/trang web nguồn, cho khỏi phải sửa tay từng chỗ.
+    let danTuWord = false;
     if(htmlDan){
       e.preventDefault();
-      const sach = ddnlSanitizePasteHtml(htmlDan);
+      danTuWord = ddnlLaHtmlTuWord(htmlDan);
+      const sach = danTuWord ? ddnlDanGiuDinhDangWord(htmlDan, ed) : ddnlSanitizePasteHtml(htmlDan);
       document.execCommand('insertHTML', false, sach);
     } else if(cd){
       const vanBanThuong = cd.getData('text/plain');
@@ -34599,7 +34702,7 @@ document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     }
     setTimeout(()=>{
       if(!ed) return;
-      dedomWordFixedWidths(ed);
+      if(!danTuWord) dedomWordFixedWidths(ed); // dán từ Word: GIỮ độ rộng cột vừa dán (đã quy đúng tỷ lệ)
       enableTableColResize(ed); enableTableRowResize(ed);
     }, 0);
   });
