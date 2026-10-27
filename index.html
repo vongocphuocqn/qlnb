@@ -31181,6 +31181,7 @@ function renderVanBan(){
       <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBFlipView" title="Xem lần lượt từng văn bản đang lọc như lật từng trang sổ giấy — chọn &quot;Sổ tổng hợp&quot; (và/hoặc khoảng &quot;Từ ngày lập / Đến ngày lập&quot;) bên dưới trước khi bấm để chỉ xem đúng các phiếu thuộc sổ đó"><i class="ti ti-books"></i> Xem lật trang</button>
       <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportExcel" title="Xuất danh sách đang lọc/xem ra file Excel"><i class="ti ti-file-spreadsheet"></i> Xuất Excel</button>
       <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBExportWord" title="Xuất danh sách đang lọc/xem ra file Word"><i class="ti ti-file-word"></i> Xuất Word</button>
+      <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnVBInPdf" title="In hoặc lưu thành file PDF các phiếu đang lọc/tìm: chọn in DANH SÁCH (bảng) hoặc in TOÀN BỘ NỘI DUNG từng phiếu (mỗi phiếu 1 trang, đúng thể thức)" style="border-color:#c62828;color:#c62828;"><i class="ti ti-file-type-pdf"></i> In / Lưu PDF</button>
     </div>
     <div class="ddnl-toolbar">
       ${isAdmin()?`<label class="ddnl-chk" style="margin:0;"><input type="checkbox" id="ddnlVBChkScopeAll" ${vbScopeAll?"checked":""}> <span>Xem toàn khoa (khuyến nghị cho quản lý)</span></label>`:``}
@@ -32041,6 +32042,7 @@ function bindVanBanEvents(){
   set('ddnlBtnVBFlipView', el=>el.onclick=()=>openVanBanFlipView());
   set('ddnlBtnVBExportExcel', el=>el.onclick=()=>vbExportExcel());
   set('ddnlBtnVBExportWord', el=>el.onclick=()=>vbExportWord());
+  set('ddnlBtnVBInPdf', el=>el.onclick=()=>vbInPdfChon());
   set('ddnlBtnVBTrackExportExcel', el=>el.onclick=()=>vbExportTrackingExcel());
   set('ddnlBtnVBTrackExportWord', el=>el.onclick=()=>vbExportTrackingWord());
   set('ddnlBtnSaveVB', el=>el.onclick=async ()=>{
@@ -32765,6 +32767,144 @@ function vbExportWord(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`DanhSachVanBan_GMHS_${todayISO()}.doc`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+/* ===== 27/10/2026: IN / LƯU PDF các phiếu đang lọc (dùng hộp thoại in của trình duyệt → "Lưu dưới dạng PDF") ===== */
+function vbInPdfChon(){
+  const list = vbFiltered();
+  if(!list.length){ alert('Không có phiếu nào khớp với bộ lọc/ô tìm đang chọn — điều chỉnh lại rồi bấm In / Lưu PDF.'); return; }
+  const old = document.getElementById('vbInPdfModal'); if(old) old.remove();
+  const so = vbFilter.soTongHopId ? soTongHopList.find(x=>x.id===vbFilter.soTongHopId) : null;
+  const wrap = document.createElement('div');
+  wrap.id = 'vbInPdfModal';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;font-family:inherit;';
+  const btnCss = 'display:block;width:100%;text-align:left;padding:12px 14px;margin:8px 0;border-radius:10px;border:1.5px solid #ddd;background:#fff;cursor:pointer;font-family:inherit;font-size:14px;line-height:1.4;';
+  wrap.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:480px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.3);">
+    <div style="font-size:16px;font-weight:700;color:#c62828;margin-bottom:4px;">🖨 In / Lưu PDF</div>
+    <div style="font-size:12.5px;color:#555;margin-bottom:6px;">${list.length} phiếu đang lọc${so?` — sổ <b>${esc(so.ten||"")}</b>`:""}${vbFilter.noiDung&&vbFilter.noiDung.trim()?` — tìm "<b>${esc(vbFilter.noiDung.trim())}</b>"`:""}</div>
+    <button type="button" data-inpdf="noidung" style="${btnCss}border-color:#c62828;"><b>📄 Toàn bộ nội dung các phiếu</b><br><span style="font-size:12px;color:#666;">Mỗi phiếu 1 trang, đúng thể thức như Xem trước (quốc hiệu, kính gửi, chữ ký); thứ tự cũ → mới như sổ giấy.</span></button>
+    <button type="button" data-inpdf="danhsach" style="${btnCss}"><b>📋 Danh sách (bảng tổng hợp)</b><br><span style="font-size:12px;color:#666;">Bảng các phiếu đang lọc, khổ A4 ngang: STT, Số VB, Nơi gửi, Về việc, Người soạn, Nơi nhận, Ngày lập, Trạng thái.</span></button>
+    <div style="font-size:11.5px;color:#777;margin:8px 0 10px;">Trang in mở ở tab mới và tự bật hộp thoại in → ở mục <b>Máy in / Destination</b> chọn <b>"Lưu dưới dạng PDF"</b> (Save as PDF) → bấm <b>Lưu</b>.</div>
+    <div style="text-align:right;"><button type="button" data-inpdf="huy" style="padding:7px 16px;border-radius:8px;border:1px solid #bbb;background:#f5f5f5;cursor:pointer;font-family:inherit;">Hủy</button></div>
+  </div>`;
+  document.body.appendChild(wrap);
+  const close = ()=>{ wrap.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e)=>{ if(e.key==='Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  wrap.addEventListener('click', (e)=>{
+    if(e.target===wrap){ close(); return; }
+    const b = e.target.closest('[data-inpdf]'); if(!b) return;
+    const m = b.dataset.inpdf; close();
+    if(m==='noidung') vbInPdf('noidung'); else if(m==='danhsach') vbInPdf('danhsach');
+  });
+}
+function vbInPdfTenFile(){
+  const so = vbFilter.soTongHopId ? soTongHopList.find(x=>x.id===vbFilter.soTongHopId) : null;
+  const goc = so ? (so.ten||"So") : "VanBanDi";
+  const ten = vbBoDau(goc).toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-|-$/g,"") || "VanBanDi";
+  const d = todayISO().split("-");
+  return `${ten}_${d[2]}-${d[1]}-${d[0]}`;
+}
+function vbInPdf(mode){
+  try{
+    const list = vbFiltered();
+    if(!list.length){ alert('Không có phiếu nào để in.'); return; }
+    const so = vbFilter.soTongHopId ? soTongHopList.find(x=>x.id===vbFilter.soTongHopId) : null;
+    const now = new Date();
+    const nowStr = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+    const locInfo = [
+      so ? `Sổ: ${so.ten||""}` : "",
+      (vbFilter.tu||vbFilter.den) ? `Ngày lập: ${vbFilter.tu?fmtDate(vbFilter.tu):"…"} → ${vbFilter.den?fmtDate(vbFilter.den):"…"}` : "",
+      vbFilter.noiDung&&vbFilter.noiDung.trim() ? `Tìm nội dung: "${vbFilter.noiDung.trim()}"` : "",
+      vbFilter.keyword&&vbFilter.keyword.trim() ? `Tìm nhanh: "${vbFilter.keyword.trim()}"` : "",
+      vbFilter.loai ? `Nơi gửi: ${vbFilter.loai}` : "",
+      vbFilter.trangThai ? `Trạng thái: ${vbFilter.trangThai}` : ""
+    ].filter(Boolean).join(" · ");
+    const tenFile = vbInPdfTenFile() + (mode==='danhsach' ? "_DanhSach" : "_NoiDung");
+    const toolbar = `<div class="vbpdf-bar vbpdf-no-print">
+      <button onclick="window.print()">🖨 In / Lưu PDF</button>
+      <span>${list.length} phiếu${locInfo?" — "+esc(locInfo):""}<br>Trong hộp thoại in: <b>Máy in (Destination) → "Lưu dưới dạng PDF"</b> → <b>Lưu</b>. Nên bỏ tích "Đầu trang và chân trang" (Headers and footers).</span>
+    </div>`;
+    const barCss = `.vbpdf-bar{position:sticky;top:0;z-index:5;background:#263238;color:#fff;padding:10px 16px;display:flex;gap:14px;align-items:center;font-family:'Segoe UI',Arial,sans-serif;font-size:12.5px;line-height:1.45;box-shadow:0 2px 10px rgba(0,0,0,.25);}
+  .vbpdf-bar button{padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;border-radius:8px;border:none;background:#c62828;color:#fff;font-family:inherit;flex-shrink:0;}
+  @media print{ .vbpdf-no-print{display:none !important;} }`;
+    let html;
+    if(mode==='danhsach'){
+      const rows = list.map((v,i)=>`<tr>
+        <td class="c">${i+1}</td><td class="b">${esc(v.soVanBan||"")}</td><td>${esc(v.loaiVanBan||"")}</td><td>${esc(v.veViec||"")}</td>
+        <td>${esc(v.nguoiSoan||"")}</td><td>${esc((v.noiNhan||[]).join(", "))}</td>
+        <td class="c">${v.ngayLap?fmtDate(v.ngayLap):"—"}</td><td class="c">${esc(vbNormTrangThai(v.trangThai||"Đang soạn"))}</td></tr>`).join("");
+      html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(tenFile)}</title><style>
+  @page{size:A4 landscape;margin:12mm 12mm 12mm 15mm;}
+  *{box-sizing:border-box;}
+  html{background:#d5d9de;}
+  body{margin:0;font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;}
+  .vbpdf-sheet{width:297mm;max-width:100%;margin:16px auto;padding:12mm 12mm 12mm 15mm;background:#fff;box-shadow:0 3px 14px rgba(0,0,0,.28);}
+  .org{text-align:center;margin:1pt 0;font-weight:bold;} h2{text-align:center;margin:6pt 0 2pt;font-size:15pt;}
+  .sub{text-align:center;font-style:italic;margin:0 0 8pt;font-size:11.5pt;}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;}
+  th,td{border:1px solid #000;padding:4px 6px;vertical-align:top;word-wrap:break-word;font-size:11.5pt;}
+  th{background:#dbe5f1;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  thead{display:table-header-group;} tr{page-break-inside:avoid;}
+  td.c{text-align:center;} td.b{font-weight:bold;}
+  ${barCss}
+  @media print{ html{background:#fff;} .vbpdf-sheet{width:auto;margin:0;padding:0;box-shadow:none;} }
+</style></head><body>${toolbar}
+<div class="vbpdf-sheet">
+  <div class="org" style="font-weight:normal;">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
+  <div class="org">KHOA GÂY MÊ HỒI SỨC</div>
+  <h2>${so?esc((so.ten||"").toUpperCase()):"DANH SÁCH VĂN BẢN ĐI"}</h2>
+  <div class="sub">In ngày: ${nowStr} — Tổng số: ${list.length} phiếu${locInfo?"<br>"+esc(locInfo):""}</div>
+  <table><thead><tr><th style="width:5%;">STT</th><th style="width:12%;">Số VB</th><th style="width:10%;">Nơi gửi</th><th style="width:23%;">Về việc</th><th style="width:12%;">Người soạn</th><th style="width:18%;">Nơi nhận</th><th style="width:9%;">Ngày lập</th><th style="width:11%;">Trạng thái</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+</div></body></html>`;
+    } else {
+      const sorted = list.slice().sort((a,b)=> (a.ngayLap||"").localeCompare(b.ngayLap||"") || (a.createdAt||0)-(b.createdAt||0));
+      const pages = sorted.map((v,idx)=>{
+        const ngayLapParts = (v.ngayLap||todayISO()).split("-");
+        const signerInfo = (config.signers||[]).find(x=>x.ten===v.nguoiKy) || { chucDanh:"Trưởng khoa" };
+        const inner = buildVanBanBodyInnerHtml({
+          soVanBan: v.soVanBan, ngayLapParts, hinhThucVB: v.hinhThucVB, veViec: v.veViec,
+          noiNhan: v.noiNhan, nguoiSoan: v.nguoiSoan, chucDanh: signerInfo.chucDanh, nguoiKy: v.nguoiKy,
+          nguoiLapLabel: v.nguoiLapLabel, chucDanhKy: v.chucDanhKy,
+          noiDungHtml: (v.noiDungSoan&&v.noiDungSoan.trim())?v.noiDungSoan:'', tomTat: v.tomTat||'',
+          isBlank: !(v.noiDungSoan&&v.noiDungSoan.trim())&&!v.tomTat
+        });
+        return `<div class="vbpdf-sheet${v.khoGiay==='ngang'?' ngang':''}">${inner}</div>`;
+      }).join("");
+      html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(tenFile)}</title><style>
+  @page{size:A4 portrait;margin:20mm 20mm 20mm 30mm;}
+  @page vbDoc{size:A4 portrait;margin:20mm 20mm 20mm 30mm;}
+  @page vbNgang{size:A4 landscape;margin:20mm 20mm 20mm 30mm;}
+  html{background:#d5d9de;}
+  body{margin:0;font-family:'Times New Roman',Times,serif;font-size:13.5pt;line-height:1.4;color:#000;}
+  .vbpdf-sheet{page:vbDoc;width:210mm;max-width:100%;box-sizing:border-box;margin:16px auto;padding:20mm 20mm 20mm 30mm;background:#fff;box-shadow:0 3px 14px rgba(0,0,0,.28);break-after:page;page-break-after:always;}
+  .vbpdf-sheet.ngang{page:vbNgang;width:297mm;}
+  .vbpdf-sheet:last-child{break-after:auto;page-break-after:auto;}
+  table.ddnl-pv-head{width:100%;table-layout:fixed;}
+  table.ddnl-pv-head td{vertical-align:top;padding:0;}
+  .ddnl-pv-center{text-align:center;white-space:nowrap;} .ddnl-pv-right{text-align:right;} .ddnl-pv-bold{font-weight:bold;} .ddnl-pv-italic{font-style:italic;} .ddnl-pv-underline{text-decoration:underline;}
+  .ddnl-pv-title{font-size:15pt;font-weight:bold;text-align:center;margin:16pt 0 4pt;}
+  .ddnl-pv-veviec{text-align:center;font-style:italic;margin:0 0 16pt;}
+  .ddnl-pv-so{display:inline-block;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
+  .ddnl-pv-noinhan{font-size:11pt;font-style:italic;margin:2px 0;}
+  table, td, p { page-break-inside:auto; }
+  .ddnl-pv-content table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13pt;}
+  .ddnl-pv-content td, .ddnl-pv-content th{border:1px solid #000;padding:5px 8px;vertical-align:middle;}
+  .ddnl-pv-content img{max-width:100% !important;height:auto !important;box-sizing:border-box;}
+  ${barCss}
+  @media print{ html{background:#fff;} .vbpdf-sheet{width:auto !important;max-width:none;margin:0;padding:0;box-shadow:none;} }
+</style></head><body>${toolbar}${pages}</body></html>`;
+    }
+    html = html.replace('</body></html>', `<script>window.addEventListener('load',function(){setTimeout(function(){try{window.print();}catch(e){}},700);});<\/script></body></html>`);
+    const blob = new Blob([html], {type:'text/html'});
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if(!win){ alert('Trình duyệt đang chặn cửa sổ mới (popup). Vui lòng cho phép popup cho trang này rồi bấm lại.'); return; }
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  }catch(err){
+    alert('Có lỗi khi tạo bản in PDF: '+err.message);
+    console.error('Lỗi vbInPdf:', err);
+  }
 }
 function vbExportTrackingExcel(){
   const pending = vbGetTrackingList();
