@@ -31257,6 +31257,7 @@ function renderVanBan(){
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-use-as-mau="${v.id}" title="Tạo văn bản MỚI dựa theo văn bản này (giữ Loại văn bản, Kính gửi, Người ký, Tóm tắt — chỉ cần sửa lại phần khác)">📋 Dùng làm mẫu</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-xemtruoc-vb="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-export-vbword="${v.id}" title="Xuất văn bản này ra file Word đúng thể thức (quốc hiệu, kính gửi, chữ ký)">📄 Xuất Word</button>
+              <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-inpdf-vb="${v.id}" title="In / Lưu phiếu này thành file PDF đúng thể thức (trong hộp thoại in chọn &quot;Lưu dưới dạng PDF&quot;)" style="border-color:#c62828;color:#c62828;">📕 Xuất PDF</button>
               ${(isAdmin() || v.nguoiSoan===currentUserName)?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vb="${v.id}" title="Xóa văn bản này (dùng khi lập thừa hoặc lập sai)">Xóa</button>`:""}
               ${v.linkedCardId
                 ? `<div class="ddnl-hint" style="margin-top:4px;">🗂️ Đã có thẻ Kanban</div><button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-sync-card="${v.id}" title="Lấy lại nội dung + số lượng từ văn bản này vào thẻ Kanban (giữ nguyên các dòng đã tích xong)">🔄 Cập nhật thẻ Kanban</button>`
@@ -31973,6 +31974,10 @@ function bindVanBanEvents(){
   document.querySelectorAll('[data-xemtruoc-vb]').forEach(b=>b.onclick=()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.xemtruocVb);
     if(v) moXemTruocVanBan(v);
+  });
+  document.querySelectorAll('[data-inpdf-vb]').forEach(b=>b.onclick=()=>{
+    const v = vbRecords.find(x=>x.id===b.dataset.inpdfVb);
+    if(v) vbInPdf('noidung', [v]);
   });
   document.querySelectorAll('[data-export-vbword]').forEach(b=>b.onclick=()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.exportVbword);
@@ -32804,14 +32809,15 @@ function vbInPdfTenFile(){
   const d = todayISO().split("-");
   return `${ten}_${d[2]}-${d[1]}-${d[0]}`;
 }
-function vbInPdf(mode){
+function vbInPdf(mode, chiPhieu){
   try{
-    const list = vbFiltered();
+    const motPhieu = Array.isArray(chiPhieu) && chiPhieu.length>0;
+    const list = motPhieu ? chiPhieu : vbFiltered();
     if(!list.length){ alert('Không có phiếu nào để in.'); return; }
     const so = vbFilter.soTongHopId ? soTongHopList.find(x=>x.id===vbFilter.soTongHopId) : null;
     const now = new Date();
     const nowStr = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
-    const locInfo = [
+    const locInfo = motPhieu ? "" : [
       so ? `Sổ: ${so.ten||""}` : "",
       (vbFilter.tu||vbFilter.den) ? `Ngày lập: ${vbFilter.tu?fmtDate(vbFilter.tu):"…"} → ${vbFilter.den?fmtDate(vbFilter.den):"…"}` : "",
       vbFilter.noiDung&&vbFilter.noiDung.trim() ? `Tìm nội dung: "${vbFilter.noiDung.trim()}"` : "",
@@ -32819,10 +32825,12 @@ function vbInPdf(mode){
       vbFilter.loai ? `Nơi gửi: ${vbFilter.loai}` : "",
       vbFilter.trangThai ? `Trạng thái: ${vbFilter.trangThai}` : ""
     ].filter(Boolean).join(" · ");
-    const tenFile = vbInPdfTenFile() + (mode==='danhsach' ? "_DanhSach" : "_NoiDung");
+    const tenFile = motPhieu
+      ? ((vbBoDau((list[0].hinhThucVB||"Giay de nghi")+" "+(list[0].soVanBan||"")).toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-|-$/g,"")) || "PHIEU")
+      : (vbInPdfTenFile() + (mode==='danhsach' ? "_DanhSach" : "_NoiDung"));
     const toolbar = `<div class="vbpdf-bar vbpdf-no-print">
       <button onclick="window.print()">🖨 In / Lưu PDF</button>
-      <span>${list.length} phiếu${locInfo?" — "+esc(locInfo):""}<br>Trong hộp thoại in: <b>Máy in (Destination) → "Lưu dưới dạng PDF"</b> → <b>Lưu</b>. Nên bỏ tích "Đầu trang và chân trang" (Headers and footers).</span>
+      <span>${motPhieu?`Phiếu số ${esc(list[0].soVanBan||"")}`:`${list.length} phiếu`}${locInfo?" — "+esc(locInfo):""}<br>Trong hộp thoại in: <b>Máy in (Destination) → "Lưu dưới dạng PDF"</b> → <b>Lưu</b>. Nên bỏ tích "Đầu trang và chân trang" (Headers and footers).</span>
     </div>`;
     const barCss = `.vbpdf-bar{position:sticky;top:0;z-index:5;background:#263238;color:#fff;padding:10px 16px;display:flex;gap:14px;align-items:center;font-family:'Segoe UI',Arial,sans-serif;font-size:12.5px;line-height:1.45;box-shadow:0 2px 10px rgba(0,0,0,.25);}
   .vbpdf-bar button{padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;border-radius:8px;border:none;background:#c62828;color:#fff;font-family:inherit;flex-shrink:0;}
