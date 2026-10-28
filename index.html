@@ -60275,7 +60275,8 @@ window.qltsXemSc=function(id, mode, giuCuon){
       +'<div><label style="'+LB+'">Kết quả</label><select id="qmKQ" style="'+INP+'">'+Object.keys(KET_QUA).map(function(k){ return '<option value="'+k+'" '+(r.ketQua===k?'selected':'')+'>'+KET_QUA[k]+'</option>'; }).join('')+'</select></div>'
       +'<div><label style="'+LB+'">Nguyên nhân</label><select id="qmNN" style="'+INP+'"><option value="">— chọn —</option>'+NGUYEN_NHAN.map(function(k){ return '<option '+(r.nguyenNhan===k?'selected':'')+'>'+k+'</option>'; }).join('')+'</select></div>'
       +'<div><label style="'+LB+'">Thời điểm hoàn tất thực tế</label><input id="qmTX" type="datetime-local" value="'+dtLocal(tx||now)+'" data-goc="'+dtLocal(tx||now)+'" style="'+INP+'"></div>'
-      +'<div><label style="'+LB+'">Chi phí (nếu có, đồng)</label><input id="qmCP" type="number" min="0" value="'+e(r.chiPhi||'')+'" style="'+INP+'"></div></div>'
+      +'<div><label style="'+LB+'">Chi phí (nếu có, đồng)</label><input id="qmCP" type="number" min="0" value="'+e(r.chiPhi||'')+'" style="'+INP+'"></div>'
+      +'<div style="grid-column:1/-1"><label style="'+LB+'">Vật tư / linh kiện thay thế (ghi vào lý lịch thiết bị)</label><input id="qmLK" value="'+e(r.linhKien||'')+'" placeholder="VD: Thay cảm biến O2 (P/N 6850645); thay dây SpO2" style="'+INP+'"></div></div>'
       +'<label style="'+LB+'">Ghi chú lần cập nhật này</label><input id="qmGC" placeholder="VD: Đã thay cảm biến O2, test rò khí đạt" style="'+INP+'">'
       +'<label style="'+LB+'">Người cập nhật</label><input id="qmAi" list="qltsStaffDl2" value="'+e(tenQL())+'" style="'+INP+';max-width:320px"><datalist id="qltsStaffDl2">'+S.staff.map(function(t){ return '<option value="'+e(t)+'">'; }).join('')+'</datalist>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button onclick="qltsLuuCapNhat(\''+id+'\')" style="'+BTN+'background:#0b3c5d;color:#fff">💾 Lưu cập nhật</button>'
@@ -60333,7 +60334,7 @@ window.qltsLuuCapNhat=function(id){
     if(tx<Math.floor(r.t/60000)*60000){ alert('Thời điểm hoàn tất không được trước lúc báo hỏng ('+fmtDT(r.t)+').'); return; }
     tx=Math.max(tx, r.t); if(tx>t+60000) tx=t;
     if(r.tt==='xong' && txEl && txEl.getAttribute('data-goc')===txs) tx=tXong(r)||tx;
-    up[P+'ketQua']=kq; up[P+'nguyenNhan']=nn||null; up[P+'chiPhi']=cp?(+cp):null; up[P+'tXong']=tx; up[P+'dungTruoc']=r.dung||'hanChe';
+    up[P+'ketQua']=kq; up[P+'nguyenNhan']=nn||null; up[P+'chiPhi']=cp?(+cp):null; up[P+'linhKien']=(g('qmLK')||'').trim()||null; up[P+'tXong']=tx; up[P+'dungTruoc']=r.dung||'hanChe';
     dung='duoc'; tLs=tx;
     if(r.tt!=='xong' || r.ketQua!==kq) thay.push('Kết quả: '+KET_QUA[kq]+(nn?(' ('+nn+')'):''));
     if(kq==='thanhLy') up['danhMuc/'+r.ma+'/thanhLy']=true;
@@ -61288,7 +61289,7 @@ window.qltsXemDC=function(){
 };
 
 /* ── In LÝ LỊCH THIẾT BỊ (Word .doc) ── */
-window.qltsInLyLich=function(ma){
+function inLyLichDoc(ma){
   var t=taiSan(ma); if(!t) return; var sc=scList().filter(function(r){ return r.ma===ma; }).sort(function(a,b){ return a.t-b.t; });
   var bt=Object.keys(BT()).map(function(k){ return BT()[k]; }).filter(function(x){ return x.ma===ma; }).sort(function(a,b){ return a.ngay-b.ngay; }), dc=lsDC(ma).reverse();
   var hang=function(a,b){ return '<tr><td style="width:30%;font-weight:bold;background:#f2f2f2">'+a+'</td><td>'+(b||'')+'</td></tr>'; }, d=new Date();
@@ -61305,7 +61306,87 @@ window.qltsInLyLich=function(ma){
   var css='body{font-family:"Times New Roman",serif;font-size:12.5pt}table.qh td{text-align:center;vertical-align:top}.td{text-align:center;font-weight:bold;font-size:15pt;margin:14pt 0 6pt}.m{font-weight:bold;margin:10pt 0 4pt}table.bg{width:100%;border-collapse:collapse;margin-bottom:6pt}table.bg td,table.bg th{border:1px solid #000;padding:3pt 5pt;font-size:11.5pt;vertical-align:top}table.bg th{background:#dbe5f1}table.ky td{width:50%;text-align:center;vertical-align:top;height:80pt}';
   var doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Ly lich thiet bi</title><style>@page WordSection1{size:595.3pt 841.9pt;margin:56.7pt 42.5pt 56.7pt 85pt}div.WordSection1{page:WordSection1}'+css+'</style></head><body><div class="WordSection1">'+body+'</div></body></html>';
   var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+doc],{type:'application/msword'})); a.download='LyLich_'+t.ma+'.doc'; document.body.appendChild(a); a.click(); a.remove();
+}
+window.qltsInLyLich=function(ma){ var t=taiSan(ma); if(!t) return; lyLichDocx([t], '', 'LyLich_'+t.ma+'.docx'); };
+/* ════════ SỔ LÝ LỊCH THIẾT BỊ (28/10/2026) — tự tổng hợp từ báo hỏng, sửa chữa, bảo dưỡng, điều chuyển ════════ */
+function nguoiNghiemThu(r){ var l=lsArr(r).filter(function(x){ return x.tt==='xong'; }); return l.length?(l[l.length-1].ai||''):''; }
+function soLieuLL(ma){
+  var sc=scList().filter(function(r){ return r.ma===ma; }).sort(function(a,b){ return a.t-b.t; });
+  var ng=0, cp=0; sc.forEach(function(r){ ng+=doanDung(r).filter(function(x){ return x.dung==='khong'; }).reduce(function(s,x){ return s+(x.b-x.a); },0); cp+=(+r.chiPhi||0); });
+  var bt=Object.keys(BT()).map(function(k){ return BT()[k]; }).filter(function(x){ return x.ma===ma; }).sort(function(a,b){ return a.ngay-b.ngay; });
+  return {sc:sc, ngung:ng, chiPhi:cp, bt:bt, dc:lsDC(ma).slice().reverse()};
+}
+function lyLichDocx(ds, tieuDe, tenFile){
+  if(!ds.length){ alert('Không có thiết bị nào.'); return; }
+  toast('⏳ Đang chuẩn bị sổ lý lịch '+ds.length+' thiết bị…', '#1565c0');
+  napDocx(function(ok){
+    if(!ok){ if(ds.length===1){ inLyLichDoc(ds[0].ma); return; } alert('Cần mạng để tải thư viện tạo file Word. Anh/chị kiểm tra mạng rồi thử lại.'); return; }
+    taiAnhDS(ds, true, function(anhMap){
+      var D=window.docx, FN='Times New Roman', d=new Date(), C=D.AlignmentType.CENTER;
+      var T=function(txt,o){ o=o||{}; return new D.TextRun({text:String(txt==null?'':txt), font:FN, size:o.size||22, bold:!!o.bold, italics:!!o.it, color:o.color}); };
+      var P=function(runs,o){ o=o||{}; return new D.Paragraph({children:[].concat(runs), alignment:o.al, spacing:{before:o.before||0, after:o.after||0}, pageBreakBefore:!!o.pb, keepNext:!!o.kn}); };
+      var IMG=function(src,w,h){ var b=b64Bytes(src); return b?new D.ImageRun({data:b, transformation:{width:w, height:h}}):null; };
+      var NO={style:D.BorderStyle.NONE,size:0,color:'FFFFFF'}, KHONG={top:NO,bottom:NO,left:NO,right:NO};
+      var cell=function(children,o){ o=o||{}; return new D.TableCell({children:children.length?children:[P(T(''))], width:o.w?{size:o.w,type:D.WidthType.PERCENTAGE}:undefined, verticalAlign:o.va||D.VerticalAlign.CENTER, shading:o.fill?{fill:o.fill,type:D.ShadingType.CLEAR,color:'auto'}:undefined, borders:o.borders, margins:{top:50,bottom:50,left:80,right:80}, columnSpan:o.span}); };
+      var bang=function(hd, W, rows){ var tr=[new D.TableRow({tableHeader:true, children:hd.map(function(h,i){ return cell([P(T(h,{bold:true,size:19}),{al:C})],{fill:'DBE5F1',w:W[i]}); })})];
+        rows.forEach(function(r){ tr.push(new D.TableRow({cantSplit:true, children:r.map(function(c,i){ return cell([].concat(c).map(function(x){ return typeof x==='string'||typeof x==='number'?P(T(x,{size:19}),{after:(x==='\u00a0'?420:0)}):x; }),{w:W[i],va:D.VerticalAlign.TOP}); })})); });
+        return new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE}, columnWidths:W.map(function(p){ return Math.round(p*9638/100); }), layout:D.TableLayoutType.FIXED, rows:tr}); };
+      var qh=function(){ return new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE}, borders:D.TableBorders.NONE, columnWidths:[3700,5938], layout:D.TableLayoutType.FIXED, rows:[new D.TableRow({children:[
+        cell([P(T('SỞ Y TẾ GIA LAI',{size:22}),{al:C}),P(T('BỆNH VIỆN ĐA KHOA',{bold:true}),{al:C}),P(T('TRUNG TÂM TỈNH GIA LAI',{bold:true}),{al:C}),P(T('KHOA GÂY MÊ HỒI SỨC',{bold:true}),{al:C})],{w:38,borders:KHONG,va:D.VerticalAlign.TOP}),
+        cell([P(T('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',{bold:true,size:21}),{al:C}),P(T('Độc lập – Tự do – Hạnh phúc',{bold:true}),{al:C}),P(T('Gia Lai, ngày '+p2(d.getDate())+' tháng '+p2(d.getMonth()+1)+' năm '+d.getFullYear(),{it:true}),{al:C,before:80})],{w:62,borders:KHONG,va:D.VerticalAlign.TOP})]})]}); };
+      var muc=function(txt){ return new D.Paragraph({children:[T(txt,{bold:true,size:23,color:'0B3C5D'})], spacing:{before:180,after:80}, keepNext:true}); };
+      var sections=[];
+      if(ds.length>1){
+        var bia=[qh(), P(T('SỔ LÝ LỊCH THIẾT BỊ Y TẾ',{bold:true,size:40}),{al:C,before:1600}), P(T(tieuDe||'',{bold:true,size:28}),{al:C,before:200}),
+          P(T('Gồm '+ds.length+' thiết bị · Lập ngày '+fmtD(Date.now()),{it:true}),{al:C,before:200}),
+          P(T('Sổ được tổng hợp tự động từ hệ thống Quản lý tài sản – Sự cố thiết bị của khoa: mỗi lần báo hỏng, sửa chữa, nghiệm thu, bảo dưỡng – kiểm định, điều chuyển đều được ghi vào lý lịch của từng thiết bị.',{size:20,it:true,color:'555555'}),{al:C,before:900}),
+          P(T('MỤC LỤC',{bold:true,size:26}),{al:C,pb:true,after:120}),
+          bang(['TT','Mã TS','Tên thiết bị','Bộ phận','Số lần hỏng','Giờ ngừng máy'],[6,10,46,20,9,9], ds.map(function(t,i){ var s=soLieuLL(t.ma); return [String(i+1),t.ma,t.ten,t.boPhan||'',String(s.sc.length),String(gio(s.ngung))]; }))];
+        sections.push({properties:{page:{margin:{top:1134,bottom:1134,left:1701,right:1134}}}, children:bia});
+      }
+      ds.forEach(function(t){
+        var s=soLieuLL(t.ma), n=nguonAnh(t), im=n?IMG(anhMap[n.k],190,190):null, qr=IMG(qrPng(t.ma),90,90), kids=[];
+        kids.push(qh()); kids.push(P(T('LÝ LỊCH THIẾT BỊ Y TẾ',{bold:true,size:32}),{al:C,before:240})); kids.push(P(T(t.ma+' — '+t.ten,{bold:true,size:24,color:'0B3C5D'}),{al:C,after:160}));
+        var tt=[['Tên thiết bị',t.ten],['Mã tài sản',t.ma],['Hãng / Model',[t.hang,t.model].filter(Boolean).join(' / ')],['Số serial',t.serial||''],['Loại TTBYT (A/B/C/D)',t.loaiTB||''],['Năm đưa vào sử dụng',t.namSD||''],['Nguồn hình thành',t.nguon||''],['Nhóm thiết bị',t.nhom],['Bộ phận / nhóm quản lý',(t.boPhan||'')+((nqlDs().filter(function(x){ return x.k===t.nql; })[0]||{}).ten?(' — Nhóm '+(nqlDs().filter(function(x){ return x.k===t.nql; })[0]).ten):'')],['Bảo hành đến',t.hanBH?fmtD(t.hanBH):''],['Đơn vị bảo trì / liên hệ',[t.dvBaoTri,t.sdtBaoTri].filter(Boolean).join(' — ')],['Tình trạng hiện tại',(DUNG[trangThaiTS(t)]||DUNG.duoc).ng+(t.thanhLy?' (đã thanh lý)':'')]];
+        var info=new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE}, columnWidths:[2700,4100], layout:D.TableLayoutType.FIXED, rows:tt.map(function(x){ return new D.TableRow({children:[cell([P(T(x[0],{bold:true,size:20}))],{fill:'F2F2F2',w:40}), cell([P(T(x[1],{size:20}))],{w:60})]}); })});
+        kids.push(new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE}, borders:D.TableBorders.NONE, columnWidths:[2838,6800], layout:D.TableLayoutType.FIXED, rows:[new D.TableRow({children:[
+          cell([im?P(im,{al:C}):P(T('(Chưa có ảnh)',{it:true,color:'888888'}),{al:C,before:600}), qr?P(qr,{al:C,before:80}):P(T('')), P(T('Quét QR: báo hỏng / kiểm tra',{size:16,it:true}),{al:C})],{w:29,borders:KHONG,va:D.VerticalAlign.TOP}),
+          cell([P(T('I. THÔNG TIN CHUNG',{bold:true,size:23,color:'0B3C5D'}),{after:60}), info],{w:71,borders:KHONG,va:D.VerticalAlign.TOP})]})]}));
+        kids.push(muc('II. TÓM TẮT'));
+        kids.push(P(T('Số lần hư hỏng: '+s.sc.length+' · Tổng thời gian ngừng máy: '+gio(s.ngung)+' giờ · Chi phí sửa chữa lũy kế: '+(s.chiPhi?s.chiPhi.toLocaleString('vi-VN')+' đồng':'—')+' · Số lần bảo dưỡng/kiểm định: '+s.bt.length+' · Số lần điều chuyển: '+s.dc.length,{size:21})));
+        kids.push(muc('III. LỊCH SỬ HƯ HỎNG – SỬA CHỮA ('+s.sc.length+')'));
+        if(s.sc.length) kids.push(bang(['TT','Số phiếu / ngày báo','Hiện tượng – người báo','Xử lý – nguyên nhân – vật tư thay thế','Kết quả – nghiệm thu','Ngừng máy (giờ)','Chi phí (đ)'],[5,13,22,24,18,9,9], s.sc.map(function(r,i){
+          var ng=doanDung(r).filter(function(x){ return x.dung==='khong'; }).reduce(function(a,x){ return a+(x.b-x.a); },0), tx=tXong(r);
+          return [String(i+1), [maSc(r._id), fmtDT(r.t)+'/'+new Date(r.t).getFullYear()], [(r.moTa||'')+' ('+(MUC[r.muc]||MUC.tb).t.toLowerCase()+')', 'Báo: '+(r.nguoiBao||'')],
+            (function(a){ return a.length?a:['—']; })([r.donVi?('Đơn vị: '+r.donVi):'', r.phuTrach?('Phụ trách: '+r.phuTrach):'', r.nguyenNhan?('Nguyên nhân: '+r.nguyenNhan):'', r.linhKien?('Vật tư/linh kiện thay: '+r.linhKien):'', r.thayThe?('Phương án thay thế: '+r.thayThe):''].filter(Boolean)),
+            r.tt==='xong'?[(KET_QUA[r.ketQua]||'Hoàn tất'), 'Ngày '+fmtD(tx), nguoiNghiemThu(r)?('Nghiệm thu: '+nguoiNghiemThu(r)):'']:['Đang xử lý: '+cotCua(r.tt).t],
+            String(gio(ng)), r.chiPhi?(+r.chiPhi).toLocaleString('vi-VN'):'']; })));
+        else kids.push(P(T('Chưa có hư hỏng nào được ghi nhận.',{it:true})));
+        kids.push(muc('IV. BẢO DƯỠNG – KIỂM ĐỊNH – HIỆU CHUẨN'));
+        kids.push(bang(['Loại','Chu kỳ (tháng)','Làm gần nhất','Hạn kế tiếp'],[34,20,23,23], ['bd','kd','hc'].map(function(l){ var h=hanBT(t,l); return [BT_LOAI[l].t, h?String(h.ck):'—', h&&h.gan?fmtD(h.gan):'', h&&h.han?fmtD(h.han):'']; })));
+        if(s.bt.length){ kids.push(P(T(''),{before:60})); kids.push(bang(['Ngày','Công việc','Kết quả','Đơn vị thực hiện','Số tem/GCN','Ghi chú'],[13,17,11,24,13,22], s.bt.map(function(x){ return [fmtD(x.ngay), (BT_LOAI[x.loai]||BT_LOAI.bd).t, x.dat===false?'Không đạt':'Đạt', x.donVi||'', x.soGCN||'', x.gc||'']; }))); }
+        kids.push(muc('V. ĐIỀU CHUYỂN ('+s.dc.length+')'));
+        if(s.dc.length) kids.push(bang(['Ngày','Từ','Đến','Hình thức','Lý do'],[13,24,24,13,26], s.dc.map(function(r){ return [fmtD(r.t), r.tu||'', r.den||'', r.loai==='tam'?'Tạm thời':r.loai==='tra'?'Trả về':'Lâu dài', r.lyDo||'']; })));
+        else kids.push(P(T('Chưa có.',{it:true})));
+        kids.push(muc('VI. GHI CHÉP BỔ SUNG'));
+        kids.push(bang(['Ngày','Nội dung','Người ghi'],[15,65,20], [['\u00a0','\u00a0','\u00a0'],['\u00a0','\u00a0','\u00a0'],['\u00a0','\u00a0','\u00a0'],['\u00a0','\u00a0','\u00a0']]));
+        kids.push(P(T(''),{before:120}));
+        kids.push(new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE}, borders:D.TableBorders.NONE, rows:[new D.TableRow({children:['NGƯỜI LẬP','ĐIỀU DƯỠNG TRƯỞNG KHOA','TRƯỞNG KHOA'].map(function(x){ return cell([P(T(x,{bold:true}),{al:C,before:200}),P(T('(Ký, ghi rõ họ tên)',{it:true}),{al:C})],{w:33,borders:KHONG,va:D.VerticalAlign.TOP}); })})]}));
+        sections.push({properties:{page:{margin:{top:1134,bottom:1134,left:1701,right:1134}}}, footers:{default:new D.Footer({children:[P(T('Lý lịch '+t.ma+' · cập nhật '+fmtDT(Date.now())+'/'+d.getFullYear()+' · Hệ thống QLTS khoa GMHS',{size:16,it:true,color:'777777'}),{al:D.AlignmentType.RIGHT})]})}, children:kids});
+      });
+      var doc=new D.Document({styles:{default:{document:{run:{font:FN, size:22}}}}, sections:sections});
+      D.Packer.toBlob(doc).then(function(blob){ var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=tenFile; document.body.appendChild(a); a.click(); a.remove(); toast('✅ Đã tạo '+tenFile); }).catch(function(err){ alert('Lỗi tạo file Word: '+err.message); });
+    });
+  });
+}
+window.qltsSoLyLich=function(){
+  var ds=locDm().filter(function(t){ return !t.an; });
+  if(!ds.length){ alert('Danh sách đang lọc không có thiết bị nào.'); return; }
+  var td=[S.loc.phong, S.loc.nql?('Nhóm '+((nqlDs().filter(function(x){ return x.k===S.loc.nql; })[0]||{}).ten||'')):'', S.loc.nhom].filter(Boolean).join(' · ')||'Toàn khoa';
+  if(!confirm('Tạo SỔ LÝ LỊCH (Word) cho '+ds.length+' thiết bị đang hiện ('+td+')?\nMỗi thiết bị 1 trang riêng: ảnh, QR, thông tin, lịch sử hư hỏng – sửa chữa, bảo dưỡng – kiểm định, điều chuyển.'+(ds.length>60?'\n\n⚠ Nhiều thiết bị — nên lọc theo phòng/nhóm để file gọn và tải ảnh nhanh hơn.':''))) return;
+  lyLichDocx(ds, td, 'SoLyLich_'+boDau(td).replace(/[^a-z0-9]+/gi,'_').slice(0,40)+'_'+dKeyMs(Date.now())+'.docx');
 };
+
 
 
 /* ════════ ẢNH TÀI SẢN (28/10/2026) ════════
@@ -61987,6 +62068,7 @@ function viewDanhMuc(){
     +'<button onclick="qltsInQR()" style="'+BTN+'background:#263238;color:#fff"><i class="ti ti-qrcode"></i> In tem QR '+(soChon?('('+soChon+' đã chọn)'):'(danh sách đang lọc)')+'</button>'
     +(soChon?'<button onclick="qltsBoChonHet()" style="'+BTN+'background:#eceff1;color:#37474f">Bỏ chọn</button>':'')
     +'<button onclick="qltsMoInDM()" style="'+BTN+'background:#1565c0;color:#fff">🖨 In · Word · Excel có ảnh</button>'
+    +'<button onclick="qltsSoLyLich()" title="Mỗi thiết bị 1 trang lý lịch: ảnh, QR, thông tin, lịch sử hư hỏng – sửa chữa, bảo dưỡng, điều chuyển (tự cập nhật)" style="'+BTN+'background:#4e342e;color:#fff">📚 Sổ lý lịch</button>'
     +'<button onclick="qltsXuatDm()" style="'+BTN+'background:#1b5e20;color:#fff"><i class="ti ti-file-spreadsheet"></i> Excel nhanh</button>'
     +'<button onclick="qltsXemDC()" style="'+BTN+'background:#6a1b9a;color:#fff">🔁 Điều chuyển</button>'
     +(ad?'<button onclick="qltsTab(\'ka\')" style="'+BTN+'background:#2e7d32;color:#fff">🖼 Khai báo ảnh</button>':'')
@@ -62053,7 +62135,7 @@ window.qltsXemTS=function(ma){
     +(list.length?list.map(function(r){ return '<div onclick="qltsXemSc(\''+r._id+'\')" style="cursor:pointer;padding:7px 9px;border:1px solid #eceff1;border-radius:8px;margin-bottom:5px;font-size:12.5px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+pillCot(r.tt)+' <b>'+fmtDT(r.t)+'</b> '+e(r.moTa||'').slice(0,80)+' <span style="margin-left:auto;color:#78909c">'+(r.tt==='xong'?dur(tXong(r)-r.t):'đang xử lý')+'</span></div>'; }).join(''):'<div style="color:#90a4ae;font-size:12.5px">Chưa có sự cố nào.</div>')
     +'<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button onclick="qltsDongModal();qltsTab(\'bao\');qltsChonTs(\''+e(ma)+'\')" style="'+BTN+'background:#c62828;color:#fff">⚠️ Báo hỏng thiết bị này</button>'
       +(nhomCanKT(t.nhom)?'<button onclick="qltsKiemTra(\''+e(ma)+'\')" style="'+BTN+'background:#2e7d32;color:#fff">✅ Kiểm tra trước sử dụng</button>':'')
-      +'<button onclick="qltsInLyLich(\''+e(ma)+'\')" style="'+BTN+'background:#1565c0;color:#fff">📄 In lý lịch (Word)</button>'
+      +'<button onclick="qltsInLyLich(\''+e(ma)+'\')" title="Lý lịch tự cập nhật từ mọi lần báo hỏng, sửa chữa, nghiệm thu, bảo dưỡng, điều chuyển" style="'+BTN+'background:#1565c0;color:#fff">📄 Lý lịch thiết bị (Word)</button>'
       +(quyenTS(ma)?'<button onclick="qltsGhiBT(\''+e(ma)+'\')" style="'+BTN+'background:#e3f2fd;color:#1565c0">✔ Ghi nhận bảo dưỡng/kiểm định</button>':'')+(isAdmin()?'<button onclick="qltsDieuChuyen(\''+e(ma)+'\')" style="'+BTN+'background:#f3e5f5;color:#6a1b9a">🔁 Điều chuyển</button>':'')+(isAdmin()?'<button onclick="qltsSuaTS(\''+e(ma)+'\')" style="'+BTN+'background:#e3f2fd;color:#0b3c5d">✏️ Sửa thông tin</button>':'')+'<span style="flex:1"></span><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>');
 };
 window.qltsSuaTS=function(ma){
