@@ -60011,14 +60011,16 @@ function viewBangSc(list, ad, now){
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px;color:#546e7a"><span>Hiện <b>'+L.length+'</b> sự cố'+(S.kb.tt?' — <a href="javascript:void 0" onclick="qltsKbTT(\''+S.kb.tt+'\')">bỏ lọc ô</a>':'')+'</span><span style="flex:1"></span>Sắp xếp: '
     +'<select onchange="qltsKbSx(this.value)" style="'+INP+';max-width:220px;padding:6px 8px;font-size:13px"><option value="moi" '+(S.kb.sx==='moi'?'selected':'')+'>Mới báo nhất (chia theo ngày)</option><option value="nang" '+(S.kb.sx==='nang'?'selected':'')+'>Nghiêm trọng trước</option><option value="tt" '+(S.kb.sx==='tt'?'selected':'')+'>Theo trạng thái xử lý</option></select></div>';
   if(!L.length) return h+the('<div style="color:#90a4ae;text-align:center;padding:12px">Không có sự cố phù hợp bộ lọc.</div>');
-  var ngayCu='', rows='', stt=0;
+  var ngayCu='', rows='', stt=0; S.scChon=S.scChon||{}; S._scL=L.map(function(r){ return r._id; });
+  Object.keys(S.scChon).forEach(function(k){ if(!SC()[k]) delete S.scChon[k]; });
   L.forEach(function(r){
     var c=cotCua(r.tt||'moi'), xong=r.tt==='xong', dk=xong?(r.ketQua==='thanhLy'?'thanhLy':'duoc'):(r.dung||'hanChe'), D_=DUNG[dk], mu=MUC[r.muc]||MUC.tb, tx=tXong(r);
-    if(S.kb.sx==='moi'){ var nn=nhanNgay(r.t); if(nn!==ngayCu){ ngayCu=nn; var sl=L.filter(function(x){ return nhanNgay(x.t)===nn; }).length; rows+='<tr><td colspan="10" style="background:#e3f2fd;font-weight:800;color:#0b3c5d;padding:7px 8px">📅 '+nn+' — '+sl+' sự cố</td></tr>'; } }
+    if(S.kb.sx==='moi'){ var nn=nhanNgay(r.t); if(nn!==ngayCu){ ngayCu=nn; var sl=L.filter(function(x){ return nhanNgay(x.t)===nn; }).length; rows+='<tr><td colspan="'+(ad?11:10)+'" style="background:#e3f2fd;font-weight:800;color:#0b3c5d;padding:7px 8px">📅 '+nn+' — '+sl+' sự cố</td></tr>'; } }
     stt++;
     var ttCell = ad ? '<select onclick="event.stopPropagation()" onchange="qltsDoiTT(\''+r._id+'\',this.value,this)" style="border:2px solid '+c.mau+';color:'+c.mau+';background:#fff;border-radius:8px;padding:4px 6px;font-weight:700;font-size:12px;font-family:inherit;max-width:170px">'+COT.map(function(x){ return '<option value="'+x.k+'" '+((r.tt||'moi')===x.k?'selected':'')+'>'+x.ic+' '+x.t+'</option>'; }).join('')+'</select>'
       : pillCot(r.tt||'moi');
-    rows+='<tr onclick="qltsXemSc(\''+r._id+'\')" style="cursor:pointer;'+(dk==='khong'?'background:#fff5f5':(dk==='hanChe'?'background:#fffdf3':''))+'">'
+    rows+='<tr onclick="qltsXemSc(\''+r._id+'\')" style="cursor:pointer;'+(S.scChon[r._id]?'background:#e3f2fd':(dk==='khong'?'background:#fff5f5':(dk==='hanChe'?'background:#fffdf3':'')))+'">'
+      +(ad?'<td onclick="event.stopPropagation()" style="text-align:center"><input type="checkbox" '+(S.scChon[r._id]?'checked':'')+' onchange="qltsScChon(\''+r._id+'\',this.checked)" style="width:17px;height:17px;cursor:pointer"></td>':'')
       +'<td style="border-left:5px solid '+D_.mau+';text-align:center;color:#78909c">'+stt+'</td>'
       +'<td style="white-space:nowrap">'+p2(new Date(r.t).getHours())+':'+p2(new Date(r.t).getMinutes())+'<div style="font-size:11px;color:#90a4ae">'+p2(new Date(r.t).getDate())+'/'+p2(new Date(r.t).getMonth()+1)+'</div></td>'
       +'<td><b>'+e(r.ten)+'</b><div style="font-size:11.5px;color:#78909c">'+nqlTag(nqlSc(r),true)+' '+e(r.ma)+' · '+e(phongCua(r.boPhan))+' · '+maSc(r._id)+(r.anNV&&ad?' · 🙈':'')+'</div></td>'
@@ -60028,9 +60030,19 @@ function viewBangSc(list, ad, now){
       +'<td>'+ttCell+(quaHan(r)?'<div class="qlts-blink" style="font-size:11px;font-weight:800;color:#c62828">⚠ Quá hạn tiếp nhận</div>':'')+'</td>'
       +'<td style="font-size:12px">'+e(r.nguoiBao||'')+(r.phuTrach?('<div style="color:#1565c0">🧑‍🔧 '+e(r.phuTrach)+'</div>'):'')+(r.donVi?('<div style="color:#6a1b9a">'+e(r.donVi)+'</div>'):'')+'</td>'
       +'<td style="white-space:nowrap;font-weight:700;color:'+(xong?'#2e7d32':D_.mau)+'">'+(xong?('✅ '+dur((tx||now)-r.t)):('<span data-qs="'+r.t+'">'+dur(now-r.t)+'</span>'))+'</td>'
-      +'<td style="white-space:nowrap" onclick="event.stopPropagation()">'+(!xong&&loaiBien(r)?nutTT('🪧','qltsInBien(\''+r._id+'\',\'A4\')',BIEN[loaiBien(r)].mau,'#fff',BIEN[loaiBien(r)].mau,'In biển cảnh báo')+' ':'')+nutTT('💬','qltsGhiChu(\''+r._id+'\')','#ffd54f','#fffde7','#8d6e00','Thêm ghi chú')+' '+nutTT('🕘','qltsXemSc(\''+r._id+'\')','#90a4ae','#fff','#455a64','Chi tiết & lịch sử')+'</td></tr>';
+      +'<td style="white-space:nowrap" onclick="event.stopPropagation()">'+(!xong&&loaiBien(r)?nutTT('🪧','qltsInBien(\''+r._id+'\',\'A4\')',BIEN[loaiBien(r)].mau,'#fff',BIEN[loaiBien(r)].mau,'In biển cảnh báo')+' ':'')+nutTT('💬','qltsGhiChu(\''+r._id+'\')','#ffd54f','#fffde7','#8d6e00','Thêm ghi chú')+' '+nutTT('🕘','qltsXemSc(\''+r._id+'\')','#90a4ae','#fff','#455a64','Chi tiết & lịch sử')+(ad?(' '+nutTT('✏️','qltsSuaSc(\''+r._id+'\')','#90caf9','#e3f2fd','#0d47a1','Sửa phiếu')+' '+nutTT('🗑','qltsXoaSc(\''+r._id+'\')','#ef9a9a','#ffebee','#c62828','Xóa phiếu')):'')+'</td></tr>';
   });
-  return h+'<div style="overflow:auto;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-height:70vh"><table class="qlts-tb"><thead><tr><th>#</th><th>Báo lúc</th><th>Thiết bị</th><th>Hiện tượng</th><th>Mức độ</th><th>Sử dụng</th><th>Trạng thái xử lý</th><th>Người báo / phụ trách</th><th>Thời gian</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  var nChon=Object.keys(S.scChon).filter(function(k){ return S.scChon[k]; }).length, tatCa=L.length && L.every(function(r){ return S.scChon[r._id]; });
+  if(ad) h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:8px 10px;border-radius:10px;'+(nChon?'background:#0b3c5d;color:#fff':'background:#eceff1;color:#455a64')+';font-size:12.5px">'
+    +(nChon?('<b style="font-size:13.5px">☑ Đã chọn '+nChon+' phiếu</b>'
+      +'<select onchange="qltsLoatTT(this.value);this.value=\'\'" style="'+INP+';width:auto;padding:5px 8px;font-size:12.5px"><option value="">↪ Chuyển trạng thái…</option>'+COT.map(function(x){ return '<option value="'+x.k+'">'+x.ic+' '+x.t+'</option>'; }).join('')+'</select>'
+      +'<select onchange="qltsLoatDung(this.value);this.value=\'\'" style="'+INP+';width:auto;padding:5px 8px;font-size:12.5px"><option value="">Tình trạng sử dụng…</option><option value="duoc">🟢 Dùng bình thường</option><option value="hanChe">🟡 Dùng có điều kiện</option><option value="khong">🔴 Không dùng được</option></select>'
+      +'<select onchange="qltsLoatMuc(this.value);this.value=\'\'" style="'+INP+';width:auto;padding:5px 8px;font-size:12.5px"><option value="">Mức độ…</option>'+Object.keys(MUC).map(function(k){ return '<option value="'+k+'">'+MUC[k].t+'</option>'; }).join('')+'</select>'
+      +'<button onclick="qltsLoatAn(true)" style="'+BTN+'padding:5px 10px;background:#fff;color:#37474f">🙈 Ẩn với NV</button><button onclick="qltsLoatAn(false)" style="'+BTN+'padding:5px 10px;background:#fff;color:#37474f">👁 Hiện lại</button>'
+      +'<button onclick="qltsLoatXoa()" style="'+BTN+'padding:5px 12px;background:#c62828;color:#fff">🗑 Xóa '+nChon+' phiếu</button><span style="flex:1"></span><button onclick="qltsScChonHet(false)" style="'+BTN+'padding:5px 10px;background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.5)">Bỏ chọn</button>')
+      :'<span>👑 Quản lý: tick ô ☐ đầu dòng (hoặc ô ở tiêu đề để chọn tất cả '+L.length+' phiếu đang lọc) để <b>sửa hàng loạt</b> (trạng thái, tình trạng sử dụng, mức độ, ẩn/hiện) hoặc <b>xóa</b>; nút ✏️ / 🗑 cuối dòng để sửa / xóa từng phiếu.</span>')
+    +'</div>';
+  return h+'<div style="overflow:auto;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-height:70vh"><table class="qlts-tb"><thead><tr>'+(ad?'<th style="text-align:center"><input type="checkbox" title="Chọn tất cả phiếu đang lọc" '+(tatCa?'checked':'')+' onchange="qltsScChonHet(this.checked)" style="width:17px;height:17px;cursor:pointer"></th>':'')+'<th>#</th><th>Báo lúc</th><th>Thiết bị</th><th>Hiện tượng</th><th>Mức độ</th><th>Sử dụng</th><th>Trạng thái xử lý</th><th>Người báo / phụ trách</th><th>Thời gian</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function theSc(r, ci, ad, now){ ad=quyenSc(r);
   var d=DUNG[r.dung]||DUNG.hanChe, xong=r.tt==='xong', tx=tXong(r);
@@ -60397,6 +60409,72 @@ window.qltsXoaSc=function(id){
   luu(up).then(function(){ qltsDongModal(); }).catch(function(err){ alert('Lỗi: '+err.message); });
 };
 
+
+/* ════════ 30/10/2026: QUẢN LÝ SỬA / XÓA PHIẾU SỰ CỐ HÀNG LOẠT ════════ */
+function scChonDs(){ return Object.keys(S.scChon||{}).filter(function(k){ return S.scChon[k] && SC()[k]; }); }
+window.qltsScChon=function(id,v){ S.scChon=S.scChon||{}; if(v) S.scChon[id]=true; else delete S.scChon[id]; render(); };
+window.qltsScChonHet=function(v){ S.scChon={}; if(v) (S._scL||[]).forEach(function(k){ S.scChon[k]=true; }); render(); };
+function loatLuu(up, n, viec){ luu(up).then(function(){ toast('✅ Đã '+viec+' '+n+' phiếu.'); render(); }).catch(function(err){ alert('Lỗi lưu: '+err.message); }); }
+window.qltsLoatTT=function(k){
+  if(!isAdmin()||!k) return; var ids=scChonDs(), c=COT.filter(function(x){ return x.k===k; })[0]; if(!ids.length||!c) return;
+  if(k==='xong'){
+    modalBox('<div style="font-weight:800;color:#2e7d32;font-size:15px">✅ Hoàn tất '+ids.length+' phiếu sự cố</div><div style="font-size:12.5px;color:#546e7a;margin:4px 0 8px">Áp dụng cùng một kết quả cho tất cả phiếu đã chọn. Thời điểm hoàn tất = bây giờ.</div>'
+      +'<label style="'+LB+'">Kết quả</label><select id="lxKQ" style="'+INP+'">'+Object.keys(KET_QUA).map(function(q){ return '<option value="'+q+'">'+KET_QUA[q]+'</option>'; }).join('')+'</select>'
+      +'<label style="'+LB+'">Nguyên nhân / ghi chú (không bắt buộc)</label><input id="lxNN" style="'+INP+'" placeholder="VD: Báo trùng / đã xử lý tại chỗ">'
+      +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="qltsLoatXong()" style="'+BTN+'background:#2e7d32;color:#fff">✅ Hoàn tất '+ids.length+' phiếu</button><span style="flex:1"></span><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Hủy</button></div>', 520);
+    return; }
+  if(!confirm('Chuyển '+ids.length+' phiếu sang “'+c.t+'”?')) return;
+  var t=Date.now(), up={}, ai=tenQL();
+  ids.forEach(function(id,i){ var r=SC()[id], P='suCo/'+id+'/'; if((r.tt||'moi')===k) return; var cu=COT.filter(function(x){ return x.k===(r.tt||'moi'); })[0]||COT[0];
+    up[P+'tt']=k; up[P+'capNhat']=t; if(r.tt==='xong'){ up[P+'tXong']=null; up[P+'ketQua']=null; up[P+'dung']=r.dungTruoc||'hanChe'; if(r.ketQua==='thanhLy') up['danhMuc/'+r.ma+'/thanhLy']=null; }
+    up[P+'lichSu/l'+t.toString(36)+i.toString(36)]={t:t, tt:k, dung:(r.tt==='xong'?(r.dungTruoc||'hanChe'):(r.dung||'hanChe')), ai:ai, gc:'Chuyển hàng loạt: '+cu.t+' → '+c.t}; });
+  loatLuu(up, ids.length, 'chuyển');
+};
+window.qltsLoatXong=function(){
+  if(!isAdmin()) return; var ids=scChonDs(); if(!ids.length) return; var kq=document.getElementById('lxKQ').value, nn=(document.getElementById('lxNN').value||'').trim(), t=Date.now(), up={}, ai=tenQL();
+  ids.forEach(function(id,i){ var r=SC()[id], P='suCo/'+id+'/'; if(r.tt==='xong') return; var tx=Math.max(t, r.t);
+    up[P+'tt']='xong'; up[P+'ketQua']=kq; up[P+'nguyenNhan']=nn||r.nguyenNhan||null; up[P+'tXong']=tx; up[P+'dungTruoc']=r.dung||'hanChe'; up[P+'dung']='duoc'; up[P+'capNhat']=t;
+    if(kq==='thanhLy') up['danhMuc/'+r.ma+'/thanhLy']=true;
+    up[P+'lichSu/l'+t.toString(36)+i.toString(36)]={t:tx, tt:'xong', dung:'duoc', ai:ai, gc:'Hoàn tất hàng loạt — '+KET_QUA[kq]+(nn?(' ('+nn+')'):'')}; });
+  qltsDongModal(); loatLuu(up, ids.length, 'hoàn tất');
+};
+window.qltsLoatDung=function(d){
+  if(!isAdmin()||!d) return; var ids=scChonDs(); if(!ids.length) return; if(!confirm('Đổi tình trạng sử dụng của '+ids.length+' phiếu thành “'+DUNG[d].t+'”?\n(Bỏ qua phiếu đã hoàn tất)')) return;
+  var t=Date.now(), up={}, ai=tenQL();
+  ids.forEach(function(id,i){ var r=SC()[id], P='suCo/'+id+'/'; if(r.tt==='xong' || r.dung===d) return; up[P+'dung']=d; up[P+'capNhat']=t;
+    up[P+'lichSu/l'+t.toString(36)+i.toString(36)]={t:t, tt:r.tt||'moi', dung:d, ai:ai, gc:'Sửa hàng loạt — Sử dụng: '+(DUNG[r.dung]||DUNG.hanChe).t+' → '+DUNG[d].t}; });
+  loatLuu(up, ids.length, 'cập nhật');
+};
+window.qltsLoatMuc=function(m){
+  if(!isAdmin()||!m) return; var ids=scChonDs(); if(!ids.length) return; var t=Date.now(), up={};
+  ids.forEach(function(id,i){ var r=SC()[id]; if(r.muc===m) return; up['suCo/'+id+'/muc']=m; up['suCo/'+id+'/capNhat']=t; up['suCo/'+id+'/lichSu/l'+t.toString(36)+i.toString(36)]={t:t, loai:'ghiChu', ai:tenQL(), gc:'Sửa hàng loạt — Mức độ: '+(MUC[r.muc]||MUC.tb).t+' → '+MUC[m].t}; });
+  loatLuu(up, ids.length, 'cập nhật mức độ');
+};
+window.qltsLoatAn=function(an){
+  if(!isAdmin()) return; var ids=scChonDs(); if(!ids.length) return; var t=Date.now(), up={};
+  ids.forEach(function(id,i){ up['suCo/'+id+'/anNV']=an||null; up['suCo/'+id+'/capNhat']=t; up['suCo/'+id+'/lichSu/l'+t.toString(36)+i.toString(36)]={t:t, loai:'ghiChu', ai:tenQL(), gc:an?'Ẩn sự cố với nhân viên (hàng loạt)':'Hiện lại sự cố với nhân viên (hàng loạt)'}; });
+  loatLuu(up, ids.length, an?'ẩn':'hiện lại');
+};
+window.qltsLoatXoa=function(){
+  if(!isAdmin()) return; var ids=scChonDs(); if(!ids.length) return;
+  var ds=ids.slice(0,15).map(function(id){ var r=SC()[id]; return '• '+maSc(id)+' — '+String(r.ten||'').slice(0,50); }).join('\n')+(ids.length>15?('\n… và '+(ids.length-15)+' phiếu khác'):'');
+  if(!confirm('XÓA HẲN '+ids.length+' phiếu sự cố:\n\n'+ds+'\n\nDùng khi báo nhầm / trùng / dữ liệu thử. KHÔNG hoàn tác được. Tiếp tục?')) return;
+  if(ids.length>=5 && !confirm('Xác nhận lần 2: xóa '+ids.length+' phiếu?')) return;
+  var up={}; ids.forEach(function(id){ up['suCo/'+id]=null; up['anh/'+id]=null; }); S.scChon={};
+  loatLuu(up, ids.length, 'xóa');
+};
+/* Xóa phiếu khác: biên bản kiểm tra đầu ca, phiếu điều chuyển / mượn (lịch sử) */
+window.qltsXoaKT=function(ngay, kid){
+  if(!isAdmin()) return; if(!confirm('Xóa biên bản kiểm tra này? (dùng khi nhập nhầm) — không hoàn tác được.')) return;
+  var up={}; up['kiemTra/'+ngay+'/'+kid]=null; if(S.ktCu && S.ktCu[ngay]) delete S.ktCu[ngay][kid];
+  luu(up).then(function(){ qltsDongModal(); toast('🗑 Đã xóa biên bản kiểm tra.'); render(); }).catch(function(err){ alert('Lỗi: '+err.message); });
+};
+window.qltsXoaDC=function(id){
+  if(!isAdmin()) return; var r=DC()[id]; if(!r) return; var dang=taiSanList(true).some(function(t){ return t.dcId===id; });
+  if(dang){ alert('Phiếu này đang có hiệu lực (thiết bị chưa trả). Bấm ↩ Trả trước, rồi mới xóa phiếu.'); return; }
+  if(!confirm('Xóa phiếu '+(r.loai==='tra'?'trả':'điều chuyển / mượn')+' '+r.ten+' ('+fmtDT(r.t)+')? — không hoàn tác được.')) return;
+  var up={}; up['dieuChuyen/'+id]=null; luu(up).then(function(){ toast('🗑 Đã xóa phiếu.'); qltsXemDC(); }).catch(function(err){ alert('Lỗi: '+err.message); });
+};
 /* ── In phiếu báo hỏng – đề nghị sửa chữa (thể thức hành chính, Times New Roman) ── */
 window.qltsInPhieu=function(id){
   var r=SC()[id]; if(!r) return; r=Object.assign({_id:id},r); var d=new Date(r.t);
@@ -61327,7 +61405,7 @@ window.qltsXemDC=function(){
       return '<tr style="'+(qh?'background:#fff5f5':'')+'"><td><b>'+e(t.ten)+'</b><div style="font-size:11px;color:#78909c">'+e(t.ma)+'</div></td><td>'+e(t.boPhanGoc)+'</td><td>'+e(t.boPhan)+'</td><td>'+(r.hanTra?(fmtD(r.hanTra)+(qh?' <b style="color:#c62828">quá hạn</b>':'')):'—')+'</td><td>'+(isAdmin()?'<button onclick="qltsTraDC(\''+e(t.ma)+'\')" style="'+BTN+'padding:3px 9px;background:#2e7d32;color:#fff">↩ Trả</button>':'')+'</td></tr>'; }).join('')+'</tbody></table>':'<div style="color:#90a4ae;font-size:12.5px">Không có.</div>')
     +'<div style="font-weight:700;margin:14px 0 6px">Lịch sử điều chuyển ('+L.length+')</div>'
     +(L.length?'<div style="max-height:340px;overflow:auto"><table class="qlts-tb"><thead><tr><th>Lúc</th><th>Thiết bị</th><th>Từ → Đến</th><th>Hình thức</th><th>Lý do</th><th></th></tr></thead><tbody>'+L.slice(0,200).map(function(r){
-      return '<tr><td style="white-space:nowrap">'+fmtDT(r.t)+'</td><td>'+e(r.ten)+'<div style="font-size:11px;color:#78909c">'+e(r.ma)+'</div></td><td>'+e(r.tu)+' → <b>'+e(r.den)+'</b></td><td>'+(r.loai==='tam'?('Tạm thời'+(r.daTra?' (đã trả)':'')):r.loai==='tra'?'Trả về':'Lâu dài')+'</td><td>'+e(r.lyDo||'')+'</td><td><button onclick="qltsInDC(\''+r._id+'\')" style="'+BTN+'padding:3px 8px;background:#eceff1;color:#37474f">🖨</button></td></tr>'; }).join('')+'</tbody></table></div>':'<div style="color:#90a4ae;font-size:12.5px">Chưa có.</div>')
+      return '<tr><td style="white-space:nowrap">'+fmtDT(r.t)+'</td><td>'+e(r.ten)+'<div style="font-size:11px;color:#78909c">'+e(r.ma)+'</div></td><td>'+e(r.tu)+' → <b>'+e(r.den)+'</b></td><td>'+(r.loai==='tam'?('Tạm thời'+(r.daTra?' (đã trả)':'')):r.loai==='tra'?'Trả về':'Lâu dài')+'</td><td>'+e(r.lyDo||'')+'</td><td style="white-space:nowrap"><button onclick="qltsInDC(\''+r._id+'\')" style="'+BTN+'padding:3px 8px;background:#eceff1;color:#37474f">🖨</button>'+(isAdmin()?' <button onclick="qltsXoaDC(\''+r._id+'\')" title="Xóa phiếu" style="'+BTN+'padding:3px 8px;background:#ffebee;color:#c62828">🗑</button>':'')+'</td></tr>'; }).join('')+'</tbody></table></div>':'<div style="color:#90a4ae;font-size:12.5px">Chưa có.</div>')
     +'<div style="text-align:right;margin-top:12px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>', 900);
 };
 
@@ -61896,7 +61974,7 @@ window.qltsBienBanKT=function(ngay, kid){
     +'<div style="display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;font-size:13px"><span>🕘 <b>'+fmtDT(x.t)+'/'+new Date(x.t).getFullYear()+'</b></span><span>👥 '+e(x.ca||caMacDinh(x.t))+'</span><span>👤 '+e(x.nguoi||'')+'</span><span style="font-weight:800;color:'+(x.dat===false?'#c62828':'#2e7d32')+'">'+(x.dat===false?'❌ KHÔNG ĐẠT':'✅ ĐẠT')+'</span></div>'
     +bang+(x.gc?'<div style="margin-top:8px;font-size:13px">📝 <b>Ghi chú:</b> '+e(x.gc)+'</div>':'')
     +'<div style="margin-top:10px;font-size:13px"><b>Chữ ký người kiểm tra:</b> <span id="bbKy">'+(x.kyK?'⏳':'<i style="color:#90a4ae">(lượt cũ — chưa có chữ ký)</i>')+'</span></div>'
-    +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="qltsInBBKT([\''+e(ngay)+'|'+e(kid)+'\'])" style="'+BTN+'background:#455a64;color:#fff">🖨 In biên bản</button><span style="flex:1"></span><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>', 680);
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="qltsInBBKT([\''+e(ngay)+'|'+e(kid)+'\'])" style="'+BTN+'background:#455a64;color:#fff">🖨 In biên bản</button>'+(isAdmin()?'<button onclick="qltsXoaKT(\''+e(ngay)+'\',\''+e(kid)+'\')" style="'+BTN+'background:#ffebee;color:#c62828">🗑 Xóa biên bản</button>':'')+'<span style="flex:1"></span><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>', 680);
   if(x.kyK) layKy(ngay, x.kyK, function(k){ var b=document.getElementById('bbKy'); if(b) b.innerHTML=k?('<br>'+kyHtml(k,60)):'<i style="color:#90a4ae">(không tải được)</i>'; });
 };
 /* In biên bản: 1 lần (chi tiết từng mục) hoặc nhiều lần (bảng tổng hợp theo ngày/phòng + mục không đạt) */
