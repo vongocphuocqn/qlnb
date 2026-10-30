@@ -60937,7 +60937,7 @@ function conBH(ts){ return ts.hanBH && ts.hanBH>Date.now(); }
 function canhBaoTS(ts){ // chip cảnh báo dùng ở Báo hỏng / Hồ sơ / Trang QR
   var o=[]; ['bd','kd','hc'].forEach(function(l){ var h=hanBT(ts,l); if(h && (h.tt==='qua'||h.tt==='sap')) o.push(chipBT(h,l)); });
   if(conBH(ts)) o.push('<span class="qlts-pill" style="background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9">🛡 Còn bảo hành đến '+fmtD(ts.hanBH)+' — liên hệ '+e(ts.dvBaoTri||'hãng')+', không tự sửa</span>');
-  if(ts.boPhanGoc) o.push('<span class="qlts-pill" style="background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8">🔁 Đang điều chuyển tạm từ '+e(ts.boPhanGoc)+'</span>');
+  if(ts.boPhanGoc) o.push(pillMuon(ts));
   return o.join(' ');
 }
 function dKeyMs(ms){ var d=new Date(ms); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
@@ -61143,7 +61143,10 @@ function viewKiemTraNgay(){
   var daKT={}; L.forEach(function(x){ if(!daKT[x.ma]) daKT[x.ma]=x; });
   var nDa=ds.filter(function(t){ return daKT[t.ma]; }).length, nKD=ds.filter(function(t){ return daKT[t.ma] && daKT[t.ma].dat===false; }).length;
   var ph={}; ds.forEach(function(t){ var p=t.phong; ph[p]=ph[p]||{n:0,da:0,kd:0}; ph[p].n++; if(daKT[t.ma]){ ph[p].da++; if(daKT[t.ma].dat===false) ph[p].kd++; } });
-  if(S.ktLoc.phong && !ph[S.ktLoc.phong]) S.ktLoc.phong='';
+  var muonDs=ds.filter(function(t){ return t.boPhanGoc; }), muonQH=muonDs.filter(function(t){ var x=muonInfo(t); return x&&x.qh; }).length, muonVao={}, choMuon={};
+  muonDs.forEach(function(t){ muonVao[t.phong]=(muonVao[t.phong]||0)+1; var g=phongCua(t.boPhanGoc); choMuon[g]=(choMuon[g]||0)+1; });
+  if(S.ktLoc.phong && S.ktLoc.phong!=='__muon' && !ph[S.ktLoc.phong]) S.ktLoc.phong='';
+  if(S.ktLoc.phong==='__muon' && !muonDs.length) S.ktLoc.phong='';
   var pc=ds.length?Math.round(nDa/ds.length*100):0;
   var h='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
     +'<div style="flex:1;min-width:260px;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08)"><div style="font-weight:800;color:#0b3c5d">✅ Kiểm tra trước sử dụng — '+(laHomNay?'hôm nay ':'')+fmtD(new Date(k+'T08:00').getTime())+'</div>'
@@ -61153,15 +61156,19 @@ function viewKiemTraNgay(){
     +'<button onclick="qltsInBBNgay(\''+k+'\')" style="'+BTN+'background:#455a64;color:#fff">🖨 In biên bản ngày</button><button onclick="qltsXuatKT(\''+k+'\')" style="'+BTN+'background:#1b5e20;color:#fff">📊 Sổ kiểm tra Excel</button></div>'
     +'<div style="font-size:12px;color:#546e7a;margin-bottom:6px">Chọn phòng → bấm <b>Kiểm tra</b> từng máy (hoặc quét QR dán trên máy). Danh sách gồm thiết bị hỗ trợ sự sống và bàn mổ; mục kiểm tra chỉnh ở ⚙️ Cấu hình.</div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:10px">'
+    +(function(){ var on=S.ktLoc.phong==='__muon'; return '<button onclick="qltsKtPhong(\'__muon\')" title="Thiết bị phòng này đang mượn tạm của phòng khác (vẫn thuộc phòng gốc quản lý)" style="'+BTN+'padding:8px 10px;text-align:left;'+(on?'background:#6a1b9a;color:#fff;border:2px solid #6a1b9a':'background:#f3e5f5;color:#6a1b9a;border:2px dashed '+(muonQH?'#e53935':'#ce93d8'))+'"><div>🔁 Mượn tạm</div><div style="font-weight:400;font-size:11px;opacity:.95">'+(muonDs.length?(muonDs.length+' thiết bị đang mượn'+(muonQH?(' · ⏰ '+muonQH+' quá hạn'):'')):'Không có thiết bị mượn')+'</div></button>'; })()
     +Object.keys(ph).sort(phongSort).map(function(p){ var x=ph[p], on=S.ktLoc.phong===p, du=x.da>=x.n;
-      return '<button onclick="qltsKtPhong(\''+e(p)+'\')" style="'+BTN+'padding:8px 10px;text-align:left;'+(on?'background:#0b3c5d;color:#fff;border:2px solid #0b3c5d':'background:#fff;color:#0b3c5d;border:2px solid '+(x.kd?'#ef9a9a':du?'#a5d6a7':'#cfd8dc'))+'"><div>'+e(p)+'</div><div style="font-weight:400;font-size:11px;opacity:.9">'+(du?'✅ ':'')+x.da+'/'+x.n+' đã kiểm tra'+(x.kd?(' · ❌ '+x.kd):'')+'</div></button>'; }).join('')+'</div>';
-  var hien=ds.filter(function(t){ return (!S.ktLoc.phong || t.phong===S.ktLoc.phong) && (!S.ktLoc.nql || t.nql===S.ktLoc.nql); }).sort(function(a,b){ return phongSort(a.phong,b.phong) || (!!daKT[a.ma])-(!!daKT[b.ma]) || a.nhom.localeCompare(b.nhom,'vi'); });
+      return '<button onclick="qltsKtPhong(\''+e(p)+'\')" style="'+BTN+'padding:8px 10px;text-align:left;'+(on?'background:#0b3c5d;color:#fff;border:2px solid #0b3c5d':'background:#fff;color:#0b3c5d;border:2px solid '+(x.kd?'#ef9a9a':du?'#a5d6a7':'#cfd8dc'))+'"><div>'+e(p)+'</div><div style="font-weight:400;font-size:11px;opacity:.9">'+(du?'✅ ':'')+x.da+'/'+x.n+' đã kiểm tra'+(x.kd?(' · ❌ '+x.kd):'')+'</div>'+((muonVao[p]||choMuon[p])?('<div style="font-weight:600;font-size:10.5px;color:'+(on?'#e1bee7':'#6a1b9a')+'">'+(muonVao[p]?('🔁 '+muonVao[p]+' mượn vào'):'')+(muonVao[p]&&choMuon[p]?' · ':'')+(choMuon[p]?('↗ '+choMuon[p]+' cho mượn'):'')+'</div>'):'')+'</button>'; }).join('')+'</div>';
+  var hien=ds.filter(function(t){ return (!S.ktLoc.phong || (S.ktLoc.phong==='__muon'?!!t.boPhanGoc:t.phong===S.ktLoc.phong)) && (!S.ktLoc.nql || t.nql===S.ktLoc.nql); }).sort(function(a,b){ return phongSort(a.phong,b.phong) || (!!daKT[a.ma])-(!!daKT[b.ma]) || a.nhom.localeCompare(b.nhom,'vi'); });
   h+='<div style="overflow:auto;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-height:60vh"><table class="qlts-tb"><thead><tr><th>Thiết bị</th><th>Phòng</th><th>Tình trạng</th><th>Kiểm tra '+(laHomNay?'hôm nay':'ngày này')+'</th><th></th></tr></thead><tbody>'
     +hien.slice(0,300).map(function(t){ var x=daKT[t.ma], st=m[t.ma]||'duoc';
-      return '<tr style="'+(x&&x.dat===false?'background:#fff5f5':x?'background:#f6fbf6':'')+'"><td><div style="display:flex;gap:8px;align-items:center">'+thumbHtml(t,40)+'<div><b>'+e(t.ten)+'</b><div style="font-size:11.5px;color:#78909c">'+e(t.ma)+' · '+e(t.nhom)+'</div></div></div></td><td style="font-size:12px">'+e(t.boPhan||'')+'</td><td>'+pillDung(st)+'</td>'
+      return '<tr style="'+(x&&x.dat===false?'background:#fff5f5':x?'background:#f6fbf6':'')+'"><td><div style="display:flex;gap:8px;align-items:center">'+thumbHtml(t,40)+'<div><b>'+e(t.ten)+'</b><div style="font-size:11.5px;color:#78909c">'+e(t.ma)+' · '+e(t.nhom)+'</div>'+(t.boPhanGoc?('<div style="margin-top:2px">'+pillMuon(t,true)+'</div>'):'')+'</div></div></td><td style="font-size:12px">'+e(t.boPhan||'')+'</td><td>'+pillDung(st)+'</td>'
         +'<td style="font-size:12.5px;'+(x?'cursor:pointer':'')+'" '+(x?('onclick="qltsBienBanKT(\''+k+'\',\''+x._id+'\')" title="Xem / in biên bản"'):'')+'>'+(x?('<span style="float:right;font-size:11px;color:#1565c0">📄 Biên bản</span>'):'')+(x?((x.dat===false?'<b style="color:#c62828">❌ Không đạt</b>':'<b style="color:#2e7d32">✅ Đạt</b>')+' · '+fmtDT(x.t).slice(0,5)+' · '+e(x.nguoi||'')+(x.dat===false&&x.loi?('<div style="color:#c62828;font-size:11.5px">'+e(x.loi.join('; '))+'</div>'):'')):'<span style="color:#a15c00">⏳ Chưa kiểm tra</span>')+'</td>'
-        +'<td>'+(laHomNay?'<button onclick="qltsKiemTra(\''+e(t.ma)+'\')" style="'+BTN+'padding:4px 10px;background:'+(x?'#eceff1;color:#37474f':'#2e7d32;color:#fff')+'">'+(x?'Kiểm tra lại':'✅ Kiểm tra')+'</button>':'')+'</td></tr>'; }).join('')
+        +'<td>'+(laHomNay?'<button onclick="qltsKiemTra(\''+e(t.ma)+'\')" style="'+BTN+'padding:4px 10px;background:'+(x?'#eceff1;color:#37474f':'#2e7d32;color:#fff')+'">'+(x?'Kiểm tra lại':'✅ Kiểm tra')+'</button>':'')+' '+nutMuon(t,true)+'</td></tr>'; }).join('')
     +'</tbody></table></div>';
+  var p0=S.ktLoc.phong, di=(p0&&p0!=='__muon')?ds.filter(function(t){ return t.boPhanGoc && phongCua(t.boPhanGoc)===p0 && t.phong!==p0 && (!S.ktLoc.nql || t.nql===S.ktLoc.nql); }):[];
+  if(di.length) h+='<div style="margin-top:10px;background:#faf5fc;border:1.5px dashed #ce93d8;border-radius:12px;padding:8px 12px"><div style="font-weight:800;color:#6a1b9a;font-size:13.5px">↗ Thiết bị của '+e(p0)+' đang cho phòng khác mượn ('+di.length+')</div><div style="font-size:12px;color:#78909c">Phòng mượn kiểm tra đầu ca; phòng gốc theo dõi để nhận lại đúng hạn.</div>'+di.map(function(t){ var y=muonInfo(t); return '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid #eee">'+thumbHtml(t,32)+'<div style="flex:1;font-size:12.5px"><b>'+e(t.ten)+'</b> <span style="color:#78909c">'+e(t.ma)+'</span><div>→ đang ở <b>'+e(y.den)+'</b>'+(y.ai?(' · '+e(y.ai)):'')+(y.han?(' · hạn '+fmtD(y.han)):'')+(y.qh?' <b style="color:#c62828">QUÁ HẠN</b>':'')+'</div></div>'+nutMuon(t,true)+'</div>'; }).join('')+'</div>';
+  if(muonDs.length) h+='<div style="margin-top:8px;text-align:right"><button onclick="qltsXemMuon()" style="'+BTN+'background:#6a1b9a;color:#fff">🔁 Danh sách đang mượn tạm ('+muonDs.length+')</button></div>';
   return h;
 }
 window.qltsKtNgay=function(v){ S.ktLoc.ngay=v||''; render(); };
@@ -61226,7 +61233,8 @@ function viewTrangTS(){
     +(canKT?big("qltsKiemTra('"+e(ma)+"')",'✅','Kiểm tra trước sử dụng','Đầu ca / trước khi dùng cho người bệnh','linear-gradient(135deg,#2e7d32,#1b5e20)'):'')
     +big("qltsTab('bao');qltsChonTs('"+e(ma)+"')",'⚠️','Báo hỏng / sự cố','Tạo thẻ Kanban, in biển cảnh báo','linear-gradient(135deg,#d32f2f,#8e0000)')
     +big("qltsXemTS('"+e(ma)+"')",'📄','Hồ sơ thiết bị','Lý lịch, bảo trì, lịch sử sự cố','linear-gradient(135deg,#1d6fa5,#0b3c5d)')
-    +'</div>';
+    +'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#faf5fc;border:1px dashed #ce93d8;border-radius:10px;padding:8px 12px;margin-bottom:12px"><span style="flex:1;min-width:200px;font-size:12.5px;color:#4a148c">'+(t.boPhanGoc?pillMuon(t):'🔁 Phòng khác cần dùng tạm thiết bị này? Ghi nhận mượn để dễ theo dõi, nhắc trả.')+'</span>'+nutMuon(t)+'</div>';
 }
 
 /* ════════ 🔁 ĐIỀU CHUYỂN TÀI SẢN GIỮA BỘ PHẬN ════════ */
@@ -61288,6 +61296,77 @@ window.qltsXemDC=function(){
     +'<div style="text-align:right;margin-top:12px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>', 900);
 };
 
+
+/* ════════ 🔁 MƯỢN TẠM GIỮA CÁC PHÒNG (30/10/2026) ════════
+   Phòng mượn dùng tạm, tài sản VẪN thuộc phòng gốc quản lý (nhóm quản lý tính theo boPhanGoc).
+   Ghi: danhMuc/{ma}/{boPhan=phòng đang dùng, boPhanGoc=phòng chủ quản, dcId, muon:{tu,den,han,ai,choMuon,lyDo,t}} + dieuChuyen/{id} (loai:'tam', muon:true).
+   Mọi nhân viên (tên thuộc DS NV) đều ghi mượn / trả được — có lưu vết người, giờ. */
+function muonInfo(t){ if(!t || !t.boPhanGoc) return null; var m=t.muon||{}, r=DC()[t.dcId]||{}, han=m.han||r.hanTra||null;
+  var hetHan=han?new Date(new Date(han).setHours(23,59,59,999)).getTime():null;
+  return {tu:t.boPhanGoc, den:t.boPhan||'', han:han, qh:!!(hetHan && Date.now()>hetHan), ai:m.ai||r.nhan||'', t:m.t||r.t||null, lyDo:m.lyDo||r.lyDo||''}; }
+function pillMuon(t, ngan){ var x=muonInfo(t); if(!x) return '';
+  var mau=x.qh?'#c62828':'#6a1b9a', bg=x.qh?'#ffebee':'#f3e5f5';
+  return '<span class="qlts-pill" title="Tài sản của '+e(x.tu)+' — đang cho '+e(x.den)+' mượn'+(x.ai?(' · người mượn: '+e(x.ai)):'')+(x.t?(' · từ '+fmtDT(x.t)):'')+(x.lyDo?(' · '+e(x.lyDo)):'')+'" style="background:'+bg+';color:'+mau+';border:1px solid '+mau+'66'+(ngan?';font-size:10.5px;padding:1px 6px':'')+'">🔁 Mượn của '+e(phongCua(x.tu))+(x.han?(' · hạn '+fmtD(x.han).slice(0,5)):'')+(x.qh?' · QUÁ HẠN':'')+'</span>'; }
+function nutMuon(t, nho){ var pad=nho?'padding:3px 8px;font-size:12px':'padding:5px 10px';
+  return t.boPhanGoc ? '<button onclick="qltsTraMuon(\''+e(t.ma)+'\')" title="Trả về '+e(t.boPhanGoc)+'" style="'+BTN+pad+';background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7">↩ Trả</button>'
+    : '<button onclick="qltsMuonTam(\''+e(t.ma)+'\')" title="Ghi nhận phòng khác mượn tạm thiết bị này" style="'+BTN+pad+';background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8">🔁 Mượn</button>'; }
+function bpDs(){ var b={}; taiSanList(true).forEach(function(x){ if(x.boPhan) b[x.boPhan]=1; if(x.boPhanGoc) b[x.boPhanGoc]=1; }); return Object.keys(b).sort(function(a,c){ return phongSort(phongCua(a),phongCua(c)) || a.localeCompare(c,'vi'); }); }
+window.qltsMuonHan=function(n){ var d=new Date(); d.setDate(d.getDate()+n); var i=document.getElementById('mtHan'); if(i) i.value=dKeyMs(d.getTime()); };
+window.qltsMuonTam=function(ma){
+  var t=taiSan(ma); if(!t) return; if(t.boPhanGoc){ qltsTraMuon(ma); return; }
+  var duoi=(/-\s*(GM|DC)\s*$/i.exec(t.boPhan||'')||[])[1]||'';
+  var ops=bpDs().filter(function(b){ return b!==t.boPhan; }).sort(function(a,b){ var sa=duoi&&new RegExp('-\\s*'+duoi+'\\s*$','i').test(a)?0:1, sb=duoi&&new RegExp('-\\s*'+duoi+'\\s*$','i').test(b)?0:1; return sa-sb || phongSort(phongCua(a),phongCua(b)); });
+  modalBox('<div style="display:flex;gap:10px;align-items:center">'+thumbHtml(t,56,10)+'<div><div style="font-size:12px;color:#6a1b9a;font-weight:700">🔁 GHI NHẬN MƯỢN TẠM</div><div style="font-weight:800;color:#0b3c5d;font-size:15px">'+e(t.ten)+'</div><div style="font-size:12px;color:#546e7a">'+e(t.ma)+' · thuộc <b>'+e(t.boPhan||'')+'</b> · '+nqlTag(t.nql,true)+'</div></div></div>'
+    +'<div style="background:#f3e5f5;border-radius:8px;padding:7px 10px;font-size:12.5px;color:#4a148c;margin-top:8px">Tài sản <b>vẫn thuộc '+e(t.boPhan||'')+'</b> quản lý (nhóm, phụ trách, bảo trì không đổi). Phòng mượn sẽ thấy máy trong danh sách kiểm tra đầu ca của phòng mình cho đến khi trả.</div>'
+    +'<label style="'+LB+'">Phòng / bộ phận mượn <span style="color:#c62828">*</span></label><select id="mtDen" style="'+INP+'"><option value="">— Chọn phòng mượn —</option>'+ops.map(function(b){ return '<option value="'+e(b)+'">'+e(b)+'</option>'; }).join('')+'</select>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="'+LB+'">Người mượn <span style="color:#c62828">*</span></label><input id="mtAi" list="mtStaff" value="'+e(lsGet('qltsNguoi')||'')+'" style="'+INP+'"></div><div><label style="'+LB+'">Người cho mượn</label><input id="mtCho" list="mtStaff" style="'+INP+'"></div></div><datalist id="mtStaff">'+S.staff.map(function(x){ return '<option value="'+e(x)+'">'; }).join('')+'</datalist>'
+    +'<label style="'+LB+'">Hạn trả</label><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><input type="date" id="mtHan" value="'+dKeyMs(Date.now())+'" style="'+INP+';width:auto"><button type="button" onclick="qltsMuonHan(0)" style="'+BTN+'padding:5px 10px;background:#eceff1;color:#37474f">Trong ngày</button><button type="button" onclick="qltsMuonHan(1)" style="'+BTN+'padding:5px 10px;background:#eceff1;color:#37474f">Ngày mai</button><button type="button" onclick="qltsMuonHan(3)" style="'+BTN+'padding:5px 10px;background:#eceff1;color:#37474f">3 ngày</button><button type="button" onclick="qltsMuonHan(7)" style="'+BTN+'padding:5px 10px;background:#eceff1;color:#37474f">1 tuần</button></div>'
+    +'<label style="'+LB+'">Lý do</label><input id="mtLyDo" list="mtLyDoDl" placeholder="VD: Máy của phòng đang hỏng / tăng ca mổ" style="'+INP+'"><datalist id="mtLyDoDl"><option value="Máy của phòng đang hỏng / chờ sửa"><option value="Tăng ca mổ, cần thêm thiết bị"><option value="Ca mổ đặc biệt cần thiết bị này"><option value="Hỗ trợ ca trực"></datalist>'
+    +'<label style="'+LB+'">Tình trạng khi giao / phụ kiện kèm theo</label><input id="mtTT" placeholder="VD: Hoạt động tốt, kèm cáp nguồn" style="'+INP+'">'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button id="mtLuu" onclick="qltsLuuMuon(\''+e(ma)+'\')" style="'+BTN+'background:#6a1b9a;color:#fff;padding:10px 16px">💾 Lưu mượn tạm</button><span style="flex:1"></span><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Hủy</button></div>', 620);
+};
+window.qltsLuuMuon=function(ma){
+  var t=taiSan(ma); if(!t) return; var g=function(x){ return ((document.getElementById(x)||{}).value||'').trim(); };
+  var den=g('mtDen'); if(!den){ alert('Vui lòng chọn phòng mượn.'); return; }
+  var ai=chuanTen(g('mtAi')); if(!ai){ alert('Vui lòng chọn đúng tên người mượn (trong Danh sách nhân viên).'); return; } lsSet('qltsNguoi', ai);
+  var cho=g('mtCho'); if(cho){ var c2=chuanTen(cho); if(!c2){ alert('Tên người cho mượn không có trong Danh sách nhân viên.'); return; } cho=c2; }
+  var han=ngayInput(g('mtHan')), now=Date.now(), id='dc'+now.toString(36)+Math.floor(Math.random()*1296).toString(36), up={}, P='danhMuc/'+ma+'/';
+  var rec={ma:ma, ten:t.ten, tu:t.boPhan||'', den:den, loai:'tam', muon:true, hanTra:han, lyDo:g('mtLyDo')||null, giao:cho||null, nhan:ai, tinhTrang:g('mtTT')||null, nguoi:ai, t:now};
+  up['dieuChuyen/'+id]=rec; up[P+'boPhan']=den; up[P+'boPhanGoc']=t.boPhan||''; up[P+'dcId']=id;
+  up[P+'muon']={tu:t.boPhan||'', den:den, han:han, ai:ai, choMuon:cho||null, lyDo:g('mtLyDo')||null, t:now};
+  var b=document.getElementById('mtLuu'); if(b){ b.disabled=true; b.textContent='⏳ Đang lưu…'; }
+  luu(up).then(function(){ qltsDongModal(); render(); toast('🔁 Đã ghi: '+phongCua(den)+' mượn '+t.ten.slice(0,36), '#6a1b9a'); })
+    .catch(function(err){ alert('Lỗi lưu: '+err.message); if(b){ b.disabled=false; b.textContent='💾 Lưu mượn tạm'; } });
+};
+window.qltsTraMuon=function(ma){
+  var t=taiSan(ma), x=muonInfo(t); if(!x) return;
+  modalBox('<div style="font-size:12px;color:#2e7d32;font-weight:700">↩ TRẢ THIẾT BỊ MƯỢN TẠM</div><div style="font-weight:800;color:#0b3c5d;font-size:15px">'+e(t.ten)+'</div><div style="font-size:12.5px;color:#546e7a">'+e(t.ma)+'</div>'
+    +'<div style="background:#f3e5f5;border-radius:8px;padding:8px 10px;font-size:13px;margin-top:8px">Đang ở: <b>'+e(x.den)+'</b> → trả về <b>'+e(x.tu)+'</b>'+(x.ai?('<br>Người mượn: '+e(x.ai)):'')+(x.t?(' · từ '+fmtDT(x.t)):'')+(x.han?('<br>Hạn trả: '+fmtD(x.han)+(x.qh?' <b style="color:#c62828">(quá hạn)</b>':'')):'')+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="'+LB+'">Người trả <span style="color:#c62828">*</span></label><input id="trAi" list="trStaff" value="'+e(lsGet('qltsNguoi')||'')+'" style="'+INP+'"></div><div><label style="'+LB+'">Người nhận lại</label><input id="trNhan" list="trStaff" style="'+INP+'"></div></div><datalist id="trStaff">'+S.staff.map(function(y){ return '<option value="'+e(y)+'">'; }).join('')+'</datalist>'
+    +'<label style="'+LB+'">Tình trạng khi trả</label><input id="trTT" value="Hoạt động bình thường, đủ phụ kiện" style="'+INP+'">'
+    +'<div style="font-size:12px;color:#a15c00;margin-top:6px">Nếu máy có hỏng hóc khi trả: lưu trả rồi bấm ⚠️ Báo hỏng để tạo sự cố.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button id="trLuu" onclick="qltsLuuTra(\''+e(ma)+'\')" style="'+BTN+'background:#2e7d32;color:#fff;padding:10px 16px">↩ Xác nhận trả về '+e(phongCua(x.tu))+'</button><span style="flex:1"></span><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Hủy</button></div>', 560);
+};
+window.qltsLuuTra=function(ma){
+  var t=taiSan(ma); if(!t||!t.boPhanGoc) return; var g=function(x){ return ((document.getElementById(x)||{}).value||'').trim(); };
+  var ai=chuanTen(g('trAi')); if(!ai){ alert('Vui lòng chọn đúng tên người trả (trong Danh sách nhân viên).'); return; } lsSet('qltsNguoi', ai);
+  var nh=g('trNhan'); if(nh){ var n2=chuanTen(nh); if(!n2){ alert('Tên người nhận lại không có trong Danh sách nhân viên.'); return; } nh=n2; }
+  var now=Date.now(), id='dc'+now.toString(36)+Math.floor(Math.random()*1296).toString(36), up={}, P='danhMuc/'+ma+'/';
+  var rec={ma:ma, ten:t.ten, tu:t.boPhan||'', den:t.boPhanGoc, loai:'tra', muon:!!t.muon, lyDo:'Trả về sau mượn tạm', giao:ai, nhan:nh||null, tinhTrang:g('trTT')||null, nguoi:ai, t:now, dcGoc:t.dcId||null};
+  up['dieuChuyen/'+id]=rec; up[P+'boPhan']=t.boPhanGoc; up[P+'boPhanGoc']=null; up[P+'dcId']=null; up[P+'muon']=null;
+  if(t.dcId) up['dieuChuyen/'+t.dcId+'/daTra']=now;
+  var b=document.getElementById('trLuu'); if(b){ b.disabled=true; b.textContent='⏳ Đang lưu…'; }
+  luu(up).then(function(){ qltsDongModal(); render(); toast('↩ Đã trả '+t.ten.slice(0,36)+' về '+phongCua(t.boPhanGoc)); })
+    .catch(function(err){ alert('Lỗi lưu: '+err.message); if(b){ b.disabled=false; }});
+};
+/* Danh sách đang mượn tạm (toàn khoa) — dùng ở tab Kiểm tra & Danh mục */
+window.qltsXemMuon=function(){
+  var ds=taiSanList(false).filter(function(t){ return t.boPhanGoc; }).sort(function(a,b){ var x=muonInfo(a), y=muonInfo(b); return (y.qh-x.qh) || phongSort(a.phong,b.phong); });
+  modalBox('<div style="font-weight:800;color:#6a1b9a;font-size:16px">🔁 Thiết bị đang mượn tạm ('+ds.length+')</div><div style="font-size:12.5px;color:#546e7a;margin:4px 0 8px">Tài sản vẫn thuộc phòng gốc quản lý. Dòng đỏ = quá hạn trả.</div>'
+    +(ds.length?'<div style="max-height:60vh;overflow:auto"><table class="qlts-tb" style="font-size:12.5px"><thead><tr><th>Thiết bị</th><th>Của phòng</th><th>Đang ở</th><th>Người mượn · lúc</th><th>Hạn trả</th><th></th></tr></thead><tbody>'+ds.map(function(t){ var x=muonInfo(t);
+      return '<tr style="'+(x.qh?'background:#fff5f5':'')+'"><td><b>'+e(t.ten)+'</b><div style="font-size:11px;color:#78909c">'+e(t.ma)+' · '+nqlTag(t.nql,true)+'</div></td><td>'+e(x.tu)+'</td><td><b>'+e(x.den)+'</b></td><td>'+e(x.ai||'')+(x.t?('<div style="font-size:11px;color:#78909c">'+fmtDT(x.t)+'</div>'):'')+'</td><td>'+(x.han?(fmtD(x.han)+(x.qh?' <b style="color:#c62828">quá hạn</b>':'')):'—')+'</td><td>'+nutMuon(t,true)+'</td></tr>'; }).join('')+'</tbody></table></div>':'<div style="color:#90a4ae">Hiện không có thiết bị nào đang mượn tạm.</div>')
+    +'<div style="text-align:right;margin-top:12px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>', 980);
+};
 /* ── In LÝ LỊCH THIẾT BỊ (Word .doc) ── */
 function inLyLichDoc(ma){
   var t=taiSan(ma); if(!t) return; var sc=scList().filter(function(r){ return r.ma===ma; }).sort(function(a,b){ return a.t-b.t; });
@@ -62031,7 +62110,7 @@ window.qltsNapLuu=function(){
 var NQL_MD=[{k:'gm',ten:'Gây mê',ic:'🫁',mau:'#1565c0'},{k:'dc',ten:'Dụng cụ',ic:'🧰',mau:'#6a1b9a'},{k:'hs',ten:'Hồi sức',ic:'🛏',mau:'#00838f'},{k:'chung',ten:'Dùng chung',ic:'🏥',mau:'#546e7a'}];
 function nqlDs(){ var c=((S.cfg||{}).nhomQL)||{}; return NQL_MD.map(function(n){ var x=c[n.k]||{}; return {k:n.k, ic:n.ic, mau:n.mau, ten:x.ten||n.ten, phuTrach:x.phuTrach||'', sdt:x.sdt||''}; }); }
 function nqlInfo(k){ return nqlDs().filter(function(n){ return n.k===k; })[0]||nqlDs()[3]; }
-function nqlCua(t){ if(t && t.nhomQL) return t.nhomQL; var b=boDau((t&&t.boPhan)||''); if(/(^|[\s-])gm\s*$/.test(b)||/gay me/.test(b)) return 'gm'; if(/(^|[\s-])dc\s*$/.test(b)||/dung cu/.test(b)) return 'dc'; if(/hoi suc|hoi tinh/.test(b)) return 'hs'; return 'chung'; }
+function nqlCua(t){ if(t && t.nhomQL) return t.nhomQL; var b=boDau((t&&(t.boPhanGoc||t.boPhan))||''); if(/(^|[\s-])gm\s*$/.test(b)||/gay me/.test(b)) return 'gm'; if(/(^|[\s-])dc\s*$/.test(b)||/dung cu/.test(b)) return 'dc'; if(/hoi suc|hoi tinh/.test(b)) return 'hs'; return 'chung'; }
 function nqlSc(r){ var t=taiSan(r.ma); return t?t.nql:nqlCua({boPhan:r.boPhan}); }
 function nqlTag(k, nho){ var n=nqlInfo(k); return '<span class="qlts-pill" title="Nhóm quản lý '+e(n.ten)+(n.phuTrach?(' — phụ trách: '+e(n.phuTrach)):'')+'" style="background:'+n.mau+'18;color:'+n.mau+';border:1px solid '+n.mau+'55'+(nho?';font-size:10.5px;padding:1px 6px':'')+'">'+n.ic+' '+e(n.ten)+'</span>'; }
 function nqlSelect(fn, val, nhan){ return '<select onchange="'+fn+'" title="Nhóm quản lý" style="'+INP+';max-width:180px"><option value="">— '+(nhan||'Mọi nhóm quản lý')+' —</option>'+nqlDs().map(function(n){ return '<option value="'+n.k+'" '+(val===n.k?'selected':'')+'>'+n.ic+' '+e(n.ten)+'</option>'; }).join('')+'</select>'; }
@@ -62060,6 +62139,7 @@ function locDm(){
     if(L.nql && t.nql!==L.nql) return false;
     if(L.tt && m[t.ma]!==L.tt) return false;
     if(L.chuaAnh && nguonAnh(t)) return false;
+    if(L.muon && !t.boPhanGoc) return false;
     if(ws.length){ var s=boDau([t.ma,t.ten,t.boPhan,t.phong,t.nhom].join(' ')); if(!ws.every(function(w){ return s.indexOf(w)>=0; })) return false; }
     return true;
   }).sort(function(a,b){ return phongSort(a.phong,b.phong) || a.ten.localeCompare(b.ten,'vi'); });
@@ -62078,6 +62158,7 @@ function viewDanhMuc(){
     +'<select onchange="qltsDmLoc(\'nhom\',this.value)" style="'+INP+';max-width:200px"><option value="">— Mọi nhóm thiết bị —</option>'+Object.keys(nhoms).sort().map(function(p){ return '<option '+(L.nhom===p?'selected':'')+'>'+e(p)+'</option>'; }).join('')+'</select>'
     +'<select onchange="qltsDmLoc(\'tt\',this.value)" style="'+INP+';max-width:180px"><option value="">— Mọi tình trạng —</option>'+['duoc','hanChe','khong','thanhLy'].map(function(k){ return '<option value="'+k+'" '+(L.tt===k?'selected':'')+'>'+DUNG[k].ic+' '+DUNG[k].ng+'</option>'; }).join('')+'</select>'
     +'<label style="font-size:12px;display:flex;gap:4px;align-items:center"><input type="checkbox" '+(L.chuaAnh?'checked':'')+' onchange="qltsDmLoc(\'chuaAnh\',this.checked)"> Chỉ máy chưa có ảnh ('+all.filter(function(x){ return !x.an && !nguonAnh(x); }).length+')</label>'
+    +'<label style="font-size:12px;display:flex;gap:4px;align-items:center;color:#6a1b9a;font-weight:700"><input type="checkbox" '+(L.muon?'checked':'')+' onchange="qltsDmLoc(\'muon\',this.checked)"> 🔁 Đang mượn tạm ('+all.filter(function(x){ return !x.an && x.boPhanGoc; }).length+')</label>'
     +(ad?'<label style="font-size:12px;display:flex;gap:4px;align-items:center"><input type="checkbox" '+(L.an?'checked':'')+' onchange="qltsDmLoc(\'an\',this.checked)"> Hiện TS đã ẩn</label>':'')
     +'</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center"><span style="font-size:12.5px;color:#546e7a">Đang hiện <b>'+ds.length+'</b>/'+all.length+' tài sản'+(soChon?(' · đã chọn <b>'+soChon+'</b>'):'')+'</span><span style="flex:1"></span>'
     +'<button onclick="qltsInQR()" style="'+BTN+'background:#263238;color:#fff"><i class="ti ti-qrcode"></i> In tem QR '+(soChon?('('+soChon+' đã chọn)'):'(danh sách đang lọc)')+'</button>'
@@ -62093,13 +62174,13 @@ function viewDanhMuc(){
     var st=m[t.ma];
     return '<tr style="'+(t.an?'opacity:.5':'')+'"><td><input type="checkbox" '+(S.chon[t.ma]?'checked':'')+' onchange="qltsChonTsIn(\''+e(t.ma)+'\',this.checked)"></td>'
       +'<td>'+thumbHtml(t,40)+'</td><td style="white-space:nowrap;font-weight:700">'+e(t.ma)+'</td>'
-      +'<td><a href="javascript:void 0" onclick="qltsXemTS(\''+e(t.ma)+'\')" style="color:#0b3c5d;font-weight:700;text-decoration:none">'+e(t.ten)+'</a>'+(laSongCon(t.nhom)?' <span title="Thiết bị hỗ trợ sự sống" style="color:#c62828">♥</span>':'')+' '+nqlTag(t.nql,true)+(t.an?' <i>(đã ẩn)</i>':'')+'</td>'
+      +'<td><a href="javascript:void 0" onclick="qltsXemTS(\''+e(t.ma)+'\')" style="color:#0b3c5d;font-weight:700;text-decoration:none">'+e(t.ten)+'</a>'+(laSongCon(t.nhom)?' <span title="Thiết bị hỗ trợ sự sống" style="color:#c62828">♥</span>':'')+' '+nqlTag(t.nql,true)+(t.boPhanGoc?(' '+pillMuon(t,true)):'')+(t.an?' <i>(đã ẩn)</i>':'')+'</td>'
       +'<td style="font-size:12px;color:#546e7a">'+e(t.nhom)+'</td><td style="font-size:12px">'+e(t.boPhan||'—')+'</td>'
       +'<td>'+pillDung(st)+'</td><td style="text-align:center">'+(dem[t.ma]||'')+'</td>'
       +'<td style="white-space:nowrap"><button onclick="qltsTab(\'bao\');qltsChonTs(\''+e(t.ma)+'\')" title="Báo hỏng" style="'+BTN+'padding:3px 8px;background:#ffebee;color:#c62828">⚠️</button> '
       +'<button onclick="qltsQR1(\''+e(t.ma)+'\')" title="Xem mã QR" style="'+BTN+'padding:3px 8px;background:#eceff1;color:#263238"><i class="ti ti-qrcode"></i></button>'
  +(quyenNhom(t.nql)?' <button onclick="qltsAnhTS(\''+e(t.ma)+'\')" title="Thêm / đổi ảnh" style="'+BTN+'padding:3px 8px;background:#e8f5e9;color:#2e7d32">🖼</button>':'')
-      +(ad?' <button onclick="qltsSuaTS(\''+e(t.ma)+'\')" title="Sửa" style="'+BTN+'padding:3px 8px;background:#e3f2fd;color:#0b3c5d">✏️</button> <button onclick="qltsDieuChuyen(\''+e(t.ma)+'\')" title="Điều chuyển sang bộ phận khác" style="'+BTN+'padding:3px 8px;background:#f3e5f5;color:#6a1b9a">🔁</button>':'')+(t.boPhanGoc?'<div style="font-size:11px;color:#6a1b9a">🔁 tạm từ '+e(t.boPhanGoc)+'</div>':'')+'</td></tr>';
+      +(ad?' <button onclick="qltsSuaTS(\''+e(t.ma)+'\')" title="Sửa" style="'+BTN+'padding:3px 8px;background:#e3f2fd;color:#0b3c5d">✏️</button> <button onclick="qltsDieuChuyen(\''+e(t.ma)+'\')" title="Điều chuyển sang bộ phận khác" style="'+BTN+'padding:3px 8px;background:#f3e5f5;color:#6a1b9a">🔁</button>':'')+' '+nutMuon(t,true)+'</td></tr>';
   }).join('');
   return bar+'<div style="overflow:auto;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-height:72vh"><table class="qlts-tb"><thead><tr><th><input type="checkbox" onchange="qltsChonTatCa(this.checked)" title="Chọn tất cả đang hiện"></th><th>Ảnh</th><th>Mã</th><th>Tên tài sản</th><th>Nhóm</th><th>Bộ phận</th><th>Tình trạng</th><th title="Số lần báo hỏng 12 tháng">Sự cố 12 th</th><th></th></tr></thead><tbody>'
     +(rows||'<tr><td colspan="9" style="text-align:center;color:#90a4ae;padding:16px">Không có tài sản phù hợp bộ lọc.</td></tr>')+'</tbody></table></div>'
