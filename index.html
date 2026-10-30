@@ -59689,7 +59689,7 @@ function ensureListeners(){
 }
 /* Bản tóm tắt nhỏ cho Trang chủ + Bảng tin thiết bị (mọi người dùng đều thấy) */
 function tinhTomTat(){
-  var m=mapTrangThai(), ds=taiSanList(false), o={ngung:0, hanChe:0, mo:0, quaHan:0, tong:ds.length, cot:{}, ds:[]}, list=scList(), moMoi={};
+  var m=mapTrangThai(), ds=taiSanList(false), o={ngung:0, hanChe:0, mo:0, quaHan:0, muon:ds.filter(function(t){ return t.boPhanGoc && !t.thanhLy; }).length, tong:ds.length, cot:{}, ds:[]}, list=scList(), moMoi={};
   COT.forEach(function(c){ if(c.k!=='xong') o.cot[c.k]=0; });
   list.forEach(function(r){ if(moLai(r)){ o.mo++; if(quaHan(r)) o.quaHan++; if(o.cot[r.tt]!=null) o.cot[r.tt]++; if(!moMoi[r.ma] || r.t>moMoi[r.ma].t) moMoi[r.ma]=r; } });
   ds.forEach(function(ts){ var d=m[ts.ma]; if(d==='khong') o.ngung++; else if(d==='hanChe') o.hanChe++; else return;
@@ -59708,14 +59708,15 @@ function tenCot(k){ for(var i=0;i<COT.length;i++) if(COT[i].k===k) return COT[i]
 function bangTinHTML(o, gon){
   o=o||{}; if(!o.tong) return '';
   var cot=o.cot||{}, ds=o.ds||[], loi=(o.ngung||0)+(o.hanChe||0);
-  var chip=function(ic,txt,n,mau,bg){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:'+bg+';color:'+mau+';border:1px solid '+mau+'55;border-radius:999px;padding:'+(gon?'3px 9px':'5px 11px')+';font-size:'+(gon?'12px':'12.5px')+';font-weight:700;white-space:nowrap">'+ic+' '+txt+' <b style="font-size:'+(gon?'13px':'15px')+'">'+n+'</b></span>'; };
-  var chips=chip('🔴','Ngừng sử dụng',o.ngung||0,'#c62828','#ffebee')+chip('🟡','Dùng có điều kiện',o.hanChe||0,'#a15c00','#fff8e1')
-    +COT.filter(function(c){ return c.k!=='xong'; }).map(function(c){ var n=cot[c.k]||0; return (n||c.k==='suaChua'||c.k==='moi')?chip(c.ic,c.t,n,c.mau,'#fff'):''; }).join('')
-    +(o.quaHan?chip('⏰','Quá hạn tiếp nhận',o.quaHan,'#b71c1c','#ffcdd2'):'');
+  var chip=function(ic,txt,n,mau,bg,k){ return '<span '+(k?('onclick="event.stopPropagation();qltsTin(\''+k+'\')" title="Bấm để xem danh sách '+txt.toLowerCase()+'" '):'')+'style="'+(k?'cursor:pointer;':'')+'display:inline-flex;align-items:center;gap:5px;background:'+bg+';color:'+mau+';border:1px solid '+mau+'55;border-radius:999px;padding:'+(gon?'3px 9px':'5px 11px')+';font-size:'+(gon?'12px':'12.5px')+';font-weight:700;white-space:nowrap">'+ic+' '+txt+' <b style="font-size:'+(gon?'13px':'15px')+'">'+n+'</b></span>'; };
+  var chips=chip('🔴','Ngừng sử dụng',o.ngung||0,'#c62828','#ffebee','ngung')+chip('🟡','Dùng có điều kiện',o.hanChe||0,'#a15c00','#fff8e1','hanChe')
+    +COT.filter(function(c){ return c.k!=='xong'; }).map(function(c){ var n=cot[c.k]||0; return (n||c.k==='suaChua'||c.k==='moi')?chip(c.ic,c.t,n,c.mau,'#fff',c.k):''; }).join('')
+    +(o.quaHan?chip('⏰','Quá hạn tiếp nhận',o.quaHan,'#b71c1c','#ffcdd2','quaHan'):'')
+    +(o.muon?chip('🔁','Đang mượn tạm',o.muon,'#6a1b9a','#f3e5f5','muon'):'');
   var tg=o.at?('cập nhật '+fmtDT(o.at)):'';
   if(!loi && !o.mo){
     return '<div onclick="qltsOpen(\'bang\')" style="cursor:pointer;background:#e8f5e9;border:1.5px solid #81c784;border-radius:11px;padding:'+(gon?'7px 12px':'10px 14px')+';margin-bottom:'+(gon?'8px':'6px')+';display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-      +'<span style="font-size:'+(gon?'13px':'14px')+';font-weight:800;color:#1b5e20">🛠 Bảng tin thiết bị: ✅ Tất cả '+o.tong+' thiết bị đang sẵn sàng sử dụng</span><span style="font-size:11px;color:#558b2f;margin-left:auto">'+tg+'</span></div>';
+      +'<span style="font-size:'+(gon?'13px':'14px')+';font-weight:800;color:#1b5e20">🛠 Bảng tin thiết bị: ✅ Tất cả '+o.tong+' thiết bị đang sẵn sàng sử dụng</span>'+(o.muon?(' '+chip('🔁','Đang mượn tạm',o.muon,'#6a1b9a','#f3e5f5','muon')):'')+'<span style="font-size:11px;color:#558b2f;margin-left:auto">'+tg+'</span></div>';
   }
   var dong=ds.slice(0,gon?4:6).map(function(x){ var c=tenCot(x.tt); return '<div onclick="event.stopPropagation();qltsOpen(\'ts\',\''+e(x.ma)+'\')" style="cursor:pointer;display:flex;gap:6px;align-items:baseline;font-size:12.5px;padding:3px 0;border-top:1px dashed #ffe0b2">'
       +'<span>'+(x.d==='khong'?'🔴':'🟡')+'</span><span style="font-weight:700;color:#37474f;flex:1;min-width:0">'+e(x.ten)+' <span style="font-weight:400;color:#78909c">— '+e(x.p||'')+'</span></span>'
@@ -59729,6 +59730,14 @@ function bangTinHTML(o, gon){
     +(gon?'':'<div style="font-size:11.5px;color:#6d4c41;margin-top:5px">👉 Thiết bị 🔴 KHÔNG được sử dụng; 🟡 dùng có điều kiện, theo dõi sát. Bấm vào bảng tin để xem chi tiết.</div>')
     +'</div>';
 }
+/* 30/10/2026: bấm từng chip Bảng tin → mở đúng danh sách (Kanban dạng Bảng đã lọc); nút Quay lại về chỗ cũ */
+window.qltsTin=function(k){
+  if(!screenOpen()) qltsOpen('bang');
+  if(k==='muon'){ qltsXemMuon(); return; }
+  S.kb.q=''; S.kb.phong=''; S.kb.muc=''; S.kb.ngay=''; S.kb.nql=''; S.kb.xongAll=false;
+  S.kb.tt = k==='ngung'?'_ngung' : k==='hanChe'?'_hc' : k==='quaHan'?'_qh' : k;
+  S.kb.view='bang'; S.tab='kanban'; render(); window.scrollTo(0,0);
+};
 function veTinHome(o){
   var box=document.getElementById('qltsTinHome');
   if(!box){ var ref=document.getElementById('qtBroadcastBadge'); if(!ref||!ref.parentNode) return; box=document.createElement('div'); box.id='qltsTinHome'; box.style.cssText='margin:4px 0'; ref.parentNode.insertBefore(box, ref.nextSibling); }
@@ -59766,13 +59775,24 @@ function veLai(soft){
   render();
 }
 window.qltsOpen=function(tab, ma){
-  ensureListeners(); staffInit();
+  ensureListeners(); staffInit(); var daMo=screenOpen();
+  if(!daMo){ S.stack=[]; S._tabTruoc=null; S._lui=false; try{ history.pushState({qlts:1},'',location.href); }catch(x){} }
   ['homeScreen','appScreen'].forEach(function(id){ var x=document.getElementById(id); if(x) x.style.display='none'; });
   var s=screen(); s.style.display='flex'; window.scrollTo(0,0);
   S.tab=tab||'bang'; if(S.tab==='ts') S.tsMa=ma;
   if(S.tab==='bao'){ S.form=formMoi(ma); S.sent=null; }
   render();
 };
+/* 30/10/2026: nút Quay lại (trình duyệt / chuột / điện thoại) đi lùi trong phân hệ thay vì thoát ra Trang chủ:
+   đóng cửa sổ đang mở → thoát trình chiếu → về thẻ (tab) trước → hết thì mới về Trang chủ. */
+window.addEventListener('popstate', function(){
+  if(!screenOpen()) return;
+  var giu=function(){ try{ history.pushState({qlts:1},'',location.href); }catch(x){} };
+  if(document.getElementById('qltsModal')){ qltsDongModal(); giu(); return; }
+  if(S.tv){ thoatTV(); render(); giu(); return; }
+  if(S.stack && S.stack.length){ S._lui=true; S.tab=S.stack.pop(); if(S.tab==='bao' && !S.form){ S.form=formMoi(); S.sent=null; } render(); window.scrollTo(0,0); return; }
+  S._tabTruoc=null; qltsClose();
+});
 window.qltsClose=function(){
   dongQuet(); qltsDongModal(); thoatTV();
   var s=screen(); if(s) s.style.display='none';
@@ -59795,6 +59815,8 @@ function pillCot(k){ var c=COT.filter(function(x){ return x.k===k; })[0]||COT[0]
 
 function render(){
   var s=screen(); if(!s) return;
+  if(S._tabTruoc!=null && S._tabTruoc!==S.tab && !S._lui){ S.stack=S.stack||[]; S.stack.push(S._tabTruoc); if(S.stack.length>30) S.stack.shift(); try{ history.pushState({qlts:1},'',location.href); }catch(x){} }
+  S._lui=false; S._tabTruoc=S.tab;
   var tabs=[['bang','📡 Trạng thái'],['kanban','🗂 Kanban sự cố'],['bao','⚠️ Báo hỏng'],['kt','✅ Kiểm tra đầu ca'],['bt','🛠 Bảo trì – Kiểm định'],['dm','📋 Danh mục'],['tk','📊 Downtime']];
   if(isAdmin()||ptHienTai()) tabs.push(['ka','🖼 Khai báo ảnh']); if(isAdmin()) tabs.push(['ch','⚙️ Cấu hình']);
   var body = S.tab==='ka' ? viewKhaiBaoAnh() : S.tab==='ts' ? viewTrangTS() : S.tab==='kt' ? viewKiemTra() : S.tab==='bt' ? viewBaoTri() : S.tab==='kanban' ? viewKanban() : S.tab==='bao' ? viewBao() : S.tab==='dm' ? viewDanhMuc() : S.tab==='tk' ? viewThongKe() : S.tab==='ch' ? viewCauHinh() : viewBang();
@@ -59815,6 +59837,7 @@ function render(){
     +tabs.map(function(t){ var on=S.tab===t[0]; return '<button onclick="qltsTab(\''+t[0]+'\')" style="'+BTN+(on?'background:#0b3c5d;color:#fff':'background:#fff;color:#0b3c5d;border:1.5px solid #90caf9')+'">'+t[1]+'</button>'; }).join('')
     +'</div>')
     +'<div class="qlts-body" style="padding:10px 12px 40px;max-width:'+MW+';width:100%;margin:0 auto">'
+    +((!S.tv && S.tab!=='bang' && S.stack && S.stack[S.stack.length-1]==='bang')?'<button onclick="history.back()" style="'+BTN+'background:#0b3c5d;color:#fff;margin-bottom:8px">← Quay lại Trạng thái</button>':'')
     +((S.tab!=='bang'&&!S.tv)?'<div id="qltsTinDai">'+bangTinHTML((S.demo||(S.dmLoaded&&S.scLoaded))?Object.assign(tinhTomTat(),{at:(S.tomTat||{}).at||Date.now()}):S.tomTat,true)+'</div>':'')
     +((!S.dmLoaded&&!S.demo)?'<div id="qltsDangTai">'+the('<div style="color:#78909c">⏳ Đang tải dữ liệu tài sản…</div>')+'</div>':'')
     +body+'</div>'
@@ -59972,14 +59995,15 @@ function nhanNgay(ms){ var d=new Date(ms), h=new Date(); h.setHours(0,0,0,0); va
 function viewBangSc(list, ad, now){
   var dem={}; COT.forEach(function(c){ dem[c.k]=0; }); list.forEach(function(r){ dem[r.tt||'moi']++; });
   var dangNg=list.filter(function(r){ return r.tt!=='xong' && r.dung==='khong'; }).length, dangHc=list.filter(function(r){ return r.tt!=='xong' && r.dung==='hanChe'; }).length;
-  var L=list.filter(function(r){ return !S.kb.tt || (S.kb.tt==='_ngung' ? (r.tt!=='xong'&&r.dung==='khong') : S.kb.tt==='_hc' ? (r.tt!=='xong'&&r.dung==='hanChe') : (r.tt||'moi')===S.kb.tt); });
+  var dangQH=list.filter(function(r){ return moLai(r) && quaHan(r); }).length;
+  var L=list.filter(function(r){ return !S.kb.tt || (S.kb.tt==='_ngung' ? (r.tt!=='xong'&&r.dung==='khong') : S.kb.tt==='_hc' ? (r.tt!=='xong'&&r.dung==='hanChe') : S.kb.tt==='_qh' ? (moLai(r)&&quaHan(r)) : (r.tt||'moi')===S.kb.tt); });
   var oMuc={khan:3,cao:2,tb:1,thap:0}, oDung={khong:2,hanChe:1,duoc:0};
   L.sort(S.kb.sx==='nang' ? function(a,b){ return ((b.tt!=='xong')-(a.tt!=='xong')) || (oDung[b.dung]||0)-(oDung[a.dung]||0) || (oMuc[b.muc]||0)-(oMuc[a.muc]||0) || a.t-b.t; }
     : S.kb.sx==='tt' ? function(a,b){ var ia=COT.map(function(c){return c.k;}); return ia.indexOf(a.tt||'moi')-ia.indexOf(b.tt||'moi') || b.t-a.t; }
     : function(a,b){ return b.t-a.t; });
   var o=function(k, txt, n, mau){ var on=S.kb.tt===k; return '<div onclick="qltsKbTT(\''+k+'\')" style="cursor:pointer;flex:1;min-width:120px;border-radius:10px;padding:7px 10px;border:2px solid '+mau+';'+(on?('background:'+mau+';color:#fff'):'background:#fff;color:'+mau)+'"><div style="font-size:22px;font-weight:900;line-height:1.1">'+n+'</div><div style="font-size:11.5px;font-weight:700">'+txt+'</div></div>'; };
   var h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+COT.map(function(c){ return o(c.k, c.ic+' '+c.t, dem[c.k], c.mau); }).join('')
-    +o('_ngung','🔴 Đang ngừng SD', dangNg, '#b71c1c')+o('_hc','🟡 Có điều kiện', dangHc, '#a15c00')+'</div>'
+    +o('_ngung','🔴 Đang ngừng SD', dangNg, '#b71c1c')+o('_hc','🟡 Có điều kiện', dangHc, '#a15c00')+o('_qh','⏰ Quá hạn tiếp nhận', dangQH, '#d50000')+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px;color:#546e7a"><span>Hiện <b>'+L.length+'</b> sự cố'+(S.kb.tt?' — <a href="javascript:void 0" onclick="qltsKbTT(\''+S.kb.tt+'\')">bỏ lọc ô</a>':'')+'</span><span style="flex:1"></span>Sắp xếp: '
     +'<select onchange="qltsKbSx(this.value)" style="'+INP+';max-width:220px;padding:6px 8px;font-size:13px"><option value="moi" '+(S.kb.sx==='moi'?'selected':'')+'>Mới báo nhất (chia theo ngày)</option><option value="nang" '+(S.kb.sx==='nang'?'selected':'')+'>Nghiêm trọng trước</option><option value="tt" '+(S.kb.sx==='tt'?'selected':'')+'>Theo trạng thái xử lý</option></select></div>';
   if(!L.length) return h+the('<div style="color:#90a4ae;text-align:center;padding:12px">Không có sự cố phù hợp bộ lọc.</div>');
