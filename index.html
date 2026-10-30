@@ -59564,6 +59564,9 @@ var MUC={
 };
 var KET_QUA={suaXong:'Đã sửa xong – đưa vào sử dụng', thayThe:'Thay thiết bị/bộ phận mới', khongLoi:'Kiểm tra không phát hiện lỗi', thanhLy:'Không sửa được – đề nghị thanh lý'};
 var NGUYEN_NHAN=['Hao mòn / tuổi thọ thiết bị','Thao tác sử dụng chưa đúng','Hỏng phụ kiện / vật tư tiêu hao','Sự cố nguồn điện / khí y tế','Lỗi phần mềm / hiệu chuẩn','Va chạm / rơi vỡ','Chưa xác định'];
+/* 30/10/2026: lỗi thường gặp của MÁY ĐIỀU HÒA — hiện khi chọn thiết bị là máy điều hòa */
+var HIEN_TUONG_DH=['Không lên nguồn / không khởi động','Không lạnh / lạnh yếu','Chảy nước / rò nước dàn lạnh','Kêu to / rung bất thường','Có mùi hôi / mùi khét','Remote không điều khiển được','Nháy đèn báo lỗi / hiện mã lỗi','Tự tắt / tự ngắt liên tục','Dàn nóng không chạy','Đóng tuyết / đóng băng dàn','Gió yếu / quạt không quay','Không giữ được nhiệt độ cài đặt','Cánh đảo gió không hoạt động','Nghi thiếu gas','Đến hạn vệ sinh / bảo dưỡng'];
+function laDieuHoa(t){ return !!t && (/dieu hoa|may lanh/.test(boDau(t.ten||'')) || /dieu hoa/.test(boDau(t.nhom||''))); }
 var HIEN_TUONG=['Không lên nguồn','Báo lỗi trên màn hình','Báo động liên tục / sai','Mất tín hiệu cảm biến','Rò khí / hở vòng thở','Pin không sạc / tụt nhanh','Hỏng dây cáp / phụ kiện','Không điều khiển được','Tiếng kêu bất thường','Nóng / có mùi khét'];
 /* Nhóm thiết bị (tự nhận theo tên). nhom[2]=1: thiết bị HỖ TRỢ SỰ SỐNG — ưu tiên cao khi phân tích. */
 var NHOM=[
@@ -59617,11 +59620,12 @@ function phongCua(bp){
   var b=String(bp||'').trim(); if(!b) return 'Chưa phân bộ phận';
   var x=boDau(b), m=/phong mo (\d{3})/.exec(x); if(m) return 'Phòng mổ '+m[1];
   if(/hoi tinh/.test(x)) return 'Phòng Hồi tỉnh'; if(/^kho\b|hanh chinh/.test(x)) return 'Kho – Hành chính';
-  if(/hoi suc/.test(x)) return 'Hồi sức'; if(/dsa/.test(x)) return 'Phòng DSA'; if(/chung/.test(x)) return 'Khu dùng chung';
+  if(/hoi suc/.test(x)) return 'Hồi sức'; if(/tien me/.test(x)){ var tg=/tang\s*(\d+)/.exec(x); return 'Phòng Tiền mê'+(tg?(' tầng '+tg[1]):''); }
+  if(/dsa/.test(x)) return 'Phòng DSA'; if(/chung/.test(x)) return 'Khu dùng chung';
   return b;
 }
 function phongSort(a,b){
-  function k(x){ var m=/(\d{3})/.exec(x); if(/^Phòng mổ/.test(x)&&m) return '0'+m[1]; if(x==='Hồi sức') return '1'; if(x==='Phòng Hồi tỉnh') return '2'; if(x==='Kho – Hành chính') return '8'; if(x==='Chưa phân bộ phận') return '9'; return '5'+x; }
+  function k(x){ var m=/(\d{3})/.exec(x); if(/^Phòng mổ/.test(x)&&m) return '0'+m[1]; if(x==='Hồi sức') return '1'; if(x==='Phòng Hồi tỉnh') return '2'; if(/^Phòng Tiền mê/.test(x)) return '3'+x; if(x==='Kho – Hành chính') return '8'; if(x==='Chưa phân bộ phận') return '9'; return '5'+x; }
   return k(a).localeCompare(k(b),'vi');
 }
 function slaPhut(muc){ var c=(S.cfg&&S.cfg.sla)||{}; var v=+c[muc]; return v>0?v:(MUC[muc]?MUC[muc].sla:240); }
@@ -60107,7 +60111,7 @@ function viewBao(){
     +opt('dung','khong',f.dung==='khong','🔴 KHÔNG dùng được<div style="font-weight:400;font-size:11px">Treo biển “Thiết bị hỏng – không sử dụng”</div>','#c62828')
     +'</div>'
     +'<label style="'+LB+'">5. Hiện tượng / mô tả <span style="color:#c62828">*</span></label>'
-    +'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">'+HIEN_TUONG.map(function(h){ return '<button type="button" class="qlts-chip" onclick="qltsChip(this)">'+e(h)+'</button>'; }).join('')+'</div>'
+    +(laDieuHoa(f.ma?taiSan(f.ma):null)?'<div style="font-size:12px;color:#00838f;font-weight:700;margin-bottom:4px">❄️ Lỗi thường gặp của máy điều hòa — bấm để chọn nhanh</div>':'')+'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">'+(laDieuHoa(f.ma?taiSan(f.ma):null)?HIEN_TUONG_DH:HIEN_TUONG).map(function(h){ return '<button type="button" class="qlts-chip" onclick="qltsChip(this)">'+e(h)+'</button>'; }).join('')+'</div>'
     +'<textarea id="qltsMoTa" rows="3" placeholder="VD: Máy báo lỗi O2 sensor, không hiệu chuẩn được…" style="'+INP+'">'+e(f.moTa)+'</textarea>'
     +'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px">'
     +'<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="qltsNB" '+(f.nb?'checked':'')+'> 👤 Đang ảnh hưởng người bệnh / ca mổ</label>'
@@ -62142,7 +62146,7 @@ window.qltsNapLuu=function(){
 var NQL_MD=[{k:'gm',ten:'Gây mê',ic:'🫁',mau:'#1565c0'},{k:'dc',ten:'Dụng cụ',ic:'🧰',mau:'#6a1b9a'},{k:'hs',ten:'Hồi sức',ic:'🛏',mau:'#00838f'},{k:'chung',ten:'Dùng chung',ic:'🏥',mau:'#546e7a'}];
 function nqlDs(){ var c=((S.cfg||{}).nhomQL)||{}; return NQL_MD.map(function(n){ var x=c[n.k]||{}; return {k:n.k, ic:n.ic, mau:n.mau, ten:x.ten||n.ten, phuTrach:x.phuTrach||'', sdt:x.sdt||''}; }); }
 function nqlInfo(k){ return nqlDs().filter(function(n){ return n.k===k; })[0]||nqlDs()[3]; }
-function nqlCua(t){ if(t && t.nhomQL) return t.nhomQL; var b=boDau((t&&(t.boPhanGoc||t.boPhan))||''); if(/(^|[\s-])gm\s*$/.test(b)||/gay me/.test(b)) return 'gm'; if(/(^|[\s-])dc\s*$/.test(b)||/dung cu/.test(b)) return 'dc'; if(/hoi suc|hoi tinh/.test(b)) return 'hs'; return 'chung'; }
+function nqlCua(t){ if(t && t.nhomQL) return t.nhomQL; var b=boDau((t&&(t.boPhanGoc||t.boPhan))||''); if(/(^|[\s-])chung\s*$/.test(b)) return 'chung'; if(/(^|[\s-])gm\s*$/.test(b)||/gay me/.test(b)) return 'gm'; if(/(^|[\s-])dc\s*$/.test(b)||/dung cu/.test(b)) return 'dc'; if(/hoi suc|hoi tinh/.test(b)) return 'hs'; return 'chung'; }
 function nqlSc(r){ var t=taiSan(r.ma); return t?t.nql:nqlCua({boPhan:r.boPhan}); }
 function nqlTag(k, nho){ var n=nqlInfo(k); return '<span class="qlts-pill" title="Nhóm quản lý '+e(n.ten)+(n.phuTrach?(' — phụ trách: '+e(n.phuTrach)):'')+'" style="background:'+n.mau+'18;color:'+n.mau+';border:1px solid '+n.mau+'55'+(nho?';font-size:10.5px;padding:1px 6px':'')+'">'+n.ic+' '+e(n.ten)+'</span>'; }
 function nqlSelect(fn, val, nhan){ return '<select onchange="'+fn+'" title="Nhóm quản lý" style="'+INP+';max-width:180px"><option value="">— '+(nhan||'Mọi nhóm quản lý')+' —</option>'+nqlDs().map(function(n){ return '<option value="'+n.k+'" '+(val===n.k?'selected':'')+'>'+n.ic+' '+e(n.ten)+'</option>'; }).join('')+'</select>'; }
@@ -62315,15 +62319,28 @@ function tinhDongBoDM(cu){
   QLTS_BO.forEach(function(n){ var k=maTuStt(n), c=cu[k]; if(c && !trongDs[k] && !c.an){ up['danhMuc/'+k+'/an']=true; up['danhMuc/'+k+'/ghiChu']=(c.ghiChu?c.ghiChu+' · ':'')+'Không có trong danh sách TS khoa ngày '+QLTS_SEED_NGAY; r.an++; } });
   r.can=r.moi+r.sua+r.an+r.hien; return r;
 }
+/* 30/10/2026: BỔ SUNG TÀI SẢN DÙNG CHUNG (máy điều hòa) — bộ phận đuôi "- CHUNG" → nhóm quản lý Dùng chung của từng phòng; thêm phòng Tiền mê tầng 3, tầng 4 */
+var QLTS_BS_NGAY="30/10/2026", QLTS_BS=[["MÁY ĐIỀU HÒA HS1", "HỒI SỨC - CHUNG"], ["MÁY ĐIỀU HÒA HS2", "HỒI SỨC - CHUNG"], ["MÁY ĐIỀU HÒA HS3", "HỒI SỨC - CHUNG"], ["MÁY ĐIỀU HÒA HS4", "HỒI SỨC - CHUNG"], ["MÁY ĐIỀU HÒA HS TIM", "HỒI SỨC - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 201 (T)", "PHÒNG MỔ 201 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 201 (P)", "PHÒNG MỔ 201 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 202 (T)", "PHÒNG MỔ 202 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 202 (P)", "PHÒNG MỔ 202 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 301 (T)", "PHÒNG MỔ 301 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 301 (P)", "PHÒNG MỔ 301 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 302 (T)", "PHÒNG MỔ 302 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 302 (P)", "PHÒNG MỔ 302 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 401 (T)", "PHÒNG MỔ 401 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 401 (P)", "PHÒNG MỔ 401 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 402 (T)", "PHÒNG MỔ 402 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 402 (P)", "PHÒNG MỔ 402 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 203", "PHÒNG MỔ 203 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 204", "PHÒNG MỔ 204 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 303", "PHÒNG MỔ 303 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 304", "PHÒNG MỔ 304 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 403", "PHÒNG MỔ 403 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG MỔ 404", "PHÒNG MỔ 404 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG HỒI TỈNH (T)", "PHÒNG HỒI TỈNH - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG HỒI TỈNH (P)", "PHÒNG HỒI TỈNH - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG TIỀN MÊ TẦNG 3 (T)", "PHÒNG TIỀN MÊ TẦNG 3 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG TIỀN MÊ TẦNG 3 (P)", "PHÒNG TIỀN MÊ TẦNG 3 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG TIỀN MÊ TẦNG 4 (T)", "PHÒNG TIỀN MÊ TẦNG 4 - CHUNG"], ["MÁY ĐIỀU HÒA PHÒNG TIỀN MÊ TẦNG 4 (P)", "PHÒNG TIỀN MÊ TẦNG 4 - CHUNG"]];
+function bsKey(ten,bp){ return boDau(ten).replace(/[^a-z0-9]+/g,' ').trim()+'|'+boDau(bp).replace(/[^a-z0-9]+/g,' ').trim(); }
+function bsThieu(){ var co={}, m=DM(); Object.keys(m).forEach(function(k){ var x=m[k]||{}; co[bsKey(x.ten,x.boPhanGoc||x.boPhan)]=1; }); return QLTS_BS.filter(function(x){ return !co[bsKey(x[0],x[1])]; }); }
+function nhacBoSung(){ if(S.demo || !S.dmLoaded || !Object.keys(S.dm||{}).length || !isAdmin()) return ''; var t=bsThieu(); if(!t.length) return '';
+  return '<div style="background:#e8f5e9;border:2px solid #66bb6a;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:260px"><div style="font-weight:800;color:#1b5e20;font-size:15px">🏥 Bổ sung '+t.length+' tài sản DÙNG CHUNG (máy điều hòa) ngày '+QLTS_BS_NGAY+'</div><div style="font-size:12.5px;color:#33691e;margin-top:3px">Mỗi phòng có thêm nhóm <b>🏥 Dùng chung</b>; thêm phòng <b>Tiền mê tầng 3, tầng 4</b>. Chỉ thêm mới, không sửa/xóa tài sản đang có.</div></div><button onclick="qltsNapBoSung()" style="'+BTN+'background:#2e7d32;color:#fff;font-size:14px;padding:10px 16px">➕ Thêm ngay</button></div>'; }
+window.qltsNapBoSung=function(){
+  if(!isAdmin()){ alert('Cần đăng nhập Quản lý.'); return; } var t=bsThieu(); if(!t.length){ alert('Đã bổ sung đủ.'); return; }
+  if(!confirm('Thêm '+t.length+' tài sản dùng chung:\n\n'+t.map(function(x){ return '• '+x[0]+' — '+x[1]; }).join('\n')+'\n\nTiếp tục?')) return;
+  var mx=0; Object.keys(DM()).forEach(function(k){ var m=/^TS(\d+)$/.exec(k); if(m) mx=Math.max(mx,+m[1]); });
+  var up={}, now=Date.now(); t.forEach(function(x,i){ var ma='TS'+String(mx+1+i).padStart(4,'0'); up['danhMuc/'+ma]={ten:x[0], boPhan:x[1], stt:mx+1+i, nhom:'Máy điều hòa', taoLuc:now, ghiChu:'Bổ sung tài sản dùng chung '+QLTS_BS_NGAY}; });
+  luu(up).then(function(){ alert('✅ Đã thêm '+t.length+' tài sản (mã TS'+String(mx+1).padStart(4,'0')+' – TS'+String(mx+t.length).padStart(4,'0')+').'); render(); }).catch(function(err){ alert('Lỗi: '+err.message); });
+};
 /* Thanh nhắc "có danh sách tài sản mới" — chỉ Quản lý thấy, tự ẩn khi danh mục đã khớp */
 function nhacCapNhatDM(){
   if(S.demo || !S.dmLoaded || !Object.keys(S.dm||{}).length) return '';
-  var r=tinhDongBoDM(S.dm); if(!r.can) return '';
+  var r=tinhDongBoDM(S.dm); if(!r.can) return nhacBoSung();
   if(!isAdmin()) return '<div style="background:#fff8e1;border:1px dashed #ffb300;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#5d4037">📥 Có danh sách tài sản khoa mới ngày '+QLTS_SEED_NGAY+' chưa cập nhật — Quản lý đăng nhập để bấm <b>Cập nhật danh mục</b>.</div>';
   return '<div style="background:#fff8e1;border:2px solid #ffb300;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
     +'<div style="flex:1;min-width:260px"><div style="font-weight:800;color:#e65100;font-size:15px">📥 Có danh sách tài sản khoa mới ngày '+QLTS_SEED_NGAY+' ('+QLTS_SEED.length+' tài sản)</div>'
     +'<div style="font-size:12.5px;color:#5d4037;margin-top:3px">Thêm mới <b>'+r.moi+'</b> · Cập nhật tên/bộ phận <b>'+r.sua+'</b> · Hiện lại <b>'+r.hien+'</b> · Ẩn (không còn trong danh sách, không xóa) <b>'+r.an+'</b>. Mã TS, QR, ảnh và lịch sử của tài sản cũ được giữ nguyên.</div></div>'
-    +'<button onclick="qltsNapSeed()" style="'+BTN+'background:#e65100;color:#fff;font-size:14px;padding:10px 16px">⬇ Cập nhật danh mục ngay</button></div>';
+    +'<button onclick="qltsNapSeed()" style="'+BTN+'background:#e65100;color:#fff;font-size:14px;padding:10px 16px">⬇ Cập nhật danh mục ngay</button></div>'+nhacBoSung();
 }
 window.qltsNapSeed=function(){
   if(!isAdmin()){ alert('Cần đăng nhập Quản lý để cập nhật danh mục.'); return; }
