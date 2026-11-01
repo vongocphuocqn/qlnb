@@ -59714,30 +59714,55 @@ function capNhatTomTat(){
   o.at=Date.now(); try{ R('tomTat').set(o).catch(function(){}); }catch(x){}
 }
 function tenCot(k){ for(var i=0;i<COT.length;i++) if(COT[i].k===k) return COT[i]; return null; }
-/* Khối Bảng tin: dùng cho Trang chủ (gon=false) và dải trên các tab của phân hệ (gon=true) */
+/* Khối Bảng tin: dùng cho Trang chủ (gon=false) và dải trên các tab của phân hệ (gon=true)
+   01/11/2026 21:45: trình bày lại cho dễ đọc — 1 câu tóm tắt; chia nhóm "KHÔNG ĐƯỢC DÙNG" / "DÙNG CÓ ĐIỀU KIỆN";
+   mỗi máy 1 dòng (tên rút gọn · phòng · bước xử lý · thời gian); bước xử lý + mượn tạm gom 1 dòng nhỏ cuối, ẩn số 0. */
+function tenGonTin(t){ t=String(t||'').replace(/\s*\(.*$/,'').trim(); var a=t.split(/\s+-\s*|\s*-\s+/)[0].trim(); return a.length>=5?a:t; }
+function durGon(ms){ var p=Math.max(0,Math.round((ms||0)/60000)); if(p<60) return (p<1?1:p)+' phút'; var g=Math.floor(p/60); if(g<24) return g+' giờ'; return Math.floor(g/24)+' ngày'; }
+var BT_GD={moi:'Chờ tiếp nhận', kiemTra:'Đang kiểm tra', suaChua:'Đang sửa', choLK:'Chờ linh kiện', nghiemThu:'Chờ nghiệm thu'};
 function bangTinHTML(o, gon){
   o=o||{}; if(!o.tong) return '';
-  var cot=o.cot||{}, ds=o.ds||[], loi=(o.ngung||0)+(o.hanChe||0);
-  var chip=function(ic,txt,n,mau,bg,k){ return '<span '+(k?('onclick="event.stopPropagation();qltsTin(\''+k+'\')" title="Bấm để xem danh sách '+txt.toLowerCase()+'" '):'')+'style="'+(k?'cursor:pointer;':'')+'display:inline-flex;align-items:center;gap:5px;background:'+bg+';color:'+mau+';border:1px solid '+mau+'55;border-radius:999px;padding:'+(gon?'3px 9px':'5px 11px')+';font-size:'+(gon?'12px':'12.5px')+';font-weight:700;white-space:nowrap">'+ic+' '+txt+' <b style="font-size:'+(gon?'13px':'15px')+'">'+n+'</b></span>'; };
-  var chips=chip('🔴','Ngừng sử dụng',o.ngung||0,'#c62828','#ffebee','ngung')+chip('🟡','Dùng có điều kiện',o.hanChe||0,'#a15c00','#fff8e1','hanChe')
-    +COT.filter(function(c){ return c.k!=='xong'; }).map(function(c){ var n=cot[c.k]||0; return (n||c.k==='suaChua'||c.k==='moi')?chip(c.ic,c.t,n,c.mau,'#fff',c.k):''; }).join('')
-    +(o.quaHan?chip('⏰','Chưa có người nhận xử lý',o.quaHan,'#b71c1c','#ffcdd2','quaHan'):'')
-    +(o.muon?chip('🔁','Đang mượn tạm',o.muon,'#6a1b9a','#f3e5f5','muon'):'');
-  var tg=o.at?('cập nhật '+fmtDT(o.at)):'';
-  if(!loi && !o.mo){
-    return '<div onclick="qltsOpen(\'bang\')" style="cursor:pointer;background:#e8f5e9;border:1.5px solid #81c784;border-radius:11px;padding:'+(gon?'7px 12px':'10px 14px')+';margin-bottom:'+(gon?'8px':'6px')+';display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-      +'<span style="font-size:'+(gon?'13px':'14px')+';font-weight:800;color:#1b5e20">🛠 Bảng tin thiết bị: ✅ Tất cả '+o.tong+' thiết bị đang sẵn sàng sử dụng</span>'+(o.muon?(' '+chip('🔁','Đang mượn tạm',o.muon,'#6a1b9a','#f3e5f5','muon')):'')+'<span style="font-size:11px;color:#558b2f;margin-left:auto">'+tg+'</span></div>';
+  var cot=o.cot||{}, ds=o.ds||[], ng=o.ngung||0, hc=o.hanChe||0, loi=ng+hc, tg=o.at?('cập nhật '+fmtDT(o.at)):'', fs=gon?'12.5px':'13.5px';
+  var lk=function(k,html,mau,tit){ return '<span onclick="event.stopPropagation();qltsTin(\''+k+'\')" title="'+e(tit||'Bấm để xem danh sách')+'" style="cursor:pointer;white-space:nowrap;color:'+mau+';font-weight:700;text-decoration:underline dotted">'+html+'</span>'; };
+  /* Dòng phụ: phiếu đang xử lý theo bước (chỉ hiện bước có số) + chưa ai nhận + mượn tạm */
+  var gd=COT.filter(function(c){ return c.k!=='xong' && cot[c.k]; }).map(function(c){ return lk(c.k, (cot[c.k])+' '+(BT_GD[c.k]||c.t).toLowerCase(), c.mau, 'Bấm để xem phiếu: '+c.t); });
+  var phu=[];
+  if(gd.length) phu.push('<span style="color:#546e7a">Phiếu đang xử lý:</span> '+gd.join('<span style="color:#b0bec5"> · </span>'));
+  if(o.quaHan) phu.push(lk('quaHan','⏰ '+o.quaHan+' phiếu chưa ai nhận xử lý','#b71c1c','Phiếu chờ quá thời hạn mà chưa ai bấm Tiếp nhận'));
+  if(o.muon) phu.push(lk('muon','🔁 '+o.muon+' máy đang mượn tạm','#6a1b9a','Bấm để xem máy đang mượn tạm'));
+  var dongPhu=phu.length?'<div style="font-size:'+(gon?'11.5px':'12px')+';line-height:1.6;margin-top:6px;padding-top:5px;border-top:1px solid rgba(0,0,0,.08);display:flex;flex-wrap:wrap;gap:4px 14px">'+phu.map(function(x){ return '<span>'+x+'</span>'; }).join('')+'</div>':'';
+  /* Không có thiết bị nào bị hạn chế sử dụng */
+  if(!loi){
+    return '<div onclick="qltsOpen(\'bang\')" style="cursor:pointer;background:#e8f5e9;border:1.5px solid #81c784;border-left:5px solid #2e7d32;border-radius:11px;padding:'+(gon?'7px 12px':'10px 14px')+';margin-bottom:'+(gon?'8px':'6px')+'">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:'+(gon?'13px':'14px')+';font-weight:800;color:#1b5e20">🛠 Bảng tin thiết bị: ✅ Tất cả '+o.tong+' thiết bị đang dùng được</span><span style="font-size:11px;color:#558b2f;margin-left:auto">'+tg+'</span></div>'
+      +dongPhu+'</div>';
   }
-  var dong=ds.slice(0,gon?4:6).map(function(x){ var c=tenCot(x.tt); return '<div onclick="event.stopPropagation();qltsOpen(\'ts\',\''+e(x.ma)+'\')" style="cursor:pointer;display:flex;gap:6px;align-items:baseline;font-size:12.5px;padding:3px 0;border-top:1px dashed #ffe0b2">'
-      +'<span>'+(x.d==='khong'?'🔴':'🟡')+'</span><span style="font-weight:700;color:#37474f;flex:1;min-width:0">'+e(x.ten)+' <span style="font-weight:400;color:#78909c">— '+e(x.p||'')+'</span></span>'
-      +(c?'<span style="white-space:nowrap;color:'+c.mau+';font-weight:700">'+c.ic+' '+c.t+'</span>':'')+(x.qh?'<span class="qlts-blink" style="white-space:nowrap;color:#b71c1c;font-weight:800;margin-left:4px">⏰ chờ '+dur(Date.now()-x.qh)+'</span>':'')+'</div>'; }).join('')
-    +(ds.length>(gon?4:6)?'<div style="font-size:11.5px;color:#8d6e63;padding-top:2px">… và '+((o.ngung||0)+(o.hanChe||0)-(gon?4:6))+' thiết bị khác</div>':'');
-  return '<div onclick="qltsOpen(\'bang\')" style="cursor:pointer;background:'+(o.ngung?'linear-gradient(135deg,#ffebee,#fff3e0)':'#fff8e1')+';border:1.5px solid '+(o.ngung?'#ef9a9a':'#ffcc80')+';border-radius:11px;padding:'+(gon?'8px 12px':'10px 14px')+';margin-bottom:'+(gon?'8px':'6px')+'">'
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><span style="font-size:'+(gon?'13.5px':'14.5px')+';font-weight:800;color:'+(o.ngung?'#b71c1c':'#e65100')+'">🛠 Bảng tin thiết bị – tình trạng hiện hành</span>'
-    +'<span style="font-size:11px;color:#8d6e63;margin-left:auto">'+o.tong+' thiết bị đang quản lý · '+tg+'</span></div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div>'
-    +(dong?'<div style="margin-top:6px">'+dong+'</div>':'')
-    +(gon?'':'<div style="font-size:11.5px;color:#6d4c41;margin-top:5px">👉 Thiết bị 🔴 KHÔNG được sử dụng; 🟡 dùng có điều kiện, theo dõi sát. Bấm vào bảng tin để xem chi tiết.'+(o.quaHan?'<br>⏰ <b>Chưa có người nhận xử lý</b> = phiếu đã chờ quá thời gian ('+['khan','cao','tb','thap'].map(function(k){ var m=slaPhut(k); return (MUC[k]||{}).t+' '+(m>=60?(Math.round(m/6)/10+' giờ'):(m+' phút')); }).join(' · ')+') mà chưa ai bấm Tiếp nhận — <b>báo ngay Phụ trách nhóm</b>.':'')+'</div>')
+  var max=gon?4:6, daHien=0;
+  var nhom=function(d, so, tieuDe, mau, nen, k){
+    if(!so) return '';
+    var L=ds.filter(function(x){ return x.d===d; }), con=Math.max(0, max-daHien), hien=L.slice(0, con); daHien+=hien.length;
+    var thua=so-hien.length;
+    return '<div style="margin-top:7px">'
+      +'<div onclick="event.stopPropagation();qltsTin(\''+k+'\')" title="Bấm để xem tất cả" style="cursor:pointer;display:inline-block;background:'+nen+';color:'+mau+';font-weight:800;font-size:'+(gon?'11.5px':'12px')+';letter-spacing:.3px;border-radius:5px;padding:2px 8px">'+tieuDe+' ('+so+')</div>'
+      +hien.map(function(x){
+        var tt=x.tt?(BT_GD[x.tt]||((tenCot(x.tt)||{}).t)||''):'Chưa có phiếu', c=tenCot(x.tt)||{mau:'#78909c'}, lau=x.t && (Date.now()-x.t)>7*864e5;
+        return '<div onclick="event.stopPropagation();qltsOpen(\'ts\',\''+e(x.ma)+'\')" title="'+e(x.ten)+'" style="cursor:pointer;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-size:'+fs+';padding:4px 0 4px 10px;border-left:3px solid '+mau+';margin-top:4px">'
+          +'<span style="flex:1 1 200px;min-width:0"><b style="color:#263238">'+e(tenGonTin(x.ten))+'</b> <span style="color:#607d8b">· '+e(x.p||'')+'</span></span>'
+          +'<span style="white-space:nowrap;font-size:'+(gon?'11.5px':'12.5px')+'"><span style="color:'+c.mau+';font-weight:700">'+e(tt)+'</span>'
+          +(x.t?'<span style="color:'+(lau?'#c62828':'#78909c')+';font-weight:'+(lau?'800':'400')+'"> · '+(d==='khong'?'ngừng ':'')+durGon(Date.now()-x.t)+'</span>':'')
+          +(x.qh?'<span class="qlts-blink" style="color:#b71c1c;font-weight:800"> · ⏰ chưa ai nhận</span>':'')+'</span></div>';
+      }).join('')
+      +(thua>0?'<div style="font-size:11.5px;color:#78909c;padding-left:13px;margin-top:2px">+ '+thua+' máy khác — bấm để xem</div>':'')+'</div>';
+  };
+  var dau='⚠️ <b>'+loi+'</b> thiết bị đang có sự cố: '
+    +(ng?'<b style="color:#c62828">'+ng+' KHÔNG được dùng</b>':'')+(ng&&hc?' · ':'')+(hc?'<b style="color:#a15c00">'+hc+' dùng có điều kiện</b>':'');
+  return '<div onclick="qltsOpen(\'bang\')" style="cursor:pointer;background:'+(ng?'#fff5f5':'#fffbeb')+';border:1.5px solid '+(ng?'#ef9a9a':'#ffcc80')+';border-left:5px solid '+(ng?'#c62828':'#f9a825')+';border-radius:11px;padding:'+(gon?'8px 12px':'10px 14px')+';margin-bottom:'+(gon?'8px':'6px')+'">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:'+(gon?'13px':'14px')+';font-weight:800;color:#37474f">🛠 Bảng tin thiết bị</span><span style="font-size:11px;color:#8d6e63;margin-left:auto">'+o.tong+' thiết bị · '+tg+'</span></div>'
+    +'<div style="font-size:'+(gon?'13px':'14.5px')+';color:#37474f;margin-top:4px;line-height:1.45">'+dau+'</div>'
+    +nhom('khong', ng, '⛔ KHÔNG ĐƯỢC DÙNG', '#c62828', '#ffebee', 'ngung')
+    +nhom('hanChe', hc, '⚠️ DÙNG CÓ ĐIỀU KIỆN – theo dõi sát', '#a15c00', '#fff3cd', 'hanChe')
+    +dongPhu
+    +(gon?'':'<div style="font-size:11px;color:#90a4ae;text-align:right;margin-top:4px">Bấm vào tên máy để xem chi tiết ›</div>')
     +'</div>';
 }
 /* 30/10/2026: bấm từng chip Bảng tin → mở đúng danh sách (Kanban dạng Bảng đã lọc); nút Quay lại về chỗ cũ */
