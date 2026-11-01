@@ -17082,7 +17082,7 @@ function briefSubmitResolveKhan(){
     .catch(function(e){ alert('Lỗi: '+(e&&e.message?e.message:e)); });
 }
 /* 01/11/2026 22:50: Báo cáo khẩn cấp — mở/thu nhóm, đếm dòng đã chọn, đánh dấu đã xử lý hàng loạt (Quản lý) */
-window.briefKhanMoNhom=function(g){ var M=window._briefKhanMo||(window._briefKhanMo={ton:false,ns:false}); M[g]=!M[g]; try{ briefLoadExtra(); }catch(e){} };
+window.briefKhanMoNhom=function(g){ var M=window._briefKhanMo||(window._briefKhanMo={ton:true,ns:false}); M[g]=!M[g]; try{ briefLoadExtra(); }catch(e){} };
 window.briefKhanDemChon=function(){ ['ton','ns'].forEach(function(g){ var n=document.querySelectorAll('.briefKhanCk[data-g="'+g+'"]:checked').length; document.querySelectorAll('.briefKhanSoChon[data-g="'+g+'"]').forEach(function(el){ el.textContent=n; }); }); };
 window.briefKhanChonHet=function(g,v){ document.querySelectorAll('.briefKhanCk[data-g="'+g+'"]').forEach(function(c){ c.checked=v; }); briefKhanDemChon(); };
 window.briefKhanXuLyLoat=function(g){
@@ -17281,12 +17281,13 @@ function briefLoadExtra(){
     var nutLoat=function(chon, txt){ return isAdminNow ? ('<div style="margin:6px 0 2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" onclick="briefKhanXuLyLoat(\''+chon+'\')" style="font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid #2e7d32;background:#2e7d32;color:#fff;cursor:pointer;font-weight:700">✔ '+txt+' (<span class="briefKhanSoChon" data-g="'+chon+'">0</span>)</button><span style="font-size:11px;color:#78909c">Bỏ tick những dòng muốn giữ lại (việc chưa xong thật).</span></div>') : ''; };
     var tieuDe=function(chon, mo, html, mau, nen){ return '<div onclick="briefKhanMoNhom(\''+chon+'\')" style="cursor:pointer;margin-top:10px;padding:6px 10px;border-radius:7px;background:'+nen+';color:'+mau+';font-weight:800;font-size:12.5px;display:flex;align-items:center;gap:8px"><i class="ti '+(mo?'ti-chevron-down':'ti-chevron-right')+'"></i>'+html+'</div>'; };
     var soKhan=nhom.moi.length+nhom.ton.length, maxTon=nhom.ton.reduce(function(m,o){ return Math.max(m,o.n||0); },0);
-    var M=window._briefKhanMo||(window._briefKhanMo={ton:false, ns:false});
+    var M=window._briefKhanMo||(window._briefKhanMo={ton:true, ns:false});
     var html='<div style="font-size:12.5px;color:#37474f;margin:2px 0 4px;line-height:1.5">'+
       (soKhan?('Đang có <b style="color:#c62828">'+soKhan+'</b> nội dung chưa được đánh dấu xử lý: <b>'+nhom.moi.length+'</b> mới trong 3 ngày · <b>'+nhom.ton.length+'</b> tồn đọng'+(nhom.ton.length?(' (lâu nhất '+maxTon+' ngày)'):'')+'.'):'✅ Không còn nội dung khẩn cấp chờ xử lý.')+
       (nhom.ns.length?(' <span style="color:#607d8b">'+nhom.ns.length+' dòng thay đổi nhân sự không tính.</span>'):'')+'</div>';
-    html+='<div style="margin-top:6px;font-weight:800;font-size:12.5px;color:#c62828">🆕 Mới trong 3 ngày ('+nhom.moi.length+')</div>'+
-      (nhom.moi.length?bang(nhom.moi,'moi'):'<div style="font-size:12px;color:#2e7d32;padding:4px 2px">✅ Không có báo cáo khẩn cấp mới trong 3 ngày qua.</div>');
+    html+= nhom.moi.length
+      ? ('<div style="margin-top:6px;font-weight:800;font-size:12.5px;color:#c62828">🆕 Mới trong 3 ngày ('+nhom.moi.length+')</div>'+bang(nhom.moi,'moi'))
+      : '<div style="margin-top:4px;font-size:12px;color:#2e7d32">🆕 Mới trong 3 ngày: ✅ không có báo cáo mới.</div>';
     if(nhom.ton.length) html+=tieuDe('ton', M.ton, '📌 Tồn đọng chưa đánh dấu xử lý ('+nhom.ton.length+') — lâu nhất '+maxTon+' ngày <span style="font-weight:400;font-size:11px">· bấm để '+(M.ton?'thu gọn':'xem')+'</span>', '#bf360c', '#fff3e0')
       +(M.ton?(nutLoat('ton','Đánh dấu đã xử lý các dòng đã chọn')+bang(nhom.ton,'ton')):'');
     if(nhom.ns.length) html+=tieuDe('ns', M.ns, '👥 Thay đổi nhân sự ghi trong biên bản ('+nhom.ns.length+') — không tính khẩn cấp <span style="font-weight:400;font-size:11px">· bấm để '+(M.ns?'thu gọn':'xem')+'</span>', '#455a64', '#eceff1')
