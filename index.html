@@ -59703,7 +59703,7 @@ function tinhTomTat(){
   COT.forEach(function(c){ if(c.k!=='xong') o.cot[c.k]=0; });
   list.forEach(function(r){ if(moLai(r)){ o.mo++; if(quaHan(r)) o.quaHan++; if(o.cot[r.tt]!=null) o.cot[r.tt]++; if(!moMoi[r.ma] || r.t>moMoi[r.ma].t) moMoi[r.ma]=r; } });
   ds.forEach(function(ts){ var d=m[ts.ma]; if(d==='khong') o.ngung++; else if(d==='hanChe') o.hanChe++; else return;
-    var r=moMoi[ts.ma]; o.ds.push({ma:ts.ma, ten:String(ts.ten||'').slice(0,70), p:ts.phong, d:d, tt:r?r.tt:'', t:r?r.t:0}); });
+    var r=moMoi[ts.ma]; o.ds.push({ma:ts.ma, ten:String(ts.ten||'').slice(0,70), p:ts.phong, d:d, tt:r?r.tt:'', t:r?r.t:0, qh:(r&&quaHan(r))?(r.tBao||r.t):null}); });
   o.ds.sort(function(a,b){ return (a.d==='khong'?0:1)-(b.d==='khong'?0:1) || b.t-a.t; }); o.ds=o.ds.slice(0,12);
   return o;
 }
@@ -59721,7 +59721,7 @@ function bangTinHTML(o, gon){
   var chip=function(ic,txt,n,mau,bg,k){ return '<span '+(k?('onclick="event.stopPropagation();qltsTin(\''+k+'\')" title="Bấm để xem danh sách '+txt.toLowerCase()+'" '):'')+'style="'+(k?'cursor:pointer;':'')+'display:inline-flex;align-items:center;gap:5px;background:'+bg+';color:'+mau+';border:1px solid '+mau+'55;border-radius:999px;padding:'+(gon?'3px 9px':'5px 11px')+';font-size:'+(gon?'12px':'12.5px')+';font-weight:700;white-space:nowrap">'+ic+' '+txt+' <b style="font-size:'+(gon?'13px':'15px')+'">'+n+'</b></span>'; };
   var chips=chip('🔴','Ngừng sử dụng',o.ngung||0,'#c62828','#ffebee','ngung')+chip('🟡','Dùng có điều kiện',o.hanChe||0,'#a15c00','#fff8e1','hanChe')
     +COT.filter(function(c){ return c.k!=='xong'; }).map(function(c){ var n=cot[c.k]||0; return (n||c.k==='suaChua'||c.k==='moi')?chip(c.ic,c.t,n,c.mau,'#fff',c.k):''; }).join('')
-    +(o.quaHan?chip('⏰','Quá hạn tiếp nhận',o.quaHan,'#b71c1c','#ffcdd2','quaHan'):'')
+    +(o.quaHan?chip('⏰','Chưa có người nhận xử lý',o.quaHan,'#b71c1c','#ffcdd2','quaHan'):'')
     +(o.muon?chip('🔁','Đang mượn tạm',o.muon,'#6a1b9a','#f3e5f5','muon'):'');
   var tg=o.at?('cập nhật '+fmtDT(o.at)):'';
   if(!loi && !o.mo){
@@ -59730,14 +59730,14 @@ function bangTinHTML(o, gon){
   }
   var dong=ds.slice(0,gon?4:6).map(function(x){ var c=tenCot(x.tt); return '<div onclick="event.stopPropagation();qltsOpen(\'ts\',\''+e(x.ma)+'\')" style="cursor:pointer;display:flex;gap:6px;align-items:baseline;font-size:12.5px;padding:3px 0;border-top:1px dashed #ffe0b2">'
       +'<span>'+(x.d==='khong'?'🔴':'🟡')+'</span><span style="font-weight:700;color:#37474f;flex:1;min-width:0">'+e(x.ten)+' <span style="font-weight:400;color:#78909c">— '+e(x.p||'')+'</span></span>'
-      +(c?'<span style="white-space:nowrap;color:'+c.mau+';font-weight:700">'+c.ic+' '+c.t+'</span>':'')+'</div>'; }).join('')
+      +(c?'<span style="white-space:nowrap;color:'+c.mau+';font-weight:700">'+c.ic+' '+c.t+'</span>':'')+(x.qh?'<span class="qlts-blink" style="white-space:nowrap;color:#b71c1c;font-weight:800;margin-left:4px">⏰ chờ '+dur(Date.now()-x.qh)+'</span>':'')+'</div>'; }).join('')
     +(ds.length>(gon?4:6)?'<div style="font-size:11.5px;color:#8d6e63;padding-top:2px">… và '+((o.ngung||0)+(o.hanChe||0)-(gon?4:6))+' thiết bị khác</div>':'');
   return '<div onclick="qltsOpen(\'bang\')" style="cursor:pointer;background:'+(o.ngung?'linear-gradient(135deg,#ffebee,#fff3e0)':'#fff8e1')+';border:1.5px solid '+(o.ngung?'#ef9a9a':'#ffcc80')+';border-radius:11px;padding:'+(gon?'8px 12px':'10px 14px')+';margin-bottom:'+(gon?'8px':'6px')+'">'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><span style="font-size:'+(gon?'13.5px':'14.5px')+';font-weight:800;color:'+(o.ngung?'#b71c1c':'#e65100')+'">🛠 Bảng tin thiết bị – tình trạng hiện hành</span>'
     +'<span style="font-size:11px;color:#8d6e63;margin-left:auto">'+o.tong+' thiết bị đang quản lý · '+tg+'</span></div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div>'
     +(dong?'<div style="margin-top:6px">'+dong+'</div>':'')
-    +(gon?'':'<div style="font-size:11.5px;color:#6d4c41;margin-top:5px">👉 Thiết bị 🔴 KHÔNG được sử dụng; 🟡 dùng có điều kiện, theo dõi sát. Bấm vào bảng tin để xem chi tiết.</div>')
+    +(gon?'':'<div style="font-size:11.5px;color:#6d4c41;margin-top:5px">👉 Thiết bị 🔴 KHÔNG được sử dụng; 🟡 dùng có điều kiện, theo dõi sát. Bấm vào bảng tin để xem chi tiết.'+(o.quaHan?'<br>⏰ <b>Chưa có người nhận xử lý</b> = phiếu đã chờ quá thời gian ('+['khan','cao','tb','thap'].map(function(k){ var m=slaPhut(k); return (MUC[k]||{}).t+' '+(m>=60?(Math.round(m/6)/10+' giờ'):(m+' phút')); }).join(' · ')+') mà chưa ai bấm Tiếp nhận — <b>báo ngay Phụ trách nhóm</b>.':'')+'</div>')
     +'</div>';
 }
 /* 30/10/2026: bấm từng chip Bảng tin → mở đúng danh sách (Kanban dạng Bảng đã lọc); nút Quay lại về chỗ cũ */
@@ -59882,7 +59882,7 @@ function viewBang(){
     +o(dem.duoc||0,'🟢 Sẵn sàng sử dụng','linear-gradient(135deg,#2e7d32,#1b5e20)', dangQL.length?(Math.round((dem.duoc||0)/dangQL.length*1000)/10+'% số thiết bị'):'', "qltsLocDm('duoc')")
     +o(dem.hanChe||0,'🟡 Dùng có điều kiện','linear-gradient(135deg,#f9a825,#c17900)','Theo dõi sát khi dùng', "qltsLocDm('hanChe')")
     +o(dem.khong||0,'🔴 Ngừng sử dụng','linear-gradient(135deg,#d32f2f,#8e0000)','Đã treo biển – không dùng', "qltsLocDm('khong')")
-    +o(mo.length,'📂 Sự cố đang mở','linear-gradient(135deg,#1565c0,#0b3c5d)', qh.length?('<b class="qlts-blink">⚠ '+qh.length+' quá hạn tiếp nhận</b>'):'Tất cả đã trong hạn', "qltsTab('kanban')")
+    +o(mo.length,'📂 Sự cố đang mở','linear-gradient(135deg,#1565c0,#0b3c5d)', qh.length?('<b class="qlts-blink">⏰ '+qh.length+' phiếu chưa có người nhận xử lý</b>'):'Tất cả đã trong hạn', "qltsTab('kanban')")
     +(function(){ var md=ds.filter(function(t){ return t.boPhanGoc && !t.thanhLy; }), q=md.filter(function(t){ var x=muonInfo(t); return x&&x.qh; }).length; return o(md.length,'🔁 Đang mượn tạm','linear-gradient(135deg,#7b1fa2,#4a148c)', md.length?(q?('<b class="qlts-blink">⏰ '+q+' quá hạn trả</b>'):'Tất cả trong hạn trả'):'Không có thiết bị mượn', "qltsXemMuon()"); })()
     +o((Math.round(avail*10)/10).toLocaleString('vi-VN')+'%','⏱ Tỷ lệ sẵn sàng 30 ngày','linear-gradient(135deg,#00838f,#004d57)', gio(down).toLocaleString('vi-VN')+' giờ ngừng máy', "qltsTab('tk')")
     +'</div>';
@@ -59895,7 +59895,7 @@ function viewBang(){
     return '<div onclick="qltsXemSc(\''+r._id+'\')" style="cursor:pointer;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 10px;border-radius:10px;margin-bottom:6px;background:'+(DUNG[r.dung]||DUNG.hanChe).bg+';border-left:5px solid '+(DUNG[r.dung]||DUNG.hanChe).mau+'">'
       +'<div style="flex:1;min-width:220px"><div style="font-weight:800;color:#263238">'+e(r.ten)+'</div><div style="font-size:12px;color:#546e7a">'+e(r.ma)+' · '+e(phongCua(r.boPhan))+' · '+e(r.moTa||'').slice(0,90)+'</div></div>'
       +pillMuc(r.muc)+' <span class="qlts-pill" style="background:#fff;color:'+c.mau+';border:1px solid '+c.mau+'66">'+c.ic+' '+c.t+'</span>'
-      +'<div style="text-align:right;min-width:120px"><div style="font-size:11px;color:#78909c">'+(r.dung==='khong'?'Đã ngừng':'Đã báo')+'</div><div style="font-weight:900;color:'+(DUNG[r.dung]||DUNG.hanChe).mau+';font-size:15px" data-qs="'+r.t+'">'+dur(now-r.t)+'</div>'+(quaHan(r)?'<div class="qlts-blink" style="font-size:11px;font-weight:800;color:#c62828">⚠ Quá hạn tiếp nhận</div>':'')+'</div>'+(isAdmin()?'<button onclick="event.stopPropagation();qltsXoaSc(\''+r._id+'\')" title="Xóa phiếu (báo nhầm / trùng)" style="'+BTN+'padding:4px 9px;background:#ffebee;color:#c62828;border:1.5px solid #ef9a9a">🗑</button>':'')+'</div>';
+      +'<div style="text-align:right;min-width:120px"><div style="font-size:11px;color:#78909c">'+(r.dung==='khong'?'Đã ngừng':'Đã báo')+'</div><div style="font-weight:900;color:'+(DUNG[r.dung]||DUNG.hanChe).mau+';font-size:15px" data-qs="'+r.t+'">'+dur(now-r.t)+'</div>'+(quaHan(r)?'<div class="qlts-blink" style="font-size:11px;font-weight:800;color:#c62828">⏰ Chưa có người nhận xử lý</div>':'')+'</div>'+(isAdmin()?'<button onclick="event.stopPropagation();qltsXoaSc(\''+r._id+'\')" title="Xóa phiếu (báo nhầm / trùng)" style="'+BTN+'padding:4px 9px;background:#ffebee;color:#c62828;border:1.5px solid #ef9a9a">🗑</button>':'')+'</div>';
   }
   html+=the(h3('🔴 Thiết bị đang NGỪNG sử dụng ('+ngung.length+')','<span style="font-size:11.5px;color:#78909c">Thời gian cập nhật trực tiếp</span>')
     +(ngung.length?ngung.map(dong).join(''):'<div style="color:#2e7d32;font-weight:700">✅ Không có thiết bị nào phải ngừng sử dụng.</div>')
@@ -60014,7 +60014,7 @@ function viewBangSc(list, ad, now){
     : function(a,b){ return b.t-a.t; });
   var o=function(k, txt, n, mau){ var on=S.kb.tt===k; return '<div onclick="qltsKbTT(\''+k+'\')" style="cursor:pointer;flex:1;min-width:120px;border-radius:10px;padding:7px 10px;border:2px solid '+mau+';'+(on?('background:'+mau+';color:#fff'):'background:#fff;color:'+mau)+'"><div style="font-size:22px;font-weight:900;line-height:1.1">'+n+'</div><div style="font-size:11.5px;font-weight:700">'+txt+'</div></div>'; };
   var h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+COT.map(function(c){ return o(c.k, c.ic+' '+c.t, dem[c.k], c.mau); }).join('')
-    +o('_ngung','🔴 Đang ngừng SD', dangNg, '#b71c1c')+o('_hc','🟡 Có điều kiện', dangHc, '#a15c00')+o('_qh','⏰ Quá hạn tiếp nhận', dangQH, '#d50000')+'</div>'
+    +o('_ngung','🔴 Đang ngừng SD', dangNg, '#b71c1c')+o('_hc','🟡 Có điều kiện', dangHc, '#a15c00')+o('_qh','⏰ Chưa có người nhận xử lý', dangQH, '#d50000')+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px;color:#546e7a"><span>Hiện <b>'+L.length+'</b> sự cố'+(S.kb.tt?' — <a href="javascript:void 0" onclick="qltsKbTT(\''+S.kb.tt+'\')">bỏ lọc ô</a>':'')+'</span><span style="flex:1"></span>Sắp xếp: '
     +'<select onchange="qltsKbSx(this.value)" style="'+INP+';max-width:220px;padding:6px 8px;font-size:13px"><option value="moi" '+(S.kb.sx==='moi'?'selected':'')+'>Mới báo nhất (chia theo ngày)</option><option value="nang" '+(S.kb.sx==='nang'?'selected':'')+'>Nghiêm trọng trước</option><option value="tt" '+(S.kb.sx==='tt'?'selected':'')+'>Theo trạng thái xử lý</option></select></div>';
   if(!L.length) return h+the('<div style="color:#90a4ae;text-align:center;padding:12px">Không có sự cố phù hợp bộ lọc.</div>');
@@ -60034,7 +60034,7 @@ function viewBangSc(list, ad, now){
       +'<td style="max-width:260px"><div style="display:flex;gap:8px;align-items:flex-start">'+anhScHtml(r,56)+'<div>'+e(r.moTa||'')+(r.coAnh?'<div style="font-size:11px;color:#c62828">📷 Có ảnh chụp</div>':'')+'</div></div>'+(r.anhHuongNB?'<div><span class="qlts-pill" style="background:#4a148c;color:#fff">👤 Ảnh hưởng NB</span></div>':'')+'</td>'
       +'<td><span class="qlts-pill" style="background:'+mu.mau+';color:#fff">'+mu.t+'</span></td>'
       +'<td><span class="qlts-pill" style="background:'+D_.bg+';color:'+D_.mau+';border:1px solid '+D_.mau+'55">'+D_.ic+' '+D_.ng+'</span></td>'
-      +'<td>'+ttCell+(quaHan(r)?'<div class="qlts-blink" style="font-size:11px;font-weight:800;color:#c62828">⚠ Quá hạn tiếp nhận</div>':'')+'</td>'
+      +'<td>'+ttCell+(quaHan(r)?'<div class="qlts-blink" style="font-size:11px;font-weight:800;color:#c62828">⏰ Chưa có người nhận xử lý</div>':'')+'</td>'
       +'<td style="font-size:12px">'+e(r.nguoiBao||'')+(r.phuTrach?('<div style="color:#1565c0">🧑‍🔧 '+e(r.phuTrach)+'</div>'):'')+(r.donVi?('<div style="color:#6a1b9a">'+e(r.donVi)+'</div>'):'')+'</td>'
       +'<td style="white-space:nowrap;font-weight:700;color:'+(xong?'#2e7d32':D_.mau)+'">'+(xong?('✅ '+dur((tx||now)-r.t)):('<span data-qs="'+r.t+'">'+dur(now-r.t)+'</span>'))+'</td>'
       +'<td style="white-space:nowrap" onclick="event.stopPropagation()">'+(!xong&&loaiBien(r)?nutTT('🪧','qltsInBien(\''+r._id+'\',\'A4\')',BIEN[loaiBien(r)].mau,'#fff',BIEN[loaiBien(r)].mau,'In biển cảnh báo')+' ':'')+nutTT('💬','qltsGhiChu(\''+r._id+'\')','#ffd54f','#fffde7','#8d6e00','Thêm ghi chú')+' '+nutTT('🕘','qltsXemSc(\''+r._id+'\')','#90a4ae','#fff','#455a64','Chi tiết & lịch sử')+(ad?(' '+nutTT('✏️','qltsSuaSc(\''+r._id+'\')','#90caf9','#e3f2fd','#0d47a1','Sửa phiếu')+' '+nutTT('🗑','qltsXoaSc(\''+r._id+'\')','#ef9a9a','#ffebee','#c62828','Xóa phiếu')):'')+'</td></tr>';
@@ -60064,7 +60064,7 @@ function theSc(r, ci, ad, now){ ad=quyenSc(r);
     +'<div style="display:flex;gap:6px;align-items:center;margin-top:5px;font-size:11.5px;color:#78909c;flex-wrap:wrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">👤 '+e(r.nguoiBao||'')
     +(r.phuTrach?(' · <span style="color:#1565c0" title="Phụ trách">🧑‍🔧 '+e(r.phuTrach)+'</span>'):'')+(r.guiPB?(' <span title="Đã gửi '+e(r.guiPB.dv)+' '+fmtDT(r.guiPB.at)+'">📤</span>'):'')+(r.anNV&&ad?' <span title="Đang ẩn với nhân viên">🙈</span>':'')+'</span><span style="margin-left:auto">'
     +(xong?('✅ '+dur((tx||now)-r.t)):('⏱ <b style="color:'+d.mau+'" data-qs="'+r.t+'">'+dur(now-r.t)+'</b>'))+'</span></div>'
-    +(quaHan(r)?'<div class="qlts-blink" style="margin-top:3px;font-size:11.5px;font-weight:800;color:#c62828">⚠ Quá hạn tiếp nhận ('+slaPhut(r.muc)+' phút)</div>':'')
+    +(quaHan(r)?'<div class="qlts-blink" style="margin-top:3px;font-size:11.5px;font-weight:800;color:#c62828">⏰ Chưa có người nhận xử lý — đã chờ '+dur(Date.now()-(r.tBao||r.t))+' (hạn '+slaPhut(r.muc)+' phút)</div>':'')
     +(r.phuTrach&&r.hanXL&&!xong&&Date.now()>r.hanXL?'<div style="margin-top:2px;font-size:11.5px;font-weight:800;color:#c62828">⏰ Quá hạn xử lý ('+fmtDT(r.hanXL)+')</div>':'')
     +'<div onclick="event.stopPropagation()" style="display:flex;gap:5px;align-items:center;margin-top:6px">'
     +(ad&&!xong&&ci<COT.length-2?nutTT('→ '+COT[ci+1].t.replace(/ –.*| \/.*/,''), "qltsChuyen('"+r._id+"',"+(ci+1)+")", '#90a4ae', '#fff', '#37474f', 'Chuyển sang bước: '+COT[ci+1].t):'')
@@ -62837,7 +62837,7 @@ function viewCauHinh(){
   var sla=(S.cfg&&S.cfg.sla)||{};
   return khuPhanQuyen()+the(h3('⏱ Thời hạn tiếp nhận sự cố theo mức độ (phút)')
       +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px">'+Object.keys(MUC).map(function(k){ return '<div><label style="'+LB+'">'+MUC[k].t+'</label><input id="qcSla_'+k+'" type="number" min="1" value="'+(+sla[k]>0?+sla[k]:MUC[k].sla)+'" style="'+INP+'"></div>'; }).join('')+'</div>'
-      +'<div style="font-size:12px;color:#78909c;margin-top:6px">Quá hạn mà sự cố vẫn ở cột “Mới báo” → thẻ nhấp nháy đỏ “Quá hạn tiếp nhận”, tính vào tỷ lệ tiếp nhận đúng hạn.</div>'
+      +'<div style="font-size:12px;color:#78909c;margin-top:6px">Quá hạn mà sự cố vẫn ở cột “Mới báo” → thẻ nhấp nháy đỏ “⏰ Chưa có người nhận xử lý”, tính vào tỷ lệ tiếp nhận đúng hạn.</div>'
       +'<button onclick="qltsLuuCfg()" style="'+BTN+'background:#0b3c5d;color:#fff;margin-top:10px">💾 Lưu</button>')
     +the(h3('👥 Nhóm quản lý & người phụ trách')
       +'<div style="font-size:12px;color:#78909c;margin-bottom:6px">App tự xếp: bộ phận đuôi “- GM” → Gây mê, “- DC” → Dụng cụ, Hồi sức/Hồi tỉnh → Hồi sức, còn lại → Dùng chung. Máy nào khác thực tế thì sửa riêng trong ✏️ Sửa tài sản. Người phụ trách + SĐT Zalo hiện ở màn hình báo hỏng để nhân viên báo đúng người.</div>'
