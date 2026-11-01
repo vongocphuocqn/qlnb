@@ -17182,6 +17182,19 @@ function briefHoLyHomNay(){
     return briefHlCache.list.slice();
   }catch(e){ return []; }
 }
+var briefKyCache={};
+function briefNapChuKy(root){
+  if(!root || typeof db==='undefined' || !db) return;
+  function gan(el, v){ if(typeof v!=='string' || v.indexOf('data:image')!==0 || !el.parentNode) return; var img=document.createElement('img'); img.src=v; img.alt='chữ ký'; img.title='Chữ ký'; img.style.cssText='height:28px;max-width:100px;object-fit:contain;background:#fff;vertical-align:middle'; el.parentNode.replaceChild(img, el); }
+  function ganTatCa(p){ Array.prototype.forEach.call(document.querySelectorAll('[data-briefky]'), function(el){ if(el.getAttribute('data-briefky')===p) gan(el, briefKyCache[p]); }); }
+  Array.prototype.forEach.call(root.querySelectorAll('[data-briefky]'), function(el){
+    var p=el.getAttribute('data-briefky'); if(!p) return;
+    if(briefKyCache[p]!==undefined){ if(briefKyCache[p]) gan(el, briefKyCache[p]); return; }
+    briefKyCache[p]='';
+    db.ref(p).once('value').then(function(sn){ var v=sn.val(); briefKyCache[p]=(typeof v==='string')?v:''; ganTatCa(p); })
+      .catch(function(){ delete briefKyCache[p]; });
+  });
+}
 function briefGoToHoLy(){ try{ if(typeof closeBriefModal==='function') closeBriefModal(); }catch(e){} if(typeof bghlOpen==='function') bghlOpen('homnay'); }
 function briefLoadExtra(){
   // Báo cáo khẩn cấp — lấy trực tiếp từ dữ liệu đã có sẵn của thẻ Thông báo (không cần tải lại)
@@ -17257,7 +17270,14 @@ function briefLoadExtra(){
     }
   }
   // Bàn giao hoàn thành hôm nay — bấm vào từng dòng để xem thẳng biên bản
-  function briefKyImg(u){ if(u==='—') return '<span style="color:#90a4ae">—</span>'; if(liteIsBin(u)) return '<span style="font-size:11.5px;color:#2e7d32;font-weight:700">✍️ Đã ký</span>'; return (typeof u==='string' && u.indexOf('data:image')===0) ? '<img src="'+u+'" alt="chữ ký" style="height:28px;max-width:100px;object-fit:contain;background:#fff;vertical-align:middle">' : '<span style="font-size:11px;color:#c62828">(chưa ký)</span>'; }
+  /* 01/11/2026 22:30: bản tóm tắt _lite không có ảnh chữ ký ("[bin#…]") → tải riêng đúng ảnh chữ ký từ biên bản gốc
+     (pmRecords|bgRecords/{phòng}/{id}/xacNhanGiao|xacNhanNhan/chuKy), có bộ nhớ đệm — không tải cả biên bản. */
+  function briefKyImg(u, x, ben){ if(u==='—') return '<span style="color:#90a4ae">—</span>';
+    if(liteIsBin(u)){ if(x && (x.kind==='pm'||x.kind==='bg')){ var p=(x.kind==='pm'?'pmRecords':'bgRecords')+'/'+x.roomId+'/'+x.id+'/'+(ben==='nhan'?'xacNhanNhan':'xacNhanGiao')+'/chuKy', c=briefKyCache[p];
+        if(c && c.indexOf('data:image')===0) return '<img src="'+c+'" alt="chữ ký" style="height:28px;max-width:100px;object-fit:contain;background:#fff;vertical-align:middle">';
+        return '<span data-briefky="'+esc(p)+'" style="font-size:11.5px;color:#2e7d32;font-weight:700">✍️ Đã ký</span>'; }
+      return '<span style="font-size:11.5px;color:#2e7d32;font-weight:700">✍️ Đã ký</span>'; }
+    return (typeof u==='string' && u.indexOf('data:image')===0) ? '<img src="'+u+'" alt="chữ ký" style="height:28px;max-width:100px;object-fit:contain;background:#fff;vertical-align:middle">' : '<span style="font-size:11px;color:#c62828">(chưa ký)</span>'; }
   var hoanThanhSection=document.getElementById('briefHoanThanhSection');
   var hoanThanhBody=document.getElementById('briefHoanThanhBody');
   var hoanThanhCountEl=document.getElementById('briefHoanThanhCount');
@@ -17274,14 +17294,15 @@ function briefLoadExtra(){
           '<td style="padding:6px 8px;border:1px solid #c8e6c9;font-weight:700;color:#2e7d32">'+esc(x.nguon)+'</td>'+
           '<td style="padding:6px 8px;border:1px solid #c8e6c9;white-space:nowrap;color:#666;font-size:11px">'+esc(x.ngay||'—')+(x.gio?(' '+esc(x.gio)):'')+'</td>'+
           '<td style="padding:6px 8px;border:1px solid #c8e6c9">'+esc(x.nguoiGiao||'—')+' → '+esc(x.nguoiNhan||'—')+'</td>'+
-          '<td style="padding:4px 8px;border:1px solid #c8e6c9;text-align:center">'+briefKyImg(x.kyGiao)+'</td>'+
-          '<td style="padding:4px 8px;border:1px solid #c8e6c9;text-align:center">'+briefKyImg(x.kyNhan)+'</td>'+
+          '<td style="padding:4px 8px;border:1px solid #c8e6c9;text-align:center">'+briefKyImg(x.kyGiao,x,'giao')+'</td>'+
+          '<td style="padding:4px 8px;border:1px solid #c8e6c9;text-align:center">'+briefKyImg(x.kyNhan,x,'nhan')+'</td>'+
           '<td style="padding:6px 8px;border:1px solid #c8e6c9;text-align:center"><i class="ti ti-chevron-right" style="color:#2e7d32"></i></td>'+
         '</tr>';
       }).join('');
       hoanThanhBody.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="background:#e8f5e9"><th style="padding:6px 8px;border:1px solid #c8e6c9;width:30px">#</th><th style="padding:6px 8px;border:1px solid #c8e6c9;text-align:left">Nguồn / Phòng</th><th style="padding:6px 8px;border:1px solid #c8e6c9">Giờ hoàn thành</th><th style="padding:6px 8px;border:1px solid #c8e6c9;text-align:left">Bàn giao → Nhận</th><th style="padding:6px 8px;border:1px solid #c8e6c9">Ký giao</th><th style="padding:6px 8px;border:1px solid #c8e6c9">Ký nhận</th><th style="padding:6px 8px;border:1px solid #c8e6c9;width:30px"></th></tr></thead>'+
         '<tbody>'+htRows+'</tbody></table></div>';
+      try{ briefNapChuKy(hoanThanhBody); }catch(eKy){}
     } else {
       hoanThanhSection.style.display='none';
     }
