@@ -59705,6 +59705,11 @@ function tinhTomTat(){
   ds.forEach(function(ts){ var d=m[ts.ma]; if(d==='khong') o.ngung++; else if(d==='hanChe') o.hanChe++; else return;
     var r=moMoi[ts.ma]; o.ds.push({ma:ts.ma, ten:String(ts.ten||'').slice(0,70), p:ts.phong, d:d, tt:r?r.tt:'', t:r?r.t:0, qh:(r&&quaHan(r))?(r.tBao||r.t):null}); });
   o.ds.sort(function(a,b){ return (a.d==='khong'?0:1)-(b.d==='khong'?0:1) || b.t-a.t; }); o.ds=o.ds.slice(0,12);
+  /* 01/11/2026 21:55: danh sách máy đang mượn tạm — phòng cho mượn → phòng mượn, hạn trả */
+  o.muonDs=ds.filter(function(t){ return t.boPhanGoc && !t.thanhLy; }).map(function(t){ var x=muonInfo(t)||{}, pt=phongCua(t.boPhanGoc), pd=t.phong;
+    if(pt===pd){ pt=String(t.boPhanGoc); pd=String(t.boPhan||''); }
+    return {ma:t.ma, ten:String(t.ten||'').slice(0,70), tu:pt, den:pd, han:x.han||'', qh:x.qh?1:0}; })
+    .sort(function(a,b){ return b.qh-a.qh || String(a.tu).localeCompare(String(b.tu),'vi'); }).slice(0,10);
   return o;
 }
 function capNhatTomTat(){
@@ -59715,6 +59720,7 @@ function capNhatTomTat(){
 }
 function tenCot(k){ for(var i=0;i<COT.length;i++) if(COT[i].k===k) return COT[i]; return null; }
 /* Khối Bảng tin: dùng cho Trang chủ (gon=false) và dải trên các tab của phân hệ (gon=true)
+   01/11/2026 21:55: thêm khối "🔁 Đang mượn tạm" ghi rõ phòng cho mượn → phòng mượn, hạn trả (o.muonDs).
    01/11/2026 21:45: trình bày lại cho dễ đọc — 1 câu tóm tắt; chia nhóm "KHÔNG ĐƯỢC DÙNG" / "DÙNG CÓ ĐIỀU KIỆN";
    mỗi máy 1 dòng (tên rút gọn · phòng · bước xử lý · thời gian); bước xử lý + mượn tạm gom 1 dòng nhỏ cuối, ẩn số 0. */
 function tenGonTin(t){ t=String(t||'').replace(/\s*\(.*$/,'').trim(); var a=t.split(/\s+-\s*|\s*-\s+/)[0].trim(); return a.length>=5?a:t; }
@@ -59729,13 +59735,22 @@ function bangTinHTML(o, gon){
   var phu=[];
   if(gd.length) phu.push('<span style="color:#546e7a">Phiếu đang xử lý:</span> '+gd.join('<span style="color:#b0bec5"> · </span>'));
   if(o.quaHan) phu.push(lk('quaHan','⏰ '+o.quaHan+' phiếu chưa ai nhận xử lý','#b71c1c','Phiếu chờ quá thời hạn mà chưa ai bấm Tiếp nhận'));
-  if(o.muon) phu.push(lk('muon','🔁 '+o.muon+' máy đang mượn tạm','#6a1b9a','Bấm để xem máy đang mượn tạm'));
+  var mds=o.muonDs||[], khMuon='';
+  if(o.muon && !mds.length) phu.push(lk('muon','🔁 '+o.muon+' máy đang mượn tạm','#6a1b9a','Bấm để xem máy đang mượn tạm'));
+  if(o.muon && mds.length){ var mMax=gon?2:4, mqh=mds.filter(function(x){ return x.qh; }).length;
+    khMuon='<div style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(0,0,0,.08);font-size:'+(gon?'11.5px':'12.5px')+'">'
+      +lk('muon','🔁 Đang mượn tạm ('+o.muon+')'+(mqh?' · '+mqh+' QUÁ HẠN trả':''),mqh?'#c62828':'#6a1b9a','Bấm để xem danh sách máy đang mượn tạm')
+      +mds.slice(0,mMax).map(function(x){ var mau=x.qh?'#c62828':'#6a1b9a';
+        return '<div onclick="event.stopPropagation();qltsOpen(\'ts\',\''+e(x.ma)+'\')" title="'+e(x.ten)+'" style="cursor:pointer;display:flex;flex-wrap:wrap;gap:1px 8px;align-items:baseline;padding:3px 0 3px 10px;border-left:3px dashed '+mau+';margin-top:3px">'
+          +'<span style="flex:1 1 160px;min-width:0;font-weight:700;color:#37474f">'+e(tenGonTin(x.ten))+'</span>'
+          +'<span style="white-space:nowrap;color:'+mau+'"><b>'+e(x.tu)+'</b> cho <b>'+e(x.den)+'</b> mượn'+(x.han?(' · hạn '+fmtD(x.han).slice(0,5)):'')+(x.qh?' · <b>QUÁ HẠN</b>':'')+'</span></div>'; }).join('')
+      +(o.muon>mMax?'<div style="color:#78909c;padding-left:13px;margin-top:2px">+ '+(o.muon-mMax)+' máy khác — bấm "Đang mượn tạm" để xem</div>':'')+'</div>'; }
   var dongPhu=phu.length?'<div style="font-size:'+(gon?'11.5px':'12px')+';line-height:1.6;margin-top:6px;padding-top:5px;border-top:1px solid rgba(0,0,0,.08);display:flex;flex-wrap:wrap;gap:4px 14px">'+phu.map(function(x){ return '<span>'+x+'</span>'; }).join('')+'</div>':'';
   /* Không có thiết bị nào bị hạn chế sử dụng */
   if(!loi){
     return '<div onclick="qltsOpen(\'bang\')" style="cursor:pointer;background:#e8f5e9;border:1.5px solid #81c784;border-left:5px solid #2e7d32;border-radius:11px;padding:'+(gon?'7px 12px':'10px 14px')+';margin-bottom:'+(gon?'8px':'6px')+'">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:'+(gon?'13px':'14px')+';font-weight:800;color:#1b5e20">🛠 Bảng tin thiết bị: ✅ Tất cả '+o.tong+' thiết bị đang dùng được</span><span style="font-size:11px;color:#558b2f;margin-left:auto">'+tg+'</span></div>'
-      +dongPhu+'</div>';
+      +dongPhu+khMuon+'</div>';
   }
   var max=gon?4:6, daHien=0;
   var nhom=function(d, so, tieuDe, mau, nen, k){
@@ -59761,7 +59776,7 @@ function bangTinHTML(o, gon){
     +'<div style="font-size:'+(gon?'13px':'14.5px')+';color:#37474f;margin-top:4px;line-height:1.45">'+dau+'</div>'
     +nhom('khong', ng, '⛔ KHÔNG ĐƯỢC DÙNG', '#c62828', '#ffebee', 'ngung')
     +nhom('hanChe', hc, '⚠️ DÙNG CÓ ĐIỀU KIỆN – theo dõi sát', '#a15c00', '#fff3cd', 'hanChe')
-    +dongPhu
+    +dongPhu+khMuon
     +(gon?'':'<div style="font-size:11px;color:#90a4ae;text-align:right;margin-top:4px">Bấm vào tên máy để xem chi tiết ›</div>')
     +'</div>';
 }
