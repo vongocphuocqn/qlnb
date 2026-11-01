@@ -16629,7 +16629,7 @@ function briefGoToBg(roomId,id){
   closeBriefModal();
   enterBgScreen('admin', cu.name);
   setTimeout(function(){
-    try{ bgSelectRoom(roomId); setTimeout(function(){ bgOpenView(id); },400); }catch(e){ console.warn(e); }
+    try{ bgSelectRoom(roomId); briefChoMoBienBan('bg', id); }catch(e){ console.warn(e); }
   },350);
 }
 function briefGoToPm(roomId,id){
@@ -16638,8 +16638,21 @@ function briefGoToPm(roomId,id){
   closeBriefModal();
   enterPmScreen('admin', cu.name);
   setTimeout(function(){
-    try{ pmSelectRoom(roomId); setTimeout(function(){ pmOpenView(id); },400); }catch(e){ console.warn(e); }
+    try{ pmSelectRoom(roomId); briefChoMoBienBan('pm', id); }catch(e){ console.warn(e); }
   },350);
+}
+/* 01/11/2026 23:15: trước đây chờ cố định 0,4 giây rồi mở → biên bản (có ảnh) tải chưa xong thì báo "Không tìm thấy biên bản".
+   Nay chờ tới khi biên bản đã tải (kiểm tra mỗi 0,3 giây, tối đa 15 giây) rồi mới mở. */
+function briefChoMoBienBan(kind, id){
+  var t0=Date.now(), co=(kind==='pm')?window.pmCoBienBan:window.bgCoBienBan, mo=(kind==='pm')?window.pmOpenView:window.bgOpenView;
+  if(typeof mo!=='function') return;
+  if(typeof co!=='function'){ setTimeout(function(){ mo(id); },400); return; }
+  (function thu(){
+    var ok=false; try{ ok=co(id); }catch(e){}
+    if(ok){ try{ mo(id); }catch(e){ console.warn(e); } return; }
+    if(Date.now()-t0>15000){ alert('Không mở được biên bản: mạng chậm hoặc biên bản đã bị xóa. Vui lòng chọn lại phòng để xem.'); return; }
+    setTimeout(thu, 300);
+  })();
 }
 function backToBriefModal(){ briefReturnPending=false; openBriefModal(); }
 function briefGoToQt(id){
@@ -41743,6 +41756,7 @@ window.dctdMoveStatus=function(id,st){
     document.getElementById('bgViewBody').innerHTML=html;
   };
 
+  window.bgCoBienBan=function(id){ return !!(bgRecords && bgRecords[id]); }; /* 01/11/2026 23:15: dùng cho Giao ban sáng */
   window.bgOpenView=function(id){
     var r=bgRecords[id];
     if(!r){alert('Không tìm thấy biên bản.');return;}
@@ -43202,6 +43216,8 @@ window.dctdMoveStatus=function(id,st){
     var mo=function(){ try{ if(pmRecords && pmRecords[id]) pmOpenView(id); else alert('Không mở được biên bản, vui lòng thử lại.'); }catch(e){ alert('Không mở được biên bản: '+e.message); } };
     if(pmRecordsRef) pmRecordsRef.once('value').then(function(){ setTimeout(mo,50); }).catch(mo); else setTimeout(mo,400);
   };
+  /* 01/11/2026 23:15: cho Giao ban sáng biết biên bản đã tải xong chưa (tránh báo "Không tìm thấy biên bản" khi mạng chậm) */
+  window.pmCoBienBan=function(id){ return !!(pmRecords && pmRecords[id]); };
   function pmTuaStateForRoom(roomId, recsAll, group){
     if(!pmBoTuaConfig || pmBoTuaConfig.enabled===false) return 'off';
     var key=pmSafeKey(roomId)+'_'+group;
