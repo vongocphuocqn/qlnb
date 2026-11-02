@@ -60166,7 +60166,7 @@ function theSc(r, ci, ad, now){ ad=quyenSc(r);
     +'<div style="display:flex;gap:4px">'+(function(){ var t=taiSan(r.ma); return t?thumbHtml(t,40):''; })()+anhScHtml(r,40)+'</div></div>'
     +(r.moTa?'<div title="'+e(r.moTa)+'" style="margin-top:2px;color:#37474f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(r.moTa)+'</div>':'')
     +'<div style="display:flex;gap:6px;align-items:center;margin-top:5px;font-size:11.5px;color:#78909c;flex-wrap:wrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">👤 '+e(r.nguoiBao||'')
-    +(r.phuTrach?(' · <span style="color:#1565c0" title="Phụ trách">🧑‍🔧 '+e(r.phuTrach)+'</span>'):'')+(r.guiPB?(' <span title="Đã gửi '+e(r.guiPB.dv)+' '+fmtDT(r.guiPB.at)+'">📤</span>'):'')+(r.anNV&&ad?' <span title="Đang ẩn với nhân viên">🙈</span>':'')+'</span><span style="margin-left:auto">'
+    +(r.phuTrach?(' · <span style="color:#1565c0" title="Phụ trách">🧑‍🔧 '+e(r.phuTrach)+'</span>'):'')+(r.guiPB?(' <span title="Đã gửi '+e(r.guiPB.dv)+(r.guiPB.nguoi?(' – '+e(r.guiPB.nguoi)):'')+' '+fmtDT(r.guiPB.at)+'">📤</span>'):'')+(r.anNV&&ad?' <span title="Đang ẩn với nhân viên">🙈</span>':'')+'</span><span style="margin-left:auto">'
     +(xong?('✅ '+dur((tx||now)-r.t)):('⏱ <b style="color:'+d.mau+'" data-qs="'+r.t+'">'+dur(now-r.t)+'</b>'))+'</span></div>'
     +(quaHan(r)?'<div class="qlts-blink" style="margin-top:3px;font-size:11.5px;font-weight:800;color:#c62828">⏰ Chưa có người nhận xử lý — đã chờ '+dur(Date.now()-(r.tBao||r.t))+' (hạn '+slaPhut(r.muc)+' phút)</div>':'')
     +(r.phuTrach&&r.hanXL&&!xong&&Date.now()>r.hanXL?'<div style="margin-top:2px;font-size:11.5px;font-weight:800;color:#c62828">⏰ Quá hạn xử lý ('+fmtDT(r.hanXL)+')</div>':'')
@@ -60499,7 +60499,7 @@ window.qltsXemSc=function(id, mode, giuCuon){
     +'<div style="margin-top:10px;font-size:13.5px;background:#fff8e1;border-radius:10px;padding:9px 11px"><b>Hiện tượng:</b> '+e(r.moTa||'')+'</div>'
     +(r.thayThe?'<div style="margin-top:6px;font-size:13px;color:#1565c0">🔁 <b>Phương án thay thế:</b> '+e(r.thayThe)+'</div>':'')
     +(r.phuTrach?'<div style="margin-top:6px;font-size:13px;color:#1565c0">🧑‍🔧 <b>Phụ trách:</b> '+e(r.phuTrach)+(r.hanXL?(' — hạn '+fmtDT(r.hanXL)):'')+'</div>':'')
-    +(r.guiPB?'<div style="margin-top:6px;font-size:13px;color:#6a1b9a">📤 <b>Đã gửi:</b> '+e(r.guiPB.dv)+' lúc '+fmtDT(r.guiPB.at)+'</div>':'')
+    +(r.guiPB?'<div style="margin-top:6px;font-size:13px;color:#6a1b9a">📤 <b>Đã gửi:</b> '+e(r.guiPB.dv)+(r.guiPB.nguoi?(' – người nhận: <b>'+e(r.guiPB.nguoi)+'</b>'):'')+' lúc '+fmtDT(r.guiPB.at)+(r.guiPB.sdt&&pbLinkZalo(r.guiPB.sdt)?(' · <a href="'+e(pbLinkZalo(r.guiPB.sdt))+'" target="_blank" style="color:#0068ff">💬 Zalo '+e(pbHienZalo(r.guiPB.sdt))+'</a>'):'')+(r.guiPB.gc?('<div style="color:#546e7a;font-size:12px">'+e(r.guiPB.gc)+'</div>'):'')+'</div>':'')
     +'<div style="margin-top:8px">'+hangNut(r, COT.map(function(c){return c.k;}).indexOf(r.tt||'moi'), ad)+'</div>'
     +(r.tt==='xong'?'<div style="margin-top:6px;font-size:13px;color:#2e7d32">✅ <b>Kết quả:</b> '+e(KET_QUA[r.ketQua]||'')+(r.nguyenNhan?(' · Nguyên nhân: '+e(r.nguyenNhan)):'')+(r.chiPhi?(' · Chi phí: '+(+r.chiPhi).toLocaleString('vi-VN')+' đ'):'')+'</div>':'')
     +(r.coAnh?'<div id="qmAnh" style="margin-top:8px;font-size:12px;color:#90a4ae">⏳ Đang tải ảnh…</div>':'')
@@ -60998,34 +60998,89 @@ window.qltsLuuPhanCong=function(id){
   up[P+'phuTrach']=ai; up[P+'hanXL']=hanMs;
   luu(up).then(function(){ qltsDongModal(); }).catch(function(err){ alert('Lỗi: '+err.message); });
 };
-/* 📤 Gửi phòng ban: ghi nhận đơn vị nhận + gửi Zalo (thẻ ảnh / chữ) + in phiếu đề nghị */
+/* 📤 Gửi phòng ban: ghi nhận đơn vị nhận + gửi Zalo (thẻ ảnh / chữ) + in phiếu đề nghị
+   02/11/2026 09:30: dùng CHUNG danh mục phòng/khoa và DANH MỤC NGƯỜI NHẬN (tên + SĐT Zalo / link nhóm) của thẻ Kanban
+   (phDeptOptionsAll, phContacts – nhánh kanbanPhContacts): chọn đơn vị → hiện danh sách người nhận → bấm chọn là tự điền Zalo;
+   người nhận mới (có tên + số) được lưu vào danh mục chung để lần sau và thẻ Kanban cùng dùng. */
 function soZalo(){ try{ return JSON.parse(lsGet('qltsZaloPB')||'{}')||{}; }catch(x){ return {}; } }
+var PB_THEM=['Phòng Vật tư – Thiết bị y tế','Hãng / nhà cung cấp','Tổ kỹ thuật điện – khí y tế','Phòng Hành chính quản trị'];
+function pbNorm(x){ return boDau(x).replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function pbDvDs(){ var out=[], set={}; function them(d){ var k=pbNorm(d); if(!k||set[k]) return; set[k]=1; out.push(String(d).trim()); }
+  try{ if(typeof phCtInit==='function') phCtInit(); if(typeof phDeptOptionsAll==='function') phDeptOptionsAll().forEach(them); }catch(x){}
+  PB_THEM.forEach(them); return out; }
+function pbDanhBa(){ try{ var c=(typeof phContacts!=='undefined'&&phContacts)||{}; return Object.keys(c).map(function(id){ var x=c[id]||{}; return {id:id, ten:String(x.ten||'').trim(), dept:String(x.dept||'').trim(), zalo:String(x.zalo||'').trim()}; }).filter(function(x){ return x.ten; }); }catch(x){ return []; } }
+function pbCungDv(a,b){ var x=pbNorm(a), y=pbNorm(b); if(!x||!y) return false; if(x===y) return true; var bo=function(s){ return s.replace(/^(phong|khoa|to|ban|trung tam) /,''); }; x=bo(x); y=bo(y); return x===y || (x.length>5&&y.indexOf(x)>=0) || (y.length>5&&x.indexOf(y)>=0); }
+function pbLinkZalo(z){ z=String(z||'').trim(); if(!z) return ''; if(/^https?:\/\//i.test(z)) return z; if(/zalo\.me\//i.test(z)) return 'https://'+z.replace(/^\/+/,''); var d=z.replace(/\D/g,''); return d?('https://zalo.me/'+d):''; }
+function pbHienZalo(z){ return /zalo\.me\/g\//i.test(z)?'👥 nhóm Zalo':(z||''); }
+window.qltsPbVe=function(){
+  var dvI=document.getElementById('qgDv'), q=document.getElementById('qgNg'), box=document.getElementById('qgNgDs'); if(!dvI||!box) return;
+  var dv=dvI.value.trim(), kw=boDau(q?q.value:'').trim(), ds=pbDanhBa();
+  var cung=ds.filter(function(x){ return pbCungDv(x.dept,dv); }), khac=ds.filter(function(x){ return !pbCungDv(x.dept,dv); });
+  var khop=function(x){ return !kw || boDau(x.ten+' '+x.zalo+' '+x.dept).indexOf(kw)>=0; };
+  cung=cung.filter(khop); khac=kw?khac.filter(khop):[];
+  var dong=function(x){ return '<div onclick="qltsPbChon(\''+e(x.id)+'\')" style="cursor:pointer;display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid #f0e6f5" onmouseover="this.style.background=\'#f3e5f5\'" onmouseout="this.style.background=\'\'">'
+    +'<span><b>'+e(x.ten)+'</b>'+(pbCungDv(x.dept,dv)?'':' <span style="color:#78909c;font-size:12px">· '+e(x.dept)+'</span>')+'</span>'
+    +'<span style="white-space:nowrap;font-size:12.5px;color:'+(x.zalo?'#0068ff':'#b26a00')+'">'+(x.zalo?e(pbHienZalo(x.zalo)):'chưa có số')+'</span></div>'; };
+  var h='';
+  if(cung.length) h+='<div style="padding:5px 10px;font-size:11.5px;color:#6a1b9a;background:#f7f3fb;font-weight:700">'+e(dv||'Đơn vị')+' — '+cung.length+' người nhận · bấm để chọn</div>'+cung.map(dong).join('');
+  else h+='<div style="padding:7px 10px;font-size:12px;color:#8a6d3b;background:#fff8e1">'+(dv?(e(dv)+' chưa có người nhận trong danh mục'):'Chọn đơn vị nhận')+' — gõ tên/số để tìm trong toàn bộ danh bạ, hoặc nhập người mới bên dưới (sẽ lưu vào danh mục).</div>';
+  if(khac.length) h+='<div style="padding:5px 10px;font-size:11.5px;color:#546e7a;background:#f5f5f5">Ở đơn vị khác ('+khac.length+')</div>'+khac.slice(0,30).map(dong).join('');
+  box.innerHTML=h;
+};
+window.qltsPbChon=function(id){
+  var x=pbDanhBa().filter(function(c){ return c.id===id; })[0]; if(!x) return;
+  document.getElementById('qgNg').value=x.ten; document.getElementById('qgSdt').value=x.zalo||'';
+  var dvI=document.getElementById('qgDv'); if(x.dept && !pbCungDv(x.dept, dvI.value)) dvI.value=x.dept;
+  qltsPbVe(); var s=document.getElementById('qgSdt'); if(s && !s.value) s.focus();
+};
+window.qltsPbDanhMuc=function(){
+  if(typeof phCtOpen!=='function') return;
+  if(!(typeof phIsAdmin==='function' && phIsAdmin())){ alert('Chỉ Quản lý (đăng nhập Quản lý Admin) mới sửa được Danh mục người nhận.'); return; }
+  phCtOpen(); var ov=document.getElementById('phCtOv'); if(ov) ov.style.zIndex='100020';
+  var t=setInterval(function(){ if(!document.getElementById('phCtOv')){ clearInterval(t); try{ qltsPbVe(); }catch(x){} } },500);
+};
 window.qltsGuiPB=function(id){
   var r=SC()[id]; if(!r || !quyenSc(r)) return; r=Object.assign({_id:id},r);
-  var dv=r.donVi||'Phòng Vật tư – Thiết bị y tế', z=soZalo();
+  var dvDs=pbDvDs(), dv=r.donVi||(dvDs.filter(function(d){ return /vat tu/.test(boDau(d)); })[0])||PB_THEM[0], g=r.guiPB||{};
   hopThoai('📤 Gửi phòng ban xử lý', dongTS(r)
-    +'<label style="'+LB+'">Đơn vị nhận</label><input id="qgDv" list="qltsDvDl2" value="'+e(dv)+'" style="'+INP+'"><datalist id="qltsDvDl2"><option value="Phòng Vật tư – Thiết bị y tế"><option value="Hãng / nhà cung cấp"><option value="Tổ kỹ thuật điện – khí y tế"><option value="Phòng Hành chính quản trị"></datalist>'
-    +'<label style="'+LB+'">SĐT Zalo người nhận (không bắt buộc — máy này tự nhớ theo đơn vị)</label><input id="qgSdt" inputmode="tel" value="'+e(z[dv]||'')+'" placeholder="VD: 0905xxxxxx" style="'+INP+'">'
+    +'<label style="'+LB+'">Đơn vị nhận * <span style="font-weight:400;color:#78909c">(dùng chung danh mục phòng/khoa với thẻ Kanban)</span></label><input id="qgDv" list="qltsDvDl2" value="'+e(dv)+'" autocomplete="off" style="'+INP+'"><datalist id="qltsDvDl2">'+dvDs.map(function(d){ return '<option value="'+e(d)+'">'; }).join('')+'</datalist>'
+    +'<label style="'+LB+'">Người nhận '+((typeof phIsAdmin==='function'&&phIsAdmin())?'<a href="javascript:void 0" onclick="qltsPbDanhMuc()" style="font-weight:600;color:#6a1b9a;margin-left:6px">📒 Danh mục người nhận</a>':'')+'</label>'
+    +'<input id="qgNg" value="'+e(g.nguoi||'')+'" placeholder="Gõ tên hoặc số điện thoại để tìm…" autocomplete="off" style="'+INP+'">'
+    +'<div id="qgNgDs" style="border:1.5px solid #e1bee7;border-top:none;border-radius:0 0 8px 8px;max-height:210px;overflow:auto;margin-top:-2px;background:#fff"></div>'
+    +'<label style="'+LB+'">SĐT Zalo người nhận / link nhóm Zalo</label><input id="qgSdt" value="'+e(g.sdt||'')+'" placeholder="VD: 0905xxxxxx hoặc zalo.me/g/…" style="'+INP+'">'
+    +'<label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:12.5px;color:#546e7a"><input type="checkbox" id="qgLuuDb" checked> Người nhận mới → lưu vào Danh mục người nhận (dùng chung với thẻ Kanban)</label>'
     +'<label style="'+LB+'">Ghi chú gửi kèm</label><input id="qgGc" placeholder="VD: Đề nghị kiểm tra trong buổi sáng" style="'+INP+'">'
     +(['moi','kiemTra'].indexOf(r.tt)>=0?'<label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="qgSua" checked> Chuyển sang “Đang sửa chữa”</label>':'')
-    +(r.guiPB?'<div style="margin-top:8px;font-size:12px;color:#6a1b9a">Đã gửi trước đó: '+e(r.guiPB.dv)+' lúc '+fmtDT(r.guiPB.at)+'</div>':''),
+    +(r.guiPB?'<div style="margin-top:8px;font-size:12px;color:#6a1b9a">Đã gửi trước đó: '+e(r.guiPB.dv)+(r.guiPB.nguoi?(' – '+e(r.guiPB.nguoi)):'')+' lúc '+fmtDT(r.guiPB.at)+'</div>':''),
     '<button onclick="qltsLuuGuiPB(\''+id+'\')" style="'+BTN+'background:#6a1b9a;color:#fff">📤 Ghi nhận đã gửi</button>');
-  var dvI=document.getElementById('qgDv'); dvI.onchange=function(){ var s=soZalo()[dvI.value.trim()]; document.getElementById('qgSdt').value=s||''; };
+  var dvI=document.getElementById('qgDv'), ng=document.getElementById('qgNg');
+  dvI.oninput=dvI.onchange=function(){ qltsPbVe(); };
+  ng.oninput=function(){ qltsPbVe(); };
+  if(!g.sdt){ var cu1=pbDanhBa().filter(function(x){ return pbCungDv(x.dept,dv) && x.zalo; }); if(cu1.length===1){ ng.value=cu1[0].ten; document.getElementById('qgSdt').value=cu1[0].zalo; } else { var s0=soZalo()[dv]; if(s0) document.getElementById('qgSdt').value=s0; } }
+  qltsPbVe(); setTimeout(qltsPbVe, 800); /* danh bạ tải xong thì vẽ lại */
 };
 window.qltsLuuGuiPB=function(id){
   var r=SC()[id]; if(!r) return; var dv=(document.getElementById('qgDv').value||'').trim(); if(!dv){ alert('Vui lòng nhập đơn vị nhận.'); return; }
-  var sdt=(document.getElementById('qgSdt').value||'').replace(/\D/g,''), gc=(document.getElementById('qgGc').value||'').trim(), sua=document.getElementById('qgSua');
-  if(sdt){ var z=soZalo(); z[dv]=sdt; lsSet('qltsZaloPB', JSON.stringify(z)); }
-  var P='suCo/'+id+'/', t=Date.now(), up, msg='Gửi '+dv+(gc?(' — '+gc):'');
+  var nguoi=(document.getElementById('qgNg').value||'').trim(), zRaw=(document.getElementById('qgSdt').value||'').trim();
+  var laNhom=/zalo\.me\//i.test(zRaw), sdt=laNhom?zRaw:zRaw.replace(/\D/g,''), link=pbLinkZalo(sdt);
+  var gc=(document.getElementById('qgGc').value||'').trim(), sua=document.getElementById('qgSua'), luuDb=document.getElementById('qgLuuDb');
+  if(sdt && !laNhom){ var z=soZalo(); z[dv]=sdt; lsSet('qltsZaloPB', JSON.stringify(z)); }
+  /* Người nhận mới (chưa có trong danh mục cùng tên + cùng đơn vị) → lưu vào danh mục chung kanbanPhContacts */
+  try{ if(!S.demo && luuDb && luuDb.checked && nguoi && sdt && typeof phCtWrite==='function'){
+    var co=pbDanhBa().filter(function(x){ return boDau(x.ten)===boDau(nguoi) && pbCungDv(x.dept,dv); })[0];
+    if(!co) phCtWrite('c'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36), {dept:dv, ten:(typeof phTenDep==='function'?phTenDep(nguoi):nguoi), zalo:sdt, updatedAt:new Date().toISOString()});
+    else if(!co.zalo) phCtWrite(co.id, {dept:co.dept, ten:co.ten, zalo:sdt, updatedAt:new Date().toISOString()});
+  } }catch(x){}
+  var P='suCo/'+id+'/', t=Date.now(), up, msg='Gửi '+dv+(nguoi?(' – người nhận: '+nguoi):'')+(gc?(' — '+gc):'');
   if(sua && sua.checked){ up=ghiLs(id, msg+' · Chuyển sang Đang sửa chữa', {tt:'suaChua', dung:r.dung||'hanChe'}); up[P+'tt']='suaChua'; } else up=ghiLs(id, msg);
-  up[P+'donVi']=dv; up[P+'guiPB']={dv:dv, at:t, ai:tenQL()};
+  up[P+'donVi']=dv; up[P+'guiPB']={dv:dv, nguoi:nguoi||null, sdt:sdt||null, gc:gc||null, at:t, ai:tenQL()};
   luu(up).then(function(){
-    modalBox('<div style="text-align:center"><div style="font-size:38px">📤</div><div style="font-weight:800;color:#6a1b9a;font-size:16px">Đã ghi nhận gửi '+e(dv)+'</div>'
-      +'<div style="font-size:12.5px;color:#546e7a;margin-top:4px">Bước tiếp theo: gửi thông tin cho người nhận</div>'
+    modalBox('<div style="text-align:center"><div style="font-size:38px">📤</div><div style="font-weight:800;color:#6a1b9a;font-size:16px">Đã ghi nhận gửi '+e(dv)+(nguoi?(' – '+e(nguoi)):'')+'</div>'
+      +'<div style="font-size:12.5px;color:#546e7a;margin-top:4px">Bước tiếp theo: chép thẻ ảnh / chữ rồi mở Zalo gửi cho người nhận</div>'
       +'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px">'
       +'<button onclick="qltsChepAnh(\''+id+'\')" style="'+BTN+'background:#0068ff;color:#fff">🖼 Chép thẻ ảnh</button>'
       +'<button onclick="qltsChep(\''+id+'\')" style="'+BTN+'background:#0068ff;color:#fff">🔤 Chép chữ</button>'
-      +(sdt?'<a href="https://zalo.me/'+sdt+'" target="_blank" style="'+BTN+'background:#0068ff;color:#fff;text-decoration:none;display:inline-block">💬 Mở Zalo '+e(sdt)+'</a>':'')
+      +(link?'<a href="'+e(link)+'" target="_blank" style="'+BTN+'background:#0068ff;color:#fff;text-decoration:none;display:inline-block">💬 Mở Zalo '+e(nguoi||pbHienZalo(sdt))+'</a>':'<span style="font-size:12px;color:#b26a00;align-self:center">Chưa có số Zalo người nhận</span>')
       +'<button onclick="qltsInPhieu(\''+id+'\')" style="'+BTN+'background:#455a64;color:#fff">🖨 In phiếu đề nghị sửa chữa</button>'
       +'<button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div></div>', 560);
   }).catch(function(err){ alert('Lỗi: '+err.message); });
