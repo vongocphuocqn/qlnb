@@ -687,6 +687,7 @@ body.hc-ready .home-card-title,body.hc-ready .home-card-sub{opacity:1}
       <div class="home-card" data-hc="28" onclick="dgvcOpen()" style="background:linear-gradient(135deg,#0e7490,#164e63);color:#fff;border-color:#0c3f4a"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-certificate"></i><div class="home-card-title">Đánh giá, Xếp loại<br>VC - Người lao động</div><div class="home-card-sub">Kết quả đánh giá, xếp loại viên chức - người lao động hằng năm — mỗi người tự xem kết quả của mình</div></div>
       <div class="home-card" data-hc="29" onclick="bghlOpen()" style="background:linear-gradient(135deg,#00897b,#004d40);color:#fff;border-color:#00332b"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-clipboard-list"></i><div class="home-card-title">Bàn giao<br>Hộ lý</div><div class="home-card-sub">Bàn giao hằng ngày theo bộ phận — so cơ số</div></div>
       <div class="home-card" data-hc="30" onclick="qltsOpen()" style="background:linear-gradient(135deg,#1d6fa5,#0b3c5d);color:#fff;border-color:#082a42"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-device-heart-monitor"></i><div class="home-card-title">Tài sản –<br>Sự cố thiết bị</div><div class="home-card-sub">Báo hỏng bằng QR · Kanban · Downtime thời gian thực</div></div>
+      <div class="home-card" data-hc="31" onclick="dcPtttOpen()" style="background:linear-gradient(135deg,#ad1457,#6a0f3a);color:#fff;border-color:#4a0a28"><div class="home-card-badge badge-new" style="background:rgba(255,255,255,.25)">Mới</div><i class="ti ti-stethoscope"></i><div class="home-card-title">Đối chiếu<br>Công – PTTT</div><div class="home-card-sub">Chấm công – trực ↔ DS PTTT tháng</div></div>
     </div>
     <!-- KHU ADMIN -->
     <div class="home-divider" style="margin-top:14px">🛡 Quản trị hệ thống</div>
@@ -18607,6 +18608,19 @@ function goHome(){
 /* Patch logout to go home - handled above */
 
 /* ── ENTER NB SCREEN ── */
+/* 02/11/2026: thẻ Trang chủ "Đối chiếu Công – PTTT" (data-hc 31) — mở thẳng thẻ Nghỉ Bù vào tab 6 "Đối chiếu Dịch vụ PTTT".
+   Dùng CHUNG đăng nhập + phân quyền của thẻ Nghỉ Bù (Admin hoặc NV được tích "Đối chiếu PTTT"); không đổi gì thẻ Nghỉ Bù cũ. */
+window._nbVaoTab=null;
+function dcPtttOpen(){ window._nbVaoTab={tab:6, t:Date.now()}; openStaffAuthModalUser('nghibu'); }
+function nbVaoTabRieng(){
+  var vt=window._nbVaoTab; window._nbVaoTab=null;
+  if(!vt || Date.now()-vt.t>600000) return;
+  var b=document.getElementById('nbTab'+vt.tab);
+  if(b && b.style.display!=='none'){ switchNbTab(vt.tab); try{ b.scrollIntoView({block:'nearest'}); }catch(e){} }
+  else alert('Tài khoản "'+((nbCurrentUser&&nbCurrentUser.name)||'')+'" chưa được cấp quyền "Đối chiếu PTTT".\nNhờ Quản lý vào Phân quyền Nhân viên, tích cột "Đối chiếu PTTT" rồi mở lại thẻ này.');
+}
+/* Bấm thẻ Nghỉ Bù thường (data-hc 5) thì bỏ lệnh mở tab riêng còn treo (nếu vừa bấm thẻ Đối chiếu rồi hủy đăng nhập) */
+document.addEventListener('click', function(ev){ try{ var c=ev.target && ev.target.closest && ev.target.closest('.home-card[data-hc="5"]'); if(c) window._nbVaoTab=null; }catch(e){} }, true);
 function enterNbScreen(){
   nbListUnlocked = false; // mỗi lần vào lại module, phải xác thực lại nếu tab "Danh sách phiếu" có đặt mật khẩu
   const isA=nbCurrentUser.role==='admin';
@@ -18643,6 +18657,7 @@ function enterNbScreen(){
   if(nbTab1Btn)nbTab1Btn.style.display=''; // luôn hiện tab Đăng ký
   if(nbTab2Btn)nbTab2Btn.style.display=''; // luôn hiện tab Danh sách (staff xem phiếu của mình)
   switchNbTab(1); // mặc định vào tab Đăng ký
+  try{ nbVaoTabRieng(); }catch(eVt){} // 02/11/2026: vào từ thẻ "Đối chiếu Công – PTTT" → mở thẳng tab 6
   setTimeout(nbResetRows, 100);
   // Update time display
   nbUpdateTime();
