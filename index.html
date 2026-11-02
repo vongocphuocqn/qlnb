@@ -60481,9 +60481,15 @@ window.qltsXemSc=function(id, mode, giuCuon){
       +'<div style="font-size:11.5px;color:#78909c">'+fmtDT(l.t)+' · <b style="color:#37474f">'+e(l.ai||'')+'</b>'+(l.dung&&l.loai!=='ghiChu'?(' · '+(DUNG[l.dung]||{}).ic):'')+'</div><div style="font-size:13px">'+(l.loai==='ghiChu'?'💬 ':'')+e(l.gc||'')+'</div></div>';
   }).join('')+'</div>';
   var capNhat='';
+  /* 02/11/2026 20:55: chưa đăng nhập Quản lý / Phụ trách nhóm → hiện khung nhắc (trước đây khung Cập nhật xử lý ẩn hẳn, khó tìm) */
+  if(!ad && r.tt!=='xong') capNhat='<div id="qmCapNhat" style="background:#f3f8fd;border:1.5px dashed #90caf9;border-radius:12px;padding:12px;margin-top:12px">'
+    +'<div style="font-weight:800;color:#0b3c5d">🛠 Cập nhật xử lý / Hoàn tất sửa chữa</div>'
+    +'<div style="font-size:12.5px;color:#546e7a;margin:4px 0 8px">Ghi kết quả sửa, nguyên nhân, linh kiện, chi phí, chuyển Hoàn tất… dành cho <b>Quản lý</b> hoặc <b>Phụ trách nhóm</b>. Nhân viên dùng ô <b>Bổ sung thông tin</b> bên dưới.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button onclick="qltsDangNhapCapNhat(\''+id+'\')" style="'+BTN+'background:#e65100;color:#fff">🔧 Đăng nhập Phụ trách nhóm để cập nhật</button>'
+    +'<span style="font-size:12px;color:#78909c">Quản lý: đăng nhập thẻ <b>Quản lý Admin</b> ở Trang chủ (phiên tự thoát sau 30 phút không dùng) rồi mở lại phiếu.</span></div></div>';
   if(ad){
     var laXong=(mode==='xong');
-    capNhat='<div style="background:#f3f8fd;border:1px solid #bbdefb;border-radius:12px;padding:12px;margin-top:12px"><div style="font-weight:800;color:#0b3c5d;margin-bottom:6px">🛠 Cập nhật xử lý ('+(isAdmin()?'Quản lý':'Phụ trách nhóm')+')</div>'
+    capNhat='<div id="qmCapNhat" style="background:#f3f8fd;border:1px solid #bbdefb;border-radius:12px;padding:12px;margin-top:12px"><div style="font-weight:800;color:#0b3c5d;margin-bottom:6px">🛠 Cập nhật xử lý ('+(isAdmin()?'Quản lý':'Phụ trách nhóm')+')</div>'
       +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">'
       +'<div><label style="'+LB+'">Trạng thái</label><select id="qmTT" style="'+INP+'">'+COT.filter(function(c){ return c.k!=='xong' || quyenXong(r) || r.tt==='xong'; }).map(function(c){ return '<option value="'+c.k+'" '+((laXong?'xong':r.tt)===c.k?'selected':'')+'>'+c.ic+' '+c.t+'</option>'; }).join('')+'</select></div>'
       +'<div><label style="'+LB+'">Tình trạng sử dụng</label><select id="qmDung" style="'+INP+'">'+['duoc','hanChe','khong'].map(function(k){ return '<option value="'+k+'" '+((laXong?'duoc':r.dung)===k?'selected':'')+'>'+DUNG[k].ic+' '+DUNG[k].t+'</option>'; }).join('')+'</select></div>'
@@ -60820,6 +60826,9 @@ function nutPhien(){
   return '<button onclick="qltsPtVao()" title="Người phụ trách nhóm thiết bị đăng nhập bằng mã PIN để xử lý sự cố của nhóm" style="'+BTN+'background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)">🔧 Phụ trách nhóm</button>';
 }
 window.qltsPtThoat=function(){ ptDangXuat(false); };
+/* 02/11/2026 20:55: mở phiếu và cuộn thẳng tới khung "Cập nhật xử lý" */
+window.qltsCapNhatSc=function(id){ qltsXemSc(id); setTimeout(function(){ var k=document.getElementById('qmCapNhat'); if(k){ try{ k.scrollIntoView({behavior:'smooth',block:'start'}); }catch(x){ k.scrollIntoView(); } } },150); };
+window.qltsDangNhapCapNhat=function(id){ S.moLaiSc=id; qltsPtVao(); };
 window.qltsPtVao=function(){
   var ds=pqDs();
   if(!ds.length){ modalBox('<div style="font-weight:800;color:#0b3c5d;font-size:15px">🔧 Đăng nhập Phụ trách nhóm</div><div style="margin:10px 0;color:#546e7a">Chưa có ai được phân quyền Phụ trách nhóm. Quản lý vào <b>⚙️ Cấu hình → 👥 Phân quyền</b> để chọn người phụ trách và cấp mã PIN.</div>'+bangQuyenHTML()+'<div style="text-align:right;margin-top:10px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>', 760); return; }
@@ -60837,6 +60846,7 @@ window.qltsPtXacNhan=function(){
   S.pt={k:p.k, ten:p.ten, pin:p.pin, nhom:Object.keys(p.nhom).filter(function(n){ return p.nhom[n]; }), het:Date.now()+12*3600000};
   try{ sessionStorage.setItem('qltsPT', JSON.stringify(S.pt)); }catch(x){}
   lsSet('qltsNguoiQL', p.ten); qltsDongModal(); render(); toast('✅ Đã đăng nhập Phụ trách: '+p.ten+' ('+tenNhomPT(S.pt)+')');
+  if(S.moLaiSc){ var idMo=S.moLaiSc; S.moLaiSc=null; setTimeout(function(){ qltsCapNhatSc(idMo); },200); } /* 02/11/2026: quay lại đúng phiếu đang xem */
 };
 function bangQuyenHTML(){
   var ptXong=!!(S.cfg||{}).ptNghiemThu, Y='<td style="text-align:center;color:#2e7d32;font-weight:800">✔</td>', N='<td style="text-align:center;color:#cfd8dc">—</td>', G='<td style="text-align:center;color:#e65100;font-weight:700">✔ nhóm mình</td>';
@@ -61703,7 +61713,9 @@ function viewTrangTS(){
   return the('<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">'+thumbHtml(t,120,12)+'<div style="flex:1;min-width:220px"><div style="font-size:12px;color:#78909c">Thiết bị</div><div style="font-size:19px;font-weight:900;color:#0b3c5d;line-height:1.3">'+e(t.ten)+'</div><div style="font-size:13px;color:#546e7a">'+e(t.ma)+' · '+e(t.boPhan||'Chưa phân bộ phận')+' · '+e(t.nhom)+'</div>'
       +'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'+pillDung(st,true)+' '+canhBaoTS(t)+'</div></div></div>'
       +(canKT?'<div style="margin-top:6px;font-size:12.5px">'+(kt?((kt.dat===false?'❌ Kiểm tra hôm nay KHÔNG ĐẠT':'✅ Đã kiểm tra hôm nay')+' lúc '+fmtDT(kt.t).slice(0,5)+' — '+e(kt.nguoi||'')):'<span style="color:#a15c00;font-weight:700">⏳ Hôm nay chưa kiểm tra trước sử dụng</span>')+'</div>':'')
-      +(mo.length?'<div style="margin-top:8px;background:#fff8e1;border:1px solid #ffca28;border-radius:8px;padding:8px 10px;font-size:12.5px"><b>Đang có '+mo.length+' sự cố chưa xử lý xong:</b>'+mo.map(function(r){ return '<div style="margin-top:4px;cursor:pointer" onclick="qltsXemSc(\''+r._id+'\')">'+pillCot(r.tt)+' '+maSc(r._id)+' — '+e(r.moTa||'').slice(0,70)+' <u>xem</u></div>'; }).join('')+'</div>':''))
+      +(mo.length?'<div style="margin-top:8px;background:#fff8e1;border:1px solid #ffca28;border-radius:8px;padding:8px 10px;font-size:12.5px"><b>Đang có '+mo.length+' sự cố chưa xử lý xong:</b>'+mo.map(function(r){ return '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="cursor:pointer;flex:1;min-width:220px" onclick="qltsXemSc(\''+r._id+'\')">'+pillCot(r.tt)+' '+maSc(r._id)+' — '+e(r.moTa||'').slice(0,70)+' <u>xem</u></span>'
+        +'<button onclick="qltsCapNhatSc(\''+r._id+'\')" style="'+BTN+'padding:6px 10px;font-size:12.5px;background:#0b3c5d;color:#fff">🛠 Cập nhật xử lý</button>'
+        +(quyenXong(r)?'<button onclick="qltsXemSc(\''+r._id+'\',\'xong\')" style="'+BTN+'padding:6px 10px;font-size:12.5px;background:#2e7d32;color:#fff">✓ Hoàn tất</button>':'')+'</div>'; }).join('')+'</div>':''))
     +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
     +(canKT?big("qltsKiemTra('"+e(ma)+"')",'✅','Kiểm tra trước sử dụng','Đầu ca / trước khi dùng cho người bệnh','linear-gradient(135deg,#2e7d32,#1b5e20)'):'')
     +big("qltsTab('bao');qltsChonTs('"+e(ma)+"')",'⚠️','Báo hỏng / sự cố','Tạo thẻ Kanban, in biển cảnh báo','linear-gradient(135deg,#d32f2f,#8e0000)')
