@@ -60486,7 +60486,7 @@ window.qltsXemSc=function(id, mode, giuCuon){
   if(!ad && r.tt!=='xong') capNhat='<div id="qmCapNhat" style="background:#f3f8fd;border:1.5px dashed #90caf9;border-radius:12px;padding:12px;margin-top:12px">'
     +'<div style="font-weight:800;color:#0b3c5d">🛠 Cập nhật xử lý / Hoàn tất sửa chữa</div>'
     +'<div style="font-size:12.5px;color:#546e7a;margin:4px 0 8px">Ghi kết quả sửa, nguyên nhân, linh kiện, chi phí, chuyển Hoàn tất… dành cho <b>Quản lý</b> hoặc <b>Phụ trách nhóm</b>. Nhân viên dùng ô <b>Bổ sung thông tin</b> bên dưới.</div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button onclick="qltsDangNhapCapNhat(\''+id+'\')" style="'+BTN+'background:#e65100;color:#fff">🔧 Đăng nhập Phụ trách nhóm để cập nhật</button>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button onclick="qltsQlVao(\''+id+'\')" style="'+BTN+'background:#0b3c5d;color:#fff">👑 Đăng nhập Quản lý (mật khẩu)</button><button onclick="qltsDangNhapCapNhat(\''+id+'\')" style="'+BTN+'background:#e65100;color:#fff">🔧 Đăng nhập Phụ trách nhóm để cập nhật</button>'
     +'<span style="font-size:12px;color:#78909c">Quản lý: đăng nhập thẻ <b>Quản lý Admin</b> ở Trang chủ (phiên tự thoát sau 30 phút không dùng) rồi mở lại phiếu.</span></div></div>';
   if(ad){
     var laXong=(mode==='xong');
@@ -60826,12 +60826,18 @@ function nutPhien(){
   if(isAdmin()) return '<span title="Đang đăng nhập Quản lý Admin — toàn quyền" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:6px 10px;font-size:12.5px;font-weight:700">👑 Quản lý</span>';
   var p=ptHienTai();
   if(p) return '<span style="background:#fff3e0;color:#e65100;border-radius:8px;padding:6px 10px;font-size:12.5px;font-weight:700" title="Phụ trách: '+e(tenNhomPT(p))+'">🔧 '+e(p.ten)+' · '+e(tenNhomPT(p))+' <a href="javascript:void(0)" onclick="qltsPtThoat()" style="color:#bf360c;margin-left:4px">Đăng xuất</a></span>';
-  return '<button onclick="qltsPtVao()" title="Người phụ trách nhóm thiết bị đăng nhập bằng mã PIN để xử lý sự cố của nhóm" style="'+BTN+'background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)">🔧 Phụ trách nhóm</button>';
+  return '<button onclick="qltsQlVao()" title="Quản lý đăng nhập bằng mật khẩu (tự thoát sau 30 phút)" style="'+BTN+'background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)">👑 Quản lý</button> <button onclick="qltsPtVao()" title="Người phụ trách nhóm thiết bị đăng nhập bằng mã PIN để xử lý sự cố của nhóm" style="'+BTN+'background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)">🔧 Phụ trách nhóm</button>';
 }
 window.qltsPtThoat=function(){ ptDangXuat(false); };
 /* 02/11/2026 20:55: mở phiếu và cuộn thẳng tới khung "Cập nhật xử lý" */
 window.qltsCapNhatSc=function(id){ qltsXemSc(id); setTimeout(function(){ var k=document.getElementById('qmCapNhat'); if(k){ try{ k.scrollIntoView({behavior:'smooth',block:'start'}); }catch(x){ k.scrollIntoView(); } } },150); };
 window.qltsDangNhapCapNhat=function(id){ S.moLaiSc=id; qltsPtVao(); };
+/* 03/11/2026 15:50: Quản lý đăng nhập ngay tại phiếu (phiên Quản lý Admin tự thoát sau 30 phút) */
+window.qltsQlVao=function(id){
+  var pwd=window.prompt('Nhập mật khẩu Quản lý:'); if(pwd===null) return;
+  if(typeof adminPwd!=='undefined' && pwd===adminPwd){ if(typeof adminSessionStart==='function') adminSessionStart(); else adminSession.active=true; try{ cu={name:'Quản lý',role:'admin'}; }catch(x){} render(); if(id) qltsCapNhatSc(id); toast('👑 Đã đăng nhập Quản lý (30 phút)'); }
+  else alert('Mật khẩu không đúng!');
+};
 window.qltsPtVao=function(){
   var ds=pqDs();
   if(!ds.length){ modalBox('<div style="font-weight:800;color:#0b3c5d;font-size:15px">🔧 Đăng nhập Phụ trách nhóm</div><div style="margin:10px 0;color:#546e7a">Chưa có ai được phân quyền Phụ trách nhóm. Quản lý vào <b>⚙️ Cấu hình → 👥 Phân quyền</b> để chọn người phụ trách và cấp mã PIN.</div>'+bangQuyenHTML()+'<div style="text-align:right;margin-top:10px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Đóng</button></div>', 760); return; }
