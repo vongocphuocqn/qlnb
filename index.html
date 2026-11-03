@@ -60273,6 +60273,7 @@ function viewBao(){
     +'<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="qltsNB" '+(f.nb?'checked':'')+'> 👤 Đang ảnh hưởng người bệnh / ca mổ</label>'
     +'<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="qltsYK" '+(f.yk?'checked':'')+'> 🛡 Có liên quan sự cố y khoa (báo cáo theo quy định)</label></div>'
     +'<label style="'+LB+'">6. Ảnh chụp / minh chứng (không bắt buộc, tối đa '+BH_ANH_MAX+' ảnh)</label>'+veBhAnh(f)
+    +'<label style="'+LB+'">7. Chữ ký người báo hỏng *</label><div id="qltsKyKhung">'+kyBhHTML(f)+'</div>'
     +'<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><button onclick="qltsGui()" id="qltsBtnGui" style="'+BTN+'background:#c62828;color:#fff;padding:11px 22px;font-size:14.5px">📨 Gửi báo hỏng</button>'
     +'<button onclick="qltsTab(\'bao\')" style="'+BTN+'background:#eceff1;color:#37474f">Làm lại</button></div>'
   );
@@ -60386,6 +60387,17 @@ window.qltsXoaAnh=function(){ docForm(); S.form.anh=null; S.form.anhs=[]; render
 function nenAnh(file, max, q, cb){
   var rd=new FileReader(); rd.onload=function(){ var img=new Image(); img.onload=function(){ var k=Math.min(1, max/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext('2d').drawImage(img,0,0,c.width,c.height); cb(c.toDataURL('image/jpeg', q)); }; img.onerror=function(){ alert('Không đọc được ảnh.'); }; img.src=rd.result; }; rd.readAsDataURL(file);
 }
+/* 03/11/2026 21:10: CHỮ KÝ NGƯỜI BÁO HỎNG — gọi bảng ký dùng chung openChuKyPad (không sửa); lưu quanLyTaiSan/chuKy/{id}, suCo/{id}/daKy */
+function kyBhHTML(f){ f=f||{};
+  return f.ky ? '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><img src="'+f.ky+'" style="height:70px;max-width:220px;border:1px solid #cfd8dc;border-radius:8px;background:#fff"><span style="color:#2e7d32;font-weight:700">✔ Đã ký</span><button type="button" onclick="qltsKyBh()" style="'+BTN+'background:#eceff1;color:#37474f;padding:6px 12px">✍️ Ký lại</button></div>'
+    : '<button type="button" onclick="qltsKyBh()" style="'+BTN+'background:#4a148c;color:#fff;padding:9px 16px">✍️ Bấm để ký</button> <span style="font-size:12px;color:#78909c">ký bằng ngón tay (điện thoại) hoặc chuột</span>'; }
+window.qltsKyBh=function(){ docForm(); var f=S.form; if(!f) return; var ten=(f.nguoi||'').trim();
+  if(!ten){ alert('Vui lòng chọn tên người báo trước khi ký.'); var n=document.getElementById('qltsNguoi'); if(n) n.focus(); return; }
+  if(typeof openChuKyPad!=='function'){ alert('Không mở được bảng ký trên thiết bị này.'); return; }
+  openChuKyPad('Ký xác nhận báo hỏng – '+ten, function(url){ if(!S.form) return; S.form.ky=url; var k=document.getElementById('qltsKyKhung'); if(k) k.innerHTML=kyBhHTML(S.form); }, ten); };
+function napKyBh(id, elId){ S.kyBh=S.kyBh||{}; var ve=function(u){ var el=document.getElementById(elId); if(el) el.innerHTML=u?'<div style="font-size:12px;color:#546e7a">✍️ Chữ ký người báo hỏng:</div><img src="'+u+'" style="height:60px;max-width:200px;border:1px solid #eceff1;border-radius:6px;background:#fff">':''; };
+  if(S.kyBh[id]!==undefined) return ve(S.kyBh[id]);
+  try{ R('chuKy/'+id).once('value').then(function(s){ S.kyBh[id]=s.val()||''; ve(S.kyBh[id]); }).catch(function(){}); }catch(x){} }
 window.qltsGui=function(){
   docForm(); var f=S.form, ts=f.ma?taiSan(f.ma):null;
   if(!ts){ alert('Vui lòng chọn thiết bị (gõ tìm hoặc quét mã QR).'); return; }
@@ -60395,14 +60407,18 @@ window.qltsGui=function(){
     if(g){ f.nguoi=g; } else { alert('Tên “'+f.nguoi+'” không có trong Danh sách nhân viên của khoa.\nVui lòng gõ vài chữ rồi chọn đúng tên trong danh sách gợi ý.'); return; }
   }
   if(!f.moTa.trim()){ alert('Vui lòng mô tả hiện tượng (có thể bấm các ô gợi ý).'); return; }
+  if(!f.ky){ alert('Vui lòng bấm "✍️ Bấm để ký" — người báo hỏng ký xác nhận phiếu.'); return; }
+  /* 03/11/2026 21:20: kiểm tra mốc "phát hiện hỏng" TRƯỚC khi khóa nút — trước đây bấm Hủy ở hộp hỏi >7 ngày thì nút kẹt "Đang lưu…" và hiện nhầm cảnh báo mạng chậm */
+  var tH0=docDtLocal(f.tHong), t0=Date.now();
+  if(tH0){ if(tH0>t0+60000){ alert('Thời điểm phát hiện hỏng không được sau thời điểm hiện tại.'); return; }
+    if(t0-tH0>7*864e5 && !confirm('Thời điểm phát hiện hỏng là '+fmtDT(tH0)+' (cách đây hơn 7 ngày).\nThời gian ngừng máy sẽ tính từ mốc này.\n\n• OK: vẫn gửi với mốc này\n• Hủy: quay lại sửa ô "Thời điểm phát hiện hỏng"')){ var o=document.getElementById('qltsTHong'); if(o){ try{ o.scrollIntoView({block:'center'}); }catch(x){} o.focus(); } return; } }
   var btn=document.getElementById('qltsBtnGui'); if(btn){ btn.disabled=true; btn.style.opacity='.75'; btn.textContent='⏳ Đang lưu vào hệ thống…'; }
   var daXong=false, cham=setTimeout(function(){ if(daXong||!btn) return; var m=document.createElement('div'); m.id='qltsCham'; m.style.cssText='margin-top:8px;background:#fff3e0;border:2px solid #ff9800;border-radius:8px;padding:8px 10px;color:#e65100;font-weight:700;font-size:13px'; m.textContent='⚠ Mạng chậm — CHƯA lưu xong. Vui lòng giữ nguyên trang, không tắt/không bấm lại. Hệ thống sẽ tự lưu khi có mạng.'; btn.parentNode.appendChild(m); }, 8000);
   var id=newId(), t=Date.now(), up={}, tBao=t, tH=docDtLocal(f.tHong);
-  if(tH){ if(tH>t+60000){ alert('Thời điểm phát hiện hỏng không được sau thời điểm hiện tại.'); return; }
-    if(t-tH>7*864e5 && !confirm('Thời điểm phát hiện hỏng cách đây hơn 7 ngày ('+fmtDT(tH)+'). Thời gian ngừng máy sẽ tính từ mốc này. Tiếp tục?')) return;
-    if(tH<t) t=tH; }
-  up['suCo/'+id]={ma:ts.ma, ten:ts.ten, boPhan:ts.boPhan||'', nhom:ts.nhom, nguoiBao:f.nguoi, t:t, muc:f.muc, dung:f.dung, moTa:f.moTa.trim(), anhHuongNB:!!f.nb, suCoYK:!!f.yk, coAnh:!!f.anh, soAnh:(bhAnhs(f).length||null), tt:'moi', capNhat:tBao, tBao:(tBao-t>60000?tBao:null),
+  if(tH && tH<t) t=tH; /* đã kiểm tra mốc giờ ở trên, trước khi khóa nút */
+  up['suCo/'+id]={ma:ts.ma, ten:ts.ten, boPhan:ts.boPhan||'', nhom:ts.nhom, nguoiBao:f.nguoi, t:t, muc:f.muc, dung:f.dung, moTa:f.moTa.trim(), anhHuongNB:!!f.nb, suCoYK:!!f.yk, coAnh:!!f.anh, soAnh:(bhAnhs(f).length||null), tt:'moi', capNhat:tBao, tBao:(tBao-t>60000?tBao:null), daKy:true,
     lichSu:{l0:{t:t, tt:'moi', dung:f.dung, ai:f.nguoi, gc:'Báo sự cố: '+f.moTa.trim().slice(0,120)+(tBao-t>60000?(' (phát hiện hỏng '+fmtDT(t)+', gửi phiếu '+fmtDT(tBao)+')'):'')}}};
+  up['chuKy/'+id]=f.ky; S.kyBh=S.kyBh||{}; S.kyBh[id]=f.ky;
   if(f.anh) up['anh/'+id]=f.anh; bhAnhs(f).slice(1).forEach(function(a,i){ up['anhThem/'+id+'/a'+(i+1)]=a; });
   lsSet('qltsNguoi', f.nguoi);
   luu(up).then(function(){ daXong=true; clearTimeout(cham); S.sent={id:id, at:Date.now(), done:{}}; S.vuaTao=id; render(); window.scrollTo(0,0); })
@@ -60519,6 +60535,7 @@ window.qltsXemSc=function(id, mode, giuCuon){
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+pillCot(r.tt)+(r.tt==='xong'?pillDung(r.ketQua==='thanhLy'?'thanhLy':'duoc',true):pillDung(r.dung,true))+pillMuc(r.muc)
     +(r.anhHuongNB?'<span class="qlts-pill" style="background:#4a148c;color:#fff">👤 Ảnh hưởng người bệnh/ca mổ</span>':'')+(r.suCoYK?'<span class="qlts-pill" style="background:#b71c1c;color:#fff">🛡 Liên quan sự cố y khoa</span>':'')+'</div>'
     +'<div style="margin-top:10px;font-size:13.5px;background:#fff8e1;border-radius:10px;padding:9px 11px"><b>Hiện tượng:</b> '+e(r.moTa||'')+'</div>'
+    +(r.daKy?'<div id="qmKyBh_'+id+'" style="margin-top:6px"></div>'+(setTimeout(function(){ napKyBh(id,'qmKyBh_'+id); },60)?'':''):'')
     +(r.thayThe?'<div style="margin-top:6px;font-size:13px;color:#1565c0">🔁 <b>Phương án thay thế:</b> '+e(r.thayThe)+'</div>':'')
     +(r.phuTrach?'<div style="margin-top:6px;font-size:13px;color:#1565c0">🧑‍🔧 <b>Phụ trách:</b> '+e(r.phuTrach)+(r.hanXL?(' — hạn '+fmtDT(r.hanXL)):'')+'</div>':'')
     +(r.guiPB?'<div style="margin-top:6px;font-size:13px;color:#6a1b9a">📤 <b>Đã gửi:</b> '+e(r.guiPB.dv)+(r.guiPB.nguoi?(' – người nhận: <b>'+e(r.guiPB.nguoi)+'</b>'):'')+' lúc '+fmtDT(r.guiPB.at)+(r.guiPB.sdt&&pbLinkZalo(r.guiPB.sdt)?(' · <a href="'+e(pbLinkZalo(r.guiPB.sdt))+'" target="_blank" style="color:#0068ff">💬 Zalo '+e(pbHienZalo(r.guiPB.sdt))+'</a>'):'')+(r.guiPB.gc?('<div style="color:#546e7a;font-size:12px">'+e(r.guiPB.gc)+'</div>'):'')+'</div>':'')
@@ -60671,7 +60688,7 @@ window.qltsInPhieu=function(id){
     +hang('Phương án thay thế',e(r.thayThe||''))+hang('Trạng thái xử lý',(COT.filter(function(c){return c.k===r.tt;})[0]||COT[0]).t+(r.donVi?(' — '+e(r.donVi)):''))
     +(r.tt==='xong'?hang('Kết quả',e(KET_QUA[r.ketQua]||'')+(r.nguyenNhan?(' — '+e(r.nguyenNhan)):'')+' (hoàn tất '+fmtDT(tXong(r))+')'):'')+'</table>'
     +'<p>Khoa Gây mê Hồi sức đề nghị Phòng Vật tư – Thiết bị y tế kiểm tra, sửa chữa để đảm bảo hoạt động chuyên môn và an toàn người bệnh.</p>'
-    +'<table class="ky" style="width:100%;margin-top:14px"><tr><td><b>NGƯỜI BÁO</b><br><i>(Ký, ghi rõ họ tên)</i><br><br><br><br>'+e(r.nguoiBao||'')+'</td><td><b>PHÒNG VT-TTBYT</b><br><i>(Ký, ghi rõ họ tên)</i></td><td><b>TRƯỞNG KHOA</b><br><i>(Ký, ghi rõ họ tên)</i></td></tr></table>'
+    +'<table class="ky" style="width:100%;margin-top:14px"><tr><td><b>NGƯỜI BÁO</b><br><i>(Ký, ghi rõ họ tên)</i><br>'+((S.kyBh&&S.kyBh[id])?'<img src="'+S.kyBh[id]+'" style="height:60px;max-width:180px"><br>':'<br><br><br>')+e(r.nguoiBao||'')+'</td><td><b>PHÒNG VT-TTBYT</b><br><i>(Ký, ghi rõ họ tên)</i></td><td><b>TRƯỞNG KHOA</b><br><i>(Ký, ghi rõ họ tên)</i></td></tr></table>'
     +'<script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script></body></html>';
   var w=window.open('','_blank'); if(!w){ alert('Trình duyệt chặn cửa sổ in — cho phép cửa sổ bật lên rồi thử lại.'); return; } w.document.write(html); w.document.close();
 };
