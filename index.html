@@ -29415,7 +29415,8 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;background:#f3fbfa;border:1px solid #a8d9d0;border-radius:8px;padding:10px 12px">
         <div class="fg" style="margin:0"><label style="font-size:11.5px">Từ ngày</label><input type="date" id="pmStatsFrom" onchange="pmOpenRoomsStats(true)"></div>
         <div class="fg" style="margin:0"><label style="font-size:11.5px">Đến ngày</label><input type="date" id="pmStatsTo" onchange="pmOpenRoomsStats(true)"></div>
-        <button type="button" class="kpi-btn" style="border:1.5px solid #0d6e6e;color:#0d6e6e" onclick="document.getElementById('pmStatsFrom').value='';document.getElementById('pmStatsTo').value='';pmOpenRoomsStats(true)"><i class="ti ti-x"></i> Bỏ lọc (xem toàn bộ)</button>
+        <div class="fg" style="margin:0"><label style="font-size:11.5px">Phòng</label><select id="pmStatsRoom" onchange="pmStatsDoiPhong()" style="min-width:150px;padding:8px 10px;border:1.5px solid #0d6e6e;border-radius:8px;font-size:14px;font-family:inherit;background:#fff"><option value="">— Tất cả phòng —</option></select></div>
+        <button type="button" class="kpi-btn" style="border:1.5px solid #0d6e6e;color:#0d6e6e" onclick="document.getElementById('pmStatsFrom').value='';document.getElementById('pmStatsTo').value='';var pr=document.getElementById('pmStatsRoom');if(pr)pr.value='';pmOpenRoomsStats(true)"><i class="ti ti-x"></i> Bỏ lọc (xem toàn bộ)</button>
         <div id="pmStatsRangeNote" style="font-size:11.5px;color:#888;align-self:center"></div>
       </div>
       <div style="margin-bottom:12px;background:#fff;border:1.5px solid #0d6e6e;border-radius:8px;padding:10px 12px">
@@ -29423,7 +29424,7 @@ table.kpi-tb th{background:#eef3fb;color:#0d3c78;font-weight:700;white-space:now
           <input type="text" id="pmStatsSearch" oninput="pmStatsSearchRun()" placeholder="🔍 Tìm lịch sử giao nhận: tên người giao/nhận, số hiệu, ngày (VD 15/10), phòng (VD 201), ca đêm…" style="flex:1;min-width:240px;padding:9px 12px;border:1.5px solid #a8d9d0;border-radius:8px;font-size:14px;font-family:inherit">
           <button type="button" class="kpi-btn" style="border:1.5px solid #999;color:#666" onclick="document.getElementById('pmStatsSearch').value='';pmStatsSearchRun()"><i class="ti ti-x"></i> Xóa tìm</button>
         </div>
-        <div style="font-size:11px;color:#888;margin-top:4px">Tìm trên tất cả các phòng, theo khoảng ngày đang lọc ở trên. Gõ nhiều từ để thu hẹp (VD: "201 đêm 14/10"). Bấm 1 dòng để mở biên bản.</div>
+        <div style="font-size:11px;color:#888;margin-top:4px">Tìm trên tất cả các phòng (hoặc phòng đang chọn ở ô <b>Phòng</b> — chọn phòng là hiện ngay toàn bộ lần giao nhận của phòng đó), theo khoảng ngày đang lọc ở trên. Gõ nhiều từ để thu hẹp (VD: "201 đêm 14/10"). Bấm 1 dòng để mở biên bản.</div>
         <div id="pmStatsSearchRes"></div>
       </div>
       <div id="pmRoomsStatsBody">Đang tải...</div>
@@ -43189,12 +43190,13 @@ window.dctdMoveStatus=function(id,st){
   function pmStatsNorm(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d'); }
   window.pmStatsSearchRun=function(){
     var box=document.getElementById('pmStatsSearchRes'); if(!box) return;
-    var q=((document.getElementById('pmStatsSearch')||{}).value||'').trim();
-    if(!q){ box.innerHTML=''; return; }
+    var q=((document.getElementById('pmStatsSearch')||{}).value||'').trim(), phongLoc=pmStatsRoomSel();
+    if(!q && !phongLoc){ box.innerHTML=''; return; }
     var toks=pmStatsNorm(q).split(/\s+/).filter(Boolean);
     var fr=(document.getElementById('pmStatsFrom')||{}).value||'', to=(document.getElementById('pmStatsTo')||{}).value||'';
     var out=[], d=pmRoomsStatsData||{};
     Object.keys(d).forEach(function(room){
+      if(phongLoc && String(room)!==phongLoc) return;
       var recs=d[room]||{};
       Object.keys(recs).forEach(function(id){
         var r=recs[id]; if(!r || typeof r!=='object') return;
@@ -43208,7 +43210,7 @@ window.dctdMoveStatus=function(id,st){
     });
     out.sort(function(a,b){ return ((b.r.ngay||'')+' '+(b.r.gio||'')).localeCompare((a.r.ngay||'')+' '+(a.r.gio||'')); });
     var MAX=200, td='padding:5px 8px;border:1px solid #cdeae4';
-    box.innerHTML='<div style="font-size:12.5px;font-weight:700;color:#0d6e6e;margin:8px 0 4px">Tìm thấy '+out.length+' lần giao nhận'+(out.length>MAX?(' — hiện '+MAX+' lần mới nhất'):'')+'</div>'
+    box.innerHTML='<div style="font-size:12.5px;font-weight:700;color:#0d6e6e;margin:8px 0 4px">'+(phongLoc?('Phòng '+pmEsc(phongLoc)+' — '):'')+'Tìm thấy '+out.length+' lần giao nhận'+(out.length>MAX?(' — hiện '+MAX+' lần mới nhất'):'')+'</div>'
       +(out.length?('<div style="max-height:45vh;overflow:auto;border-radius:6px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
       +'<thead><tr style="background:#daf1ec;color:#00473e;position:sticky;top:0"><th style="'+td+'">#</th><th style="'+td+'">Ngày giờ</th><th style="'+td+'">Ca</th><th style="'+td+'">Phòng</th><th style="'+td+'">Nhóm</th><th style="'+td+'">Số hiệu</th><th style="'+td+'">Người giao</th><th style="'+td+'">Người nhận</th><th style="'+td+'">Thiếu/hỏng</th><th style="'+td+'">Trạng thái</th></tr></thead><tbody>'
       +out.slice(0,MAX).map(function(x,i){ var r=x.r, f=pmItemFlags(r);
@@ -43264,6 +43266,8 @@ window.dctdMoveStatus=function(id,st){
     var savedCu = (typeof pmCu!=='undefined') ? pmCu : null;
     if(!savedCu||savedCu.role!=='admin'){alert('Chỉ Quản lý mới xem được!');return;}
     if(!keepOpen) document.getElementById('pmRoomsStatsBg').style.display='flex';
+    /* 04/11/2026: ô chọn PHÒNG — lọc bảng thống kê + liệt kê toàn bộ lần giao nhận của phòng đó */
+    try{ var selP=document.getElementById('pmStatsRoom'); if(selP){ var cur=selP.value; selP.innerHTML='<option value="">— Tất cả phòng —</option>'+PM_ROOMS.map(function(rm){ return '<option value="'+pmEsc(rm)+'"'+(String(rm)===cur?' selected':'')+'>Phòng '+pmEsc(rm)+'</option>'; }).join(''); } }catch(eP){}
     document.getElementById('pmRoomsStatsBody').innerHTML='Đang tải...';
     var fr=(document.getElementById('pmStatsFrom')||{}).value||'';
     var to=(document.getElementById('pmStatsTo')||{}).value||'';
@@ -43294,7 +43298,7 @@ window.dctdMoveStatus=function(id,st){
       });
       pmRoomsStatsCache=rows;
       pmRoomsStatsData=d;
-      pmRenderRoomsStats(rows);
+      pmRenderRoomsStats(pmStatsLocPhong(rows));
       try{ pmStatsSearchRun(); }catch(eS){}
     }).catch(function(err){
       document.getElementById('pmRoomsStatsBody').innerHTML='<div style="color:#c62828">Lỗi tải dữ liệu: '+err.message+'</div>';
@@ -43304,6 +43308,9 @@ window.dctdMoveStatus=function(id,st){
     if(e && e.target!==e.currentTarget) return;
     document.getElementById('pmRoomsStatsBg').style.display='none';
   };
+  function pmStatsRoomSel(){ return ((document.getElementById('pmStatsRoom')||{}).value)||''; }
+  function pmStatsLocPhong(rows){ var p=pmStatsRoomSel(); return p ? (rows||[]).filter(function(r){ return String(r.room)===p; }) : (rows||[]); }
+  window.pmStatsDoiPhong=function(){ pmRenderRoomsStats(pmStatsLocPhong(pmRoomsStatsCache||[])); try{ pmStatsSearchRun(); }catch(eS){} };
   function pmRenderRoomsStats(rows){
     var body=document.getElementById('pmRoomsStatsBody');
     if(!body) return;
