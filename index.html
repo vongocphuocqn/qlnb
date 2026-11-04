@@ -43435,7 +43435,7 @@ window.dctdMoveStatus=function(id,st){
           +'<td style="'+td+';font-weight:800;color:'+(tl>=95?'#2e7d32':tl>=80?'#e65100':'#c62828')+'">'+tl+'%</td><td style="'+td+';font-size:11.5px;'+(r.thang?'color:#2e7d32':'color:#c62828')+'">'+(r.thang?('✓ '+pmEsc(r.thang)):'chưa có')+'</td></tr>'; }).join('')
       +'</table></div><div style="font-size:11.5px;color:#607d8b;margin-top:5px">✓ đủ nhóm · ½ thiếu nhóm · ✗ không bàn giao · <sup>!</sup> có biên bản chưa đủ chữ ký · … hôm nay chưa có biên bản (chưa tính) · ô trống: ngày chưa tới'+(pmKbgBoCN()?' / T7, CN':'')+'. Bấm 1 ô để xem chi tiết ngày đó.</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" onclick="pmKbgInThang()" class="kpi-btn" style="background:#0b3c8c;color:#fff;border:none;padding:9px 14px;font-weight:700">🖨 In bảng theo dõi tháng</button><button type="button" onclick="pmKbgChepThang()" class="kpi-btn" style="background:#0068ff;color:#fff;border:none;padding:9px 14px;font-weight:700">📋 Chép tin nhắn tổng hợp tháng</button></div>';
-    return ctl+o;
+    return ctl+pmKbgBGThangHTML(th,false)+'<div style="margin-top:14px;border-top:2px dashed #b0c4de"></div>'+o;
   }
   window.pmKbgMoNgay=function(k){ pmKbgLs('pmKbg_che','ngay'); pmKbgVe(); var n=document.getElementById('pmKbgNgay'); if(n){ n.value=k; pmKbgVe(); } };
   function pmKbgDauIn(tieuDe, phu){
@@ -43449,7 +43449,7 @@ window.dctdMoveStatus=function(id,st){
     var h=pmKbgDauIn('Theo dõi bàn giao tháng '+a[1]+'/'+a[0],'ngang')+'<h2>BẢNG THEO DÕI BÀN GIAO PHÒNG MỔ — THÁNG '+a[1]+'/'+a[0]+'</h2><div class="c" style="margin-bottom:6px"><i>Yêu cầu: bàn giao đủ nhóm '+pmKbgYc().split(',').map(function(x){ return x==='gm'?'Gây mê':x==='dc'?'Dụng cụ':''; }).filter(Boolean).join(' + ')+' mỗi ngày'+(pmKbgBoCN()?' (không tính Thứ 7, Chủ nhật)':'')+'; số liệu tính đến ngày '+pmFmtD(pmToday())+'</i></div>'
       +'<table style="font-size:9.5pt"><tr><th>Phòng</th>'+T.ngays.map(function(k){ return '<th>'+(+k.slice(8))+'</th>'; }).join('')+'<th>Đủ</th><th>Thiếu</th><th>Không</th><th>Tỷ lệ</th><th>BG tháng</th></tr>'
       +T.rows.map(function(r){ return '<tr><td><b>'+pmEsc(r.room)+'</b></td>'+T.ngays.map(function(k){ var x=r.o[k]; return '<td class="c '+(x&&x.st!=='cho'?(x.st==='du'?'xanh':'do'):'')+'">'+(x?(x.st==='du'?'✓':x.st==='thieu'?'½':x.st==='cho'?'…':'✗'):'')+'</td>'; }).join('')+'<td class="c">'+r.du+'</td><td class="c">'+r.thieu+'</td><td class="c do">'+r.khong+'</td><td class="c"><b>'+(r.phai?Math.round(r.du/r.phai*100):0)+'%</b></td><td class="c">'+(r.thang?pmEsc(r.thang):'—')+'</td></tr>'; }).join('')
-      +'</table><div style="font-size:10pt;margin-top:4px">Ký hiệu: ✓ bàn giao đủ nhóm · ½ thiếu nhóm · ✗ không bàn giao.</div>'+pmKbgCuoiIn();
+      +'</table><div style="font-size:10pt;margin-top:4px">Ký hiệu: ✓ bàn giao đủ nhóm · ½ thiếu nhóm · ✗ không bàn giao.</div>'+pmKbgBGThangHTML(th,true)+pmKbgCuoiIn();
     pmKbgMoIn(h);
   };
   window.pmKbgChepThang=function(){
@@ -43506,6 +43506,64 @@ window.dctdMoveStatus=function(id,st){
   }
   window.pmKbgInKy=function(){ if(!pmRoomsStatsData) return; var D=pmKbgKyDuLieu(); if(!D.phong.length){ alert('Chọn ít nhất 1 phòng.'); return; }
     pmKbgMoIn(pmKbgDauIn('Bảng giao nhận có chữ ký','doc')+'<h2>BẢNG THEO DÕI GIAO NHẬN CÓ CHỮ KÝ XÁC NHẬN</h2><div class="c"><i>Từ ngày '+pmFmtD(D.K.tu)+' đến ngày '+pmFmtD(D.K.den)+' — trích từ biên bản bàn giao trên ứng dụng Kanban GMHS</i></div>'+pmKbgKyBang(D,true)+pmKbgCuoiIn()); };
+  /* 05/11/2026 00:25: mẫu dòng THỐNG NHẤT như bảng "Tìm thấy … lần giao nhận" — đã bàn giao: đủ thông tin + chữ ký; chưa bàn giao: cùng khuôn, các ô báo đỏ "Chưa bàn giao" */
+  var PM_KBG_COT=['#','Ngày giờ','Ca','Phòng','Nhóm','Số hiệu','Người giao','Người nhận','Thiếu/hỏng','Trạng thái'];
+  function pmKbgTh(kieuIn){ var td=kieuIn?'':'padding:6px 8px;border:1px solid #a8d9d0'; return '<tr'+(kieuIn?'':' style="background:#daf1ec;color:#00473e"')+'>'+PM_KBG_COT.map(function(c){ return '<th style="'+td+'">'+c+'</th>'; }).join('')+'</tr>'; }
+  function pmKbgDongDa(i, room, r, kieuIn, chan){
+    var td=kieuIn?'':'padding:5px 8px;border:1px solid #cdeae4', f=pmItemFlags(r), h=kieuIn?36:28;
+    var sig=function(x){ var u=(x&&x.chuKy)||''; return (typeof u==='string' && u.indexOf('data:image')===0) ? '<img src="'+u+'" style="display:block;height:'+h+'px;max-width:130px;object-fit:contain;margin-top:2px;background:#fff">' : '<div style="font-size:11px;color:#c62828">(chưa ký)</div>'; };
+    return '<tr'+(!kieuIn&&chan?' style="background:#f2fbfa"':'')+'><td style="'+td+';text-align:center">'+i+'</td>'
+      +'<td style="'+td+';white-space:nowrap">'+pmFmtD(r.ngay)+(r.gio?(' <b>'+pmEsc(r.gio)+'</b>'):'')+'</td>'
+      +'<td style="'+td+';white-space:nowrap">'+pmCaDisplay(r)+'</td>'
+      +'<td style="'+td+';white-space:nowrap;font-weight:600;color:#0d47a1">Phòng '+pmEsc(room)+'</td>'
+      +'<td style="'+td+'">'+(r.nhomPM==='gayme'?'Gây mê':(r.nhomPM==='dungcu'?'Dụng cụ':''))+'</td>'
+      +'<td style="'+td+'">'+pmEsc(r.soHieu||'—')+'</td>'
+      +'<td style="'+td+'">'+pmEsc(r.nguoiGiao||'')+sig(r.xacNhanGiao)+'</td>'
+      +'<td style="'+td+'">'+pmEsc(r.nguoiNhan||'')+sig(r.xacNhanNhan)+'</td>'
+      +'<td style="'+td+';text-align:center">'+((f.thieu||f.hong)?('<span style="color:#c62828;font-weight:600">⚠️ '+f.thieu+' thiếu, '+f.hong+' hỏng</span>'):'<span style="color:#0a6b5e">✅ Đủ</span>')+'</td>'
+      +'<td style="'+td+';text-align:center">'+(r.trangThai==='choduyet'?'<span style="color:#8a6100;font-weight:600">⏳ Chờ hoàn thành</span>':'<span style="color:#0a6b5e;font-weight:600">✅ Hoàn thành</span>')+'</td></tr>';
+  }
+  function pmKbgDongChua(i, room, ngayTxt, caTxt, nhom, nhan, kieuIn, xam){
+    var td=kieuIn?'':'padding:7px 8px;border:1px solid #f5c6cb', mau=xam?'#78909c':'#c62828', bg=xam?'#f5f5f5':'#fff5f5';
+    return '<tr style="background:'+bg+'"><td style="'+td+';text-align:center">'+i+'</td>'
+      +'<td style="'+td+';white-space:nowrap"><b>'+ngayTxt+'</b></td>'
+      +'<td style="'+td+';white-space:nowrap">'+caTxt+'</td>'
+      +'<td style="'+td+';white-space:nowrap;font-weight:600;color:#0d47a1">Phòng '+pmEsc(room)+'</td>'
+      +'<td style="'+td+'">'+nhom+'</td>'
+      +'<td colspan="4" style="'+td+';text-align:center;color:'+mau+';font-weight:800">'+(xam?'… ':'❌ ')+nhan+'</td>'
+      +'<td style="'+td+';text-align:center;color:'+mau+';font-weight:800">'+(xam?'Đang trong ngày':'❌ Chưa bàn giao')+'</td></tr>';
+  }
+  function pmKbgNhomYc(){ var yc=pmKbgYc().split(','), o=[]; if(yc.indexOf('gm')>-1) o.push(['gayme','Gây mê']); if(yc.indexOf('dc')>-1) o.push(['dungcu','Dụng cụ']); return o; }
+  /* Bảng BÀN GIAO THÁNG (phiếu ca "Bàn giao tháng") — mỗi phòng × nhóm 1 dòng */
+  function pmKbgBGThang(th){
+    var a=th.split('-'), stt=0, da=0, chua=0, rows=[], nh=pmKbgNhomYc(); if(!nh.length) nh=[['gayme','Gây mê'],['dungcu','Dụng cụ']];
+    pmKbgChon().forEach(function(room){ var bt=Object.values((pmRoomsStatsData||{})[room]||{}).filter(function(r){ return r && String(r.ca||'')==='Bàn giao tháng' && String(r.ngay||'').slice(0,7)===th; }).sort(function(x,y){ return (String(x.ngay)+(x.gio||'')).localeCompare(String(y.ngay)+(y.gio||'')); });
+      nh.forEach(function(n){ var ds=bt.filter(function(r){ return r.nhomPM===n[0]; });
+        if(ds.length){ da++; ds.forEach(function(r){ rows.push({da:true, room:room, r:r}); }); } else { chua++; rows.push({da:false, room:room, nhom:n[1]}); } }); });
+    return {th:th, thangTxt:a[1]+'/'+a[0], rows:rows, da:da, chua:chua};
+  }
+  function pmKbgBGThangHTML(th, kieuIn){
+    var B=pmKbgBGThang(th), i=0;
+    return '<div style="margin:'+(kieuIn?'10px 0 4px':'12px 0 4px')+';font-weight:'+(kieuIn?'bold':'900')+';'+(kieuIn?'':'color:#0b3c8c;font-size:15px')+'">🗓 BÀN GIAO THÁNG '+B.thangTxt+' — đã bàn giao '+B.da+'/'+(B.da+B.chua)+(B.chua?(' · <span style="color:#c62828">chưa bàn giao '+B.chua+'</span>'):'')+'</div>'
+      +'<div style="'+(kieuIn?'':'overflow-x:auto;border-radius:6px')+'"><table style="'+(kieuIn?'':'width:100%;border-collapse:collapse;font-size:12.5px;background:#fff')+'">'+pmKbgTh(kieuIn)
+      +B.rows.map(function(x){ i++; return x.da ? pmKbgDongDa(i, x.room, x.r, kieuIn, i%2===0) : pmKbgDongChua(i, x.room, 'Tháng '+B.thangTxt, '🗓️ Bàn giao tháng', x.nhom, 'Chưa bàn giao tháng', kieuIn, false); }).join('')
+      +(B.rows.length?'':'<tr><td colspan="10" style="text-align:center;color:#999;padding:10px">Chưa chọn phòng.</td></tr>')+'</table></div>';
+  }
+  /* Bảng giao nhận có chữ ký — cùng khuôn: mỗi biên bản 1 dòng; ngày / nhóm thiếu = dòng đỏ "Chưa bàn giao" */
+  pmKbgKyBang=function(D, kieuIn){
+    var nh=pmKbgNhomYc();
+    return D.phong.map(function(p){ var i=0;
+      return '<div style="margin-top:'+(kieuIn?'12':'10')+'px;font-weight:'+(kieuIn?'bold':'800')+';'+(kieuIn?'':'color:#0b3c8c;font-size:14.5px')+'">PHÒNG '+pmEsc(p.room)+' — có bàn giao '+p.co+'/'+p.phai+' ngày'+(p.phai-p.co?(' · <span style="color:#c62828">KHÔNG bàn giao '+(p.phai-p.co)+' ngày</span>'):'')+(p.chuaKy?(' · <span style="color:#a15c00">'+p.chuaKy+' biên bản chưa đủ chữ ký</span>'):'')+'</div>'
+        +'<div style="'+(kieuIn?'':'overflow-x:auto;border-radius:6px')+'"><table style="'+(kieuIn?'':'width:100%;border-collapse:collapse;font-size:12.5px;background:#fff')+'">'+pmKbgTh(kieuIn)
+        +p.dong.map(function(dd){ var nt=PM_KBG_THU[pmKbgThu(dd.k)]+' '+pmFmtD(dd.k);
+          if(dd.cho){ i++; return pmKbgDongChua(i, p.room, nt, '—', nh.map(function(n){ return n[1]; }).join(', ')||'—', 'Hôm nay chưa có biên bản', kieuIn, true); }
+          var out=dd.x.recs.map(function(r){ i++; return pmKbgDongDa(i, p.room, r, kieuIn, i%2===0); });
+          var thieu=dd.x.recs.length ? dd.x.thieu : nh.map(function(n){ return n[1]; });
+          if(!dd.x.recs.length && !thieu.length) thieu=['—'];
+          thieu.forEach(function(n){ i++; out.push(pmKbgDongChua(i, p.room, nt, '—', n, dd.x.recs.length?'Chưa bàn giao nhóm này':'Chưa bàn giao', kieuIn, false)); });
+          return out.join(''); }).join('')
+        +'</table></div>'; }).join('');
+  };
   function pmStatsRoomSel(){ return ((document.getElementById('pmStatsRoom')||{}).value)||''; }
   function pmStatsLocPhong(rows){ var p=pmStatsRoomSel(); return p ? (rows||[]).filter(function(r){ return String(r.room)===p; }) : (rows||[]); }
   window.pmStatsDoiPhong=function(){ pmRenderRoomsStats(pmStatsLocPhong(pmRoomsStatsCache||[])); try{ pmStatsSearchRun(); }catch(eS){} };
