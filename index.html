@@ -36524,6 +36524,7 @@ function niCuaVb(id){ return Object.keys(niList).map(k=>Object.assign({k}, niLis
 function niTrangThai(x){
   if(x.daIn) return {t:'✅ Đã in xong'+(x.daIn?' '+niGio(x.daIn):''), mau:'#2e7d32', bg:'#e8f5e9'};
   if(x.moIn) return {t:'👀 Đã mở phiếu '+niGio(x.moIn), mau:'#e65100', bg:'#fff3e0'};
+  if(x.kieu==='file') return {t:'📎 Đã gửi file Word', mau:'#0d47a1', bg:'#e3f2fd'};
   return {t:'⏳ Chưa mở', mau:'#607d8b', bg:'#eceff1'};
 }
 /* Dòng trạng thái dưới nút trên từng phiếu (vẽ thẳng vào DOM, không vẽ lại cả màn hình) */
@@ -36569,14 +36570,14 @@ function niMo(id){
     <label style="font-weight:700;font-size:13px;display:block;margin-top:8px">Lời nhắn (tùy chọn)</label>
     <input id="niGc" placeholder="VD: in xong để lên bàn trưởng khoa ký giúp" style="${NI_INP}">
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
-      <button id="niGui" style="${NI_BTN};background:#0068ff;color:#fff;font-size:15px;padding:12px">💬 ① Chép tin nhắn + mở Zalo của người in</button>
+      <button id="niGuiFile" style="${NI_BTN};background:#0068ff;color:#fff;font-size:15.5px;padding:13px">📎 GỬI FILE WORD qua Zalo cho người in</button>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button id="niWord" style="${NI_BTN};flex:1;background:#e3f2fd;color:#0d47a1" title="Tải file Word của phiếu để kéo thả vào khung chat Zalo (gửi kèm)">📄 ② Tải file Word gửi kèm</button>
-        ${navigator.canShare?`<button id="niShare" style="${NI_BTN};flex:1;background:#ede7f6;color:#4527a0" title="Trên điện thoại: chọn Zalo trong danh sách chia sẻ">📤 Chia sẻ file (điện thoại)</button>`:''}
+        <button id="niGui" style="${NI_BTN};flex:1;background:#e3f2fd;color:#0d47a1;font-size:13px" title="Không gửi file, chỉ gửi tin nhắn có đường link — người nhận bấm link là in được ngay">🔗 Chỉ gửi link in (không file)</button>
+        ${navigator.canShare?`<button id="niShare" style="${NI_BTN};flex:1;background:#ede7f6;color:#4527a0;font-size:13px" title="Mở bảng Chia sẻ của máy (điện thoại: chọn Zalo)">📤 Chia sẻ file (điện thoại)</button>`:''}
       </div>
     </div>
     <div style="font-size:12px;color:#546e7a;line-height:1.55;margin-top:10px;background:#fffde7;border:1px solid #fff59d;border-radius:8px;padding:8px 10px">
-      <b>Cách dùng:</b> bấm ① → Zalo mở đúng khung chat → bấm <b>Ctrl + V</b> → <b>Gửi</b>. Người nhận bấm đường link trong tin là mở đúng phiếu này, in chuẩn thể thức (không cần tải file). Muốn gửi kèm file thì bấm ② rồi <b>kéo file vừa tải vào khung chat Zalo</b>.<br>Người nhận in xong bấm <b>"✅ Đã in xong"</b> → dòng trạng thái dưới phiếu tự báo cho anh.
+      <b>Bấm 📎 Gửi file Word</b> → app tự <b>tải file Word</b> của phiếu, <b>chép sẵn tin nhắn</b> và <b>mở đúng khung chat Zalo</b> của người in. Anh chỉ cần: <b>Ctrl + V → Enter</b> (gửi tin) rồi <b>kéo file vào khung chat</b> (có hướng dẫn ngay sau khi bấm).<br><i>Trình duyệt không được phép tự đẩy file vào Zalo nên bước kéo file anh làm 1 thao tác.</i>
     </div>
     ${ds.length?`<div style="margin-top:10px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">🕘 Các lượt nhờ in phiếu này</div>${ds.map(x=>{ const tt=niTrangThai(x); return `<div style="display:flex;gap:6px;align-items:center;font-size:12.5px;padding:5px 0;border-bottom:1px dashed #e0e0e0"><div style="flex:1">${niGio(x.t)} · nhờ <b>${esc(x.nguoiIn||'')}</b>${x.soBan>1?` · ${x.soBan} bản`:''}${x.ai?` <span style="color:#90a4ae">(${esc(x.ai)} gửi)</span>`:''}</div><span style="padding:2px 7px;border-radius:999px;background:${tt.bg};color:${tt.mau};font-weight:700;white-space:nowrap">${tt.t}${x.daInAi?' · '+esc(x.daInAi):''}</span><button data-ni-chep="${x.k}" title="Chép lại tin nhắn của lượt này" style="${NI_BTN};padding:3px 8px;font-size:12px;background:#eceff1">📋</button></div>`; }).join('')}</div>`:''}
   `);
@@ -36591,23 +36592,26 @@ function niMo(id){
   o.querySelectorAll('[data-ni-gan]').forEach(b=>b.onclick=()=>{ ten.value = b.dataset.niGan; capNhatSdt(); });
   $('#niX').onclick = niDong;
   o.querySelectorAll('[data-ni-chep]').forEach(b=>b.onclick=async ()=>{ const x = niList[b.dataset.niChep]; if(!x) return; const ok = await niChep(niTin(v, b.dataset.niChep, x)); niToast(ok?'📋 Đã chép lại tin nhắn — dán vào Zalo':'Không chép được'); });
-  $('#niWord').onclick = ()=>{ exportVanBanToWord(v); niToast('📄 Đã tải file Word — kéo file vào khung chat Zalo để gửi kèm'); };
   const sh = $('#niShare'); if(sh) sh.onclick = ()=>niChiaSe(v);
-  $('#niGui').onclick = async ()=>{
+  $('#niGuiFile').onclick = ()=>guiDi(true);
+  $('#niGui').onclick = ()=>guiDi(false);
+  const guiDi = async (coFile)=>{
     const t = ten.value.trim(); if(!t){ alert('Anh chọn người in giúp.'); ten.focus(); return; }
     const s = niSo(sdt.value);
     if(sdt.value.trim() && !s){ alert('Số điện thoại chưa đúng (9–11 chữ số).'); sdt.focus(); return; }
     if(!s && !confirm('Chưa có số điện thoại của "'+t+'".\n\nVẫn chép tin nhắn (anh tự tìm người này trong Zalo rồi dán)?')) return;
     if(s && s!==niSdtCua(t)){ const g = niLs('ddnlNhoInSdt', {}); g[t] = s; niLsSet('ddnlNhoInSdt', g); }
     const soBan = Math.max(1, Math.min(20, parseInt($('#niSoBan').value,10)||1));
-    const rec = {vb:v.id, so:v.soVanBan||'', veViec:v.veViec||'', nguoiIn:t, sdt:s, soBan, gc:$('#niGc').value.trim(), ai:currentUserName||(isAdmin()?'Quản lý':''), t:Date.now()};
+    const rec = {vb:v.id, so:v.soVanBan||'', veViec:v.veViec||'', nguoiIn:t, sdt:s, soBan, gc:$('#niGc').value.trim(), ai:currentUserName||(isAdmin()?'Quản lý':''), t:Date.now(), kieu:coFile?'file':'link'};
     const r = NI_REF.push(); const key = r.key;
     const tin = niTin(v, key, rec);
+    const file = coFile ? niTaiFile(v) : null;   // tải file Word về máy (Downloads)
     const ok = await niChep(tin);   // chép TRƯỚC khi mở tab mới (giữ quyền ghi bộ nhớ tạm)
     if(s) window.open('https://zalo.me/'+s, '_blank');
+    if(coFile){ r.set(rec).catch(()=>{}); niList[key] = rec; niVeChip(); niGanDay(t); niHuongDanFile(v, t, s, tin, ok, file); return; }
     r.set(rec).catch(()=>{});
     niList[key] = rec; niVeChip();
-    const gd = [t].concat(niLs('ddnlNhoInGanDay', []).filter(x=>x!==t)).slice(0,8); niLsSet('ddnlNhoInGanDay', gd);
+    niGanDay(t);
     niKhung(`<div style="text-align:center"><div style="font-size:40px">💬</div>
       <div style="font-weight:800;font-size:17px;color:#0b3c5d;margin:4px 0">${ok?'Đã chép tin nhắn':'Chưa chép tự động được'}</div>
       <div style="font-size:14px;line-height:1.6">${s?`Zalo đang mở khung chat với <b>${esc(t)}</b> (${s}).<br>`:`Anh mở Zalo, tìm <b>${esc(t)}</b>.<br>`}Bấm vào ô nhập tin → <b>Ctrl + V</b> → <b>Gửi</b>.</div>
@@ -36617,19 +36621,55 @@ function niMo(id){
         <button id="niWord2" style="${NI_BTN};background:#e3f2fd;color:#0d47a1">📄 Tải file Word gửi kèm</button>
         <button id="niChepLai" style="${NI_BTN};background:#eceff1">📋 Chép lại</button>
         <button id="niXong" style="${NI_BTN};background:#2e7d32;color:#fff">Xong</button></div></div>`, 470);
-    document.getElementById('niWord2').onclick = ()=>{ exportVanBanToWord(v); niToast('📄 Đã tải — kéo file vào khung chat Zalo'); };
+    document.getElementById('niWord2').onclick = ()=>{ niTaiFile(v); niToast('📄 Đã tải — kéo file vào khung chat Zalo'); };
     document.getElementById('niChepLai').onclick = async ()=>{ const k = await niChep(tin); niToast(k?'📋 Đã chép':'Không chép được'); };
     document.getElementById('niXong').onclick = niDong;
   };
   setTimeout(()=>ten.focus(), 50);
 }
+function niGanDay(t){ const gd = [t].concat(niLs('ddnlNhoInGanDay', []).filter(x=>x!==t)).slice(0,8); niLsSet('ddnlNhoInGanDay', gd); }
+/* Tải file Word của phiếu về máy; trả về File (để kéo thả / chia sẻ) — null nếu phiếu dùng file đính kèm (đã tải file gốc) */
+function niTaiFile(v){
+  let file = null;
+  window.__ddnlBatRtf = f=>{ file = f; };
+  try{ exportVanBanToWord(v); }finally{ window.__ddnlBatRtf = null; }
+  if(file){ const u = URL.createObjectURL(file), a = document.createElement('a'); a.href = u; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); file.__url = u; setTimeout(()=>URL.revokeObjectURL(u), 600000); }
+  return file;
+}
+/* Màn hình hướng dẫn sau khi bấm "Gửi file Word qua Zalo" */
+function niHuongDanFile(v, t, s, tin, ok, file){
+  const ten = file ? file.name : 'file của phiếu (vừa tải về)';
+  const b = (n, txt)=>`<div style="display:flex;gap:10px;align-items:flex-start;text-align:left;padding:9px 10px;border-radius:10px;background:#f5f9ff;border:1px solid #bbdefb;margin-top:8px"><div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:#0068ff;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center">${n}</div><div style="flex:1;font-size:14px;line-height:1.55">${txt}</div></div>`;
+  const o = niKhung(`<div style="text-align:center"><div style="font-size:38px">📎</div>
+    <div style="font-weight:800;font-size:17px;color:#0b3c5d;margin:2px 0 4px">Đã tải file Word${ok?' và chép tin nhắn':''}</div>
+    <div style="font-size:13.5px;color:#455a64">${s?`Zalo đang mở khung chat với <b>${esc(t)}</b> (${s})`:`Anh mở Zalo, tìm <b>${esc(t)}</b>`}</div>
+    ${b(1, `Bấm vào ô nhập tin của Zalo → <b>Ctrl + V</b> → <b>Enter</b> (gửi lời nhờ in).`)}
+    ${b(2, `Gửi file: <b>kéo thẻ file dưới đây</b> thả vào khung chat Zalo:
+      <div id="niKeo" draggable="true" title="Giữ chuột và kéo thả vào khung chat Zalo" style="margin:7px 0 4px;display:flex;gap:9px;align-items:center;padding:9px 11px;border:2px dashed #0068ff;border-radius:10px;background:#fff;cursor:grab;user-select:none"><div style="font-size:28px">📄</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;word-break:break-all">${esc(ten)}</div><div style="font-size:11.5px;color:#607d8b">Giữ chuột → kéo sang Zalo → thả</div></div></div>
+      <div style="font-size:12.5px;color:#546e7a">Không kéo được? Bấm <b>Ctrl + J</b> (mục Tải xuống của Chrome) → kéo file <b>${esc(ten)}</b> vào Zalo. Hoặc trong Zalo bấm 📎 <b>Gửi file</b> → thư mục <b>Downloads</b> → chọn file.</div>`)}
+    ${ok?'':`<textarea readonly style="${NI_INP};height:130px;margin-top:8px;font-size:12.5px">${esc(tin)}</textarea>`}
+    <div style="font-size:12px;color:#607d8b;margin-top:8px">Zalo không mở? <a href="zalo://conversation?phone=${s}" style="font-weight:700">Mở bằng Zalo PC</a> hoặc tự tìm tên trong Zalo.</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+      <button id="niTaiLai" style="${NI_BTN};background:#e3f2fd;color:#0d47a1">⬇ Tải lại file</button>
+      <button id="niChepLai" style="${NI_BTN};background:#eceff1">📋 Chép lại tin</button>
+      ${file && navigator.canShare && navigator.canShare({files:[file]}) ? `<button id="niShare2" style="${NI_BTN};background:#ede7f6;color:#4527a0">📤 Chia sẻ file</button>` : ''}
+      <button id="niXong" style="${NI_BTN};background:#2e7d32;color:#fff">✓ Đã gửi xong</button></div></div>`, 500);
+  const k = o.querySelector('#niKeo');
+  if(k && file && file.__url) k.addEventListener('dragstart', ev=>{ try{ ev.dataTransfer.setData('DownloadURL', 'application/rtf:'+file.name+':'+file.__url); ev.dataTransfer.effectAllowed = 'copy'; }catch(e){} try{ ev.dataTransfer.items.add(file); }catch(e){} });
+  else if(k){ k.draggable = false; k.style.cursor = 'default'; k.querySelector('div>div:last-child').textContent = 'Phiếu dùng file đính kèm — lấy file trong mục Tải xuống (Ctrl + J)'; }
+  o.querySelector('#niTaiLai').onclick = ()=>{ const f = niTaiFile(v); if(f) file = f; niToast('⬇ Đã tải lại file'); };
+  o.querySelector('#niChepLai').onclick = async ()=>{ const c = await niChep(tin); niToast(c?'📋 Đã chép tin nhắn':'Không chép được'); };
+  const s2 = o.querySelector('#niShare2'); if(s2) s2.onclick = ()=>navigator.share({files:[file], title:'Nhờ in '+(v.soVanBan||'')}).catch(()=>{});
+  o.querySelector('#niXong').onclick = niDong;
+}
 function niTin(v, key, x){
+  const coFile = x.kieu==='file';
   return '🖨 NHỜ IN GIÚP VĂN BẢN\n'
     + '• Số: ' + (v.soVanBan||'(chưa có số)') + '\n'
     + '• ' + (v.hinhThucVB||'Giấy đề nghị') + ' v/v: ' + String(v.veViec||'').replace(/^\s*v\s*\/\s*v\s*[:.]?\s*/i,'') + '\n'
     + '• Số bản: ' + (x.soBan||1) + '\n'
     + (x.gc ? '• Lời nhắn: ' + x.gc + '\n' : '')
-    + '👉 Bấm link để mở đúng phiếu và in (chuẩn thể thức, không cần tải file):\n'
+    + (coFile ? '📎 File Word gửi ngay sau tin này — mở bằng Word rồi in.\nHoặc bấm link để in thẳng trên trình duyệt:\n' : '👉 Bấm link để mở đúng phiếu và in (chuẩn thể thức, không cần tải file):\n')
     + NI_LINK + '?inVB=' + encodeURIComponent(v.id) + '&ni=' + encodeURIComponent(key) + '\n'
     + 'In xong bấm "✅ Đã in xong" trong trang để báo lại giúp. Cảm ơn!\n'
     + (x.ai ? '— ' + x.ai : '');
