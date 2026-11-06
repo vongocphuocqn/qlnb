@@ -31342,10 +31342,12 @@ function renderVanBan(){
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-xemtruoc-vb="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-export-vbword="${v.id}" title="Xuất văn bản này ra file Word đúng thể thức (quốc hiệu, kính gửi, chữ ký)">📄 Xuất Word</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-inpdf-vb="${v.id}" title="In / Lưu phiếu này thành file PDF đúng thể thức (trong hộp thoại in chọn &quot;Lưu dưới dạng PDF&quot;)" style="border-color:#c62828;color:#c62828;">📕 Xuất PDF</button>
+              <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-nhoin-vb="${v.id}" title="Máy này không có máy in? Nhờ đồng nghiệp in qua Zalo: chép sẵn tin nhắn + đường link in phiếu, mở đúng khung chat Zalo của người in" style="border-color:#0068ff;color:#0068ff;">📲 Nhờ in (Zalo)</button>
               ${(isAdmin() || v.nguoiSoan===currentUserName)?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vb="${v.id}" title="Xóa văn bản này (dùng khi lập thừa hoặc lập sai)">Xóa</button>`:""}
               ${v.linkedCardId
                 ? `<div class="ddnl-hint" style="margin-top:4px;">🗂️ Đã có thẻ Kanban</div><button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-sync-card="${v.id}" title="Lấy lại nội dung + số lượng từ văn bản này vào thẻ Kanban (giữ nguyên các dòng đã tích xong)">🔄 Cập nhật thẻ Kanban</button>`
                 : `<button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-create-card="${v.id}" title="Tạo 1 thẻ trên bảng Kanban để theo dõi tiến độ văn bản này">🗂️ Tạo thẻ Kanban</button>`}
+              <div data-nhoin-chip="${v.id}" style="flex-basis:100%"></div>
             </div>
           </td>
         </tr>`;
@@ -32063,6 +32065,9 @@ function bindVanBanEvents(){
     const v = vbRecords.find(x=>x.id===b.dataset.inpdfVb);
     if(v) vbInPdf('noidung', [v]);
   });
+  // 06/11/2026: 📲 Nhờ in qua Zalo
+  document.querySelectorAll('[data-nhoin-vb]').forEach(b=>b.onclick=()=>{ if(typeof window.ddnlNhoIn==='function') window.ddnlNhoIn(b.dataset.nhoinVb); });
+  if(document.querySelector('[data-nhoin-chip]') && typeof window.ddnlNhoInChip==='function') window.ddnlNhoInChip();
   document.querySelectorAll('[data-export-vbword]').forEach(b=>b.onclick=()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.exportVbword);
     if(v) exportVanBanToWord(v);
@@ -34015,6 +34020,7 @@ function buildVanBanRtfBody(data){
 }
 function downloadRtf(filename, bodyRtf){
   const rtf = rtfHeader() + bodyRtf + '}';
+  if(typeof window.__ddnlBatRtf==='function'){ window.__ddnlBatRtf(new File([rtf], filename, {type:'application/rtf'})); return; } // 06/11: chia sẻ file (Nhờ in)
   const blob = new Blob([rtf], { type: 'application/rtf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -36487,6 +36493,210 @@ function bindConfigEvents(){
     await ddSoTongHopRef.child(id).remove().catch(()=>alert('Không xóa được, kiểm tra kết nối mạng.'));
   });
 }
+
+/* ============================================================
+   06/11/2026 — 📲 NHỜ IN QUA ZALO (soạn trên máy không có máy in → nhờ đồng nghiệp in)
+   Chỉ THÊM: nhánh Firebase RIÊNG 'nhoInVanBan/{key}' {vb, so, veViec, nguoiIn, sdt, soBan, gc, ai, t, moIn?, daIn?, daInAi?}
+   Không ghi gì vào vanBanDi / danhMuc. Zalo không cho web tự gửi → chép sẵn tin + link, mở đúng khung chat, anh chỉ Ctrl+V → Gửi.
+   Người nhận bấm link ?inVB=<id>&ni=<key> → app mở khung "Phiếu nhờ in" → In / Tải Word → "Đã in xong" (báo ngược về người gửi).
+   ============================================================ */
+const NI_REF = db.ref('nhoInVanBan');
+const NI_LINK = 'https://vongocphuocqn.github.io/qlnb/';
+let niList = {}, niNghe = false;
+function niLs(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function niLsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function niSo(s){ let d = String(s||'').replace(/[^0-9]/g,''); if(d.indexOf('84')===0 && d.length>=11) d = '0'+d.slice(2); return (d.length>=9 && d.length<=11) ? d : ''; }
+function niGio(t){ const d = new Date(t); const p = n=>(n<10?'0':'')+n; return p(d.getHours())+':'+p(d.getMinutes())+' '+p(d.getDate())+'/'+p(d.getMonth()+1); }
+function niNv(){ return ((config && config.employees) || []).filter(e=>e && e.ten).map(e=>({ten:String(e.ten).trim(), sdt:String(e.sdt||'').trim(), donVi:e.donVi||'', chucVu:e.chucVu||''})).sort((a,b)=>a.ten.localeCompare(b.ten,'vi')); }
+function niSdtCua(ten){ const ghi = niLs('ddnlNhoInSdt', {}); if(ghi[ten]) return ghi[ten]; const e = niNv().find(x=>x.ten===ten); return e ? niSo(e.sdt) : ''; }
+function niToast(m, mau){ const t = document.createElement('div'); t.textContent = m; t.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:'+(mau||'#0b3c5d')+';color:#fff;padding:11px 18px;border-radius:10px;z-index:100300;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:92vw;text-align:center'; document.body.appendChild(t); setTimeout(()=>t.remove(), 3200); }
+function niChep(txt){
+  return new Promise(res=>{
+    const fb = ()=>{ const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok = document.execCommand('copy'); }catch(e){} ta.remove(); res(ok); };
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>res(true), fb); else fb();
+  });
+}
+function niBatDauNghe(){
+  if(niNghe) return; niNghe = true;
+  try{ NI_REF.orderByChild('t').limitToLast(300).on('value', snap=>{ niList = snap.val() || {}; niVeChip(); }, ()=>{}); }catch(e){}
+}
+function niCuaVb(id){ return Object.keys(niList).map(k=>Object.assign({k}, niList[k])).filter(x=>x.vb===id).sort((a,b)=>(b.t||0)-(a.t||0)); }
+function niTrangThai(x){
+  if(x.daIn) return {t:'✅ Đã in xong'+(x.daIn?' '+niGio(x.daIn):''), mau:'#2e7d32', bg:'#e8f5e9'};
+  if(x.moIn) return {t:'👀 Đã mở phiếu '+niGio(x.moIn), mau:'#e65100', bg:'#fff3e0'};
+  return {t:'⏳ Chưa mở', mau:'#607d8b', bg:'#eceff1'};
+}
+/* Dòng trạng thái dưới nút trên từng phiếu (vẽ thẳng vào DOM, không vẽ lại cả màn hình) */
+function niVeChip(){
+  document.querySelectorAll('[data-nhoin-chip]').forEach(el=>{
+    const ds = niCuaVb(el.dataset.nhoinChip);
+    if(!ds.length){ el.innerHTML = ''; return; }
+    const x = ds[0], tt = niTrangThai(x);
+    el.innerHTML = `<div style="margin-top:4px;font-size:11.5px;line-height:1.4;padding:4px 7px;border-radius:7px;background:${tt.bg};color:${tt.mau};font-weight:600;cursor:pointer" title="Bấm để xem các lượt nhờ in của phiếu này">📲 Nhờ <b>${esc(x.nguoiIn||'')}</b> in · ${niGio(x.t)}<br>${tt.t}${ds.length>1?` · (${ds.length} lượt)`:''}</div>`;
+    el.firstChild.onclick = ()=>niMo(el.dataset.nhoinChip);
+  });
+}
+function niDong(){ const o = document.getElementById('niModal'); if(o) o.remove(); }
+function niKhung(html, rong){
+  niDong();
+  const o = document.createElement('div'); o.id = 'niModal';
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100200;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;font-family:inherit';
+  o.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:${rong||560}px;width:100%;margin:auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px;color:#263238">${html}</div>`;
+  o.addEventListener('mousedown', ev=>{ if(ev.target===o) niDong(); });
+  document.body.appendChild(o); return o;
+}
+const NI_BTN = 'border:none;border-radius:9px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit';
+const NI_INP = 'width:100%;padding:9px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box';
+
+/* ── NGƯỜI GỬI: hộp "Nhờ in qua Zalo" ── */
+function niMo(id){
+  const v = vbRecords.find(x=>x.id===id); if(!v){ alert('Không tìm thấy phiếu.'); return; }
+  niBatDauNghe();
+  const nv = niNv(), ganDay = niLs('ddnlNhoInGanDay', []).filter(t=>t!==currentUserName).slice(0,6);
+  const ds = niCuaVb(id);
+  const o = niKhung(`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:26px">📲</div><div style="flex:1"><div style="font-weight:800;font-size:17px;color:#0b3c5d">Nhờ đồng nghiệp in phiếu qua Zalo</div><div style="font-size:12.5px;color:#607d8b">Dùng khi máy đang soạn không có máy in</div></div><button id="niX" style="${NI_BTN};background:#eceff1;padding:6px 11px">✕</button></div>
+    <div style="background:#f5f7fa;border-radius:9px;padding:8px 10px;margin-bottom:10px;font-size:13px;line-height:1.5"><b>${esc(v.soVanBan||'(chưa có số)')}</b> — ${esc(v.hinhThucVB||'Giấy đề nghị')}<br>V/v: ${esc(v.veViec||'')}</div>
+    <label style="font-weight:700;font-size:13px">Người in giúp <span style="color:#c62828">*</span></label>
+    ${ganDay.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:5px 0">${ganDay.map(t=>`<button data-ni-gan="${esc(t)}" style="${NI_BTN};padding:5px 10px;font-size:12.5px;background:#e3f2fd;color:#0d47a1">${esc(t)}</button>`).join('')}</div>`:''}
+    <input id="niTen" list="niDsNv" placeholder="Gõ tên nhân viên (gõ không dấu được)…" style="${NI_INP};margin-top:4px" autocomplete="off">
+    <datalist id="niDsNv">${nv.map(e=>`<option value="${esc(e.ten)}">${esc([e.chucVu,e.donVi].filter(Boolean).join(' · '))}${niSo(e.sdt)?' · '+niSo(e.sdt):' · (chưa có SĐT)'}</option>`).join('')}</datalist>
+    <div style="display:grid;grid-template-columns:1.4fr .6fr;gap:8px;margin-top:8px">
+      <div><label style="font-weight:700;font-size:13px">Số điện thoại Zalo</label><input id="niSdt" inputmode="tel" placeholder="Tự lấy từ Danh sách nhân viên" style="${NI_INP}"></div>
+      <div><label style="font-weight:700;font-size:13px">Số bản</label><input id="niSoBan" type="number" min="1" max="20" value="1" style="${NI_INP}"></div>
+    </div>
+    <div id="niSdtGhi" style="font-size:11.5px;color:#607d8b;margin-top:3px"></div>
+    <label style="font-weight:700;font-size:13px;display:block;margin-top:8px">Lời nhắn (tùy chọn)</label>
+    <input id="niGc" placeholder="VD: in xong để lên bàn trưởng khoa ký giúp" style="${NI_INP}">
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+      <button id="niGui" style="${NI_BTN};background:#0068ff;color:#fff;font-size:15px;padding:12px">💬 ① Chép tin nhắn + mở Zalo của người in</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="niWord" style="${NI_BTN};flex:1;background:#e3f2fd;color:#0d47a1" title="Tải file Word của phiếu để kéo thả vào khung chat Zalo (gửi kèm)">📄 ② Tải file Word gửi kèm</button>
+        ${navigator.canShare?`<button id="niShare" style="${NI_BTN};flex:1;background:#ede7f6;color:#4527a0" title="Trên điện thoại: chọn Zalo trong danh sách chia sẻ">📤 Chia sẻ file (điện thoại)</button>`:''}
+      </div>
+    </div>
+    <div style="font-size:12px;color:#546e7a;line-height:1.55;margin-top:10px;background:#fffde7;border:1px solid #fff59d;border-radius:8px;padding:8px 10px">
+      <b>Cách dùng:</b> bấm ① → Zalo mở đúng khung chat → bấm <b>Ctrl + V</b> → <b>Gửi</b>. Người nhận bấm đường link trong tin là mở đúng phiếu này, in chuẩn thể thức (không cần tải file). Muốn gửi kèm file thì bấm ② rồi <b>kéo file vừa tải vào khung chat Zalo</b>.<br>Người nhận in xong bấm <b>"✅ Đã in xong"</b> → dòng trạng thái dưới phiếu tự báo cho anh.
+    </div>
+    ${ds.length?`<div style="margin-top:10px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">🕘 Các lượt nhờ in phiếu này</div>${ds.map(x=>{ const tt=niTrangThai(x); return `<div style="display:flex;gap:6px;align-items:center;font-size:12.5px;padding:5px 0;border-bottom:1px dashed #e0e0e0"><div style="flex:1">${niGio(x.t)} · nhờ <b>${esc(x.nguoiIn||'')}</b>${x.soBan>1?` · ${x.soBan} bản`:''}${x.ai?` <span style="color:#90a4ae">(${esc(x.ai)} gửi)</span>`:''}</div><span style="padding:2px 7px;border-radius:999px;background:${tt.bg};color:${tt.mau};font-weight:700;white-space:nowrap">${tt.t}${x.daInAi?' · '+esc(x.daInAi):''}</span><button data-ni-chep="${x.k}" title="Chép lại tin nhắn của lượt này" style="${NI_BTN};padding:3px 8px;font-size:12px;background:#eceff1">📋</button></div>`; }).join('')}</div>`:''}
+  `);
+  const $ = s=>o.querySelector(s);
+  const ten = $('#niTen'), sdt = $('#niSdt'), ghi = $('#niSdtGhi');
+  const capNhatSdt = ()=>{
+    const t = ten.value.trim(); const s = t ? niSdtCua(t) : '';
+    sdt.value = s;
+    ghi.innerHTML = !t ? '' : s ? '✓ Lấy từ Danh sách nhân viên' : '<span style="color:#c62828">Chưa có số điện thoại của người này trong app — gõ số vào ô trên (máy sẽ nhớ cho lần sau).</span>';
+  };
+  ten.addEventListener('change', capNhatSdt); ten.addEventListener('input', ()=>{ if(nv.some(e=>e.ten===ten.value.trim())) capNhatSdt(); });
+  o.querySelectorAll('[data-ni-gan]').forEach(b=>b.onclick=()=>{ ten.value = b.dataset.niGan; capNhatSdt(); });
+  $('#niX').onclick = niDong;
+  o.querySelectorAll('[data-ni-chep]').forEach(b=>b.onclick=async ()=>{ const x = niList[b.dataset.niChep]; if(!x) return; const ok = await niChep(niTin(v, b.dataset.niChep, x)); niToast(ok?'📋 Đã chép lại tin nhắn — dán vào Zalo':'Không chép được'); });
+  $('#niWord').onclick = ()=>{ exportVanBanToWord(v); niToast('📄 Đã tải file Word — kéo file vào khung chat Zalo để gửi kèm'); };
+  const sh = $('#niShare'); if(sh) sh.onclick = ()=>niChiaSe(v);
+  $('#niGui').onclick = async ()=>{
+    const t = ten.value.trim(); if(!t){ alert('Anh chọn người in giúp.'); ten.focus(); return; }
+    const s = niSo(sdt.value);
+    if(sdt.value.trim() && !s){ alert('Số điện thoại chưa đúng (9–11 chữ số).'); sdt.focus(); return; }
+    if(!s && !confirm('Chưa có số điện thoại của "'+t+'".\n\nVẫn chép tin nhắn (anh tự tìm người này trong Zalo rồi dán)?')) return;
+    if(s && s!==niSdtCua(t)){ const g = niLs('ddnlNhoInSdt', {}); g[t] = s; niLsSet('ddnlNhoInSdt', g); }
+    const soBan = Math.max(1, Math.min(20, parseInt($('#niSoBan').value,10)||1));
+    const rec = {vb:v.id, so:v.soVanBan||'', veViec:v.veViec||'', nguoiIn:t, sdt:s, soBan, gc:$('#niGc').value.trim(), ai:currentUserName||(isAdmin()?'Quản lý':''), t:Date.now()};
+    const r = NI_REF.push(); const key = r.key;
+    const tin = niTin(v, key, rec);
+    const ok = await niChep(tin);   // chép TRƯỚC khi mở tab mới (giữ quyền ghi bộ nhớ tạm)
+    if(s) window.open('https://zalo.me/'+s, '_blank');
+    r.set(rec).catch(()=>{});
+    niList[key] = rec; niVeChip();
+    const gd = [t].concat(niLs('ddnlNhoInGanDay', []).filter(x=>x!==t)).slice(0,8); niLsSet('ddnlNhoInGanDay', gd);
+    niKhung(`<div style="text-align:center"><div style="font-size:40px">💬</div>
+      <div style="font-weight:800;font-size:17px;color:#0b3c5d;margin:4px 0">${ok?'Đã chép tin nhắn':'Chưa chép tự động được'}</div>
+      <div style="font-size:14px;line-height:1.6">${s?`Zalo đang mở khung chat với <b>${esc(t)}</b> (${s}).<br>`:`Anh mở Zalo, tìm <b>${esc(t)}</b>.<br>`}Bấm vào ô nhập tin → <b>Ctrl + V</b> → <b>Gửi</b>.</div>
+      ${ok?'':`<textarea readonly style="${NI_INP};height:150px;margin-top:8px;font-size:12.5px">${esc(tin)}</textarea>`}
+      <div style="font-size:12.5px;color:#607d8b;margin-top:8px">Zalo không mở được? Thử <a href="zalo://conversation?phone=${s}" style="font-weight:700">mở bằng Zalo PC</a> hoặc mở Zalo, tìm theo tên/số rồi dán.</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+        <button id="niWord2" style="${NI_BTN};background:#e3f2fd;color:#0d47a1">📄 Tải file Word gửi kèm</button>
+        <button id="niChepLai" style="${NI_BTN};background:#eceff1">📋 Chép lại</button>
+        <button id="niXong" style="${NI_BTN};background:#2e7d32;color:#fff">Xong</button></div></div>`, 470);
+    document.getElementById('niWord2').onclick = ()=>{ exportVanBanToWord(v); niToast('📄 Đã tải — kéo file vào khung chat Zalo'); };
+    document.getElementById('niChepLai').onclick = async ()=>{ const k = await niChep(tin); niToast(k?'📋 Đã chép':'Không chép được'); };
+    document.getElementById('niXong').onclick = niDong;
+  };
+  setTimeout(()=>ten.focus(), 50);
+}
+function niTin(v, key, x){
+  return '🖨 NHỜ IN GIÚP VĂN BẢN\n'
+    + '• Số: ' + (v.soVanBan||'(chưa có số)') + '\n'
+    + '• ' + (v.hinhThucVB||'Giấy đề nghị') + ' v/v: ' + String(v.veViec||'').replace(/^\s*v\s*\/\s*v\s*[:.]?\s*/i,'') + '\n'
+    + '• Số bản: ' + (x.soBan||1) + '\n'
+    + (x.gc ? '• Lời nhắn: ' + x.gc + '\n' : '')
+    + '👉 Bấm link để mở đúng phiếu và in (chuẩn thể thức, không cần tải file):\n'
+    + NI_LINK + '?inVB=' + encodeURIComponent(v.id) + '&ni=' + encodeURIComponent(key) + '\n'
+    + 'In xong bấm "✅ Đã in xong" trong trang để báo lại giúp. Cảm ơn!\n'
+    + (x.ai ? '— ' + x.ai : '');
+}
+/* Điện thoại: chia sẻ thẳng file Word sang Zalo (Web Share API) */
+async function niChiaSe(v){
+  let file = null;
+  window.__ddnlBatRtf = f=>{ file = f; };
+  try{ exportVanBanToWord(v); }finally{ window.__ddnlBatRtf = null; }
+  if(!file){ niToast('Phiếu dùng file đính kèm — đã tải file, anh gửi file đó qua Zalo'); return; }
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]})) await navigator.share({files:[file], title:'Nhờ in '+(v.soVanBan||''), text:'Nhờ in giúp: '+(v.soVanBan||'')+' — '+(v.veViec||'')});
+    else { const u = URL.createObjectURL(file), a = document.createElement('a'); a.href = u; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u), 4000); niToast('Máy này không chia sẻ file được — đã tải file về'); }
+  }catch(e){ if(e && e.name!=='AbortError') niToast('Không chia sẻ được: '+(e.message||e)); }
+}
+window.ddnlNhoIn = niMo;
+window.ddnlNhoInChip = ()=>{ niBatDauNghe(); niVeChip(); };
+
+/* ── NGƯỜI NHẬN: mở link ?inVB=…&ni=… ── */
+function niNhan(){
+  let q; try{ q = new URLSearchParams(location.search); }catch(e){ return; }
+  const id = q.get('inVB'); if(!id) return;
+  const key = q.get('ni') || '';
+  try{ q.delete('inVB'); q.delete('ni'); const s = q.toString(); history.replaceState(null, '', location.pathname + (s?'?'+s:'') + location.hash); }catch(e){}
+  ddnlEnsureLoaded();
+  const cho = niKhung(`<div style="text-align:center;padding:18px"><div style="font-size:36px">🖨</div><div style="font-weight:800;font-size:16px;color:#0b3c5d">Đang mở phiếu nhờ in…</div><div style="font-size:13px;color:#607d8b;margin-top:4px">Chờ tải dữ liệu vài giây</div></div>`, 420);
+  let x = null, xXong = !key; if(key) NI_REF.child(key).once('value').then(s=>{ x = s.val(); xXong = true; }).catch(()=>{ xXong = true; });
+  const t0 = Date.now();
+  const lap = setInterval(()=>{
+    if(!(vbLoaded && configLoaded && (xXong || Date.now()-t0 > 15000))){ if(Date.now()-t0 > 60000){ clearInterval(lap); cho.querySelector('div>div').innerHTML = '<div style="font-size:36px">⚠️</div><b>Chưa tải được dữ liệu</b><br><span style="font-size:13px">Kiểm tra mạng rồi bấm lại đường link.</span>'; } return; }
+    clearInterval(lap);
+    const v = vbRecords.find(r=>r.id===id);
+    if(!v){ niKhung(`<div style="text-align:center;padding:14px"><div style="font-size:36px">⚠️</div><div style="font-weight:800;font-size:16px">Không tìm thấy phiếu</div><div style="font-size:13px;color:#607d8b;margin:6px 0 12px">Phiếu có thể đã bị xóa. Anh/chị liên hệ người gửi.</div><button onclick="document.getElementById('niModal').remove()" style="${NI_BTN};background:#eceff1">Đóng</button></div>`, 420); return; }
+    niHopNhan(v, key, x);
+  }, 400);
+}
+function niHopNhan(v, key, x){
+  x = x || {};
+  const o = niKhung(`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:30px">🖨</div><div style="flex:1"><div style="font-weight:800;font-size:18px;color:#0b3c5d">PHIẾU NHỜ IN</div><div style="font-size:12.5px;color:#607d8b">${x.ai?`Từ <b>${esc(x.ai)}</b>`:''}${x.t?' · '+niGio(x.t):''}${x.nguoiIn?` · nhờ <b>${esc(x.nguoiIn)}</b>`:''}</div></div><button id="niX" style="${NI_BTN};background:#eceff1;padding:6px 11px">✕</button></div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:10px">
+      <tr><td style="padding:5px 8px;border:1px solid #e0e0e0;background:#f5f7fa;width:32%;font-weight:700">Số văn bản</td><td style="padding:5px 8px;border:1px solid #e0e0e0;font-weight:700">${esc(v.soVanBan||'(chưa có số)')}</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid #e0e0e0;background:#f5f7fa;font-weight:700">Loại</td><td style="padding:5px 8px;border:1px solid #e0e0e0">${esc(v.hinhThucVB||'Giấy đề nghị')}</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid #e0e0e0;background:#f5f7fa;font-weight:700">Về việc</td><td style="padding:5px 8px;border:1px solid #e0e0e0">${esc(v.veViec||'')}</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid #e0e0e0;background:#f5f7fa;font-weight:700">Số bản cần in</td><td style="padding:5px 8px;border:1px solid #e0e0e0;font-size:18px;font-weight:800;color:#c62828">${x.soBan||1}</td></tr>
+      ${x.gc?`<tr><td style="padding:5px 8px;border:1px solid #e0e0e0;background:#f5f7fa;font-weight:700">Lời nhắn</td><td style="padding:5px 8px;border:1px solid #e0e0e0;background:#fffde7">${esc(x.gc)}</td></tr>`:''}
+    </table>
+    ${x.daIn?`<div style="background:#e8f5e9;color:#2e7d32;border-radius:8px;padding:7px 10px;font-weight:700;margin-bottom:8px">✅ Đã báo in xong lúc ${niGio(x.daIn)}${x.daInAi?' — '+esc(x.daInAi):''}</div>`:''}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="niIn" style="${NI_BTN};background:#c62828;color:#fff;font-size:16px;padding:13px">🖨 ① Xem & IN NGAY</button>
+      <button id="niWordN" style="${NI_BTN};background:#e3f2fd;color:#0d47a1">📄 Tải file Word (nếu muốn in bằng Word)</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap"><input id="niAiIn" placeholder="Tên người in" value="${esc(x.nguoiIn||currentUserName||'')}" style="${NI_INP};flex:1;min-width:150px">
+        <button id="niDaIn" style="${NI_BTN};background:#2e7d32;color:#fff">✅ ② Đã in xong — báo lại</button></div>
+    </div>
+    <div style="font-size:12px;color:#607d8b;margin-top:8px;line-height:1.5">Trong hộp thoại in: chọn <b>máy in</b>, ô <b>Số bản (Copies)</b> = ${x.soBan||1}, khổ A4 → <b>In</b>.</div>`, 500);
+  const $ = s=>o.querySelector(s);
+  $('#niX').onclick = niDong;
+  $('#niIn').onclick = ()=>{ vbInPdf('noidung', [v]); if(key && !x.moIn){ x.moIn = Date.now(); NI_REF.child(key).update({moIn:x.moIn}).catch(()=>{}); } };
+  $('#niWordN').onclick = ()=>{ exportVanBanToWord(v); if(key && !x.moIn){ x.moIn = Date.now(); NI_REF.child(key).update({moIn:x.moIn}).catch(()=>{}); } };
+  $('#niDaIn').onclick = ()=>{
+    const ai = $('#niAiIn').value.trim();
+    if(!key){ niDong(); niToast('Cảm ơn!'); return; }
+    const up = {daIn:Date.now(), daInAi:ai||''}; if(!x.moIn) up.moIn = up.daIn;
+    NI_REF.child(key).update(up).then(()=>{ niDong(); niToast('✅ Đã báo cho người gửi: in xong. Cảm ơn!', '#2e7d32'); }).catch(()=>alert('Chưa báo được — kiểm tra mạng rồi bấm lại.'));
+  };
+}
+setTimeout(()=>{ try{ niNhan(); }catch(e){ console.error('[nhoIn]', e); } }, 300);
 
 /* ============================================================
    INIT
@@ -64729,6 +64939,8 @@ window.bcvsLuuCfg=function(){
 #lcvScreen .lc-ngay{border-radius:10px;padding:6px 7px;min-height:70px;cursor:pointer;border:2px solid #e0e0e0;background:#fff}
 #lcvScreen .lc-ngay:hover{box-shadow:0 2px 8px rgba(0,0,0,.15)}
 #lcvModal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100050;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto}
+#lcvScreen .lc-body{zoom:var(--lcvZ,1)}
+#lcvModal>.lc-hop{zoom:var(--lcvZ,1)}
 #lcvModal .lc-hop{background:#fff;border-radius:14px;max-width:560px;width:100%;margin:auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
 @media (max-width:640px){ #lcvScreen .lc-cal{gap:3px} #lcvScreen .lc-ngay{min-height:54px;padding:4px} }
 </style>
@@ -64826,6 +65038,30 @@ function veHome(){
   b.style.display=''; b.textContent=(t.tong-t.xong)?('Còn '+(t.tong-t.xong)+'/'+t.tong+' việc'):'✔ Xong hết';
 }
 
+/* ── 06/11/2026: 🔍 PHÓNG ĐẠI giao diện Checklist (nhớ trên máy, khóa lcvZoom) ── */
+var LZM=[0.8,0.9,1,1.1,1.25,1.4,1.6,1.8];
+function zoomLcv(){ var z=1; try{ z=parseFloat(localStorage.getItem('lcvZoom')||'1'); }catch(x){} return (z>0.5&&z<3)?z:1; }
+function apZoomLcv(){ try{ document.documentElement.style.setProperty('--lcvZ', String(zoomLcv())); }catch(x){} }
+function nutZoomLcv(){ var z=zoomLcv(), on=z!==1, b='border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:13px;padding:7px 10px;color:#fff;background:none';
+  return '<div title="Phóng đại / thu nhỏ chữ và giao diện (nhớ trên máy này) — phím tắt Alt + / Alt − / Alt 0" style="display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.45);border-radius:8px;overflow:hidden;background:rgba(255,255,255,.12)">'
+    +'<button onclick="lcvZoom(-1)" title="Thu nhỏ" style="'+b+'"'+(z<=LZM[0]?' disabled':'')+'>A−</button>'
+    +'<button onclick="lcvZoom(0)" title="'+(on?'Về cỡ chuẩn 100%':'Cỡ chuẩn')+'" style="'+b+';min-width:70px;'+(on?'background:#ffca28;color:#3e2723':'background:rgba(255,255,255,.16)')+'">🔍 '+Math.round(z*100)+'%</button>'
+    +'<button onclick="lcvZoom(1)" title="Phóng to" style="'+b+';font-size:15px"'+(z>=LZM[LZM.length-1]?' disabled':'')+'>A+</button>'
+    +'<button onclick="lcvRong()" title="'+(rongLcv()?'Thu về khung giữa (rộng 1000px)':'Mở rộng hết chiều ngang màn hình — bảng không bị cắt cột')+'" style="'+b+';border-left:1px solid rgba(255,255,255,.35);'+(rongLcv()?'background:#ffca28;color:#3e2723':'')+'">'+(rongLcv()?'⛶ Toàn màn hình':'⛶ Mở rộng')+'</button></div>'; }
+function rongLcv(){ try{ return localStorage.getItem('lcvRong')!=='0'; }catch(x){ return true; } }
+window.lcvRong=function(){ var r=!rongLcv(); try{ localStorage.setItem('lcvRong', r?'1':'0'); }catch(x){}
+  var bd=document.getElementById('lcvBody'); if(bd) bd.style.maxWidth=r?'none':'1000px'; lcvTaCaoHet();
+  var b=document.getElementById('lcvZoomBox'); if(b) b.innerHTML=nutZoomLcv(); toast(r?'⛶ Đã mở rộng toàn màn hình':'Đã thu về khung giữa'); };
+window.lcvZoom=function(d){ var z=zoomLcv(), i=LZM.indexOf(z); if(i<0) i=2; z = d===0 ? 1 : LZM[Math.max(0,Math.min(LZM.length-1,i+d))];
+  try{ localStorage.setItem('lcvZoom', String(z)); }catch(x){}
+  apZoomLcv(); lcvTaCaoHet(); var b=document.getElementById('lcvZoomBox'); if(b) b.innerHTML=nutZoomLcv(); toast('🔍 Cỡ hiển thị '+Math.round(z*100)+'%'); };
+apZoomLcv();
+window.addEventListener('resize', function(){ if(screenOpen()) lcvTaCaoHet(); });
+document.addEventListener('keydown', function(ev){
+  if(!screenOpen() || !ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  var k=ev.key; if(k==='='||k==='+'){ ev.preventDefault(); lcvZoom(1); } else if(k==='-'||k==='_'){ ev.preventDefault(); lcvZoom(-1); } else if(k==='0'){ ev.preventDefault(); lcvZoom(0); }
+});
+
 /* ── Mở / đóng ── */
 window.lcvOpen=function(tab){
   batDau();
@@ -64850,11 +65086,16 @@ function render(){
   s.innerHTML='<div style="background:linear-gradient(135deg,#5e35b1,#311b92);color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:50">'
     +'<button onclick="lcvClose()" class="lc-btn" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)">🏠 Trang chủ</button>'
     +'<div style="flex:1;min-width:200px"><div style="font-weight:800;font-size:17px">🗓 Checklist công việc theo lịch</div><div style="font-size:12px;opacity:.9">'+THU_DAI[new Date().getDay()]+', '+fmtN(keyNgay())+(isAdmin()?' · 👑 Quản lý':'')+'</div></div>'
+    +'<span id="lcvZoomBox">'+nutZoomLcv()+'</span>'
     +(isAdmin()?'':'<button onclick="lcvDangNhap()" class="lc-btn" style="background:#ffca28;color:#3e2723">🔑 Đăng nhập Quản lý</button>')+'</div>'
-    +'<div style="max-width:1000px;width:100%;margin:0 auto;padding:12px">'
+    +'<div class="lc-body" id="lcvBody" style="max-width:'+(rongLcv()?'none':'1000px')+';width:100%;margin:0 auto;padding:12px">'
     +(isAdmin()?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+tabs.map(function(t){ return '<button class="lc-tab'+(S.tab===t[0]?' on':'')+'" onclick="lcvTab(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>':'')
     +body+'</div>';
+  lcvTaCaoHet();
 }
+/* 06/11/2026: ô Công việc / Ghi chú tự xuống dòng, cao theo nội dung */
+function lcvTaCaoHet(){ document.querySelectorAll('#lcvScreen textarea.lc-ta').forEach(function(t){ window.lcvTaCao(t); }); }
+window.lcvTaCao=function(t){ if(!t) return; if(/\n/.test(t.value)){ var p=t.selectionStart; t.value=t.value.replace(/\s*\n+\s*/g,' '); try{ t.setSelectionRange(p,p); }catch(x){} } t.style.height='auto'; t.style.height=(t.scrollHeight+3)+'px'; };
 function viewKhoa(){
   return '<div class="lc-the" style="text-align:center;padding:30px 16px"><div style="font-size:40px">🔒</div><div style="font-weight:800;font-size:16px;color:#311b92;margin:6px 0">Checklist công việc dành cho Quản lý</div><div style="color:#607d8b;font-size:13.5px;margin-bottom:12px">Phiên Quản lý tự thoát sau 30 phút. Đăng nhập để xem và đánh dấu công việc.</div><button onclick="lcvDangNhap()" class="lc-btn" style="background:#4527a0;color:#fff;padding:10px 18px;font-size:14px">🔑 Đăng nhập Quản lý</button></div>';
 }
@@ -64971,7 +65212,7 @@ window.lcvXuatThang=function(){
 function cfNhap(){ return Object.keys(S.viec).map(function(id){ var v=JSON.parse(JSON.stringify(S.viec[id])); v._id=id; return v; }).sort(function(a,b){ return (a.thuTu||0)-(b.thuTu||0) || (a.gio||'99').localeCompare(b.gio||'99'); }); }
 function docCf(){ var D=S.cfD; if(!D) return;
   document.querySelectorAll('#lcvScreen [data-cv]').forEach(function(el){ var i=+el.getAttribute('data-i'), f=el.getAttribute('data-cv'); if(!D[i]) return;
-    if(f==='bat') D[i].bat=el.checked; else if(f==='thu'){ var t=+el.getAttribute('data-t'); D[i].thu=(D[i].thu||[]).filter(function(x){ return +x!==t; }); if(el.checked) D[i].thu.push(t); D[i].thu.sort(); } else D[i][f]=el.value; }); }
+    if(f==='bat') D[i].bat=el.checked; else if(f==='thu'){ var t=+el.getAttribute('data-t'); D[i].thu=(D[i].thu||[]).filter(function(x){ return +x!==t; }); if(el.checked) D[i].thu.push(t); D[i].thu.sort(); } else D[i][f]=(el.tagName==='TEXTAREA'?el.value.replace(/\s*\n+\s*/g,' '):el.value); }); }
 function viewCH(){
   if(!S.cfD) S.cfD=cfNhap(); var D=S.cfD, TB='style="padding:5px 7px;font-size:13px"';
   var nhoms={}; D.forEach(function(v){ if(v.nhom) nhoms[v.nhom]=1; }); ['Hằng ngày','Hằng tuần','Hằng tháng','Hành chính – văn bản','Chuyên môn','Nhân sự','Vật tư – thiết bị'].forEach(function(n){ nhoms[n]=1; });
@@ -64982,15 +65223,15 @@ function viewCH(){
     return '<span style="font-size:12px;color:#90a4ae">—</span>'; };
   return '<div class="lc-the" style="font-size:13px;color:#546e7a;line-height:1.6"><b style="color:#311b92">Danh mục công việc lặp lại</b> — anh thêm/sửa/xóa tự do rồi bấm <b>💾 Lưu danh mục</b>. Lịch: hằng ngày · ngày hành chính · hằng tuần (chọn thứ) · hằng tháng (ghi ngày, cách nhau dấu phẩy, <b>cuoi</b> = ngày cuối tháng) · một lần (chọn ngày). Bỏ tick "Bật" để tạm dừng 1 việc (giữ lịch sử).</div>'
     +'<datalist id="lcvNhomDl">'+Object.keys(nhoms).map(function(n){ return '<option value="'+e(n)+'">'; }).join('')+'</datalist>'
-    +'<div class="lc-the"><div style="overflow-x:auto"><table class="lc-tb"><tr><th>#</th><th style="min-width:220px;text-align:left">Công việc</th><th style="min-width:130px">Nhóm</th><th style="min-width:170px">Lịch lặp</th><th style="min-width:170px">Chi tiết lịch</th><th>Giờ</th><th>Ưu tiên</th><th style="min-width:150px">Ghi chú</th><th>Bật</th><th></th></tr>'
+    +'<div class="lc-the"><div style="overflow-x:auto"><table class="lc-tb"><tr><th>#</th><th style="min-width:360px;width:30%;text-align:left">Công việc</th><th style="min-width:120px">Nhóm</th><th style="min-width:190px">Lịch lặp</th><th style="min-width:170px">Chi tiết lịch</th><th>Giờ</th><th style="min-width:135px">Ưu tiên</th><th style="min-width:170px">Ghi chú</th><th>Bật</th><th></th></tr>'
     +(D.length?D.map(function(v,i){ return '<tr><td style="text-align:center">'+(i+1)+'</td>'
-      +'<td><input data-cv="ten" data-i="'+i+'" value="'+e(v.ten||'')+'" placeholder="Tên công việc" class="lc-inp" '+TB+'></td>'
+      +'<td><textarea data-cv="ten" data-i="'+i+'" placeholder="Tên công việc" class="lc-inp lc-ta" rows="1" oninput="lcvTaCao(this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();}" style="padding:6px 8px;font-size:13.5px;line-height:1.4;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word">'+e(v.ten||'')+'</textarea></td>'
       +'<td><input data-cv="nhom" data-i="'+i+'" list="lcvNhomDl" value="'+e(v.nhom||'')+'" class="lc-inp" '+TB+'></td>'
       +'<td><select data-cv="lap" data-i="'+i+'" onchange="lcvCfVe()" class="lc-inp" '+TB+'>'+Object.keys(LAP).map(function(l){ return '<option value="'+l+'" '+(v.lap===l?'selected':'')+'>'+LAP[l]+'</option>'; }).join('')+'</select></td>'
       +'<td>'+chiTiet(v,i)+'</td>'
       +'<td><input type="time" data-cv="gio" data-i="'+i+'" value="'+e(v.gio||'')+'" class="lc-inp" style="width:105px;padding:5px 6px;font-size:13px"></td>'
       +'<td><select data-cv="uuTien" data-i="'+i+'" class="lc-inp" '+TB+'><option value="tb" '+(v.uuTien!=='cao'?'selected':'')+'>Bình thường</option><option value="cao" '+(v.uuTien==='cao'?'selected':'')+'>❗ Quan trọng</option></select></td>'
-      +'<td><input data-cv="ghiChu" data-i="'+i+'" value="'+e(v.ghiChu||'')+'" class="lc-inp" '+TB+'></td>'
+      +'<td><textarea data-cv="ghiChu" data-i="'+i+'" class="lc-inp lc-ta" rows="1" oninput="lcvTaCao(this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();}" style="padding:6px 8px;font-size:13.5px;line-height:1.4;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word">'+e(v.ghiChu||'')+'</textarea></td>'
       +'<td style="text-align:center"><input type="checkbox" data-cv="bat" data-i="'+i+'" '+(v.bat!==false?'checked':'')+'></td>'
       +'<td style="white-space:nowrap">'+(i>0?'<button onclick="lcvCfLen('+i+')" title="Đưa lên" class="lc-btn" style="background:#eceff1;padding:4px 8px">▲</button> ':'')+'<button onclick="lcvCfXoa('+i+')" title="Xóa" class="lc-btn" style="background:#ffebee;color:#c62828;padding:4px 8px">🗑</button></td></tr>'; }).join('')
       :'<tr><td colspan="10" style="text-align:center;color:#90a4ae;padding:16px">Chưa có công việc nào. Bấm "+ Thêm công việc" hoặc "Nạp danh sách gợi ý".</td></tr>')
