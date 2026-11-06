@@ -64189,11 +64189,13 @@ function viewForm(){
       +'<input id="bcvsGt_'+i+'" value="'+e((f.gt||[])[i]||'')+'" class="bv-inp" style="margin-top:6px;padding:6px 9px;font-size:13px'+(f.kq[i]===-1?';border-color:#c62828;background:#fff5f5':'')+'" placeholder="'+(f.kq[i]===-1?'Ghi rõ nội dung khác của mục này (bắt buộc)…':'Ghi thêm cho mục này (không bắt buộc)…')+'"></div>'; }).join('')
     +'<div style="margin-top:8px"><button type="button" onclick="bcvsTatCaDat()" class="bv-btn" style="background:#e8f5e9;color:#2e7d32;border:1.5px solid #a5d6a7;padding:5px 11px;font-size:12.5px">✔ Tất cả đạt</button></div>'
     +'<label class="bv-lb">3. Ghi chú / mô tả thêm</label><textarea id="bcvsGc" rows="2" class="bv-inp" placeholder="VD: Vòi số 2 nước yếu, đã báo tổ điện nước">'+e(f.gc)+'</textarea>'
-    +'<label class="bv-lb">4. Ảnh chụp thực tế * <span style="font-weight:400;color:#78909c">('+(((S.cfg&&S.cfg.anhMin!=null)?S.cfg.anhMin:1))+'–'+((S.cfg&&S.cfg.anhMax)||3)+' ảnh, chụp MỚI tại lavabo — ảnh cũ / ảnh trùng sẽ bị từ chối)</span></label>'
+    +'<label class="bv-lb">4. Ảnh chụp thực tế * <span style="font-weight:400;color:#78909c">('+(gocDs().length?(gocDs().length+' góc cố định'+(anhLoiBB()?' + ảnh chỗ chưa đạt (nếu có)':'')):((((S.cfg&&S.cfg.anhMin!=null)?S.cfg.anhMin:1))+'–'+((S.cfg&&S.cfg.anhMax)||3)+' ảnh'))+' — chụp lavabo TẠI THỜI ĐIỂM BÁO CÁO; chụp cùng vị trí mỗi ngày là ĐÚNG. Chỉ từ chối ảnh chụp từ trước '+tuoiMaxTxt()+' hoặc file ảnh đã gửi trước đây)</span></label>'
     +'<div id="bcvsAnhKhung" style="border:2px dashed #80cbc4;border-radius:10px;padding:10px;background:#f4fbfa">'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="bv-btn" style="background:#00796b;color:#fff;display:inline-block">📷 Chụp ảnh<input type="file" accept="image/*" capture="environment" style="display:none" onchange="bcvsThemAnh(this.files);this.value=\'\'"></label>'
+    +(gocDs().length?'<div style="font-size:12.5px;color:#004d40;font-weight:600">📐 Chụp đủ <b>'+gocDs().length+' góc cố định</b> bên dưới, mỗi ô 1 ảnh — đứng chụp <b>giống ảnh mẫu</b> để ngày nào cũng so sánh được.'+(anhLoiBB()?' Có mục <b style="color:#c62828">chưa đạt</b> thì chụp thêm ô <b style="color:#c62828">⚠ Chỗ chưa đạt</b>.':'')+'</div>':'')
+    +'<div style="display:'+(gocDs().length?'none':'flex')+';gap:8px;flex-wrap:wrap;align-items:center"><label class="bv-btn" style="background:#00796b;color:#fff;display:inline-block">📷 Chụp ảnh<input type="file" accept="image/*" capture="environment" style="display:none" onchange="bcvsThemAnh(this.files);this.value=\'\'"></label>'
     +'<label class="bv-btn" style="background:#fff;color:#00796b;border:1.5px solid #80cbc4;display:inline-block">🖼 Chọn ảnh<input type="file" accept="image/*" multiple style="display:none" onchange="bcvsThemAnh(this.files);this.value=\'\'"></label>'
     +'<span style="font-size:12px;color:#78909c">hoặc dán ảnh (Ctrl+V) / kéo thả vào khung này</span></div>'
+    +'<div style="font-size:12px;color:#00695c;margin-top:6px;line-height:1.45">💡 Nên bấm <b>📷 Chụp ảnh</b> ngay tại lavabo: app đọc <b>giờ chụp của máy ảnh</b> và in dấu giờ lên ảnh → ảnh được xác nhận <b>✔ chụp mới</b>, không bị nhầm là ảnh cũ dù góc chụp giống hôm trước.</div>'
     +'<div id="bcvsAnhDs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'+anhFormHTML()+'</div></div>'
     +'<label class="bv-lb">5. Chữ ký người kiểm tra – báo cáo *</label><div id="bcvsKyKhung">'+kyFormHTML()+'</div>'
     +'<div id="bcvsLoi" style="color:#c62828;font-size:13px;font-weight:700;margin-top:8px"></div>'
@@ -64201,10 +64203,19 @@ function viewForm(){
 }
 function anhFormHTML(){
   var a=(S.form&&S.form.anh)||[];
+  if(S.form && gocDs().length){
+    var pp=phongDs().filter(function(x){ return x.k===S.form.pk; })[0]||{}, key=lvKey(pp.lavabo||pp.ten||S.form.pk), M=S.mau[key]; if(M===undefined) napMau(key);
+    var sl=slotDs(), dung={}, h='';
+    sl.forEach(function(o){ var idx=-1; a.forEach(function(x,i){ if(x.g===o.k) idx=i; }); if(idx>-1) dung[idx]=1; h+=theSlot(o, idx>-1?a[idx]:null, idx, M); });
+    a.forEach(function(x,i){ if(!dung[i]) h+=theSlot({k:'them', t:'Ảnh thêm', mt:'', bb:false}, x, i, M); });
+    if(a.length<maxTong()) h+=theSlot({k:'them', t:'➕ Ảnh thêm', mt:'(không bắt buộc)', bb:false}, null, -1, M);
+    return h;
+  }
   if(!a.length) return '<span style="font-size:12.5px;color:#90a4ae">Chưa có ảnh.</span>';
   return a.map(function(x,i){ return '<div style="position:relative;width:118px"><img src="'+x.url+'" class="bv-anh" onclick="bcvsXemAnhLon(this.src)">'
     +'<button onclick="bcvsXoaAnh('+i+')" title="Bỏ ảnh" style="position:absolute;top:2px;right:6px;border:none;border-radius:50%;width:24px;height:24px;background:#c62828;color:#fff;cursor:pointer;font-weight:800">×</button>'
-    +(x.canh&&x.canh.length?'<div style="font-size:10.5px;color:#e65100;line-height:1.3;margin-top:2px">'+x.canh.map(e).join('<br>')+'</div>':'<div style="font-size:10.5px;color:#2e7d32">✔ Ảnh mới</div>')+'</div>'; }).join('');
+    +(x.tc?'<div style="font-size:10.5px;color:'+(x.xm==='exif'?'#2e7d32':'#546e7a')+';line-height:1.3;margin-top:2px;font-weight:700">'+(x.xm==='exif'?'✔ Chụp mới ':'🕒 ')+fmtDT(x.tc)+(x.xm==='exif'?'':' (giờ tệp)')+'</div>':'')
+    +(x.canh&&x.canh.length?'<div style="font-size:10.5px;color:#e65100;line-height:1.3;margin-top:2px">'+x.canh.map(e).join('<br>')+'</div>':(x.tc?'':'<div style="font-size:10.5px;color:#2e7d32">✔ Ảnh mới</div>'))+'</div>'; }).join('');
 }
 function docForm(){ if(!S.form) return; var hl=document.getElementById('bcvsHoLy'); if(hl) S.form.hoLy=hl.value; var n=document.getElementById('bcvsNguoi'), g=document.getElementById('bcvsGc'); if(n) S.form.nguoi=n.value; if(g) S.form.gc=g.value; S.form.gt=S.form.gt||[]; S.form.kq.forEach(function(v,i){ var x=document.getElementById('bcvsGt_'+i); if(x) S.form.gt[i]=x.value; }); }
 window.bcvsChonMuc=function(i,j){ docForm(); S.form.kq[i]=j; render(); if(j===-1) setTimeout(function(){ var x=document.getElementById('bcvsGt_'+i); if(x) x.focus(); },50); };
@@ -64242,7 +64253,65 @@ function docBuf(f){ return new Promise(function(ok,loi){ var r=new FileReader();
 function sha256(buf){ if(window.crypto && crypto.subtle && crypto.subtle.digest) return crypto.subtle.digest('SHA-256', buf).then(function(h){ return Array.prototype.map.call(new Uint8Array(h), function(b){ return ('0'+b.toString(16)).slice(-2); }).join(''); });
   var a=new Uint8Array(buf), h1=2166136261, h2=5381; for(var i=0;i<a.length;i++){ h1^=a[i]; h1=Math.imul(h1,16777619); h2=((h2<<5)+h2+a[i])|0; } return Promise.resolve('fnv'+(h1>>>0).toString(16)+(h2>>>0).toString(16)+a.length.toString(16)); }
 function taiAnh(f){ return new Promise(function(ok,loi){ var u=URL.createObjectURL(f), im=new Image(); im.onload=function(){ ok(im); setTimeout(function(){ URL.revokeObjectURL(u); },1000); }; im.onerror=function(){ loi(new Error('Không đọc được ảnh')); }; im.src=u; }); }
-function nenAnh(im){ var W=900, s=Math.min(1, W/Math.max(im.naturalWidth,im.naturalHeight)), c=document.createElement('canvas'); c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s); c.getContext('2d').drawImage(im,0,0,c.width,c.height); return c.toDataURL('image/jpeg',0.62); }
+function nenAnh(im,dau){ var W=900, s=Math.min(1, W/Math.max(im.naturalWidth,im.naturalHeight)), c=document.createElement('canvas'); c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s); var x=c.getContext('2d'); x.drawImage(im,0,0,c.width,c.height);
+  /* 06/11/2026: in DẤU GIỜ CHỤP lên ảnh (giờ máy ảnh – phòng – lavabo) làm minh chứng "cùng vị trí, khác thời điểm" */
+  if(dau && dau.length){ var fs=Math.max(13, Math.round(c.width/34)), lh=Math.round(fs*1.35), h=lh*dau.length+Math.round(fs*0.7);
+    x.fillStyle='rgba(0,0,0,.58)'; x.fillRect(0,c.height-h,c.width,h); x.font='bold '+fs+'px Arial, sans-serif'; x.textBaseline='top';
+    dau.forEach(function(t,i){ x.fillStyle=i===0?'#ffeb3b':'#ffffff'; x.fillText(t, Math.round(fs*0.5), c.height-h+Math.round(fs*0.35)+i*lh, c.width-fs); }); }
+  return c.toDataURL('image/jpeg',0.62); }
+/* Đọc giờ chụp gốc của máy ảnh (EXIF DateTimeOriginal) trong ảnh JPEG; không có → null */
+function exifGio(buf){ try{ var v=new DataView(buf); if(v.getUint16(0)!==0xFFD8) return null; var o=2, L=v.byteLength;
+  while(o+4<L){ var mk=v.getUint16(o); if((mk&0xFF00)!==0xFF00) return null; var sz=v.getUint16(o+2);
+    if(mk===0xFFE1 && v.getUint32(o+4)===0x45786966){ var t=o+10, le=v.getUint16(t)===0x4949, u16=function(a){ return v.getUint16(a,le); }, u32=function(a){ return v.getUint32(a,le); };
+      var docIFD=function(ifd,want){ var n=u16(t+ifd), r={}; for(var i=0;i<n;i++){ var en=t+ifd+2+i*12, tag=u16(en); if(want.indexOf(tag)>-1) r[tag]={typ:u16(en+2), cnt:u32(en+4), val:u32(en+8)}; } return r; };
+      var str=function(e){ if(!e) return null; var a=t+e.val, z=''; for(var i=0;i<Math.min(e.cnt,19);i++) z+=String.fromCharCode(v.getUint8(a+i)); return z; };
+      var i0=docIFD(u32(t+4),[0x8769,0x0132]), gio=null;
+      if(i0[0x8769]){ var ie=docIFD(i0[0x8769].val,[0x9003,0x9004]); gio=str(ie[0x9003])||str(ie[0x9004]); }
+      if(!gio) gio=str(i0[0x0132]);
+      var m=gio&&gio.match(/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/); if(!m) return null;
+      var d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime(); return (d>946684800000)?d:null; }
+    if(mk===0xFFDA) return null; o+=2+sz; }
+  }catch(er){} return null; }
+function tuoiMax(){ var c=S.cfg||{}; return (c.anhTuoiMax!=null && c.anhTuoiMax!=='')?(+c.anhTuoiMax||0):12; } /* giờ; 0 = không chặn theo giờ chụp */
+function tuoiMaxTxt(){ var h=tuoiMax(); return h?(h+' giờ'):'(không giới hạn)'; }
+/* 06/11/2026 08:45: GÓC CHỤP CỐ ĐỊNH — mỗi ngày chụp đúng các góc khai báo (dễ so sánh), có ẢNH MẪU từng lavabo; có mục chưa đạt → bắt buộc ảnh "Chỗ chưa đạt".
+   Cấu hình: cauHinh/gocChup=[{t,mt}] ([] = không dùng góc, chụp tự do như cũ), cauHinh/anhLoi (mặc định bật). Ảnh mẫu: baoCaoVeSinh/anhMau/{lvKey}/g{i}. */
+var GOC_MD=[{t:'Toàn cảnh', mt:'Lavabo, vòi nước và sàn xung quanh'},{t:'Bồn – thoát nước', mt:'Cận cảnh lòng bồn và lỗ thoát nước'}];
+function gocDs(){ var c=S.cfg||{}; return (Array.isArray(c.gocChup)?c.gocChup:(c.gocChup&&typeof c.gocChup==='object'?Object.keys(c.gocChup).sort().map(function(k){ return c.gocChup[k]; }):GOC_MD)).filter(function(g){ return g && String(g.t||'').trim(); }); }
+function anhLoiBB(){ return !(S.cfg && S.cfg.anhLoi===false); }
+function lvKey(t){ return boDau(t).replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'lv'; }
+function gocTen(g){ return typeof g==='number'?((gocDs()[g]||{}).t||('Góc '+(g+1))):(g==='loi'?'Chỗ chưa đạt':(g==='them'?'Ảnh thêm':'')); }
+function ordG(g){ return typeof g==='number'?g:(g==='loi'?500:900); }
+function coLoiForm(){ return !!(S.form && S.form.kq.some(function(v){ return v!=null && v!==0; })); }
+function slotDs(){ var o=gocDs().map(function(g,i){ return {k:i, t:g.t, mt:g.mt||'', bb:true}; });
+  if(coLoiForm()) o.push({k:'loi', t:'Chỗ chưa đạt', mt:'Chụp rõ vị trí chưa đạt (vòi yếu, đọng nước, bẩn…)', bb:anhLoiBB()}); return o; }
+function maxTong(){ var MX=(S.cfg&&S.cfg.anhMax)||3; return Math.min(8, Math.max(MX, slotDs().length+1)); }
+S.mau={};
+function napMau(key, cb){ if(S.mau[key]!==undefined){ if(cb) cb(S.mau[key]); return; } S.mau[key]=null; var q=R('anhMau/'+key); if(!q){ S.mau[key]={}; if(cb) cb({}); return; }
+  q.once('value').then(function(s){ S.mau[key]=s.val()||{}; if(cb) cb(S.mau[key]); else { var d=document.getElementById('bcvsAnhDs'); if(d && S.form) d.innerHTML=anhFormHTML(); } }).catch(function(){ S.mau[key]={}; }); }
+function nenMau(src, catDuoi){ return taiAnhSrc(src).then(function(im){ var w=im.naturalWidth, h=im.naturalHeight, cat=0;
+    if(catDuoi){ var fs=Math.max(13, Math.round(w/34)), lh=Math.round(fs*1.35); cat=Math.min(h-20, lh*2+Math.round(fs*0.7)); }
+    var W=700, s2=Math.min(1, W/Math.max(w,h-cat)), c=document.createElement('canvas'); c.width=Math.round(w*s2); c.height=Math.round((h-cat)*s2);
+    c.getContext('2d').drawImage(im,0,0,w,h-cat,0,0,c.width,c.height); return c.toDataURL('image/jpeg',0.6); }); }
+function taiAnhSrc(src){ return new Promise(function(ok,loi){ var im=new Image(); im.onload=function(){ ok(im); }; im.onerror=function(){ loi(new Error('Không đọc được ảnh')); }; im.src=src; }); }
+function dongBadge(x){ return (x.tc?'<div style="font-size:10.5px;color:'+(x.xm==='exif'?'#2e7d32':'#546e7a')+';line-height:1.3;margin-top:2px;font-weight:700">'+(x.xm==='exif'?'✔ Chụp mới ':'🕒 ')+fmtDT(x.tc)+(x.xm==='exif'?'':' (giờ tệp)')+'</div>':'')
+    +(x.canh&&x.canh.length?'<div style="font-size:10.5px;color:#e65100;line-height:1.3;margin-top:2px">'+x.canh.map(e).join('<br>')+'</div>':(x.tc?'':'<div style="font-size:10.5px;color:#2e7d32">✔ Ảnh mới</div>')); }
+function nutChup(arg, nho){ var st='flex:1;padding:'+(nho?'4px':'6px')+' 4px;font-size:12px;text-align:center;display:inline-block;margin:0';
+  return '<div style="display:flex;gap:4px;margin-top:5px"><label class="bv-btn" style="background:#00796b;color:#fff;'+st+'" onclick="event.stopPropagation()">📷 '+(nho?'Chụp lại':'Chụp')+'<input type="file" accept="image/*" capture="environment" style="display:none" onchange="bcvsThemAnh(this.files,'+arg+');this.value=\'\'"></label>'
+   +'<label class="bv-btn" style="background:#fff;color:#00796b;border:1.5px solid #80cbc4;'+st+'" onclick="event.stopPropagation()">🖼 Chọn<input type="file" accept="image/*" style="display:none" onchange="bcvsThemAnh(this.files,'+arg+');this.value=\'\'"></label></div>'; }
+function theSlot(sl, x, i, M){
+  var arg=typeof sl.k==='number'?sl.k:'\''+sl.k+'\'', chon=S.form.oChon===sl.k, mau=(M && typeof sl.k==='number')?M['g'+sl.k]:null;
+  var vien=x?'2px solid #81c784':('2px dashed '+(sl.bb?'#e57373':'#b0bec5'));
+  return '<div onclick="bcvsChonO('+arg+')" style="width:172px;border:'+vien+';border-radius:10px;padding:6px;background:'+(chon?'#e0f2f1':'#fff')+';box-shadow:'+(chon?'0 0 0 3px #4db6ac':'none')+';cursor:pointer">'
+    +'<div style="font-weight:800;font-size:12.5px;color:'+(sl.k==='loi'?'#c62828':'#004d40')+'">'+(typeof sl.k==='number'?('Ảnh '+(sl.k+1)+' · '):(sl.k==='loi'?'⚠ ':''))+e(sl.t)+(sl.bb?' <span style="color:#c62828">*</span>':'')+'</div>'
+    +(sl.mt?'<div style="font-size:11px;color:#78909c;line-height:1.3">'+e(sl.mt)+'</div>':'')
+    +(x?('<div style="position:relative;margin-top:4px"><img src="'+x.url+'" class="bv-anh" style="width:100%;height:120px" onclick="event.stopPropagation();bcvsXemAnhLon(this.src)">'
+        +'<button onclick="event.stopPropagation();bcvsXoaAnh('+i+')" title="Bỏ ảnh" style="position:absolute;top:3px;right:3px;border:none;border-radius:50%;width:24px;height:24px;background:#c62828;color:#fff;cursor:pointer;font-weight:800">×</button></div>'
+        +dongBadge(x)+(sl.k!=='them'?nutChup(arg,true):''))
+      :((mau?'<div style="font-size:10.5px;color:#6a1b9a;margin-top:4px;font-weight:700">🖼 Ảnh mẫu – chụp giống góc này:</div><img src="'+mau+'" style="width:100%;height:96px;object-fit:cover;border-radius:6px;border:1.5px dashed #ce93d8;opacity:.9;cursor:zoom-in" onclick="event.stopPropagation();bcvsXemAnhLon(this.src)">':'')
+        +(chon?'<div style="font-size:10.5px;color:#00796b;margin-top:3px">● Đang chọn ô này — có thể dán Ctrl+V / kéo thả</div>':'')+nutChup(arg,false)))
+    +'</div>'; }
+window.bcvsChonO=function(k){ if(!S.form) return; S.form.oChon=(S.form.oChon===k)?null:k; var d=document.getElementById('bcvsAnhDs'); if(d) d.innerHTML=anhFormHTML(); };
 function dHash(im){ var c=document.createElement('canvas'); c.width=17; c.height=16; var x=c.getContext('2d'); x.drawImage(im,0,0,17,16); var d=x.getImageData(0,0,17,16).data, bit=[], h='';
   for(var y=0;y<16;y++) for(var i=0;i<16;i++){ var a=(y*17+i)*4, b=a+4; var g1=d[a]*.299+d[a+1]*.587+d[a+2]*.114, g2=d[b]*.299+d[b+1]*.587+d[b+2]*.114; bit.push(g1>g2?1:0); }
   for(var k=0;k<256;k+=4) h+=((bit[k]<<3)|(bit[k+1]<<2)|(bit[k+2]<<1)|bit[k+3]).toString(16); return h; }
@@ -64258,31 +64327,58 @@ function napGanDay(){
   S.ganDay=R('baoCao').orderByKey().startAt(tu).once('value').then(function(s){ var v=s.val()||{}, out=[]; Object.keys(v).forEach(function(k){ Object.keys(v[k]||{}).forEach(function(pk){ ((v[k][pk]||{}).anhMeta||[]).forEach(function(a){ if(a&&a.dh) out.push({ngay:k, pk:pk, dh:a.dh}); }); }); }); return out; }).catch(function(){ return []; });
   return S.ganDay;
 }
-window.bcvsThemAnh=function(files){
+window.bcvsThemAnh=function(files, slot){
   if(!S.form) return; docForm(); var ds=Array.prototype.slice.call(files||[]).filter(function(f){ return /^image\//.test(f.type||'image/'); });
   var loi=document.getElementById('bcvsLoi'); if(loi) loi.textContent='';
+  if(gocDs().length){ /* chế độ GÓC CHỤP: mỗi ảnh vào 1 ô */
+    if(slot===undefined && S.form.oChon!=null){ slot=S.form.oChon; }
+    S.form.oChon=null;
+    var dsDiv2=document.getElementById('bcvsAnhDs'); if(dsDiv2 && ds.length) dsDiv2.insertAdjacentHTML('beforeend','<span style="font-size:12.5px;color:#00796b;align-self:center">⏳ Đang kiểm tra ảnh…</span>');
+    var ch=Promise.resolve();
+    ds.forEach(function(f,n){ ch=ch.then(function(){
+      var g=(n===0 && slot!==undefined && slot!==null)?slot:null;
+      if(g===null){ var trong=slotDs().filter(function(o){ return !S.form.anh.some(function(a){ return a.g===o.k; }); })[0]; g=trong?trong.k:'them'; }
+      if(g==='them' && S.form.anh.length>=maxTong()){ if(loi) loi.textContent='Tối đa '+maxTong()+' ảnh cho mỗi báo cáo.'; return; }
+      return xuLy1(f, g); }); });
+    ch.then(function(){ var d=document.getElementById('bcvsAnhDs'); if(d) d.innerHTML=anhFormHTML(); });
+    return;
+  }
   var MX=(S.cfg&&S.cfg.anhMax)||3; if(S.form.anh.length+ds.length>MX){ alert('Tối đa '+MX+' ảnh cho mỗi báo cáo.'); ds=ds.slice(0, Math.max(0,MX-S.form.anh.length)); }
   var dsDiv=document.getElementById('bcvsAnhDs'); if(dsDiv && ds.length) dsDiv.innerHTML=anhFormHTML()+'<span style="font-size:12.5px;color:#00796b">⏳ Đang kiểm tra ảnh…</span>';
   var chuoi=Promise.resolve();
   ds.forEach(function(f){ chuoi=chuoi.then(function(){ return xuLy1(f); }); });
   chuoi.then(function(){ var d=document.getElementById('bcvsAnhDs'); if(d) d.innerHTML=anhFormHTML(); });
 };
-function xuLy1(f){
-  var lm=f.lastModified||0, sha, im;
-  return docBuf(f).then(function(buf){ return sha256(buf); }).then(function(h){ sha=h;
+function xuLy1(f, gocK){
+  /* 06/11/2026: Kiểm tra theo THỜI ĐIỂM CHỤP chứ không theo "giống hình":
+     - File trùng 100% (SHA-256) ảnh đã gửi ngày khác → từ chối (chắc chắn là ảnh cũ).
+     - Giờ chụp (EXIF máy ảnh; không có thì giờ tệp) cũ hơn N giờ (Cấu hình, mặc định 12) → từ chối.
+     - Ảnh giống góc chụp hôm trước: nếu máy ảnh xác nhận chụp mới → KHÔNG cảnh báo (cùng vị trí, khác thời điểm là đúng yêu cầu);
+       chỉ ghi chú cho Quản lý khi KHÔNG xác minh được giờ chụp. Không còn hộp hỏi làm nhân viên hiểu nhầm. */
+  var lm=f.lastModified||0, sha, im, ex=null;
+  return docBuf(f).then(function(buf){ ex=exifGio(buf); return sha256(buf); }).then(function(h){ sha=h;
     if(S.form.anh.some(function(a){ return a.sha===sha; })) throw new Error('Ảnh này đã có trong báo cáo.');
     return R('hashAnh/'+sha).once('value');
   }).then(function(s){ var v=s&&s.val&&s.val();
-    if(v && !(v.ngay===S.ngay && v.pk===S.form.pk)) throw new Error('❌ ẢNH TRÙNG 100% với ảnh đã gửi ngày '+fmtNgay(v.ngay)+' ('+(v.ten||v.pk)+'). Vui lòng chụp ảnh MỚI tại lavabo.');
+    if(v && !(v.ngay===S.ngay && v.pk===S.form.pk)) throw new Error('❌ Đây là FILE ẢNH đã gửi ngày '+fmtNgay(v.ngay)+' ('+(v.ten||v.pk)+'). Vui lòng bấm 📷 Chụp ảnh để chụp lại lavabo ngay bây giờ (chụp cùng vị trí vẫn được).');
     return taiAnh(f);
   }).then(function(i){ im=i; return napGanDay(); }).then(function(gd){
+    var t=now(), tc=ex||(lm||null), xm=ex?'exif':(lm?'tep':null), H=tuoiMax(), tuoi=tc?(t-tc):0;
+    /* giờ máy ảnh có thể lệch vài phút so với máy chủ → cho phép lệch tới 30 phút về tương lai */
+    if(tc && H && tuoi>H*3600000) throw new Error('❌ Ảnh này chụp lúc '+fmtGio(tc)+' ngày '+fmtNgay(keyNgay(tc))+(xm==='exif'?' (theo máy ảnh)':' (theo giờ tệp)')+' — đã quá '+H+' giờ, không phải ảnh của lần kiểm tra này. Vui lòng bấm 📷 Chụp ảnh để chụp mới tại lavabo.');
     var dh=dHash(im), cl=chatLuong(im), canh=[], nghi=null;
     gd.forEach(function(g){ var d=hamming(dh,g.dh); if(d<=6 && !(g.ngay===S.ngay && g.pk===S.form.pk) && (!nghi || d<nghi.d)) nghi={d:d, ngay:g.ngay, pk:g.pk}; });
-    if(nghi) canh.push('⚠ Rất giống ảnh ngày '+fmtNgay(nghi.ngay));
-    var tuoi=now()-lm; if(lm && tuoi>6*3600000) canh.push('⚠ Ảnh chụp từ '+fmtDT(lm));
+    var xacNhanMoi = xm==='exif' && tuoi<=Math.max(H||12,12)*3600000 && tuoi>-1800000;
+    if(nghi && !xacNhanMoi) canh.push('⚠ Giống ảnh ngày '+fmtNgay(nghi.ngay)+', chưa xác minh giờ chụp');
+    if(tc && tuoi>3*3600000 && !(H && tuoi>H*3600000)) canh.push('⚠ Chụp cách đây '+Math.round(tuoi/3600000)+' giờ ('+fmtDT(tc)+')');
     if(cl.sang<45) canh.push('⚠ Ảnh quá tối'); if(cl.net<40) canh.push('⚠ Ảnh mờ');
-    if(nghi && nghi.d<=2 && !confirm('Ảnh này GIỐNG GẦN NHƯ Y HỆT ảnh đã gửi ngày '+fmtNgay(nghi.ngay)+'.\nNếu đây đúng là ảnh chụp mới hôm nay, bấm OK để vẫn dùng (Quản lý sẽ thấy cảnh báo).\nBấm Hủy để chụp lại.')) throw new Error('Đã bỏ ảnh giống ảnh cũ.');
-    S.form.anh.push({sha:sha, dh:dh, lm:lm||null, sang:cl.sang, net:cl.net, nghi:nghi?(nghi.ngay+'|'+nghi.d):null, canh:canh, url:nenAnh(im)});
+    var p=phongDs().filter(function(x){ return x.k===S.form.pk; })[0]||{};
+    var gt=(gocK!=null)?gocTen(gocK):'';
+    var dau=[(xm==='exif'?'CHỤP LÚC ':'TẢI LÊN LÚC ')+fmtGio(xm==='exif'?tc:t)+' – '+fmtNgay(keyNgay(xm==='exif'?tc:t)), (p.ten||'')+(p.lavabo?(' · '+p.lavabo):'')+(gt?(' · '+gt):'')];
+    var moi={sha:sha, dh:dh, lm:lm||null, tc:tc||null, xm:xm, sang:cl.sang, net:cl.net, nghi:nghi?(nghi.ngay+'|'+nghi.d):null, canh:canh, url:nenAnh(im,dau)};
+    if(gocK!=null){ moi.g=gocK; moi.gt=gt; if(gocK!=='them') S.form.anh=S.form.anh.filter(function(a){ return a.g!==gocK; }); }
+    S.form.anh.push(moi);
+    if(gocK!=null) S.form.anh=S.form.anh.map(function(a,i){ return [a,i]; }).sort(function(x,y){ return (ordG(x[0].g)-ordG(y[0].g))||(x[1]-y[1]); }).map(function(x){ return x[0]; });
   }).catch(function(err){ var loi=document.getElementById('bcvsLoi'); if(loi) loi.textContent=err.message||String(err); });
 }
 window.bcvsGui=function(){
@@ -64298,13 +64394,17 @@ window.bcvsGui=function(){
   if(hoLy && (S.hoLy||[]).length && S.hoLy.indexOf(hoLy)<0) return bao('"'+hoLy+'" không thuộc nhóm Hộ lý — chọn lại Hộ lý phụ trách khu vực.');
   var thieu=f.kq.map(function(v,i){ return v==null?(i+1):null; }).filter(Boolean); if(thieu.length) return bao('Còn mục kiểm tra chưa chọn: '+thieu.join(', ')+'.');
   var khacTrong=f.kq.map(function(v,i){ return (v===-1 && !String((f.gt||[])[i]||'').trim())?(i+1):null; }).filter(Boolean); if(khacTrong.length) return bao('Mục '+khacTrong.join(', ')+' chọn "Khác" — vui lòng ghi rõ nội dung.');
-  var MN=(S.cfg&&S.cfg.anhMin!=null)?S.cfg.anhMin:1; if(f.anh.length<MN) return bao('Vui lòng chụp ít nhất '+MN+' ảnh thực tế của lavabo.');
+  if(gocDs().length){
+    var thieuG=gocDs().map(function(g,i){ return f.anh.some(function(a){ return a.g===i; })?null:('Ảnh '+(i+1)+' – '+g.t); }).filter(Boolean);
+    if(thieuG.length) return bao('Còn thiếu ảnh góc chụp: '+thieuG.join('; ')+'.');
+    if(anhLoiBB() && coLoiForm() && !f.anh.some(function(a){ return a.g==='loi'; })) return bao('Có mục chưa đạt / Khác — vui lòng chụp thêm ảnh ô "⚠ Chỗ chưa đạt".');
+  } else { var MN=(S.cfg&&S.cfg.anhMin!=null)?S.cfg.anhMin:1; if(f.anh.length<MN) return bao('Vui lòng chụp ít nhất '+MN+' ảnh thực tế của lavabo.'); }
   if(!f.ky) return bao('Vui lòng bấm "✍️ Bấm để ký" — người kiểm tra ký xác nhận báo cáo.');
   var btn=document.getElementById('bcvsGuiBtn'); if(btn){ btn.disabled=true; btn.textContent='⏳ Đang lưu…'; }
   var mk=moKhoaCon(k,f.pk), cu=S.bc[f.pk], muc=ms.map(function(m,i){ var gt=String((f.gt||[])[i]||'').trim(); return {t:m.t, kq:f.kq[i], ch:(f.kq[i]===-1?'Khác':m.o[f.kq[i]]), gt:gt||null}; }), coVanDe=f.kq.some(function(v){ return v!==0; });
   var rec={phong:p.ten, lavabo:p.lavabo, hoLy:hoLy||p.hoLy||null, nguoi:ten, t:Date.now(), ts:(window.firebase&&firebase.database&&firebase.database.ServerValue)?firebase.database.ServerValue.TIMESTAMP:Date.now(),
     muc:muc, coVanDe:coVanDe||null, ghiChu:(f.gc||'').trim()||null, soAnh:f.anh.length, tre:(mk||now()>=mocKhoa(k))?true:null, moKhoa:mk?{ai:mk.ai, lyDo:mk.lyDo}:null, lanGui:((cu&&cu.lanGui)||0)+1,
-    anhMeta:f.anh.map(function(a){ return {sha:a.sha, dh:a.dh, lm:a.lm, sang:a.sang, net:a.net, nghi:a.nghi, canh:a.canh.length?a.canh:null}; }),
+    anhMeta:f.anh.map(function(a){ return {sha:a.sha, dh:a.dh, lm:a.lm, tc:a.tc||null, xm:a.xm||null, g:(a.g!=null?a.g:null), gt:a.gt||null, sang:a.sang, net:a.net, nghi:a.nghi, canh:a.canh.length?a.canh:null}; }),
     canhAnh:f.anh.some(function(a){ return a.canh.length; })||null, daKy:true };
   var up={}; up['baoCao/'+k+'/'+f.pk]=rec; var an={}; f.anh.forEach(function(a,i){ an['a'+i]=a.url; }); up['anh/'+k+'/'+f.pk]=an; up['chuKy/'+k+'/'+f.pk]=f.ky; if(S.kyCache) delete S.kyCache[k+'/'+f.pk];
   f.anh.forEach(function(a){ up['hashAnh/'+a.sha]={ngay:k, pk:f.pk, ten:p.ten, t:Date.now()}; });
@@ -64327,17 +64427,28 @@ function chiTietHTML(p,k,r,x){
     +'<table class="bv-tb" style="margin-top:8px"><tr><th style="text-align:left">Nội dung kiểm tra</th><th>Kết quả</th></tr>'
     +(r.muc||[]).map(function(m){ var xau=m.kq!==0; return '<tr><td style="text-align:left">'+e(m.t)+'</td><td style="font-weight:700;color:'+(xau?'#c62828':'#2e7d32')+'">'+(xau?'⚠ ':'✔ ')+e(m.ch||'')+(m.gt?('<div style="font-weight:400;color:#37474f;font-size:12.5px">'+e(m.gt)+'</div>'):'')+'</td></tr>'; }).join('')+'</table>'
     +(r.ghiChu?'<div style="margin-top:6px;background:#fff8e1;border-radius:8px;padding:6px 9px;font-size:13px"><b>Ghi chú:</b> '+e(r.ghiChu)+'</div>':'')
+    +((r.anhMeta||[]).some(function(a){ return a&&a.tc; })?'<div style="margin-top:6px;font-size:12.5px;color:#2e7d32">'+(r.anhMeta||[]).map(function(a,i){ return (a&&a.tc)?('📷 Ảnh '+(i+1)+(a.gt?(' ('+e(a.gt)+')'):'')+': chụp '+fmtDT(a.tc)+(a.xm==='exif'?' <b>✔ máy ảnh xác nhận</b>':' <span style="color:#78909c">(giờ tệp)</span>')):''; }).filter(Boolean).join(' · ')+'</div>':'')
     +((r.anhMeta||[]).some(function(a){ return a.canh; })?'<div style="margin-top:6px;font-size:12.5px;color:#e65100;font-weight:700">'+(r.anhMeta||[]).map(function(a,i){ return a.canh?('Ảnh '+(i+1)+': '+a.canh.map(e).join(' · ')):''; }).filter(Boolean).join('<br>')+'</div>':'')
-    +'<div id="bcvsAnhXem" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#90a4ae">⏳ Đang tải ảnh…</div>'
+    +'<div id="bcvsAnhXem" data-lv="'+e(lvKey(r.lavabo||p.lavabo||p.ten||''))+'" data-m="'+e(JSON.stringify((r.anhMeta||[]).map(function(a){ return [a&&a.g!=null?a.g:'', (a&&a.gt)||'']; })))+'" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#90a4ae">⏳ Đang tải ảnh…</div>'
     +(r.daKy?'<div class="bcvs-ky" data-k="'+k+'" data-pk="'+e(r.pk||p.k)+'" style="margin-top:6px"></div>'+(setTimeout(napKy,80)?'':''):'')
     +(r.danhGia?'<div style="margin-top:8px;padding:7px 10px;border-radius:8px;font-size:13px;background:'+(r.danhGia.kq==='dat'?'#e8f5e9':'#ffebee')+';color:'+(r.danhGia.kq==='dat'?'#1b5e20':'#b71c1c')+'"><b>'+(r.danhGia.kq==='dat'?'👍 Quản lý đánh giá: ĐẠT':'👎 Quản lý đánh giá: CHƯA SẠCH')+'</b>'+(r.danhGia.gc?(' — '+e(r.danhGia.gc)):'')+' <span style="color:#78909c">('+e(r.danhGia.ai||'')+', '+fmtDT(r.danhGia.t)+')</span></div>':'');
 }
 function napAnh(k,pk,elId){
   var key=k+'/'+pk, ve=function(v){ var el=document.getElementById(elId); if(!el) return; var a=Object.keys(v||{}).sort().map(function(i){ return v[i]; });
-    el.innerHTML=a.length?a.map(function(u){ return '<img src="'+u+'" class="bv-anh" onclick="bcvsXemAnhLon(this.src)">'; }).join(''):'Không có ảnh.'; };
+    var mt=[]; try{ mt=JSON.parse(el.getAttribute('data-m')||'[]'); }catch(x){} var lv=el.getAttribute('data-lv')||'', ad=isAdmin();
+    el.innerHTML=a.length?a.map(function(u,i){ var m=mt[i]||['',''], g=m[0];
+      if(!m[1] && !(ad && typeof g==='number')) return '<img src="'+u+'" class="bv-anh" onclick="bcvsXemAnhLon(this.src)">';
+      return '<div style="display:inline-flex;flex-direction:column;align-items:center;width:112px;gap:2px"><img src="'+u+'" class="bv-anh" onclick="bcvsXemAnhLon(this.src)">'
+        +(m[1]?'<div style="font-size:11px;font-weight:700;color:'+(g==='loi'?'#c62828':'#004d40')+';text-align:center;line-height:1.2">'+(typeof g==='number'?('Ảnh '+(g+1)+' · '):'')+e(m[1])+'</div>':'')
+        +((ad && typeof g==='number')?'<button onclick="bcvsDatMau(this)" data-lv="'+e(lv)+'" data-g="'+g+'" class="bv-btn" style="background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8;padding:2px 6px;font-size:10.5px">⭐ Làm ảnh mẫu</button>':'')+'</div>'; }).join(''):'Không có ảnh.'; };
   if(S.anhCache[key]) return ve(S.anhCache[key]);
   R('anh/'+key).once('value').then(function(s){ S.anhCache[key]=s.val()||{}; ve(S.anhCache[key]); }).catch(function(){ ve({}); });
 }
+window.bcvsDatMau=function(btn){ if(!isAdmin()){ alert('Chỉ Quản lý mới đặt ảnh mẫu.'); return; } var img=btn.parentNode.querySelector('img'), lv=btn.getAttribute('data-lv'), g=+btn.getAttribute('data-g'); if(!img||!lv) return;
+  if(!confirm('Dùng ảnh này làm ẢNH MẪU cho góc "'+gocTen(g)+'" của lavabo này?\n(Nhân viên sẽ thấy ảnh mẫu khi chụp; dải giờ ở đáy ảnh được cắt bỏ.)')) return;
+  btn.disabled=true; btn.textContent='⏳…';
+  nenMau(img.src, true).then(function(u){ return R('anhMau/'+lv+'/g'+g).set(u).then(function(){ S.mau[lv]=S.mau[lv]||{}; S.mau[lv]['g'+g]=u; btn.textContent='✔ Đã đặt mẫu'; toast('⭐ Đã đặt ảnh mẫu góc "'+gocTen(g)+'"'); }); })
+    .catch(function(er){ btn.disabled=false; btn.textContent='⭐ Làm ảnh mẫu'; alert('Không lưu được: '+(er.message||er)); }); };
 window.bcvsXemAnhLon=function(src){ modal('<div style="text-align:center"><img src="'+src+'" style="max-width:100%;max-height:78vh;border-radius:8px"></div><div style="text-align:right;margin-top:8px"><button onclick="bcvsDongModal()" class="bv-btn" style="background:#eceff1;color:#37474f;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">Đóng</button></div>'); };
 function modal(html){ dongModal(); var m=document.createElement('div'); m.id='bcvsModal'; m.innerHTML='<div class="bv-hop">'+html+'</div>'; m.addEventListener('mousedown', function(ev){ if(ev.target===m) dongModal(); }); document.body.appendChild(m); }
 function dongModal(){ var m=document.getElementById('bcvsModal'); if(m) m.remove(); }
@@ -64490,10 +64601,11 @@ window.bcvsDanhGia=function(k,pk,kq){
 /* ════════ TAB 4: CẤU HÌNH — mọi người XEM, chỉ Quản lý SỬA (03/11/2026 10:30: khai báo theo bảng — lavabo, phòng, mục kiểm tra, giờ khóa, số ảnh, ngày nghỉ) ════════ */
 function lavaboMD(ph){ var set={}, out=[]; (ph||PHONG_MD).forEach(function(p){ var t=String(p.lavabo||'').trim(); if(t && !set[t]){ set[t]=1; out.push({ten:t, viTri:''}); } }); return out; }
 function cfNhap(){ var c=cfg(), raw=S.cfg||{}; return JSON.parse(JSON.stringify({gioKhoa:c.gioKhoa, khoaBat:c.khoaBat, khoaTuNgay:c.khoaTuNgay, batDau:raw.batDau||'', ngayNghi:c.ngayNghi,
-  anhMin:raw.anhMin||1, anhMax:raw.anhMax||3, lavabo:(Array.isArray(raw.lavabo)&&raw.lavabo.length)?raw.lavabo:lavaboMD(c.phong), phong:c.phong, muc:c.muc})); }
+  anhMin:raw.anhMin||1, anhMax:raw.anhMax||3, anhTuoiMax:(raw.anhTuoiMax!=null?raw.anhTuoiMax:12), gocChup:gocDs().map(function(g){ return {t:g.t, mt:g.mt||''}; }), anhLoi:raw.anhLoi!==false, lavabo:(Array.isArray(raw.lavabo)&&raw.lavabo.length)?raw.lavabo:lavaboMD(c.phong), phong:c.phong, muc:c.muc})); }
 function docCf(){ var D=S.cfD; if(!D) return; var g=function(id){ var x=document.getElementById(id); return x?x.value:null; };
   if(g('bcCfGio')!=null) D.gioKhoa=g('bcCfGio')||'08:00'; if(g('bcCfKhoaTu')!=null) D.khoaTuNgay=g('bcCfKhoaTu');
-  if(g('bcCfBatDau')!=null) D.batDau=g('bcCfBatDau'); if(g('bcCfNghi')!=null) D.ngayNghi=g('bcCfNghi'); if(g('bcCfAnhMin')!=null) D.anhMin=Math.max(0,+g('bcCfAnhMin')||0); if(g('bcCfAnhMax')!=null) D.anhMax=Math.min(6,Math.max(1,+g('bcCfAnhMax')||3));
+  if(g('bcCfBatDau')!=null) D.batDau=g('bcCfBatDau'); if(g('bcCfNghi')!=null) D.ngayNghi=g('bcCfNghi'); if(g('bcCfAnhMin')!=null) D.anhMin=Math.max(0,+g('bcCfAnhMin')||0); if(g('bcCfAnhMax')!=null) D.anhMax=Math.min(6,Math.max(1,+g('bcCfAnhMax')||3)); if(g('bcCfTuoi')!=null) D.anhTuoiMax=Math.min(72,Math.max(0,+g('bcCfTuoi')||0)); var al=document.getElementById('bcCfAnhLoi'); if(al) D.anhLoi=al.checked;
+  document.querySelectorAll('#bcvsScreen [data-gc]').forEach(function(el){ var i=+el.getAttribute('data-i'); if(D.gocChup && D.gocChup[i]) D.gocChup[i][el.getAttribute('data-gc')]=el.value; });
   document.querySelectorAll('#bcvsScreen [data-lv]').forEach(function(el){ var i=+el.getAttribute('data-i'); if(D.lavabo[i]) D.lavabo[i][el.getAttribute('data-lv')]=el.value; });
   document.querySelectorAll('#bcvsScreen [data-cf]').forEach(function(el){ var i=+el.getAttribute('data-i'), f=el.getAttribute('data-cf'); if(D.phong[i]) D.phong[i][f]=f==='bat'?el.checked:el.value; });
   document.querySelectorAll('#bcvsScreen [data-mc]').forEach(function(el){ var i=+el.getAttribute('data-i'), f=el.getAttribute('data-mc'); if(!D.muc[i]) return; if(f==='t') D.muc[i].t=el.value; else D.muc[i].o=el.value.split(/[;\n]/).map(function(x){ return x.trim(); }).filter(Boolean); });
@@ -64530,8 +64642,20 @@ function viewCauHinh(){
     +D.muc.map(function(m,i){ return '<tr><td>'+(i+1)+'</td><td><input data-mc="t" data-i="'+i+'" value="'+e(m.t)+'" class="bv-inp" '+TB+dis+'></td><td><input data-mc="o" data-i="'+i+'" value="'+e((m.o||[]).join(' ; '))+'" class="bv-inp" '+TB+dis+'></td>'+(ad?'<td style="white-space:nowrap">'+(i>0?'<button onclick="bcvsCfLenMuc('+i+')" title="Đưa lên" class="bv-btn" style="background:#eceff1;padding:4px 8px">▲</button> ':'')+xoa('bcvsCfXoaMuc',i)+'</td>':'')+'</tr>'; }).join('')
     +'</table></div>'+(ad?'<button onclick="bcvsCfThemMuc()" class="bv-btn" style="background:#e0f2f1;color:#004d40;margin-top:6px">+ Thêm mục kiểm tra</button>':'')
     +'<div style="font-size:12px;color:#78909c;margin-top:4px">Mỗi mục luôn có thêm lựa chọn "✏️ Khác…" và ô "Ghi thêm" cho nhân viên.</div></div>'
+    +'<div class="bv-the">'+muc('📐 Góc chụp cố định ('+(D.gocChup||[]).length+' góc) & ảnh mẫu')
+    +'<div style="font-size:12.5px;color:#546e7a;margin-bottom:6px">Mỗi ngày nhân viên chụp <b>đúng các góc này</b> (mỗi góc 1 ảnh, bắt buộc) → dễ so sánh tiến triển giữa các ngày. Xóa hết góc = chụp tự do như trước.</div>'
+    +'<div style="overflow-x:auto"><table class="bv-tb"><tr><th>#</th><th style="text-align:left;min-width:160px">Tên góc chụp</th><th style="text-align:left;min-width:260px">Hướng dẫn chụp</th>'+(ad?'<th></th>':'')+'</tr>'
+    +(D.gocChup||[]).map(function(g,i){ return '<tr><td>'+(i+1)+'</td><td><input data-gc="t" data-i="'+i+'" value="'+e(g.t)+'" class="bv-inp" '+TB+dis+'></td><td><input data-gc="mt" data-i="'+i+'" value="'+e(g.mt||'')+'" class="bv-inp" '+TB+dis+'></td>'+(ad?'<td style="white-space:nowrap">'+(i>0?'<button onclick="bcvsCfLenGoc('+i+')" title="Đưa lên" class="bv-btn" style="background:#eceff1;padding:4px 8px">▲</button> ':'')+xoa('bcvsCfXoaGoc',i)+'</td>':'')+'</tr>'; }).join('')
+    +'</table></div>'+(ad?'<button onclick="bcvsCfThemGoc()" class="bv-btn" style="background:#e0f2f1;color:#004d40;margin-top:6px">+ Thêm góc chụp</button>':'')
+    +'<label style="display:flex;gap:7px;align-items:center;margin-top:10px;font-size:13.5px;cursor:pointer"><input id="bcCfAnhLoi" type="checkbox" '+(D.anhLoi!==false?'checked':'')+dis+' style="width:18px;height:18px"> Có mục <b style="color:#c62828">chưa đạt / Khác</b> thì <b>bắt buộc</b> chụp thêm ảnh "⚠ Chỗ chưa đạt"</label>'
+    +((D.gocChup||[]).length && D.lavabo.length?('<div style="font-weight:700;color:#6a1b9a;margin:12px 0 4px">🖼 Ảnh mẫu từng lavabo <span style="font-weight:400;color:#78909c;font-size:12px">(lưu ngay khi chọn ảnh; hoặc ở báo cáo bấm "⭐ Làm ảnh mẫu" dưới ảnh đẹp)</span></div>'
+      +'<div style="overflow-x:auto"><table class="bv-tb"><tr><th style="text-align:left">Lavabo</th>'+D.gocChup.map(function(g,i){ return '<th>Ảnh '+(i+1)+'<div style="font-weight:400;font-size:11px">'+e(g.t||'')+'</div></th>'; }).join('')+'</tr>'
+      +D.lavabo.filter(function(l){ return l && String(l.ten||'').trim(); }).map(function(l){ var key=lvKey(l.ten); if(S.mau[key]===undefined) napMau(key, function(){ D.gocChup.forEach(function(g,i){ veOMau(key,i); }); });
+        return '<tr><td style="text-align:left;font-weight:600">'+e(l.ten)+'</td>'+D.gocChup.map(function(g,i){ return '<td id="bcvsMau_'+key+'_'+i+'" style="text-align:center">'+oMauHTML(key,i)+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>'):'')
+    +'</div>'
     +'<div class="bv-the">'+muc('📷 5. Ảnh – ngày nghỉ')
-    +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end"><div><label class="bv-lb" style="margin-top:0">Số ảnh tối thiểu</label><input id="bcCfAnhMin" type="number" min="0" max="6" value="'+e(D.anhMin)+'" class="bv-inp" style="width:90px"'+dis+'></div><div><label class="bv-lb" style="margin-top:0">Số ảnh tối đa</label><input id="bcCfAnhMax" type="number" min="1" max="6" value="'+e(D.anhMax)+'" class="bv-inp" style="width:90px"'+dis+'></div></div>'
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end"><div><label class="bv-lb" style="margin-top:0">Số ảnh tối thiểu <span style="font-weight:400;color:#90a4ae">(khi không dùng góc)</span></label><input id="bcCfAnhMin" type="number" min="0" max="6" value="'+e(D.anhMin)+'" class="bv-inp" style="width:90px"'+dis+'></div><div><label class="bv-lb" style="margin-top:0">Số ảnh tối đa</label><input id="bcCfAnhMax" type="number" min="1" max="6" value="'+e(D.anhMax)+'" class="bv-inp" style="width:90px"'+dis+'></div><div><label class="bv-lb" style="margin-top:0">Từ chối ảnh chụp cách đây quá (giờ)</label><input id="bcCfTuoi" type="number" min="0" max="72" value="'+e(D.anhTuoiMax)+'" class="bv-inp" style="width:90px"'+dis+'></div></div>'
+    +'<div style="font-size:12px;color:#78909c;margin-top:4px">Ảnh được kiểm tra theo <b>giờ chụp của máy ảnh</b> (không theo độ giống hình) — chụp cùng vị trí mỗi ngày là hợp lệ. Nhập 0 = không chặn theo giờ chụp (vẫn chặn file ảnh đã gửi trước đây).</div>'
     +'<label class="bv-lb">Ngày nghỉ lễ (phòng "ngày hành chính" không phải báo) — dd/mm (hằng năm) hoặc dd/mm/yyyy, cách nhau dấu phẩy</label><input id="bcCfNghi" value="'+e(D.ngayNghi||'')+'" placeholder="VD: 01/01, 30/04, 01/05, 02/09, 17/02/2026" class="bv-inp"'+dis+'></div>'
     +(ad?'<div class="bv-the" style="display:flex;gap:8px;flex-wrap:wrap;position:sticky;bottom:8px;box-shadow:0 2px 12px rgba(0,0,0,.18)"><button onclick="bcvsLuuCfg()" class="bv-btn" style="background:#00796b;color:#fff;font-size:14.5px">💾 Lưu cấu hình</button><button onclick="bcvsCfHuy()" class="bv-btn" style="background:#eceff1;color:#37474f">↺ Bỏ thay đổi chưa lưu</button><button onclick="bcvsCfMacDinh()" class="bv-btn" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;margin-left:auto">Khôi phục mặc định</button></div>':'');
 }
@@ -64539,11 +64663,21 @@ window.bcvsCfThemLv=function(){ docCf(); S.cfD.lavabo.push({ten:'Lavabo ', viTri
 window.bcvsCfXoaLv=function(i){ docCf(); var l=S.cfD.lavabo[i], dung=S.cfD.phong.filter(function(p){ return p.lavabo===l.ten; }).length; if(dung && !confirm('Lavabo "'+l.ten+'" đang gán cho '+dung+' phòng. Vẫn xóa?')) return; S.cfD.lavabo.splice(i,1); render(); };
 window.bcvsCfThemPhong=function(){ docCf(); S.cfD.phong.push({k:'PM', ten:'Phòng mổ ', lavabo:'', lich:'hc', bat:true}); render(); };
 window.bcvsCfXoaPhong=function(i){ docCf(); var p=S.cfD.phong[i]; if(!confirm('Xóa '+(p.ten||p.k)+' khỏi danh sách báo cáo?\n(Báo cáo cũ vẫn giữ. Muốn tạm ngừng thì chỉ cần bỏ tick "Bật".)')) return; S.cfD.phong.splice(i,1); render(); };
+window.bcvsCfThemGoc=function(){ docCf(); S.cfD.gocChup=S.cfD.gocChup||[]; S.cfD.gocChup.push({t:'', mt:''}); render(); };
+window.bcvsCfXoaGoc=function(i){ docCf(); S.cfD.gocChup.splice(i,1); render(); };
+window.bcvsCfLenGoc=function(i){ docCf(); var m=S.cfD.gocChup, t=m[i]; m[i]=m[i-1]; m[i-1]=t; render(); };
+function oMauHTML(key,i){ var u=(S.mau[key]||{})['g'+i], ad=isAdmin();
+  return (u?'<img src="'+u+'" style="width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #ce93d8;cursor:zoom-in" onclick="bcvsXemAnhLon(this.src)">':(S.mau[key]===null?'<span style="color:#90a4ae;font-size:11px">⏳</span>':'<span style="color:#b0bec5;font-size:11.5px">Chưa có mẫu</span>'))
+    +(ad?'<div style="display:flex;gap:3px;justify-content:center;margin-top:3px"><label class="bv-btn" style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;font-size:11px;margin:0">📷<input type="file" accept="image/*" style="display:none" onchange="bcvsCfMau(\''+key+'\','+i+',this.files);this.value=\'\'"></label>'+(u?'<button onclick="bcvsCfXoaMau(\''+key+'\','+i+')" class="bv-btn" style="background:#ffebee;color:#c62828;padding:2px 7px;font-size:11px">🗑</button>':'')+'</div>':''); }
+function veOMau(key,i){ var el=document.getElementById('bcvsMau_'+key+'_'+i); if(el) el.innerHTML=oMauHTML(key,i); }
+window.bcvsCfMau=function(key,i,files){ if(!isAdmin()) return; var f=files&&files[0]; if(!f) return; var u0=URL.createObjectURL(f);
+  nenMau(u0,false).then(function(u){ URL.revokeObjectURL(u0); return R('anhMau/'+key+'/g'+i).set(u).then(function(){ S.mau[key]=S.mau[key]||{}; S.mau[key]['g'+i]=u; veOMau(key,i); toast('⭐ Đã lưu ảnh mẫu'); }); }).catch(function(er){ alert('Không lưu được ảnh mẫu: '+(er.message||er)); }); };
+window.bcvsCfXoaMau=function(key,i){ if(!isAdmin() || !confirm('Xóa ảnh mẫu này?')) return; R('anhMau/'+key+'/g'+i).remove().then(function(){ if(S.mau[key]) delete S.mau[key]['g'+i]; veOMau(key,i); }); };
 window.bcvsCfThemMuc=function(){ docCf(); S.cfD.muc.push({t:'', o:['Đạt','Không đạt']}); render(); };
 window.bcvsCfXoaMuc=function(i){ docCf(); S.cfD.muc.splice(i,1); render(); };
 window.bcvsCfLenMuc=function(i){ docCf(); var m=S.cfD.muc; var t=m[i]; m[i]=m[i-1]; m[i-1]=t; render(); };
 window.bcvsCfHuy=function(){ S.cfD=null; render(); };
-window.bcvsCfMacDinh=function(){ if(!isAdmin()) return; if(!confirm('Khôi phục cấu hình mặc định (7 phòng, 6 lavabo, 5 mục kiểm tra, hạn 08:00, chưa khóa)?')) return; R('cauHinh').set({gioKhoa:'08:00', phong:PHONG_MD, muc:MUC_MD, lavabo:lavaboMD(PHONG_MD), ngayNghi:'', khoaBat:false, anhMin:1, anhMax:3}).then(function(){ S.cfD=null; toast('Đã khôi phục mặc định'); render(); }); };
+window.bcvsCfMacDinh=function(){ if(!isAdmin()) return; if(!confirm('Khôi phục cấu hình mặc định (7 phòng, 6 lavabo, 5 mục kiểm tra, hạn 08:00, chưa khóa)?')) return; R('cauHinh').set({gioKhoa:'08:00', phong:PHONG_MD, muc:MUC_MD, lavabo:lavaboMD(PHONG_MD), ngayNghi:'', khoaBat:false, anhMin:1, anhMax:3, anhTuoiMax:12, gocChup:GOC_MD, anhLoi:true}).then(function(){ S.cfD=null; toast('Đã khôi phục mặc định'); render(); }); };
 window.bcvsCfDangNhap=function(cb){
   if(isAdmin()){ if(cb) cb(); return; }
   var pwd=window.prompt('Nhập mật khẩu Quản lý để sửa cấu hình Báo cáo vệ sinh:'); if(pwd===null) return;
@@ -64566,7 +64700,7 @@ window.bcvsLuuCfg=function(){
   if(D.khoaBat && !D.khoaTuNgay) loi.push('Đã tick tự động khóa — chọn ngày bắt đầu khóa.');
   if(loi.length){ alert('Chưa lưu được:\n• '+loi.join('\n• ')); return; }
   if(!(S.hoLy||[]).length && ph.some(function(p){ return p.bat && !p.hoLy; }) && !confirm('Chưa tải được danh sách nhóm Hộ lý nên chưa chọn hộ lý phụ trách cho các phòng.\nVẫn lưu cấu hình?')) return;
-  R('cauHinh').update({gioKhoa:D.gioKhoa||'08:00', khoaBat:!!D.khoaBat, khoaTuNgay:D.khoaTuNgay||null, batDau:D.batDau||null, ngayNghi:(D.ngayNghi||'').trim(), anhMin:D.anhMin, anhMax:D.anhMax, lavabo:lv, phong:ph, muc:mc, suaAi:(typeof cu!=='undefined'&&cu&&cu.name)||'Quản lý', suaLuc:Date.now()})
+  R('cauHinh').update({gioKhoa:D.gioKhoa||'08:00', khoaBat:!!D.khoaBat, khoaTuNgay:D.khoaTuNgay||null, batDau:D.batDau||null, ngayNghi:(D.ngayNghi||'').trim(), anhMin:D.anhMin, anhMax:D.anhMax, anhTuoiMax:(D.anhTuoiMax!=null?D.anhTuoiMax:12), gocChup:(D.gocChup||[]).map(function(g){ return {t:String(g.t||'').trim(), mt:String(g.mt||'').trim()}; }).filter(function(g){ return g.t; }), anhLoi:D.anhLoi!==false, lavabo:lv, phong:ph, muc:mc, suaAi:(typeof cu!=='undefined'&&cu&&cu.name)||'Quản lý', suaLuc:Date.now()})
     .then(function(){ S.cfD=null; toast('💾 Đã lưu cấu hình'); render(); });
 };
 })();
