@@ -60185,6 +60185,18 @@ var NHOM=[
   ['Khí y tế – Khử khuẩn – Hỗ trợ',/he thong khi|khu khuan|phun|may giat/,0]
 ];
 var KHAC='Thiết bị khác';
+/* ── 07/11/2026: NHÓM THIẾT BỊ TỰ KHAI BÁO — cauHinh/nhomTB/{k} = {ten, ic, tuKhoa, songCon, t} ──
+   Nhóm tự thêm xếp TRƯỚC nhóm có sẵn (từ khóa riêng được ưu tiên). Máy đã chọn nhóm cụ thể (danhMuc/{ma}/nhom) giữ nguyên. */
+var NHOM_GOC=NHOM.slice(), _nhomRef;
+function nhomTuThem(){ var c=(typeof S!=='undefined' && S && S.cfg && S.cfg.nhomTB)||{}; return Object.keys(c).map(function(k){ var x=c[k]||{}; return {k:k, ten:String(x.ten||'').trim(), ic:x.ic||'🧩', tuKhoa:x.tuKhoa||'', songCon:!!x.songCon, t:x.t||0}; }).filter(function(x){ return x.ten; }).sort(function(a,b){ return (a.t||0)-(b.t||0) || a.ten.localeCompare(b.ten,'vi'); }); }
+function nhomRegex(tk){ var a=String(tk||'').split(/[,;\n]+/).map(function(x){ return boDau(x).trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s*'); }).filter(Boolean); return a.length ? new RegExp(a.join('|')) : /(?!)/; }
+function dongBoNhom(){
+  var c=(typeof S!=='undefined' && S && S.cfg) ? (S.cfg.nhomTB||null) : null; if(c===_nhomRef) return; _nhomRef=c;
+  var them=nhomTuThem(), ten={}; them.forEach(function(x){ ten[x.ten]=1; });
+  NHOM.length=0; them.forEach(function(x){ NHOM.push([x.ten, nhomRegex(x.tuKhoa), x.songCon?1:0]); });
+  NHOM_GOC.forEach(function(n){ if(!ten[n[0]]) NHOM.push(n); });
+  try{ if(typeof ICON_NHOM!=='undefined' && ICON_NHOM) them.forEach(function(x){ ICON_NHOM[x.ten]=x.ic; }); }catch(x){}
+}
 
 var S={dm:{}, dmLoaded:false, sc:{}, scLoaded:false, cfg:{}, staff:[], tomTat:null, tab:'bang', started:false,
        demo:null, form:null, loc:{q:'',phong:'',nhom:'',tt:'',an:false}, kb:{q:'',phong:'',muc:'',xongAll:false,ngay:'',tt:'',sx:'moi',view:''},
@@ -60213,10 +60225,14 @@ function newId(){ return 'sc'+Date.now().toString(36)+Math.floor(Math.random()*4
 function maSc(id){ return 'SC-'+String(id||'').slice(-5).toUpperCase(); }
 function safeKey(s){ return String(s||'').trim().replace(/[.#$\[\]\/\s]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40); }
 function maTuStt(stt){ var n=parseInt(stt,10); return isFinite(n) ? ('TS'+String(n).padStart(4,'0')) : safeKey(stt); }
-function nhomCua(ten){ var t=boDau(ten); for(var i=0;i<NHOM.length;i++){ if(NHOM[i][1].test(t)) return NHOM[i][0]; } return KHAC; }
-function laSongCon(nhom){ for(var i=0;i<NHOM.length;i++){ if(NHOM[i][0]===nhom) return !!NHOM[i][2]; } return false; }
+function nhomCua(ten){ dongBoNhom(); var t=boDau(ten); for(var i=0;i<NHOM.length;i++){ if(NHOM[i][1].test(t)) return NHOM[i][0]; } return KHAC; }
+function laSongCon(nhom){ dongBoNhom(); for(var i=0;i<NHOM.length;i++){ if(NHOM[i][0]===nhom) return !!NHOM[i][2]; } return false; }
+/* 07/11/2026: BỘ PHẬN KHAI BÁO — cauHinh/boPhan/{nhKey(ten)} = {ten, phong, nql, gc, t} */
+var _bpRef, _bpMap={};
+function bpCfg(){ var c=(typeof S!=='undefined' && S && S.cfg && S.cfg.boPhan)||{}; if(c!==_bpRef){ _bpRef=c; _bpMap={}; Object.keys(c).forEach(function(k){ var x=c[k]; if(x && x.ten) _bpMap[String(x.ten).trim()]=Object.assign({k:k}, x); }); } return _bpMap; }
 function phongCua(bp){
   var b=String(bp||'').trim(); if(!b) return 'Chưa phân bộ phận';
+  var kb=bpCfg()[b]; if(kb && kb.phong) return String(kb.phong).trim();
   var x=boDau(b), m=/phong mo (\d{3})/.exec(x); if(m) return 'Phòng mổ '+m[1];
   if(/hoi tinh/.test(x)) return 'Phòng Hồi tỉnh'; if(/^kho\b|hanh chinh/.test(x)) return 'Kho – Hành chính';
   if(/hoi suc/.test(x)) return 'Hồi sức'; if(/tien me/.test(x)){ var tg=/tang\s*(\d+)/.exec(x); return 'Phòng Tiền mê'+(tg?(' tầng '+tg[1]):''); }
@@ -60457,7 +60473,7 @@ function pillMuc(m){ var x=MUC[m]||MUC.tb; return '<span class="qlts-pill" style
 function pillCot(k){ var c=COT.filter(function(x){ return x.k===k; })[0]||COT[0]; return '<span class="qlts-pill" style="background:'+c.mau+'1a;color:'+c.mau+';border:1px solid '+c.mau+'55">'+c.ic+' '+c.t+'</span>'; }
 
 function render(){
-  var s=screen(); if(!s) return; apZoom();
+  var s=screen(); if(!s) return; apZoom(); dongBoNhom();
   if(S._tabTruoc!=null && S._tabTruoc!==S.tab && !S._lui){ S.stack=S.stack||[]; S.stack.push(S._tabTruoc); if(S.stack.length>30) S.stack.shift(); try{ history.pushState({qlts:1},'',location.href); }catch(x){} }
   S._lui=false; S._tabTruoc=S.tab;
   var tabs=[['bang','📡 Trạng thái'],['kanban','🗂 Kanban sự cố'],['bao','⚠️ Báo hỏng'],['kt','✅ Kiểm tra đầu ca'],['bt','🛠 Bảo trì – Kiểm định'],['dm','📋 Danh mục'],['tk','📊 Downtime']];
@@ -62351,7 +62367,7 @@ function nguoiMuon(t){ var x=muonInfo(t); if(!x||(!x.ai&&!x.cho)) return ''; ret
 function nutMuon(t, nho){ var pad=nho?'padding:3px 8px;font-size:12px':'padding:5px 10px';
   return t.boPhanGoc ? '<button onclick="qltsTraMuon(\''+e(t.ma)+'\')" title="Trả về '+e(t.boPhanGoc)+'" style="'+BTN+pad+';background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7">↩ Trả</button>'
     : '<button onclick="qltsMuonTam(\''+e(t.ma)+'\')" title="Ghi nhận phòng khác mượn tạm thiết bị này" style="'+BTN+pad+';background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8">🔁 Mượn</button>'; }
-function bpDs(){ var b={}; taiSanList(true).forEach(function(x){ if(x.boPhan) b[x.boPhan]=1; if(x.boPhanGoc) b[x.boPhanGoc]=1; }); return Object.keys(b).sort(function(a,c){ return phongSort(phongCua(a),phongCua(c)) || a.localeCompare(c,'vi'); }); }
+function bpDs(){ var b={}; taiSanList(true).forEach(function(x){ if(x.boPhan) b[x.boPhan]=1; if(x.boPhanGoc) b[x.boPhanGoc]=1; }); Object.keys(bpCfg()).forEach(function(t){ b[t]=1; }); return Object.keys(b).sort(function(a,c){ return phongSort(phongCua(a),phongCua(c)) || a.localeCompare(c,'vi'); }); }
 window.qltsMuonHan=function(n){ var d=new Date(); d.setDate(d.getDate()+n); var i=document.getElementById('mtHan'); if(i) i.value=dKeyMs(d.getTime()); };
 window.qltsMuonTam=function(ma){
   var t=taiSan(ma); if(!t) return; if(t.boPhanGoc){ qltsTraMuon(ma); return; }
@@ -63255,7 +63271,7 @@ window.qltsNapLuu=function(){
 var NQL_MD=[{k:'gm',ten:'Gây mê',ic:'🫁',mau:'#1565c0'},{k:'dc',ten:'Dụng cụ',ic:'🧰',mau:'#6a1b9a'},{k:'hs',ten:'Hồi sức',ic:'🛏',mau:'#00838f'},{k:'chung',ten:'Dùng chung',ic:'🏥',mau:'#546e7a'}];
 function nqlDs(){ var c=((S.cfg||{}).nhomQL)||{}; return NQL_MD.map(function(n){ var x=c[n.k]||{}; return {k:n.k, ic:n.ic, mau:n.mau, ten:x.ten||n.ten, phuTrach:x.phuTrach||'', sdt:x.sdt||''}; }); }
 function nqlInfo(k){ return nqlDs().filter(function(n){ return n.k===k; })[0]||nqlDs()[3]; }
-function nqlCua(t){ if(t && t.nhomQL) return t.nhomQL; var b=boDau((t&&(t.boPhanGoc||t.boPhan))||''); if(/(^|[\s-])chung\s*$/.test(b)) return 'chung'; if(/(^|[\s-])gm\s*$/.test(b)||/gay me/.test(b)) return 'gm'; if(/(^|[\s-])dc\s*$/.test(b)||/dung cu/.test(b)) return 'dc'; if(/hoi suc|hoi tinh/.test(b)) return 'hs'; return 'chung'; }
+function nqlCua(t){ if(t && t.nhomQL) return t.nhomQL; var kb=bpCfg()[String((t&&(t.boPhanGoc||t.boPhan))||'').trim()]; if(kb && kb.nql) return kb.nql; var b=boDau((t&&(t.boPhanGoc||t.boPhan))||''); if(/(^|[\s-])chung\s*$/.test(b)) return 'chung'; if(/(^|[\s-])gm\s*$/.test(b)||/gay me/.test(b)) return 'gm'; if(/(^|[\s-])dc\s*$/.test(b)||/dung cu/.test(b)) return 'dc'; if(/hoi suc|hoi tinh/.test(b)) return 'hs'; return 'chung'; }
 function nqlSc(r){ var t=taiSan(r.ma); return t?t.nql:nqlCua({boPhan:r.boPhan}); }
 function nqlTag(k, nho){ var n=nqlInfo(k); return '<span class="qlts-pill" title="Nhóm quản lý '+e(n.ten)+(n.phuTrach?(' — phụ trách: '+e(n.phuTrach)):'')+'" style="background:'+n.mau+'18;color:'+n.mau+';border:1px solid '+n.mau+'55'+(nho?';font-size:10.5px;padding:1px 6px':'')+'">'+n.ic+' '+e(n.ten)+'</span>'; }
 function nqlSelect(fn, val, nhan){ return '<select onchange="'+fn+'" title="Nhóm quản lý" style="'+INP+';max-width:180px"><option value="">— '+(nhan||'Mọi nhóm quản lý')+' —</option>'+nqlDs().map(function(n){ return '<option value="'+n.k+'" '+(val===n.k?'selected':'')+'>'+n.ic+' '+e(n.ten)+'</option>'; }).join('')+'</select>'; }
@@ -63319,6 +63335,7 @@ function viewDanhMuc(){
     +'<button onclick="qltsMoInDM()" style="'+BTN+'background:#1565c0;color:#fff">🖨 In · Word · Excel có ảnh</button>'
     +'<button onclick="qltsSoLyLich()" title="Mỗi thiết bị 1 trang lý lịch: ảnh, QR, thông tin, lịch sử hư hỏng – sửa chữa, bảo dưỡng, điều chuyển (tự cập nhật)" style="'+BTN+'background:#4e342e;color:#fff">📚 Sổ lý lịch</button>'
     +'<button onclick="qltsXuatDm()" style="'+BTN+'background:#1b5e20;color:#fff"><i class="ti ti-file-spreadsheet"></i> Excel nhanh</button>'
+    +(ad?'<button onclick="qltsGanNhom()" title="Gán nhóm thiết bị cho các máy đã tick (hoặc tạo nhóm mới)" style="'+BTN+'background:#2e7d32;color:#fff">🧩 Gán nhóm thiết bị'+(soChon?(' ('+soChon+')'):'')+'</button>':'')
     +(ad?'<button onclick="qltsChuyenTS()" title="Chuyển các tài sản đã tick sang bộ phận khác — thuộc hẳn bộ phận nhận" style="'+BTN+'background:#1565c0;color:#fff">🏷 Chuyển tài sản'+(soChon?(' ('+soChon+')'):'')+'</button>':'')
     +'<button onclick="qltsXemDC()" title="Thống kê, lịch sử chuyển cố định và mượn tạm tài sản" style="'+BTN+'background:#6a1b9a;color:#fff">📊 Lịch sử chuyển – mượn</button>'
     +(ad?'<button onclick="qltsTab(\'ka\')" style="'+BTN+'background:#2e7d32;color:#fff">🖼 Khai báo ảnh</button>':'')
@@ -63403,14 +63420,15 @@ window.qltsXemTS=function(ma){
 window.qltsSuaTS=function(ma){
   if(!isAdmin()){ alert('Chỉ Quản lý mới sửa danh mục.'); return; }
   var t=ma?taiSan(ma):{ma:'',ten:'',boPhan:'',nhom:'',ghiChu:''};
-  var bps={}; taiSanList(true).forEach(function(x){ if(x.boPhan) bps[x.boPhan]=1; });
+  var bps={}; bpDs().forEach(function(x){ bps[x]=1; });
   var scMo=ma?Object.keys(SC()||{}).filter(function(k){ var x=SC()[k]; return x && x.ma===ma && x.tt!=='xong'; }):[];
   modalBox('<div style="font-weight:800;color:#0b3c5d;font-size:15px;margin-bottom:6px">'+(ma?'✏️ Sửa tài sản '+e(ma):'＋ Thêm tài sản')+'</div>'
     +(scMo.length?'<div style="background:#fff8e1;border:1px solid #ffca28;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:6px"><b>Đây là màn hình sửa THÔNG TIN THIẾT BỊ.</b> Muốn sửa <b>phiếu báo hỏng</b> (người báo, mô tả, mức độ, thời điểm hỏng, ảnh):'+scMo.map(function(k){ return '<div style="margin-top:5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px">'+maSc(k)+' — '+e((SC()[k].moTa||'').slice(0,60))+'</span><button onclick="qltsSuaPhieu(\''+k+'\')" style="'+BTN+'padding:5px 10px;font-size:12.5px;background:#1565c0;color:#fff">✏️ Sửa phiếu sự cố</button></div>'; }).join('')+'</div>':'')
     +'<label style="'+LB+'">Mã tài sản (in trên tem QR)</label><input id="qsMa" value="'+e(t.ma)+'" '+(ma?'disabled':'')+' placeholder="VD: TS0950 (để trống: tự cấp)" style="'+INP+'">'
     +'<label style="'+LB+'">Tên tài sản (kèm model/serial)</label><input id="qsTen" value="'+e(t.ten)+'" style="'+INP+'">'
     +'<label style="'+LB+'">Bộ phận / phòng</label><input id="qsBp" list="qsBpDl" value="'+e(t.boPhan||'')+'" style="'+INP+'"><datalist id="qsBpDl">'+Object.keys(bps).sort().map(function(b){ return '<option value="'+e(b)+'">'; }).join('')+'</datalist>'
-    +'<label style="'+LB+'">Nhóm thiết bị</label><select id="qsNhom" style="'+INP+'"><option value="">(tự nhận theo tên)</option>'+NHOM.map(function(n){ return n[0]; }).concat([KHAC]).map(function(n){ return '<option '+((DM()[ma]||{}).nhom===n?'selected':'')+'>'+n+'</option>'; }).join('')+'</select>'
+    +'<label style="'+LB+'">Nhóm thiết bị</label><div style="display:flex;gap:6px"><select id="qsNhom" onchange="qltsNhomChon(this)" style="'+INP+';flex:1">'+optNhom((DM()[ma]||{}).nhom||'', t.ten)+'</select>'+(isAdmin()?'<button type="button" onclick="qltsNhomMoiInline()" title="Thêm nhóm thiết bị mới" style="'+BTN+'background:#e8f5e9;color:#2e7d32;white-space:nowrap">➕ Nhóm mới</button>':'')+'</div>'
+    +'<div id="qsNhomMoi" style="display:none;margin-top:6px;padding:8px 10px;border:1.5px dashed #43a047;border-radius:10px;background:#f1f8e9"><div style="font-weight:700;font-size:12.5px;color:#2e7d32;margin-bottom:4px">➕ Thêm nhóm thiết bị mới</div><div style="display:flex;gap:6px;flex-wrap:wrap"><input id="qsNmIc" value="🧩" maxlength="4" title="Biểu tượng" style="'+INP+';width:56px;text-align:center"><input id="qsNmTen" placeholder="Tên nhóm, VD: Đèn mổ, Máy điều hòa, Máy hút…" style="'+INP+';flex:1;min-width:200px"></div><input id="qsNmTk" placeholder="Từ khóa nhận diện theo tên máy (tùy chọn, cách nhau dấu phẩy) — VD: den mo, den phau thuat" style="'+INP+';margin-top:6px"><label style="font-size:12.5px;display:flex;gap:6px;align-items:center;margin-top:5px"><input type="checkbox" id="qsNmSc"> Thiết bị hỗ trợ sự sống</label><div style="margin-top:6px;display:flex;gap:6px"><button type="button" onclick="qltsNhomTaoInline()" style="'+BTN+'background:#2e7d32;color:#fff">✓ Tạo nhóm & chọn</button><button type="button" onclick="document.getElementById(\'qsNhomMoi\').style.display=\'none\'" style="'+BTN+'background:#eceff1">Hủy</button></div></div>'
     +'<label style="'+LB+'">Nhóm quản lý</label><select id="qsNql" style="'+INP+'"><option value="">(tự nhận theo bộ phận: '+e(nqlInfo(nqlCua({boPhan:t.boPhan})).ten)+')</option>'+nqlDs().map(function(n){ return '<option value="'+n.k+'" '+((DM()[ma]||{}).nhomQL===n.k?'selected':'')+'>'+n.ic+' '+e(n.ten)+'</option>'; }).join('')+'</select>'
     +'<label style="'+LB+'">Ghi chú</label><input id="qsGc" value="'+e(t.ghiChu||'')+'" style="'+INP+'">'
     +'<details '+(ma?'':'open')+' style="margin-top:10px;border:1px solid #e0e6ed;border-radius:10px;padding:6px 10px"><summary style="cursor:pointer;font-weight:800;color:#0b3c5d">📄 Lý lịch thiết bị</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 8px">'
@@ -63423,6 +63441,177 @@ window.qltsSuaTS=function(ma){
     +(ma?'<label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="qsAn" '+(t.an?'checked':'')+'> Ẩn tài sản này (trùng lặp / không còn ở khoa) — không tính vào thống kê</label><label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:13px"><input type="checkbox" id="qsTL" '+(t.thanhLy?'checked':'')+'> Đã thanh lý / ngừng sử dụng vĩnh viễn</label>':'')
     +'<div style="display:flex;gap:8px;margin-top:14px"><button onclick="qltsLuuTS(\''+e(ma)+'\')" style="'+BTN+'background:#0b3c5d;color:#fff">💾 Lưu</button><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Hủy</button></div>', 520);
 };
+/* ===== 07/11/2026: 🏢 KHAI BÁO BỘ PHẬN (thêm bộ phận mới chưa có máy; đặt khu/phòng & nhóm QL mặc định) ===== */
+function khuBoPhan(){
+  var ad=isAdmin(), kb=bpCfg(), dem={}, ds=bpDs();
+  taiSanList(false).forEach(function(x){ if(x.boPhan) dem[x.boPhan]=(dem[x.boPhan]||0)+1; });
+  var khus={}; ds.forEach(function(b){ khus[phongCua(b)]=1; });
+  var nqls=nqlDs(), selNql=function(id,v,tu){ return '<select '+id+' style="'+INP+';padding:5px;min-width:140px"'+(ad?'':' disabled')+'><option value="">(tự theo tên'+(tu?': '+e(tu):'')+')</option>'+nqls.map(function(n){ return '<option value="'+n.k+'" '+(v===n.k?'selected':'')+'>'+n.ic+' '+e(n.ten)+'</option>'; }).join('')+'</select>'; };
+  var dong=function(b,i){ var x=kb[b]||{}, tuNql=nqlInfo((function(){ var c=Object.assign({},x); return nqlCuaTen(b); })()).ten;
+    return '<tr data-bpi="'+i+'"><td style="text-align:center;color:#78909c">'+(i+1)+'</td><td><b>'+e(b)+'</b>'+(kb[b]?' <span style="font-size:11px;padding:1px 6px;border-radius:999px;background:#e8f5e9;color:#2e7d32">khai báo</span>':'')+(x.gc?'<div style="font-size:11.5px;color:#78909c">'+e(x.gc)+'</div>':'')+'</td>'
+      +'<td><input data-bp-phong value="'+e(x.phong||'')+'" list="qltsKhuDl" placeholder="'+e(phongCuaTen(b))+'" style="'+INP+';padding:5px;min-width:150px"'+(ad?'':' disabled')+'></td>'
+      +'<td>'+selNql('data-bp-nql', x.nql||'', tuNql)+'</td>'
+      +'<td style="text-align:center;font-weight:800">'+(dem[b]||0)+'</td>'
+      +'<td style="white-space:nowrap">'+(dem[b]?'<button onclick="qltsBpXem('+i+')" title="Xem máy của bộ phận trong Danh mục" style="'+BTN+'padding:4px 8px;background:#e3f2fd;color:#0b3c5d">👁</button> ':'')+(ad&&kb[b]?'<button onclick="qltsBpXoa('+i+')" title="Xóa khai báo" style="'+BTN+'padding:4px 8px;background:#ffebee;color:#c62828">🗑</button>':'')+'</td></tr>'; };
+  S._bpList2=ds;
+  return the(h3('🏢 Bộ phận / phòng — khai báo thêm bộ phận', '<span style="font-size:12px;color:#78909c">'+ds.length+' bộ phận</span>')
+    +'<div style="font-size:12px;color:#78909c;margin-bottom:6px">Thêm bộ phận mới (VD: <b>PHÒNG MỔ 501 - GM</b>, <b>Phòng nội soi</b>, <b>Kho dụng cụ tầng 3</b>) để chọn được khi Thêm tài sản / Chuyển tài sản, kể cả khi chưa có máy. <b>Khu/phòng</b>: nơi bộ phận hiện ở lưới chọn phòng Báo hỏng, bản đồ, thống kê (để trống = app tự nhận theo tên). <b>Nhóm QL mặc định</b>: cả bộ phận vào nhóm này (máy đã gán nhóm QL riêng giữ nguyên). Muốn <b>đổi tên</b> bộ phận đang có máy: dùng 🏷 Chuyển tài sản ở Danh mục (giữ lịch sử).</div>'
+    +'<datalist id="qltsKhuDl">'+Object.keys(khus).sort(phongSort).map(function(k){ return '<option value="'+e(k)+'">'; }).join('')+'</datalist>'
+    +(ad?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;background:#f1f8e9;border:1.5px dashed #43a047;border-radius:10px;padding:8px 10px;margin-bottom:8px">'
+      +'<div style="flex:2;min-width:220px"><label style="'+LB+';margin-top:0">Tên bộ phận mới</label><input id="bpTen" placeholder="VD: PHÒNG MỔ 501 - GM" style="'+INP+'" oninput="qltsBpGoiY()" onkeydown="if(event.key===\'Enter\')qltsBpThem()"></div>'
+      +'<div style="flex:1;min-width:160px"><label style="'+LB+';margin-top:0">Khu / phòng</label><input id="bpPhong" list="qltsKhuDl" placeholder="(tự nhận)" style="'+INP+'"></div>'
+      +'<div style="flex:1;min-width:160px"><label style="'+LB+';margin-top:0">Nhóm QL mặc định</label>'+selNql('id="bpNql"','','')+'</div>'
+      +'<div style="flex:1;min-width:160px"><label style="'+LB+';margin-top:0">Ghi chú</label><input id="bpGc" style="'+INP+'"></div>'
+      +'<button onclick="qltsBpThem()" style="'+BTN+'background:#2e7d32;color:#fff">➕ Thêm bộ phận</button>'
+      +'<div id="bpGoiY" style="flex-basis:100%;font-size:12px;color:#546e7a"></div></div>':'')
+    +'<div style="overflow:auto;max-height:520px"><table class="qlts-tb"><thead><tr><th>#</th><th>Bộ phận</th><th>Khu / phòng</th><th>Nhóm QL mặc định</th><th>Số TB</th><th></th></tr></thead><tbody>'
+    +ds.map(dong).join('')+'</tbody></table></div>'
+    +(ad?'<button onclick="qltsBpLuu()" style="'+BTN+'background:#0b3c5d;color:#fff;margin-top:10px">💾 Lưu khu/phòng & nhóm QL của bộ phận</button>':''));
+}
+function nqlCuaTen(b){ var kb=bpCfg()[b], sv=kb?kb.nql:null; if(kb) kb.nql=null; var r=nqlCua({boPhan:b}); if(kb) kb.nql=sv; return r; }
+function phongCuaTen(b){ var kb=bpCfg()[b], sv=kb?kb.phong:null; if(kb) kb.phong=null; var r=phongCua(b); if(kb) kb.phong=sv; return r; }
+function luuBoPhan(up){
+  S.cfg=S.cfg||{}; var c=Object.assign({}, S.cfg.boPhan||{});
+  Object.keys(up).forEach(function(k){ if(up[k]==null) delete c[k]; else c[k]=up[k]; });
+  S.cfg=Object.assign({}, S.cfg, {boPhan:c}); bpCfg();
+  if(S.demo) return Promise.resolve();
+  var u={}; Object.keys(up).forEach(function(k){ u['cauHinh/boPhan/'+k]=up[k]; }); return luu(u);
+}
+window.qltsBpGoiY=function(){ var t=((document.getElementById('bpTen')||{}).value||'').trim(), g=document.getElementById('bpGoiY'); if(!g) return;
+  if(!t){ g.innerHTML=''; return; }
+  var trung=bpDs().filter(function(b){ return boDau(b).replace(/\s+/g,'')===boDau(t).replace(/\s+/g,''); })[0];
+  g.innerHTML=trung?'<span style="color:#c62828">⚠ Đã có bộ phận "<b>'+e(trung)+'</b>"</span>':'App sẽ tự xếp: khu <b>'+e(phongCua(t))+'</b> · nhóm QL <b>'+e(nqlInfo(nqlCua({boPhan:t})).ten)+'</b> (chọn ô bên trên nếu muốn khác)'; };
+window.qltsBpThem=function(){
+  if(!isAdmin()){ alert('Chỉ Quản lý được thêm bộ phận.'); return; }
+  var g=function(x){ var el=document.getElementById(x); return el?el.value.trim():''; };
+  var t=g('bpTen').replace(/\s+/g,' '); if(!t){ alert('Nhập tên bộ phận.'); return; }
+  var trung=bpDs().filter(function(b){ return boDau(b).replace(/\s+/g,'')===boDau(t).replace(/\s+/g,''); })[0];
+  if(trung){ alert('Đã có bộ phận "'+trung+'".'); return; }
+  var o={}; o[nhKey(t)]={ten:t, phong:g('bpPhong')||null, nql:g('bpNql')||null, gc:g('bpGc')||null, t:Date.now(), ai:tenQL()||null};
+  luuBoPhan(o).then(function(){ toast('🏢 Đã thêm bộ phận "'+t+'"'); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+};
+window.qltsBpLuu=function(){
+  if(!isAdmin()) return; var ds=S._bpList2||[], kb=bpCfg(), up={}, n=0;
+  document.querySelectorAll('[data-bpi]').forEach(function(tr){ var b=ds[+tr.getAttribute('data-bpi')]; if(!b) return;
+    var ph=(tr.querySelector('[data-bp-phong]')||{}).value, nq=(tr.querySelector('[data-bp-nql]')||{}).value; ph=(ph||'').trim()||null; nq=nq||null;
+    var x=kb[b]||null; if(!x && !ph && !nq) return; if(x && (x.phong||null)===ph && (x.nql||null)===nq) return;
+    var k=x?x.k:nhKey(b), o=Object.assign({}, x||{ten:b, t:Date.now(), tuDuLieu:true}); delete o.k; o.phong=ph; o.nql=nq;
+    up[k]=(!ph && !nq && o.tuDuLieu && !o.gc) ? null : o; n++; });
+  if(!n){ toast('Không có thay đổi'); return; }
+  luuBoPhan(up).then(function(){ toast('💾 Đã lưu '+n+' bộ phận'); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+};
+window.qltsBpXoa=function(i){
+  if(!isAdmin()) return; var b=(S._bpList2||[])[i], x=bpCfg()[b]; if(!x) return;
+  var n=taiSanList(true).filter(function(t){ return t.boPhan===b || t.boPhanGoc===b; }).length;
+  if(!confirm('Xóa khai báo bộ phận "'+b+'"?'+(n?('\n\nBộ phận đang có '+n+' máy: máy vẫn giữ tên bộ phận, chỉ bỏ khu/phòng & nhóm QL đã khai báo.'):''))) return;
+  var o={}; o[x.k]=null; luuBoPhan(o).then(function(){ toast('🗑 Đã xóa khai báo'); render(); });
+};
+window.qltsBpXem=function(i){ var b=(S._bpList2||[])[i]; if(!b) return; S.loc=S.loc||{}; S.loc.q=b; S.tab='dm'; render(); };
+
+/* ===== 07/11/2026: 🧩 QUẢN LÝ NHÓM THIẾT BỊ (thêm / sửa / xóa nhóm tự khai báo, gán nhóm hàng loạt) ===== */
+function nhomDangDung(){ var m={}; taiSanList(true).forEach(function(x){ if(x.nhom) m[x.nhom]=(m[x.nhom]||0)+1; }); return m; }
+function dsTenNhom(){ dongBoNhom(); var a=NHOM.map(function(n){ return n[0]; }), co={}; a.forEach(function(n){ co[n]=1; }); co[KHAC]=1;
+  Object.keys(nhomDangDung()).sort().forEach(function(n){ if(!co[n]){ a.push(n); co[n]=1; } }); a.push(KHAC); return a; }
+function optNhom(cur, tenMay){
+  var tu=tenMay?nhomCua(tenMay):'', tuThem={}; nhomTuThem().forEach(function(x){ tuThem[x.ten]=x.ic; });
+  return '<option value="">(tự nhận theo tên'+(tu?': '+e(tu):'')+')</option>'
+    +dsTenNhom().map(function(n){ return '<option value="'+e(n)+'" '+(cur===n?'selected':'')+'>'+(tuThem[n]?(tuThem[n]+' '):'')+e(n)+(tuThem[n]?'  (nhóm tự thêm)':'')+'</option>'; }).join('')
+    +(isAdmin()?'<option value="__moi__">➕ Thêm nhóm mới…</option>':'');
+}
+function luuNhomTB(up){
+  S.cfg=S.cfg||{}; var c=Object.assign({}, S.cfg.nhomTB||{});
+  Object.keys(up).forEach(function(k){ if(up[k]==null) delete c[k]; else c[k]=up[k]; });
+  S.cfg=Object.assign({}, S.cfg, {nhomTB:c}); dongBoNhom();
+  if(S.demo) return Promise.resolve();
+  var u={}; Object.keys(up).forEach(function(k){ u['cauHinh/nhomTB/'+k]=up[k]; }); return luu(u);
+}
+function nhomMoi(ten, ic, tk, sc, duaVao){
+  ten=String(ten||'').trim().replace(/\s+/g,' ');
+  if(!ten){ alert('Nhập tên nhóm thiết bị.'); return null; }
+  dongBoNhom(); var trung=(duaVao ? NHOM.map(function(n){ return n[0]; }).concat([KHAC]) : dsTenNhom()).filter(function(n){ return boDau(n)===boDau(ten); })[0];
+  if(trung){ alert('Đã có nhóm "'+trung+'" — chọn nhóm đó trong danh sách.'); return {ten:trung, cu:true}; }
+  var k='n'+Date.now().toString(36);
+  return {ten:ten, k:k, p:luuNhomTB((function(){ var o={}; o[k]={ten:ten, ic:String(ic||'🧩').trim()||'🧩', tuKhoa:String(tk||'').trim()||null, songCon:sc?true:null, t:Date.now(), ai:tenQL()||null}; return o; })())};
+}
+/* — trong form Thêm/Sửa tài sản — */
+window.qltsNhomChon=function(sel){ if(sel.value==='__moi__'){ sel.value=''; qltsNhomMoiInline(); } };
+window.qltsNhomMoiInline=function(){ var b=document.getElementById('qsNhomMoi'); if(!b) return; b.style.display=''; var t=document.getElementById('qsNmTen'); if(t){ t.focus(); t.onkeydown=function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); qltsNhomTaoInline(); } }; } };
+window.qltsNhomTaoInline=function(){
+  if(!isAdmin()){ alert('Chỉ Quản lý được thêm nhóm.'); return; }
+  var g=function(x){ var el=document.getElementById(x); return el?el.value:''; };
+  var r=nhomMoi(g('qsNmTen'), g('qsNmIc'), g('qsNmTk'), (document.getElementById('qsNmSc')||{}).checked); if(!r) return;
+  var sel=document.getElementById('qsNhom'), ten=(document.getElementById('qsTen')||{}).value||'';
+  var xong=function(){ if(sel){ sel.innerHTML=optNhom(r.ten, ten); sel.value=r.ten; } var b=document.getElementById('qsNhomMoi'); if(b) b.style.display='none'; ['qsNmTen','qsNmTk'].forEach(function(x){ var el=document.getElementById(x); if(el) el.value=''; }); if(!r.cu) toast('🧩 Đã thêm nhóm "'+r.ten+'" — bấm Lưu để gán cho máy này'); };
+  if(r.p) r.p.then(xong).catch(function(er){ alert('Lỗi lưu nhóm: '+er.message); }); else xong();
+};
+/* — khối trong ⚙️ Cấu hình — */
+function khuNhomTB(){
+  dongBoNhom(); var dem={}; taiSanList(false).forEach(function(x){ dem[x.nhom]=(dem[x.nhom]||0)+1; });
+  var them=nhomTuThem(), tenThem={}; them.forEach(function(x){ tenThem[x.ten]=1; });
+  var ad=isAdmin(), co={}; dsTenNhom().forEach(function(n){ co[n]=1; });
+  var ngoai=Object.keys(nhomDangDung()).filter(function(n){ return !tenThem[n] && !NHOM_GOC.some(function(g){ return g[0]===n; }) && n!==KHAC; });
+  var dong=function(x){ var d='data-ntb="'+x.k+'|';
+    return '<tr><td><input '+d+'ic" value="'+e(x.ic)+'" maxlength="4" style="'+INP+';padding:5px;width:52px;text-align:center"'+(ad?'':' disabled')+'></td>'
+      +'<td><input '+d+'ten" value="'+e(x.ten)+'" style="'+INP+';padding:5px;min-width:180px"'+(ad?'':' disabled')+'></td>'
+      +'<td><input '+d+'tuKhoa" value="'+e(x.tuKhoa)+'" placeholder="VD: den mo, den phau thuat" style="'+INP+';padding:5px;min-width:200px"'+(ad?'':' disabled')+'></td>'
+      +'<td style="text-align:center"><input type="checkbox" '+d+'songCon"'+(x.songCon?' checked':'')+(ad?'':' disabled')+'></td>'
+      +'<td style="text-align:center;font-weight:800">'+(dem[x.ten]||0)+'</td>'
+      +'<td style="white-space:nowrap">'+(ad?'<button onclick="qltsNhomLoc(\''+e(x.ten).replace(/'/g,"\\'")+'\')" title="Xem các máy thuộc nhóm trong Danh mục" style="'+BTN+'padding:4px 8px;background:#e3f2fd;color:#0b3c5d">👁</button> <button onclick="qltsNhomXoa(\''+x.k+'\')" title="Xóa nhóm" style="'+BTN+'padding:4px 8px;background:#ffebee;color:#c62828">🗑</button>':'')+'</td></tr>'; };
+  return the(h3('🧩 Nhóm thiết bị — khai báo thêm nhóm')
+    +'<div style="font-size:12px;color:#78909c;margin-bottom:6px">Thêm nhóm mới cho loại máy chưa có (VD: Đèn mổ, Máy điều hòa, Máy hút dịch, Tủ ấm…). <b>Từ khóa</b> (không dấu, cách nhau dấu phẩy) để app <b>tự xếp</b> máy có tên chứa từ đó vào nhóm; hoặc gán tay trong ✏️ Sửa tài sản / tick nhiều máy ở Danh mục → <b>🧩 Gán nhóm thiết bị</b>. Nhóm mới tự có trong bộ lọc, thống kê, chu kỳ bảo trì, báo cáo.</div>'
+    +'<div style="overflow:auto"><table class="qlts-tb"><thead><tr><th>Biểu tượng</th><th>Tên nhóm</th><th>Từ khóa tự nhận (tùy chọn)</th><th>Hỗ trợ<br>sự sống</th><th>Số TB</th><th></th></tr></thead><tbody>'
+    +(them.length?them.map(dong).join(''):'<tr><td colspan="6" style="text-align:center;color:#90a4ae;padding:10px">Chưa có nhóm tự thêm</td></tr>')
+    +(ad?'<tr style="background:#f1f8e9"><td><input id="ntbIc" value="🧩" maxlength="4" style="'+INP+';padding:5px;width:52px;text-align:center"></td><td><input id="ntbTen" placeholder="Tên nhóm mới…" style="'+INP+';padding:5px;min-width:180px" onkeydown="if(event.key===\'Enter\')qltsNhomThem()"></td><td><input id="ntbTk" placeholder="Từ khóa (tùy chọn)" style="'+INP+';padding:5px;min-width:200px"></td><td style="text-align:center"><input type="checkbox" id="ntbSc"></td><td></td><td><button onclick="qltsNhomThem()" style="'+BTN+'background:#2e7d32;color:#fff;white-space:nowrap">➕ Thêm nhóm</button></td></tr>':'')
+    +'</tbody></table></div>'
+    +(ad&&them.length?'<button onclick="qltsNhomLuu()" style="'+BTN+'background:#0b3c5d;color:#fff;margin-top:10px">💾 Lưu thay đổi nhóm</button>':'')
+    +(ngoai.length?'<div style="margin-top:10px;font-size:12.5px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:7px 10px">Nhóm đang có trong dữ liệu nhưng chưa ở danh mục: '+ngoai.map(function(n){ return '<b>'+e(n)+'</b> ('+(dem[n]||0)+')'+(ad?' <button onclick="qltsNhomDuaVao(\''+e(n).replace(/'/g,"\\'")+'\')" style="'+BTN+'padding:3px 8px;font-size:12px;background:#e8f5e9;color:#2e7d32">➕ Đưa vào danh mục</button>':''); }).join(' · ')+'</div>':'')
+    +'<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;color:#0b3c5d;font-size:13px">📚 '+NHOM_GOC.length+' nhóm có sẵn của app (+ '+e(KHAC)+')</summary><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'
+    +NHOM_GOC.map(function(n){ return n[0]; }).concat([KHAC]).map(function(n){ return '<span style="padding:4px 9px;border-radius:999px;background:#eceff1;font-size:12.5px">'+((typeof ICON_NHOM!=='undefined'&&ICON_NHOM[n])||'•')+' '+e(n)+' <b>'+(dem[n]||0)+'</b></span>'; }).join('')+'</div></details>');
+}
+window.qltsNhomThem=function(){
+  if(!isAdmin()){ alert('Chỉ Quản lý được thêm nhóm.'); return; }
+  var g=function(x){ var el=document.getElementById(x); return el?el.value:''; };
+  var r=nhomMoi(g('ntbTen'), g('ntbIc'), g('ntbTk'), (document.getElementById('ntbSc')||{}).checked); if(!r || r.cu) return;
+  r.p.then(function(){ toast('🧩 Đã thêm nhóm "'+r.ten+'"'); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+};
+window.qltsNhomDuaVao=function(ten){ var r=nhomMoi(ten,'🧩','',false,true); if(!r || r.cu) return; r.p.then(function(){ toast('🧩 Đã đưa "'+ten+'" vào danh mục nhóm'); render(); }); };
+window.qltsNhomLuu=function(){
+  if(!isAdmin()) return; var c=(S.cfg&&S.cfg.nhomTB)||{}, up={}, doiTen=[], loi='';
+  nhomTuThem().forEach(function(x){ var o=Object.assign({}, c[x.k]||{});
+    document.querySelectorAll('[data-ntb^="'+x.k+'|"]').forEach(function(el){ var f=el.getAttribute('data-ntb').split('|')[1]; o[f]= el.type==='checkbox' ? (el.checked||null) : (el.value.trim()||null); });
+    if(!o.ten){ loi='Tên nhóm không được để trống.'; return; }
+    if(o.ten!==x.ten) doiTen.push([x.ten,o.ten]); up[x.k]=o; });
+  if(loi){ alert(loi); return; }
+  var ups={}; doiTen.forEach(function(d){ taiSanList(true).forEach(function(t){ if(DM()[t.ma] && DM()[t.ma].nhom===d[0]) ups['danhMuc/'+t.ma+'/nhom']=d[1]; }); });
+  luuNhomTB(up).then(function(){ return Object.keys(ups).length?luu(ups):null; }).then(function(){ toast('💾 Đã lưu nhóm thiết bị'+(Object.keys(ups).length?(' · đổi tên cho '+Object.keys(ups).length+' máy'):'')); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+};
+window.qltsNhomXoa=function(k){
+  if(!isAdmin()) return; var x=nhomTuThem().filter(function(n){ return n.k===k; })[0]; if(!x) return;
+  var gan=Object.keys(DM()).filter(function(m){ return (DM()[m]||{}).nhom===x.ten; });
+  if(!confirm('Xóa nhóm "'+x.ten+'"?'+(gan.length?('\n\n'+gan.length+' máy đang gán nhóm này sẽ trở về "tự nhận theo tên".'):''))) return;
+  var o={}; o[k]=null; var ups={}; gan.forEach(function(m){ ups['danhMuc/'+m+'/nhom']=null; });
+  luuNhomTB(o).then(function(){ return gan.length?luu(ups):null; }).then(function(){ toast('🗑 Đã xóa nhóm'); render(); }).catch(function(er){ alert('Lỗi: '+er.message); });
+};
+window.qltsNhomLoc=function(ten){ S.loc=S.loc||{}; S.loc.nhom=ten; S.tab='dm'; render(); };
+/* — gán nhóm cho các máy đã tick ở Danh mục — */
+window.qltsGanNhom=function(){
+  if(!isAdmin()){ alert('Chỉ Quản lý được gán nhóm.'); return; }
+  var mas=Object.keys(S.chon||{}).filter(function(k){ return S.chon[k] && DM()[k]; });
+  if(!mas.length){ alert('Tick chọn các máy cần gán nhóm trong danh sách trước (ô ☐ đầu dòng).'); return; }
+  modalBox('<div style="font-weight:800;color:#0b3c5d;font-size:15px">🧩 Gán nhóm thiết bị cho '+mas.length+' máy đã chọn</div>'
+    +'<div style="max-height:150px;overflow:auto;font-size:12.5px;background:#f5f7fa;border-radius:8px;padding:6px 10px;margin-top:8px">'+mas.map(function(m){ var t=taiSan(m)||{}; return '<div>'+e(m)+' — '+e(t.ten||'')+' <span style="color:#78909c">('+e(t.nhom||'')+')</span></div>'; }).join('')+'</div>'
+    +'<label style="'+LB+'">Nhóm thiết bị</label><div style="display:flex;gap:6px"><select id="qsNhom" onchange="qltsNhomChon(this)" style="'+INP+';flex:1">'+optNhom('', '')+'</select><button type="button" onclick="qltsNhomMoiInline()" style="'+BTN+'background:#e8f5e9;color:#2e7d32;white-space:nowrap">➕ Nhóm mới</button></div>'
+    +'<div id="qsNhomMoi" style="display:none;margin-top:6px;padding:8px 10px;border:1.5px dashed #43a047;border-radius:10px;background:#f1f8e9"><div style="display:flex;gap:6px;flex-wrap:wrap"><input id="qsNmIc" value="🧩" maxlength="4" style="'+INP+';width:56px;text-align:center"><input id="qsNmTen" placeholder="Tên nhóm mới…" style="'+INP+';flex:1;min-width:200px"></div><input id="qsNmTk" placeholder="Từ khóa nhận diện (tùy chọn)" style="'+INP+';margin-top:6px"><label style="font-size:12.5px;display:flex;gap:6px;align-items:center;margin-top:5px"><input type="checkbox" id="qsNmSc"> Thiết bị hỗ trợ sự sống</label><button type="button" onclick="qltsNhomTaoInline()" style="'+BTN+'background:#2e7d32;color:#fff;margin-top:6px">✓ Tạo nhóm & chọn</button></div>'
+    +'<div style="font-size:12px;color:#78909c;margin-top:6px">Chọn "(tự nhận theo tên)" = bỏ gán tay, app tự xếp theo tên máy.</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1">Hủy</button><button onclick="qltsGanNhomLuu()" style="'+BTN+'background:#0b3c5d;color:#fff">💾 Gán nhóm</button></div>', 560);
+  S._ganNhom=mas;
+};
+window.qltsGanNhomLuu=function(){
+  var v=(document.getElementById('qsNhom')||{}).value||''; if(v==='__moi__') return;
+  var mas=S._ganNhom||[], up={}; mas.forEach(function(m){ up['danhMuc/'+m+'/nhom']=v||null; });
+  luu(up).then(function(){ qltsDongModal(); S.chon={}; toast('🧩 Đã gán '+mas.length+' máy vào nhóm "'+(v||'tự nhận theo tên')+'"'); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+};
+
 window.qltsLuuTS=function(ma){
   var g=function(x){ var el=document.getElementById(x); return el?el.value.trim():''; };
   var ten=g('qsTen'); if(!ten){ alert('Vui lòng nhập tên tài sản.'); return; }
@@ -63687,6 +63876,8 @@ function viewCauHinh(){
       +'<div style="overflow:auto"><table class="qlts-tb"><thead><tr><th>Nhóm</th><th>Tên hiển thị</th><th>Người phụ trách</th><th>SĐT Zalo</th><th>Số thiết bị</th></tr></thead><tbody>'
       +nqlDs().map(function(n){ return '<tr><td>'+n.ic+'</td><td><input id="nq_ten_'+n.k+'" value="'+e(n.ten)+'" style="'+INP+';padding:5px"></td><td><input id="nq_pt_'+n.k+'" list="qltsStaffDl" value="'+e(n.phuTrach)+'" style="'+INP+';padding:5px"></td><td><input id="nq_sdt_'+n.k+'" value="'+e(n.sdt)+'" inputmode="tel" style="'+INP+';padding:5px;width:140px"></td><td style="text-align:center">'+taiSanList(false).filter(function(t){ return t.nql===n.k; }).length+'</td></tr>'; }).join('')
       +'</tbody></table></div><button onclick="qltsLuuNql()" style="'+BTN+'background:#0b3c5d;color:#fff;margin-top:10px">💾 Lưu nhóm quản lý</button>')
+    +khuNhomTB()
+    +khuBoPhan()
     +the(h3('🛠 Chu kỳ bảo dưỡng – kiểm định – hiệu chuẩn theo nhóm (tháng)')
       +'<div style="font-size:12px;color:#78909c;margin-bottom:6px">Giá trị sẵn có là <b>gợi ý</b>; anh/chị chỉnh theo hướng dẫn của hãng và danh mục thiết bị phải kiểm định của Phòng VT-TTBYT. Để trống / 0 = không theo dõi. Máy nào khác nhóm thì đặt riêng trong ✏️ Sửa tài sản.</div>'
       +'<div style="overflow:auto"><table class="qlts-tb"><thead><tr><th>Nhóm thiết bị</th><th>🧰 Bảo dưỡng</th><th>📜 Kiểm định</th><th>🎯 Hiệu chuẩn</th></tr></thead><tbody>'
