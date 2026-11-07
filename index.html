@@ -60144,11 +60144,28 @@ var QLTS_BO = [2, 17, 568, 569, 570, 571, 573, 574, 575, 577, 579, 580, 581, 587
 var COT=[
   {k:'moi',       t:'Mới báo',                 ic:'🆕', mau:'#c62828'},
   {k:'kiemTra',   t:'Đã tiếp nhận – Kiểm tra', ic:'🔍', mau:'#ef6c00'},
+  {k:'deNghi',    t:'Đã làm đề nghị / báo cáo', ic:'📝', mau:'#5d4037'},
   {k:'suaChua',   t:'Đang sửa chữa',           ic:'🛠', mau:'#1565c0'},
   {k:'choLK',     t:'Chờ linh kiện / hãng',    ic:'⏳', mau:'#6a1b9a'},
   {k:'nghiemThu', t:'Chờ nghiệm thu',          ic:'🧪', mau:'#00838f'},
   {k:'xong',      t:'Hoàn tất',                ic:'✅', mau:'#2e7d32'}
 ];
+/* ── 07/11/2026: CỘT KANBAN CẤU HÌNH ĐƯỢC — cauHinh/kanbanCot = [{k,t,ic,mau,nut:[…]}] (Mới báo đầu, Hoàn tất cuối cố định) ── */
+var COT_GOC=COT.map(function(c){ return Object.assign({},c); }), _cotRef;
+var NUT_GD_MD={moi:['tiepNhan','phanCong'], kiemTra:['lapDeNghi','tuSua','guiPB'], deNghi:['inPhieu','guiPB','batDauSua'], suaChua:['choLK','suaXong'], choLK:['lkVe','guiPB'], nghiemThu:['ntDat','ntChuaDat'], xong:['inBien','lyLich']};
+function dongBoCot(){
+  var c=(typeof S!=='undefined' && S && S.cfg) ? (S.cfg.kanbanCot||null) : null; if(c===_cotRef) return; _cotRef=c;
+  var ds=[];
+  if(c && c.length){ var goc={}; COT_GOC.forEach(function(x){ goc[x.k]=x; });
+    var giua=[].concat(c).filter(function(x){ return x && x.k && x.k!=='moi' && x.k!=='xong'; }).map(function(x){ return Object.assign({}, goc[x.k]||{ic:'📌',mau:'#455a64',t:x.k}, x); });
+    var dau=[].concat(c).filter(function(x){ return x && x.k==='moi'; })[0], cuoi=[].concat(c).filter(function(x){ return x && x.k==='xong'; })[0];
+    ds=[Object.assign({}, goc.moi, dau||{})].concat(giua, [Object.assign({}, goc.xong, cuoi||{})]);
+    // cột gốc bị thiếu trong cấu hình cũ (VD bản trước chưa có "deNghi") → không mất phiếu đang ở cột đó
+  } else ds=COT_GOC.map(function(x){ return Object.assign({},x); });
+  COT.length=0; ds.forEach(function(x){ COT.push(x); });
+  try{ if(typeof BC!=='undefined' && BC && BC.cot) COT.forEach(function(x){ if(BC.cot[x.k]==null) BC.cot[x.k]=1; }); }catch(x){}
+}
+function nutCot(k){ var c=COT.filter(function(x){ return x.k===k; })[0]; if(c && c.nut) return c.nut; return NUT_GD_MD[k]||[]; }
 var DUNG={
   duoc:  {t:'Dùng bình thường',  ng:'Sẵn sàng',         ic:'🟢', mau:'#2e7d32', bg:'#e8f5e9'},
   hanChe:{t:'Dùng có điều kiện', ng:'Dùng có điều kiện',ic:'🟡', mau:'#a15c00', bg:'#fff8e1'},
@@ -60308,6 +60325,7 @@ function ensureListeners(){
 }
 /* Bản tóm tắt nhỏ cho Trang chủ + Bảng tin thiết bị (mọi người dùng đều thấy) */
 function tinhTomTat(){
+  dongBoCot();
   var m=mapTrangThai(), ds=taiSanList(false), o={ngung:0, hanChe:0, mo:0, quaHan:0, muon:ds.filter(function(t){ return t.boPhanGoc && !t.thanhLy; }).length, tong:ds.length, cot:{}, ds:[]}, list=scList(), moMoi={};
   COT.forEach(function(c){ if(c.k!=='xong') o.cot[c.k]=0; });
   list.forEach(function(r){ if(moLai(r)){ o.mo++; if(quaHan(r)) o.quaHan++; if(o.cot[r.tt]!=null) o.cot[r.tt]++; if(!moMoi[r.ma] || r.t>moMoi[r.ma].t) moMoi[r.ma]=r; } });
@@ -60334,7 +60352,7 @@ function tenCot(k){ for(var i=0;i<COT.length;i++) if(COT[i].k===k) return COT[i]
    mỗi máy 1 dòng (tên rút gọn · phòng · bước xử lý · thời gian); bước xử lý + mượn tạm gom 1 dòng nhỏ cuối, ẩn số 0. */
 function tenGonTin(t){ t=String(t||'').replace(/\s*\(.*$/,'').trim(); var a=t.split(/\s+-\s*|\s*-\s+/)[0].trim(); return a.length>=5?a:t; }
 function durGon(ms){ var p=Math.max(0,Math.round((ms||0)/60000)); if(p<60) return (p<1?1:p)+' phút'; var g=Math.floor(p/60); if(g<24) return g+' giờ'; return Math.floor(g/24)+' ngày'; }
-var BT_GD={moi:'Chờ tiếp nhận', kiemTra:'Đang kiểm tra', suaChua:'Đang sửa', choLK:'Chờ linh kiện', nghiemThu:'Chờ nghiệm thu'};
+var BT_GD={moi:'Chờ tiếp nhận', kiemTra:'Đang kiểm tra', deNghi:'Đã làm đề nghị', suaChua:'Đang sửa', choLK:'Chờ linh kiện', nghiemThu:'Chờ nghiệm thu'};
 function bangTinHTML(o, gon){
   o=o||{}; if(!o.tong) return '';
   var cot=o.cot||{}, ds=o.ds||[], ng=o.ngung||0, hc=o.hanChe||0, loi=ng+hc, tg=o.at?('cập nhật '+fmtDT(o.at)):'', fs=gon?'12.5px':'13.5px';
@@ -60473,7 +60491,7 @@ function pillMuc(m){ var x=MUC[m]||MUC.tb; return '<span class="qlts-pill" style
 function pillCot(k){ var c=COT.filter(function(x){ return x.k===k; })[0]||COT[0]; return '<span class="qlts-pill" style="background:'+c.mau+'1a;color:'+c.mau+';border:1px solid '+c.mau+'55">'+c.ic+' '+c.t+'</span>'; }
 
 function render(){
-  var s=screen(); if(!s) return; apZoom(); dongBoNhom();
+  var s=screen(); if(!s) return; apZoom(); dongBoNhom(); dongBoCot();
   if(S._tabTruoc!=null && S._tabTruoc!==S.tab && !S._lui){ S.stack=S.stack||[]; S.stack.push(S._tabTruoc); if(S.stack.length>30) S.stack.shift(); try{ history.pushState({qlts:1},'',location.href); }catch(x){} }
   S._lui=false; S._tabTruoc=S.tab;
   var tabs=[['bang','📡 Trạng thái'],['kanban','🗂 Kanban sự cố'],['bao','⚠️ Báo hỏng'],['kt','✅ Kiểm tra đầu ca'],['bt','🛠 Bảo trì – Kiểm định'],['dm','📋 Danh mục'],['tk','📊 Downtime']];
@@ -60607,6 +60625,7 @@ function locKb(list){
     if(S.kb.phong && phongCua(r.boPhan)!==S.kb.phong) return false;
     if(S.kb.muc && r.muc!==S.kb.muc) return false;
     if(S.kb.nql && nqlSc(r)!==S.kb.nql) return false;
+    if(S.kb.ma && r.ma!==S.kb.ma) return false;
     if(r.anNV && !isAdmin()) return false;
     if(q && boDau([r.ma,r.ten,r.boPhan,r.moTa,r.nguoiBao,maSc(r._id)].join(' ')).indexOf(q)<0) return false;
     if(r.tt==='xong' && !S.kb.xongAll && !S.kb.ngay && now-(tXong(r)||r.t)>30*864e5) return false;
@@ -60623,11 +60642,13 @@ function viewKanban(){
     +'<input id="qltsKbQ" placeholder="🔎 Tìm thiết bị, mã, người báo, mô tả…" value="'+e(S.kb.q)+'" style="'+INP+';max-width:300px">'
     +'<select onchange="qltsKbLoc(\'phong\',this.value)" style="'+INP+';max-width:190px"><option value="">— Mọi phòng —</option>'+Object.keys(phongs).sort(phongSort).map(function(p){ return '<option '+(S.kb.phong===p?'selected':'')+'>'+e(p)+'</option>'; }).join('')+'</select>'
     +nqlSelect('qltsKbNql(this.value)', S.kb.nql)
+    +selTaiSanKb()
+    +(kbView()==='bang'?'<select onchange="qltsKbTTChon(this.value)" title="Lọc theo trạng thái xử lý" style="'+INP+';max-width:210px;'+(S.kb.tt?'border-color:#0b3c5d;background:#e3f2fd;font-weight:700':'')+'"><option value="">— Mọi trạng thái xử lý —</option>'+COT.map(function(c){ return '<option value="'+c.k+'" '+(S.kb.tt===c.k?'selected':'')+'>'+c.ic+' '+e(c.t)+'</option>'; }).join('')+'<option value="_ngung" '+(S.kb.tt==='_ngung'?'selected':'')+'>🔴 Đang ngừng sử dụng</option><option value="_hc" '+(S.kb.tt==='_hc'?'selected':'')+'>🟡 Dùng có điều kiện</option><option value="_qh" '+(S.kb.tt==='_qh'?'selected':'')+'>⏰ Chưa có người nhận</option></select>':'')
     +'<select onchange="qltsKbLoc(\'muc\',this.value)" style="'+INP+';max-width:160px"><option value="">— Mọi mức độ —</option>'+Object.keys(MUC).map(function(k){ return '<option value="'+k+'" '+(S.kb.muc===k?'selected':'')+'>'+MUC[k].t+'</option>'; }).join('')+'</select>'
     +'<select onchange="qltsKbLoc(\'ngay\',this.value)" title="Lọc theo ngày báo hỏng" style="'+INP+';max-width:170px">'+[['','— Mọi ngày báo —'],['homnay','📅 Báo hôm nay'],['homqua','Báo hôm qua'],['7','7 ngày gần đây']].map(function(x){ return '<option value="'+x[0]+'" '+(S.kb.ngay===x[0]?'selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select>'
     +'<div style="display:inline-flex;border:1.5px solid #0b3c5d;border-radius:8px;overflow:hidden">'+[['the','🗂 Thẻ'],['bang','📋 Bảng']].map(function(x){ var on=kbView()===x[0]; return '<button onclick="qltsKbView(\''+x[0]+'\')" style="'+BTN+'border-radius:0;'+(on?'background:#0b3c5d;color:#fff':'background:#fff;color:#0b3c5d')+'">'+x[1]+'</button>'; }).join('')+'</div>'
     +'<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" '+(S.kb.xongAll?'checked':'')+' onchange="qltsKbLoc(\'xongAll\',this.checked)"> Hiện cả sự cố hoàn tất >30 ngày</label>'
-    +'<span style="flex:1"></span><button onclick="qltsMoXuat()" style="'+BTN+'background:#1565c0;color:#fff">📑 Xuất Word / Excel</button><button onclick="qltsTab(\'bao\')" style="'+BTN+'background:#c62828;color:#fff">⚠️ Báo hỏng mới</button></div>'
+    +'<span style="flex:1"></span><button onclick="qltsMoXuat()" style="'+BTN+'background:#1565c0;color:#fff">📑 Xuất Word / Excel</button>'+(isAdmin()?'<button onclick="qltsMoCfgCot()" title="Thêm / đổi tên / sắp xếp cột Kanban và chọn nút cho từng giai đoạn" style="'+BTN+'background:#fff;color:#0b3c5d;border:2px solid #0b3c5d">⚙️ Cấu hình cột & nút</button>':'')+'<button onclick="qltsTab(\'bao\')" style="'+BTN+'background:#c62828;color:#fff">⚠️ Báo hỏng mới</button></div>'
     +((!isAdmin() && !ptHienTai())?'<div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px"><span style="flex:1;min-width:240px"><b style="color:#e65100">🔒 Đang ở chế độ xem</b> — chưa đăng nhập Quản lý (hoặc phiên 30 phút đã hết) nên <b>ẩn nút chuyển trạng thái, Sửa, Hoàn tất</b>.</span><button onclick="qltsQlVao()" style="'+BTN+'background:#0b3c5d;color:#fff">🔑 Đăng nhập Quản lý</button><button onclick="qltsPtVao()" style="'+BTN+'background:#e65100;color:#fff">🔧 Phụ trách nhóm (PIN)</button></div>':'')
     +(ad?'<div style="font-size:12px;color:#546e7a;margin-bottom:8px">💡 Quản lý: kéo – thả thẻ sang cột khác hoặc bấm nút “→” trên thẻ để chuyển bước; bấm ⋯ để hiện đủ nút thao tác; bấm vào thẻ để xem chi tiết.</div>':'<div style="font-size:12px;color:#546e7a;margin-bottom:8px">💡 Bấm vào thẻ để xem tiến độ xử lý và bổ sung thông tin. Chỉ Quản lý mới chuyển trạng thái.</div>');
   if(kbView()==='bang') return bar.replace(/<div style="font-size:12px;color:#546e7a;margin-bottom:8px">💡[^]*?<\/div>$/,'')+viewBangSc(list, ad, now);
@@ -60637,7 +60658,7 @@ function viewKanban(){
       +items.map(function(r){ return theSc(r, ci, ad, now); }).join('')
       +(items.length?'':'<div style="color:#b0bec5;text-align:center;font-size:12px;padding:14px">—</div>')+'</div>';
   }).join('');
-  return bar+'<div class="qlts-kb">'+cols+'</div>';
+  return bar+'<div class="qlts-kb" style="grid-template-columns:repeat('+COT.length+',minmax(200px,1fr))">'+cols+'</div>';
 }
 
 /* ── Kanban dạng BẢNG (28/10/2026): nhiều báo cáo trong ngày dễ quan sát; đổi trạng thái ngay trên dòng ── */
@@ -60645,6 +60666,22 @@ function kbView(){ return S.kb.view || lsGet('qltsKbView') || 'the'; }
 window.qltsKbView=function(v){ S.kb.view=v; lsSet('qltsKbView', v); render(); };
 window.qltsKbTT=function(k){ S.kb.tt=(S.kb.tt===k?'':k); render(); };
 window.qltsKbSx=function(v){ S.kb.sx=v; render(); };
+/* 07/11/2026: lọc theo tài sản + đổi trạng thái khi chưa đăng nhập */
+function selTaiSanKb(){
+  var m={}; scList().forEach(function(r){ if(r.anNV && !isAdmin()) return; var x=m[r.ma]=m[r.ma]||{ma:r.ma, ten:r.ten, phong:phongCua(r.boPhan), n:0, mo:0}; x.n++; if(r.tt!=='xong') x.mo++; });
+  var ds=Object.keys(m).map(function(k){ return m[k]; }).sort(function(a,b){ return (b.mo>0)-(a.mo>0) || phongSort(a.phong,b.phong) || String(a.ten).localeCompare(b.ten,'vi'); });
+  var on=!!S.kb.ma;
+  return '<select onchange="qltsKbLoc(\'ma\',this.value)" title="Chọn 1 tài sản để xem các phiếu của máy đó" style="'+INP+';max-width:260px;'+(on?'border-color:#0b3c5d;background:#e3f2fd;font-weight:700':'')+'"><option value="">— Mọi tài sản ('+ds.length+') —</option>'
+    +ds.map(function(x){ return '<option value="'+e(x.ma)+'" '+(S.kb.ma===x.ma?'selected':'')+'>'+(x.mo?'🔴 ':'✅ ')+e(x.ma)+' · '+e(String(x.ten).slice(0,42))+' · '+e(x.phong)+' ('+x.n+(x.mo?(', '+x.mo+' mở'):'')+')</option>'; }).join('')+'</select>'
+    +(on?'<button onclick="qltsKbLoc(\'ma\',\'\')" title="Bỏ chọn tài sản" style="'+BTN+'padding:6px 9px;background:#eceff1;color:#37474f">✕</button>':'');
+}
+window.qltsKbTTChon=function(v){ S.kb.tt=v||''; render(); };
+window.qltsDoiTTDN=function(id, k, el){
+  var r=SC()[id]; if(!r) return; if(el) el.value=r.tt||'moi';
+  if(quyenSc(r)){ qltsDoiTT(id,k,el); return; }
+  if(!confirm('Đổi trạng thái cần đăng nhập Quản lý (hoặc Phụ trách nhóm của máy này).\n\nĐăng nhập Quản lý ngay?')) return;
+  qltsQlVao(); if(isAdmin()) qltsDoiTT(id, k);
+};
 window.qltsDoiTT=function(id, k, el){
   var ci=COT.map(function(c){ return c.k; }).indexOf(k), r=SC()[id]; if(ci<0||!r) return;
   if(k==='xong'){ if(el) el.value=r.tt||'moi'; qltsXemSc(id,'xong'); return; }
@@ -60674,8 +60711,8 @@ function viewBangSc(list, ad, now){
     var c=cotCua(r.tt||'moi'), xong=r.tt==='xong', dk=xong?(r.ketQua==='thanhLy'?'thanhLy':'duoc'):(r.dung||'hanChe'), D_=DUNG[dk], mu=MUC[r.muc]||MUC.tb, tx=tXong(r);
     if(S.kb.sx==='moi'){ var nn=nhanNgay(r.t); if(nn!==ngayCu){ ngayCu=nn; var sl=L.filter(function(x){ return nhanNgay(x.t)===nn; }).length; rows+='<tr><td colspan="'+(ad?11:10)+'" style="background:#e3f2fd;font-weight:800;color:#0b3c5d;padding:7px 8px">📅 '+nn+' — '+sl+' sự cố</td></tr>'; } }
     stt++;
-    var ttCell = ad ? '<select onclick="event.stopPropagation()" onchange="qltsDoiTT(\''+r._id+'\',this.value,this)" style="border:2px solid '+c.mau+';color:'+c.mau+';background:#fff;border-radius:8px;padding:4px 6px;font-weight:700;font-size:12px;font-family:inherit;max-width:170px">'+COT.map(function(x){ return '<option value="'+x.k+'" '+((r.tt||'moi')===x.k?'selected':'')+'>'+x.ic+' '+x.t+'</option>'; }).join('')+'</select>'
-      : pillCot(r.tt||'moi');
+    var qR=quyenSc(r), ttCell = '<select onclick="event.stopPropagation()" onchange="'+(qR?'qltsDoiTT':'qltsDoiTTDN')+'(\''+r._id+'\',this.value,this)" title="'+(qR?'Đổi trạng thái xử lý':'Đổi trạng thái — cần đăng nhập Quản lý / Phụ trách nhóm')+'" style="border:2px solid '+c.mau+';color:'+c.mau+';background:#fff;border-radius:8px;padding:4px 6px;font-weight:700;font-size:12px;font-family:inherit;max-width:170px">'+COT.map(function(x){ return '<option value="'+x.k+'" '+((r.tt||'moi')===x.k?'selected':'')+'>'+x.ic+' '+x.t+'</option>'; }).join('')+'</select>'
+      +(qR?'<div onclick="event.stopPropagation()" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">'+nutGiaiDoan(r, ciCua(r.tt||'moi'), true)+'</div>':'');
     rows+='<tr onclick="qltsXemSc(\''+r._id+'\')" style="cursor:pointer;'+(S.scChon[r._id]?'background:#e3f2fd':(dk==='khong'?'background:#fff5f5':(dk==='hanChe'?'background:#fffdf3':'')))+'">'
       +(ad?'<td onclick="event.stopPropagation()" style="text-align:center"><input type="checkbox" '+(S.scChon[r._id]?'checked':'')+' onchange="qltsScChon(\''+r._id+'\',this.checked)" style="width:17px;height:17px;cursor:pointer"></td>':'')
       +'<td style="border-left:5px solid '+D_.mau+';text-align:center;color:#78909c">'+stt+'</td>'
@@ -60699,6 +60736,7 @@ function viewBangSc(list, ad, now){
       +'<button onclick="qltsLoatXoa()" style="'+BTN+'padding:5px 12px;background:#c62828;color:#fff">🗑 Xóa '+nChon+' phiếu</button><span style="flex:1"></span><button onclick="qltsScChonHet(false)" style="'+BTN+'padding:5px 10px;background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.5)">Bỏ chọn</button>')
       :'<span>👑 Quản lý: tick ô ☐ đầu dòng (hoặc ô ở tiêu đề để chọn tất cả '+L.length+' phiếu đang lọc) để <b>sửa hàng loạt</b> (trạng thái, tình trạng sử dụng, mức độ, ẩn/hiện) hoặc <b>xóa</b>; nút ✏️ / 🗑 cuối dòng để sửa / xóa từng phiếu.</span>')
     +'</div>';
+  if(!ad) h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:8px 10px;border-radius:10px;background:#fff3e0;border:1.5px solid #ffb74d;font-size:12.5px;color:#5d4037"><span style="flex:1;min-width:240px">'+(ptHienTai()?'🔧 Phụ trách nhóm: đổi trạng thái từng phiếu thuộc nhóm mình bằng ô <b>Trạng thái xử lý</b> hoặc nút giai đoạn. Chọn nhiều phiếu & sửa hàng loạt cần Quản lý.':'🔒 Muốn <b>tick chọn nhiều phiếu</b> và <b>đổi trạng thái hàng loạt</b> → đăng nhập Quản lý (phiên tự thoát sau 30 phút).')+'</span><button onclick="qltsQlVao()" style="'+BTN+'background:#ffca28;color:#3e2723">🔑 Đăng nhập Quản lý</button></div>';
   return h+'<div style="overflow:auto;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-height:70vh"><table class="qlts-tb"><thead><tr>'+(ad?'<th style="text-align:center"><input type="checkbox" title="Chọn tất cả phiếu đang lọc" '+(tatCa?'checked':'')+' onchange="qltsScChonHet(this.checked)" style="width:17px;height:17px;cursor:pointer"></th>':'')+'<th>#</th><th>Báo lúc</th><th>Thiết bị</th><th>Hiện tượng</th><th>Mức độ</th><th>Sử dụng</th><th>Trạng thái xử lý</th><th>Người báo / phụ trách</th><th>Thời gian</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function theSc(r, ci, ad, now){ ad=quyenSc(r);
@@ -60716,9 +60754,10 @@ function theSc(r, ci, ad, now){ ad=quyenSc(r);
     +(xong?('✅ '+dur((tx||now)-r.t)):('⏱ <b style="color:'+d.mau+'" data-qs="'+r.t+'">'+dur(now-r.t)+'</b>'))+'</span></div>'
     +(quaHan(r)?'<div class="qlts-blink" style="margin-top:3px;font-size:11.5px;font-weight:800;color:#c62828">⏰ Chưa có người nhận xử lý — đã chờ '+dur(Date.now()-(r.tBao||r.t))+' (hạn '+slaPhut(r.muc)+' phút)</div>':'')
     +(r.phuTrach&&r.hanXL&&!xong&&Date.now()>r.hanXL?'<div style="margin-top:2px;font-size:11.5px;font-weight:800;color:#c62828">⏰ Quá hạn xử lý ('+fmtDT(r.hanXL)+')</div>':'')
-    +'<div onclick="event.stopPropagation()" style="display:flex;gap:5px;align-items:center;margin-top:6px">'
-    +(ad&&!xong&&ci<COT.length-2?nutTT('→ '+COT[ci+1].t.replace(/ –.*| \/.*/,''), "qltsChuyen('"+r._id+"',"+(ci+1)+")", '#90a4ae', '#fff', '#37474f', 'Chuyển sang bước: '+COT[ci+1].t):'')
-    +(ad&&!xong&&ci===COT.length-2?nutTT('✓ Xong', "qltsXemSc('"+r._id+"','xong')", '#81c784', '#fff', '#2e7d32', 'Hoàn tất sự cố'):'')
+    +(r.deNghi?'<div style="margin-top:4px;font-size:11.5px;color:#5d4037;background:#efebe9;border-radius:6px;padding:3px 7px" title="'+e(r.deNghi.nd||'')+'">📝 '+e(r.deNghi.loai||'Đề nghị')+(r.deNghi.so?(' số <b>'+e(r.deNghi.so)+'</b>'):'')+(r.deNghi.ngay?(' · '+fmtD(r.deNghi.ngay)):'')+(r.deNghi.noiNhan?(' → '+e(r.deNghi.noiNhan)):'')+'</div>':'')
+    +(r.choLKgc&&r.tt==='choLK'?'<div style="margin-top:3px;font-size:11.5px;color:#6a1b9a">⏳ '+e(r.choLKgc)+(r.choLKden?(' · dự kiến '+fmtD(r.choLKden)):'')+'</div>':'')
+    +'<div onclick="event.stopPropagation()" style="display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap">'
+    +nutGiaiDoan(r, ci, true)
     +(!xong&&loaiBien(r)?nutTT('🪧', "qltsInBien('"+r._id+"','A4')", BIEN[loaiBien(r)].mau, '#fff', BIEN[loaiBien(r)].mau, 'In biển cảnh báo'):'')
     +(isAdmin()?nutTT('🗑', "qltsXoaSc('"+r._id+"')", '#ef9a9a', '#fff', '#c62828', 'Xóa phiếu (báo nhầm / trùng)'):'')
     +'<span style="flex:1"></span>'+nutTT((S.moNut&&S.moNut[r._id])?'▴':'⋯', "qltsMoNut('"+r._id+"',this)", '#b0bec5', '#f5f7fa', '#455a64', 'Hiện / ẩn đủ các nút thao tác: Sửa, Ghi chú, Phân công, Gửi phòng ban, Lịch sử, Ẩn với NV, Xóa')+'</div>'
@@ -61459,10 +61498,163 @@ window.qltsLuuQuyen=function(){
   luu({'cauHinh/phanQuyen':Object.keys(o).length?o:null, 'cauHinh/ptNghiemThu':nt}).then(function(){ toast('✅ Đã lưu phân quyền ('+Object.keys(o).length+' người phụ trách).'); }).catch(function(err){ alert('Lỗi: '+err.message); });
 };
 
+
+/* ════════ 07/11/2026: NÚT THEO TỪNG GIAI ĐOẠN (cấu hình được) ════════ */
+var NUT_GD={
+  tiepNhan:  {t:'✋ Tiếp nhận',              mau:'#ef6c00', mt:'Nhận xử lý → cột Đã tiếp nhận – Kiểm tra'},
+  phanCong:  {t:'👤 Phân công',              mau:'#1565c0', mt:'Giao người phụ trách, hạn xử lý'},
+  lapDeNghi: {t:'📝 Lập đề nghị / báo cáo',   mau:'#5d4037', mt:'Ghi số giấy đề nghị / báo cáo gửi phòng ban → cột Đã làm đề nghị'},
+  inPhieu:   {t:'🖨 In phiếu đề nghị',        mau:'#37474f', mt:'In phiếu báo hỏng – đề nghị sửa chữa (A4)'},
+  guiPB:     {t:'📤 Gửi phòng ban',          mau:'#6a1b9a', mt:'Gửi Phòng VT-TTBYT / hãng: Zalo, thẻ ảnh'},
+  tuSua:     {t:'🔧 Khoa tự khắc phục',       mau:'#00838f', mt:'Sự cố nhỏ khoa tự xử lý → chờ nghiệm thu'},
+  batDauSua: {t:'🛠 Bắt đầu sửa',             mau:'#1565c0', mt:'Phòng VT / hãng đến sửa → cột Đang sửa chữa'},
+  choLK:     {t:'⏳ Chờ linh kiện / hãng',    mau:'#6a1b9a', mt:'Ghi linh kiện cần, ngày dự kiến về'},
+  lkVe:      {t:'📦 Linh kiện đã về',         mau:'#1565c0', mt:'Quay lại Đang sửa chữa'},
+  suaXong:   {t:'🧪 Sửa xong – chờ nghiệm thu', mau:'#00838f', mt:'Chuyển sang Chờ nghiệm thu'},
+  ntDat:     {t:'✅ Nghiệm thu đạt',          mau:'#2e7d32', mt:'Hoàn tất: ghi kết quả, nguyên nhân, chi phí'},
+  ntChuaDat: {t:'↩ Chưa đạt – sửa lại',      mau:'#c62828', mt:'Ghi lý do, trả về Đang sửa chữa'},
+  ketTiep:   {t:'→ Bước kế tiếp',            mau:'#455a64', mt:'Chuyển sang cột kế bên phải'},
+  ghiChu:    {t:'💬 Ghi chú',                mau:'#8d6e00', mt:'Thêm ghi chú vào lịch sử'},
+  inBien:    {t:'🪧 In biển',                mau:'#2e7d32', mt:'In biển nhận diện tình trạng'},
+  lyLich:    {t:'📄 Lý lịch máy',            mau:'#37474f', mt:'Lý lịch thiết bị (Word)'}
+};
+var NUT_CAN_QUYEN={ghiChu:0, inBien:0, lyLich:0, inPhieu:0};
+function nutGiaiDoan(r, ci, gon){
+  var k=r.tt||'moi', ds=nutCot(k).filter(function(n){ return NUT_GD[n]; }), ad=quyenSc(r), out=[];
+  if(!ds.length && k!=='xong' && ci<COT.length-1) ds=['ketTiep'];
+  ds.forEach(function(n){ var x=NUT_GD[n]; if(!x) return; if(NUT_CAN_QUYEN[n]!==0 && !ad) return;
+    if(n==='ntDat' && !quyenXong(r)) return; if(n==='inBien' && !loaiBien(r)) return;
+    var t=x.t; if(n==='ketTiep'){ var nx=COT[ci+1]; if(!nx) return; t=(nx.k==='xong'?'✓ Xong':('→ '+nx.t.replace(/ –.*| \/.*/,''))); }
+    out.push('<button onclick="event.stopPropagation();qltsGD(\''+r._id+'\',\''+n+'\')" title="'+e(x.mt)+'" style="border:1.5px solid '+x.mau+';background:'+x.mau+';color:#fff;border-radius:8px;padding:'+(gon?'3px 8px':'4px 9px')+';font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">'+t+'</button>'); });
+  return out.join('');
+}
+function ciCua(k){ return COT.map(function(c){ return c.k; }).indexOf(k); }
+function denCot(id, k, gc, them){
+  var r=SC()[id]; if(!r) return Promise.resolve(); var ci=ciCua(k);
+  if(ci<0){ alert('Chưa có cột "'+k+'" trong Kanban (⚙️ Cấu hình cột & nút).'); return Promise.resolve(); }
+  var c=COT[ci], cu0=COT[ciCua(r.tt||'moi')]||COT[0], t=Date.now(), up={};
+  if(r.tt!==k){ up['suCo/'+id+'/tt']=k; up['suCo/'+id+'/lichSu/l'+t.toString(36)]={t:t, tt:k, dung:r.dung||'hanChe', ai:tenQL(), gc:(gc?gc+' · ':'')+'Chuyển: '+cu0.t+' → '+c.t}; }
+  else up['suCo/'+id+'/lichSu/l'+t.toString(36)]={t:t, ai:tenQL(), gc:gc||'', loai:'ghiChu'};
+  up['suCo/'+id+'/capNhat']=t; Object.keys(them||{}).forEach(function(f){ up['suCo/'+id+'/'+f]=them[f]; });
+  return luu(up).then(function(){ toast('✅ '+(r.tt!==k?('Đã chuyển sang "'+c.t+'"'):'Đã ghi nhận')); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+}
+function cotSau(r){ var ci=ciCua(r.tt||'moi'); return COT[ci+1]?COT[ci+1].k:'xong'; }
+window.qltsGD=function(id, n){
+  var r=SC()[id]; if(!r) return;
+  if(NUT_CAN_QUYEN[n]!==0 && !quyenSc(r)){ alert('Chỉ Quản lý hoặc Phụ trách nhóm mới thao tác bước này.'); return; }
+  var co=function(k){ return ciCua(k)>=0 ? k : cotSau(r); };
+  switch(n){
+    case 'tiepNhan': return denCot(id, co('kiemTra'), 'Đã tiếp nhận');
+    case 'phanCong': return qltsPhanCong(id);
+    case 'lapDeNghi': return qltsLapDN(id);
+    case 'inPhieu': return qltsInPhieu(id);
+    case 'guiPB': return qltsGuiPB(id);
+    case 'ghiChu': return qltsGhiChu(id);
+    case 'inBien': return qltsInBien(id,'A4');
+    case 'lyLich': return qltsInLyLich(r.ma);
+    case 'batDauSua': case 'lkVe': return denCot(id, co('suaChua'), n==='lkVe'?'Linh kiện đã về':'Bắt đầu sửa chữa', n==='lkVe'?{choLKve:Date.now()}:null);
+    case 'suaXong': return denCot(id, co('nghiemThu'), 'Sửa xong – chờ nghiệm thu');
+    case 'ntDat': return qltsXemSc(id,'xong');
+    case 'ketTiep': { var nx=cotSau(r); if(nx==='xong') return qltsXemSc(id,'xong'); return denCot(id, nx, ''); }
+    case 'tuSua': case 'ntChuaDat': case 'choLK': return qltsHopGD(id, n);
+  }
+};
+/* Hộp nhỏ cho bước cần ghi nội dung */
+window.qltsHopGD=function(id, n){
+  var r=SC()[id]; if(!r) return; r=Object.assign({_id:id},r);
+  var cfg={tuSua:['🔧 Khoa tự khắc phục','Đã làm gì (VD: thay dây nguồn, vệ sinh cảm biến, khởi động lại…)','Chuyển sang Chờ nghiệm thu'],
+           ntChuaDat:['↩ Nghiệm thu chưa đạt','Lý do chưa đạt / việc cần sửa thêm','Trả về Đang sửa chữa'],
+           choLK:['⏳ Chờ linh kiện / hãng','Linh kiện / việc đang chờ (VD: chờ hãng Drager báo giá cảm biến O2)','Chuyển sang Chờ linh kiện / hãng']}[n];
+  hopThoai(cfg[0], dongTS(r)+'<label style="'+LB+'">'+cfg[1]+'</label><textarea id="qgdNd" rows="3" style="'+INP+'">'+(n==='choLK'?e(r.choLKgc||''):'')+'</textarea>'
+    +(n==='choLK'?'<label style="'+LB+'">Dự kiến về / hẹn ngày</label><input id="qgdNgay" type="date" style="'+INP+';max-width:220px">':''),
+    '<button onclick="qltsLuuGD(\''+id+'\',\''+n+'\')" style="'+BTN+'background:#0b3c5d;color:#fff">💾 '+cfg[2]+'</button>');
+  setTimeout(function(){ var t=document.getElementById('qgdNd'); if(t) t.focus(); },50);
+};
+window.qltsLuuGD=function(id, n){
+  var r=SC()[id]; if(!r) return; var nd=((document.getElementById('qgdNd')||{}).value||'').trim();
+  if(!nd && n!=='choLK'){ alert('Nhập nội dung.'); return; }
+  var co=function(k){ return ciCua(k)>=0 ? k : cotSau(r); };
+  var p;
+  if(n==='tuSua') p=denCot(id, co('nghiemThu'), 'Khoa tự khắc phục: '+nd, {tuSua:nd});
+  else if(n==='ntChuaDat') p=denCot(id, co('suaChua'), 'Nghiệm thu chưa đạt: '+nd);
+  else { var ng=ngayInput(((document.getElementById('qgdNgay')||{}).value||'')); p=denCot(id, co('choLK'), 'Chờ linh kiện/hãng'+(nd?(': '+nd):'')+(ng?(' · dự kiến '+fmtD(ng)):''), {choLKgc:nd||null, choLKden:ng||null}); }
+  p.then(function(){ qltsDongModal(); });
+};
+/* 📝 Lập đề nghị / báo cáo */
+window.qltsLapDN=function(id){
+  var r=SC()[id]; if(!r) return; r=Object.assign({_id:id},r); var d=r.deNghi||{};
+  var loai=['Giấy đề nghị sửa chữa','Báo cáo sự cố thiết bị','Đề nghị hãng bảo hành','Đề nghị thay thế – mua mới','Đề nghị thanh lý'];
+  var nd=d.nd||('Đề nghị kiểm tra, sửa chữa '+r.ten+' ('+r.ma+') tại '+(r.boPhan||'')+(r.moTa?(' — hiện tượng: '+r.moTa):'')+'.');
+  hopThoai('📝 Lập đề nghị / báo cáo', dongTS(r)
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px"><div><label style="'+LB+'">Loại văn bản</label><select id="qdnLoai" style="'+INP+'">'+loai.map(function(x){ return '<option '+(d.loai===x?'selected':'')+'>'+x+'</option>'; }).join('')+'</select></div>'
+    +'<div><label style="'+LB+'">Số văn bản (nếu có)</label><input id="qdnSo" value="'+e(d.so||'')+'" placeholder="VD: 81/2026/GĐN-GMHS" style="'+INP+'"></div>'
+    +'<div><label style="'+LB+'">Ngày</label><input id="qdnNgay" type="date" value="'+(d.ngay?dKeyMs(d.ngay):dKeyMs(Date.now()))+'" style="'+INP+'"></div>'
+    +'<div><label style="'+LB+'">Gửi đến</label><input id="qdnNoi" list="qdnNoiDl" value="'+e(d.noiNhan||r.donVi||'Phòng Vật tư – TTB y tế')+'" style="'+INP+'"><datalist id="qdnNoiDl"><option value="Phòng Vật tư – TTB y tế"><option value="Ban Giám đốc"><option value="Phòng Hành chính quản trị"><option value="Hãng / nhà cung cấp"></datalist></div></div>'
+    +'<label style="'+LB+'">Nội dung đề nghị / báo cáo</label><textarea id="qdnNd" rows="4" style="'+INP+'">'+e(nd)+'</textarea>'
+    +'<label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="qdnIn"> In phiếu báo hỏng – đề nghị sửa chữa ngay</label>'
+    +(ciCua('deNghi')>=0&&r.tt!=='deNghi'?'<label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:13px"><input type="checkbox" id="qdnCot" checked> Chuyển sang cột “'+e(COT[ciCua('deNghi')].t)+'”</label>':'')
+    +'<div style="font-size:12px;color:#78909c;margin-top:6px">Muốn soạn văn bản đầy đủ thể thức: mở thẻ <b>Giấy đề nghị</b> trên Trang chủ, soạn xong ghi số vào ô "Số văn bản" ở đây.</div>',
+    '<button onclick="qltsLuuDN(\''+id+'\')" style="'+BTN+'background:#5d4037;color:#fff">💾 Lưu đề nghị</button>', 600);
+};
+window.qltsLuuDN=function(id){
+  var r=SC()[id]; if(!r) return; var g=function(x){ var el=document.getElementById(x); return el?el.value.trim():''; };
+  var dn={loai:g('qdnLoai'), so:g('qdnSo')||null, ngay:ngayInput(g('qdnNgay'))||Date.now(), noiNhan:g('qdnNoi')||null, nd:g('qdnNd')||null, ai:tenQL(), t:Date.now()};
+  var cot=document.getElementById('qdnCot'), inNgay=(document.getElementById('qdnIn')||{}).checked;
+  var gc='Lập '+dn.loai.toLowerCase()+(dn.so?(' số '+dn.so):'')+(dn.noiNhan?(' gửi '+dn.noiNhan):'');
+  denCot(id, (cot&&cot.checked)?'deNghi':(r.tt||'moi'), gc, {deNghi:dn}).then(function(){ qltsDongModal(); if(inNgay) qltsInPhieu(id); });
+};
+
+/* ════════ ⚙️ CẤU HÌNH CỘT KANBAN & NÚT TỪNG GIAI ĐOẠN ════════ */
+function khuCfgCot(){
+  dongBoCot(); var ad=isAdmin(), dem={}; scList().forEach(function(r){ var k=r.tt||'moi'; dem[k]=(dem[k]||0)+1; });
+  S._cotNhap=S._cotNhap||COT.map(function(c){ return {k:c.k, t:c.t, ic:c.ic, mau:c.mau, nut:nutCot(c.k).slice()}; });
+  var D=S._cotNhap, goc={}; COT_GOC.forEach(function(x){ goc[x.k]=1; });
+  var dong=function(c,i){ var giua=(c.k!=='moi'&&c.k!=='xong');
+    return '<tr><td style="white-space:nowrap">'+(giua&&i>1?'<button onclick="qltsCotDoi('+i+',-1)" title="Lên" style="'+BTN+'padding:2px 7px">▲</button>':'')+(giua&&i<D.length-2?'<button onclick="qltsCotDoi('+i+',1)" title="Xuống" style="'+BTN+'padding:2px 7px">▼</button>':'')+(giua?'':'<span style="font-size:11px;color:#90a4ae">cố định</span>')+'</td>'
+      +'<td><input data-cc="'+i+'|ic" value="'+e(c.ic)+'" maxlength="4" style="'+INP+';padding:5px;width:50px;text-align:center"></td>'
+      +'<td><input data-cc="'+i+'|t" value="'+e(c.t)+'" style="'+INP+';padding:5px;min-width:170px"></td>'
+      +'<td><input data-cc="'+i+'|mau" type="color" value="'+e(c.mau)+'" style="width:42px;height:32px;border:none;background:none;cursor:pointer"></td>'
+      +'<td><div style="display:flex;flex-wrap:wrap;gap:4px;max-width:520px">'+Object.keys(NUT_GD).map(function(n){ var on=c.nut.indexOf(n)>=0; return '<label title="'+e(NUT_GD[n].mt)+'" style="display:inline-flex;gap:3px;align-items:center;font-size:11.5px;padding:2px 6px;border-radius:7px;cursor:pointer;border:1.5px solid '+(on?NUT_GD[n].mau:'#cfd8dc')+';background:'+(on?NUT_GD[n].mau+'18':'#fff')+'"><input type="checkbox" data-cn="'+i+'|'+n+'"'+(on?' checked':'')+' style="margin:0">'+NUT_GD[n].t+'</label>'; }).join('')+'</div></td>'
+      +'<td style="text-align:center;font-weight:800">'+(dem[c.k]||0)+'</td>'
+      +'<td>'+(giua?'<button onclick="qltsCotXoa('+i+')" title="Xóa cột'+(dem[c.k]?' (phải chuyển hết phiếu ra trước)':'')+'" style="'+BTN+'padding:4px 8px;background:#ffebee;color:#c62828">🗑</button>':'')+'</td></tr>'; };
+  return the(h3('🗂 Cột Kanban sự cố & nút từng giai đoạn')
+    +'<div style="font-size:12px;color:#78909c;margin-bottom:6px">Thêm cột theo quy trình thực tế của khoa (VD: <b>Đã làm đề nghị / báo cáo</b>, <b>Chờ BGĐ duyệt</b>, <b>Chờ thanh lý</b>), đổi tên, màu, thứ tự. Mỗi cột tick các <b>nút</b> hiện trên thẻ ở giai đoạn đó (không tick gì → nút "→ Bước kế tiếp"). Cột <b>Mới báo</b> đứng đầu và <b>Hoàn tất</b> đứng cuối cố định. Nhân viên chỉ thấy nút Ghi chú / In biển / In phiếu / Lý lịch; các nút khác cần Quản lý hoặc Phụ trách nhóm.</div>'
+    +'<div style="overflow:auto"><table class="qlts-tb"><thead><tr><th>Thứ tự</th><th>Biểu tượng</th><th>Tên cột</th><th>Màu</th><th>Nút hiện ở giai đoạn này</th><th>Phiếu</th><th></th></tr></thead><tbody>'+D.map(dong).join('')+'</tbody></table></div>'
+    +(ad?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;background:#f1f8e9;border:1.5px dashed #43a047;border-radius:10px;padding:8px 10px;margin-top:8px">'
+      +'<input id="ccIc" value="📌" maxlength="4" style="'+INP+';width:56px;text-align:center"><input id="ccTen" placeholder="Tên cột mới, VD: Chờ BGĐ duyệt" style="'+INP+';flex:2;min-width:200px">'
+      +'<input id="ccMau" type="color" value="#455a64" style="width:42px;height:38px;border:none;background:none">'
+      +'<select id="ccSau" style="'+INP+';flex:1;min-width:180px">'+D.slice(0,-1).map(function(c,i){ return '<option value="'+i+'" '+(i===D.length-2?'selected':'')+'>Đặt sau: '+e(c.t)+'</option>'; }).join('')+'</select>'
+      +'<button onclick="qltsCotThem()" style="'+BTN+'background:#2e7d32;color:#fff">➕ Thêm cột</button></div>'
+      +'<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button onclick="qltsCotLuu()" style="'+BTN+'background:#0b3c5d;color:#fff">💾 Lưu cấu hình cột</button><button onclick="qltsCotMacDinh()" style="'+BTN+'background:#eceff1;color:#37474f">↺ Khôi phục mặc định</button>'+(S._cotNhapDoi?'<span style="align-self:center;color:#e65100;font-size:12.5px;font-weight:700">● Có thay đổi chưa lưu</span>':'')+'</div>':''));
+}
+function docCotNhap(){ var D=S._cotNhap||[]; document.querySelectorAll('[data-cc]').forEach(function(el){ var a=el.getAttribute('data-cc').split('|'), c=D[+a[0]]; if(c) c[a[1]]=el.value.trim()||c[a[1]]; });
+  D.forEach(function(c,i){ var ds=[]; document.querySelectorAll('[data-cn^="'+i+'|"]').forEach(function(el){ if(el.checked) ds.push(el.getAttribute('data-cn').split('|')[1]); }); if(document.querySelector('[data-cn^="'+i+'|"]')) c.nut=ds; }); }
+function veCfgCot(){ var m=document.getElementById('qltsModal'); if(m && m.querySelector('#khuCotMark')) qltsMoCfgCot(true); else render(); }
+window.qltsMoCfgCot=function(giu){ if(!giu) S._cotNhap=null, S._cotNhapDoi=false; modalBox('<div style="display:flex;justify-content:flex-end;margin-bottom:-6px"><button onclick="qltsCotDong()" style="'+BTN+'background:#eceff1;padding:5px 11px">✕ Đóng</button></div><div id="khuCotMark"></div>'+khuCfgCot(), 1150); };
+window.qltsCotDong=function(){ if(S._cotNhapDoi && !confirm('Có thay đổi chưa lưu. Đóng không lưu?')) return; S._cotNhap=null; S._cotNhapDoi=false; qltsDongModal(); };
+window.qltsCotDoi=function(i,d){ docCotNhap(); var D=S._cotNhap, j=i+d; if(j<1||j>D.length-2) return; var x=D[i]; D[i]=D[j]; D[j]=x; S._cotNhapDoi=true; veCfgCot(); };
+window.qltsCotThem=function(){ docCotNhap(); var g=function(x){ var el=document.getElementById(x); return el?el.value.trim():''; }, t=g('ccTen'); if(!t){ alert('Nhập tên cột.'); return; }
+  var D=S._cotNhap; if(D.some(function(c){ return boDau(c.t)===boDau(t); })){ alert('Đã có cột "'+t+'".'); return; }
+  var sau=Math.min(+g('ccSau')||0, D.length-2), k=(/^da lam de nghi/.test(boDau(t)) && !D.some(function(c){ return c.k==='deNghi'; }))?'deNghi':('c'+Date.now().toString(36));
+  D.splice(sau+1, 0, {k:k, t:t, ic:g('ccIc')||'📌', mau:g('ccMau')||'#455a64', nut:(NUT_GD_MD[k]||['ketTiep']).slice()}); S._cotNhapDoi=true; veCfgCot(); };
+window.qltsCotXoa=function(i){ docCotNhap(); var D=S._cotNhap, c=D[i]; if(!c) return; var n=scList().filter(function(r){ return (r.tt||'moi')===c.k; }).length;
+  if(n){ alert('Cột "'+c.t+'" đang có '+n+' phiếu. Chuyển các phiếu sang cột khác trước khi xóa cột.'); return; }
+  if(!confirm('Xóa cột "'+c.t+'"?')) return; D.splice(i,1); S._cotNhapDoi=true; veCfgCot(); };
+window.qltsCotMacDinh=function(){ if(!confirm('Khôi phục cột & nút mặc định của app?')) return; S._cotNhap=COT_GOC.map(function(c){ return {k:c.k, t:c.t, ic:c.ic, mau:c.mau, nut:(NUT_GD_MD[c.k]||[]).slice()}; }); S._cotNhapDoi=true; veCfgCot(); };
+window.qltsCotLuu=function(){
+  if(!isAdmin()){ alert('Chỉ Quản lý.'); return; } docCotNhap(); var D=S._cotNhap||[];
+  var co={}; D.forEach(function(c){ co[c.k]=1; }); var mat=scList().filter(function(r){ return !co[r.tt||'moi']; });
+  if(mat.length){ alert(mat.length+' phiếu đang ở cột không còn trong cấu hình. Chuyển phiếu trước.'); return; }
+  var ds=D.map(function(c){ return {k:c.k, t:c.t, ic:c.ic, mau:c.mau, nut:c.nut&&c.nut.length?c.nut:['__']}; });
+  S.cfg=Object.assign({}, S.cfg||{}, {kanbanCot:ds}); dongBoCot();
+  (S.demo?Promise.resolve():luu({'cauHinh/kanbanCot':ds})).then(function(){ S._cotNhapDoi=false; S._cotNhap=null; toast('💾 Đã lưu cấu hình cột Kanban'); qltsDongModal(); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+};
+
 /* ════════ THAO TÁC NHANH TRÊN THẺ SỰ CỐ (28/10/2026 — giống hàng nút của thẻ Kanban chính) ════════ */
 function nutTT(txt, fn, vien, nen, chu, title){ return '<button onclick="'+fn+'" '+(title?('title="'+title+'"'):'')+' style="border:1.5px solid '+vien+';background:'+nen+';color:'+chu+';border-radius:8px;padding:3px 8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">'+txt+'</button>'; }
 function hangNut(r, ci, ad0){
   var id=r._id, xong=r.tt==='xong', n=lsArr(r).length, lb=loaiBien(r), out=[], ad=quyenSc(r), ql=isAdmin();
+  var gd=nutGiaiDoan(r, ci, false); if(gd) out.push('<div style="flex-basis:100%;display:flex;gap:5px;flex-wrap:wrap;padding-bottom:5px;margin-bottom:2px;border-bottom:1px dotted #e0e6ed"><span style="font-size:11px;color:#78909c;align-self:center">Giai đoạn này:</span>'+gd+'</div>');
   if(ad && !xong && ci<COT.length-2) out.push(nutTT('→ '+COT[ci+1].t.replace(/ –.*| \/.*/,''), "qltsChuyen('"+id+"',"+(ci+1)+")", '#90a4ae', '#fff', '#37474f', 'Chuyển sang bước: '+COT[ci+1].t));
   if(quyenXong(r) && !xong) out.push(nutTT('✓ Xong', "qltsXemSc('"+id+"','xong')", '#81c784', '#fff', '#2e7d32', 'Hoàn tất sự cố (ghi kết quả, nguyên nhân)'));
   if(ad && ci>0) out.push(nutTT('◀ Lùi', "qltsChuyen('"+id+"',"+(ci-1)+")", '#cfd8dc', '#fff', '#607d8b', 'Trả về bước trước'));
@@ -61638,7 +61830,7 @@ window.qltsGuiPB=function(id){
     +'<label style="'+LB+'">SĐT Zalo người nhận / link nhóm Zalo</label><input id="qgSdt" value="'+e(g.sdt||'')+'" placeholder="VD: 0905xxxxxx hoặc zalo.me/g/…" style="'+INP+'">'
     +'<label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:12.5px;color:#546e7a"><input type="checkbox" id="qgLuuDb" checked> Người nhận mới → lưu vào Danh mục người nhận (dùng chung với thẻ Kanban)</label>'
     +'<label style="'+LB+'">Ghi chú gửi kèm</label><input id="qgGc" placeholder="VD: Đề nghị kiểm tra trong buổi sáng" style="'+INP+'">'
-    +(['moi','kiemTra'].indexOf(r.tt)>=0?'<label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="qgSua" checked> Chuyển sang “Đang sửa chữa”</label>':'')
+    +(['moi','kiemTra','deNghi'].indexOf(r.tt)>=0?'<label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="qgSua" checked> Chuyển sang “Đang sửa chữa”</label>':'')
     +(r.guiPB?'<div style="margin-top:8px;font-size:12px;color:#6a1b9a">Đã gửi trước đó: '+e(r.guiPB.dv)+(r.guiPB.nguoi?(' – '+e(r.guiPB.nguoi)):'')+' lúc '+fmtDT(r.guiPB.at)+'</div>':''),
     '<button onclick="qltsLuuGuiPB(\''+id+'\')" style="'+BTN+'background:#6a1b9a;color:#fff">📤 Ghi nhận đã gửi</button>');
   var dvI=document.getElementById('qgDv'), ng=document.getElementById('qgNg');
@@ -63335,6 +63527,8 @@ function viewDanhMuc(){
     +'<button onclick="qltsMoInDM()" style="'+BTN+'background:#1565c0;color:#fff">🖨 In · Word · Excel có ảnh</button>'
     +'<button onclick="qltsSoLyLich()" title="Mỗi thiết bị 1 trang lý lịch: ảnh, QR, thông tin, lịch sử hư hỏng – sửa chữa, bảo dưỡng, điều chuyển (tự cập nhật)" style="'+BTN+'background:#4e342e;color:#fff">📚 Sổ lý lịch</button>'
     +'<button onclick="qltsXuatDm()" style="'+BTN+'background:#1b5e20;color:#fff"><i class="ti ti-file-spreadsheet"></i> Excel nhanh</button>'
+    +(ad?'<button onclick="qltsMoNhomTB()" title="Thêm / sửa / xóa nhóm thiết bị (Đèn mổ, Máy điều hòa, Máy hút…)" style="'+BTN+'background:#fff;color:#2e7d32;border:2px solid #2e7d32">➕ Thêm nhóm thiết bị</button>':'')
+    +(ad?'<button onclick="qltsMoBoPhan()" title="Thêm bộ phận / phòng mới; đặt khu/phòng và nhóm quản lý cho bộ phận" style="'+BTN+'background:#fff;color:#0b3c5d;border:2px solid #0b3c5d">🏢 Thêm bộ phận</button>':'')
     +(ad?'<button onclick="qltsGanNhom()" title="Gán nhóm thiết bị cho các máy đã tick (hoặc tạo nhóm mới)" style="'+BTN+'background:#2e7d32;color:#fff">🧩 Gán nhóm thiết bị'+(soChon?(' ('+soChon+')'):'')+'</button>':'')
     +(ad?'<button onclick="qltsChuyenTS()" title="Chuyển các tài sản đã tick sang bộ phận khác — thuộc hẳn bộ phận nhận" style="'+BTN+'background:#1565c0;color:#fff">🏷 Chuyển tài sản'+(soChon?(' ('+soChon+')'):'')+'</button>':'')
     +'<button onclick="qltsXemDC()" title="Thống kê, lịch sử chuyển cố định và mượn tạm tài sản" style="'+BTN+'background:#6a1b9a;color:#fff">📊 Lịch sử chuyển – mượn</button>'
@@ -63426,7 +63620,9 @@ window.qltsSuaTS=function(ma){
     +(scMo.length?'<div style="background:#fff8e1;border:1px solid #ffca28;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:6px"><b>Đây là màn hình sửa THÔNG TIN THIẾT BỊ.</b> Muốn sửa <b>phiếu báo hỏng</b> (người báo, mô tả, mức độ, thời điểm hỏng, ảnh):'+scMo.map(function(k){ return '<div style="margin-top:5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px">'+maSc(k)+' — '+e((SC()[k].moTa||'').slice(0,60))+'</span><button onclick="qltsSuaPhieu(\''+k+'\')" style="'+BTN+'padding:5px 10px;font-size:12.5px;background:#1565c0;color:#fff">✏️ Sửa phiếu sự cố</button></div>'; }).join('')+'</div>':'')
     +'<label style="'+LB+'">Mã tài sản (in trên tem QR)</label><input id="qsMa" value="'+e(t.ma)+'" '+(ma?'disabled':'')+' placeholder="VD: TS0950 (để trống: tự cấp)" style="'+INP+'">'
     +'<label style="'+LB+'">Tên tài sản (kèm model/serial)</label><input id="qsTen" value="'+e(t.ten)+'" style="'+INP+'">'
-    +'<label style="'+LB+'">Bộ phận / phòng</label><input id="qsBp" list="qsBpDl" value="'+e(t.boPhan||'')+'" style="'+INP+'"><datalist id="qsBpDl">'+Object.keys(bps).sort().map(function(b){ return '<option value="'+e(b)+'">'; }).join('')+'</datalist>'
+    +'<label style="'+LB+'">Bộ phận / phòng</label><div style="display:flex;gap:6px"><input id="qsBp" list="qsBpDl" value="'+e(t.boPhan||'')+'" placeholder="Chọn trong danh sách hoặc gõ tên" style="'+INP+';flex:1">'+(isAdmin()?'<button type="button" onclick="qltsBpMoiInline()" title="Khai báo bộ phận mới" style="'+BTN+'background:#e3f2fd;color:#0b3c5d;white-space:nowrap">➕ Bộ phận mới</button>':'')+'</div>'
+    +'<div id="qsBpMoi" style="display:none;margin-top:6px;padding:8px 10px;border:1.5px dashed #1565c0;border-radius:10px;background:#f3f8ff"><div style="font-weight:700;font-size:12.5px;color:#0b3c5d;margin-bottom:4px">🏢 Khai báo bộ phận mới</div><input id="qsBmTen" placeholder="Tên bộ phận, VD: PHÒNG MỔ 501 - GM" style="'+INP+'"><div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><input id="qsBmPhong" placeholder="Khu / phòng (để trống = tự nhận)" style="'+INP+';flex:1;min-width:160px"><select id="qsBmNql" style="'+INP+';flex:1;min-width:160px"><option value="">Nhóm QL: tự theo tên</option>'+nqlDs().map(function(n){ return '<option value="'+n.k+'">'+n.ic+' '+e(n.ten)+'</option>'; }).join('')+'</select></div><div style="margin-top:6px;display:flex;gap:6px"><button type="button" onclick="qltsBpTaoInline()" style="'+BTN+'background:#1565c0;color:#fff">✓ Tạo bộ phận & chọn</button><button type="button" onclick="document.getElementById(\'qsBpMoi\').style.display=\'none\'" style="'+BTN+'background:#eceff1">Hủy</button></div></div>'
+    +'<datalist id="qsBpDl">'+Object.keys(bps).sort().map(function(b){ return '<option value="'+e(b)+'">'; }).join('')+'</datalist>'
     +'<label style="'+LB+'">Nhóm thiết bị</label><div style="display:flex;gap:6px"><select id="qsNhom" onchange="qltsNhomChon(this)" style="'+INP+';flex:1">'+optNhom((DM()[ma]||{}).nhom||'', t.ten)+'</select>'+(isAdmin()?'<button type="button" onclick="qltsNhomMoiInline()" title="Thêm nhóm thiết bị mới" style="'+BTN+'background:#e8f5e9;color:#2e7d32;white-space:nowrap">➕ Nhóm mới</button>':'')+'</div>'
     +'<div id="qsNhomMoi" style="display:none;margin-top:6px;padding:8px 10px;border:1.5px dashed #43a047;border-radius:10px;background:#f1f8e9"><div style="font-weight:700;font-size:12.5px;color:#2e7d32;margin-bottom:4px">➕ Thêm nhóm thiết bị mới</div><div style="display:flex;gap:6px;flex-wrap:wrap"><input id="qsNmIc" value="🧩" maxlength="4" title="Biểu tượng" style="'+INP+';width:56px;text-align:center"><input id="qsNmTen" placeholder="Tên nhóm, VD: Đèn mổ, Máy điều hòa, Máy hút…" style="'+INP+';flex:1;min-width:200px"></div><input id="qsNmTk" placeholder="Từ khóa nhận diện theo tên máy (tùy chọn, cách nhau dấu phẩy) — VD: den mo, den phau thuat" style="'+INP+';margin-top:6px"><label style="font-size:12.5px;display:flex;gap:6px;align-items:center;margin-top:5px"><input type="checkbox" id="qsNmSc"> Thiết bị hỗ trợ sự sống</label><div style="margin-top:6px;display:flex;gap:6px"><button type="button" onclick="qltsNhomTaoInline()" style="'+BTN+'background:#2e7d32;color:#fff">✓ Tạo nhóm & chọn</button><button type="button" onclick="document.getElementById(\'qsNhomMoi\').style.display=\'none\'" style="'+BTN+'background:#eceff1">Hủy</button></div></div>'
     +'<label style="'+LB+'">Nhóm quản lý</label><select id="qsNql" style="'+INP+'"><option value="">(tự nhận theo bộ phận: '+e(nqlInfo(nqlCua({boPhan:t.boPhan})).ten)+')</option>'+nqlDs().map(function(n){ return '<option value="'+n.k+'" '+((DM()[ma]||{}).nhomQL===n.k?'selected':'')+'>'+n.ic+' '+e(n.ten)+'</option>'; }).join('')+'</select>'
@@ -63488,7 +63684,7 @@ window.qltsBpThem=function(){
   var trung=bpDs().filter(function(b){ return boDau(b).replace(/\s+/g,'')===boDau(t).replace(/\s+/g,''); })[0];
   if(trung){ alert('Đã có bộ phận "'+trung+'".'); return; }
   var o={}; o[nhKey(t)]={ten:t, phong:g('bpPhong')||null, nql:g('bpNql')||null, gc:g('bpGc')||null, t:Date.now(), ai:tenQL()||null};
-  luuBoPhan(o).then(function(){ toast('🏢 Đã thêm bộ phận "'+t+'"'); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+  luuBoPhan(o).then(function(){ toast('🏢 Đã thêm bộ phận "'+t+'"'); veLaiKhu(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
 };
 window.qltsBpLuu=function(){
   if(!isAdmin()) return; var ds=S._bpList2||[], kb=bpCfg(), up={}, n=0;
@@ -63498,15 +63694,30 @@ window.qltsBpLuu=function(){
     var k=x?x.k:nhKey(b), o=Object.assign({}, x||{ten:b, t:Date.now(), tuDuLieu:true}); delete o.k; o.phong=ph; o.nql=nq;
     up[k]=(!ph && !nq && o.tuDuLieu && !o.gc) ? null : o; n++; });
   if(!n){ toast('Không có thay đổi'); return; }
-  luuBoPhan(up).then(function(){ toast('💾 Đã lưu '+n+' bộ phận'); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+  luuBoPhan(up).then(function(){ toast('💾 Đã lưu '+n+' bộ phận'); veLaiKhu(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+};
+window.qltsBpMoiInline=function(){ var b=document.getElementById('qsBpMoi'); if(!b) return; b.style.display=''; var t=document.getElementById('qsBmTen'); if(t){ t.value=(document.getElementById('qsBp')||{}).value||''; t.focus(); } };
+window.qltsBpTaoInline=function(){
+  if(!isAdmin()){ alert('Chỉ Quản lý được thêm bộ phận.'); return; }
+  var g=function(x){ var el=document.getElementById(x); return el?el.value.trim():''; };
+  var t=g('qsBmTen').replace(/\s+/g,' '); if(!t){ alert('Nhập tên bộ phận.'); return; }
+  var trung=bpDs().filter(function(b){ return boDau(b).replace(/\s+/g,'')===boDau(t).replace(/\s+/g,''); })[0];
+  var chon=function(ten){ var bp=document.getElementById('qsBp'); if(bp) bp.value=ten; var dl=document.getElementById('qsBpDl'); if(dl && ![].some.call(dl.options,function(o){ return o.value===ten; })){ var o=document.createElement('option'); o.value=ten; dl.appendChild(o); } var bx=document.getElementById('qsBpMoi'); if(bx) bx.style.display='none'; };
+  if(trung){ chon(trung); toast('Đã có bộ phận "'+trung+'" — đã chọn'); return; }
+  var o={}; o[nhKey(t)]={ten:t, phong:g('qsBmPhong')||null, nql:g('qsBmNql')||null, t:Date.now(), ai:tenQL()||null};
+  luuBoPhan(o).then(function(){ chon(t); toast('🏢 Đã thêm bộ phận "'+t+'" — bấm Lưu để lưu tài sản'); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
 };
 window.qltsBpXoa=function(i){
   if(!isAdmin()) return; var b=(S._bpList2||[])[i], x=bpCfg()[b]; if(!x) return;
   var n=taiSanList(true).filter(function(t){ return t.boPhan===b || t.boPhanGoc===b; }).length;
   if(!confirm('Xóa khai báo bộ phận "'+b+'"?'+(n?('\n\nBộ phận đang có '+n+' máy: máy vẫn giữ tên bộ phận, chỉ bỏ khu/phòng & nhóm QL đã khai báo.'):''))) return;
-  var o={}; o[x.k]=null; luuBoPhan(o).then(function(){ toast('🗑 Đã xóa khai báo'); render(); });
+  var o={}; o[x.k]=null; luuBoPhan(o).then(function(){ toast('🗑 Đã xóa khai báo'); veLaiKhu(); });
 };
-window.qltsBpXem=function(i){ var b=(S._bpList2||[])[i]; if(!b) return; S.loc=S.loc||{}; S.loc.q=b; S.tab='dm'; render(); };
+window.qltsBpXem=function(i){ var b=(S._bpList2||[])[i]; if(!b) return; qltsDongModal(); S.loc=S.loc||{}; S.loc.q=b; S.tab='dm'; render(); };
+/* Mở 2 khối khai báo thành cửa sổ ngay từ Danh mục */
+window.qltsMoNhomTB=function(){ modalBox('<div style="display:flex;justify-content:flex-end;margin-bottom:-6px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;padding:5px 11px">✕ Đóng</button></div><div id="khuNhomMark"></div>'+khuNhomTB(), 1050); };
+window.qltsMoBoPhan=function(){ modalBox('<div style="display:flex;justify-content:flex-end;margin-bottom:-6px"><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;padding:5px 11px">✕ Đóng</button></div><div id="khuBpMark"></div>'+khuBoPhan(), 1100); };
+function veLaiKhu(){ var m=document.getElementById('qltsModal'), a=m?(m.querySelector('#khuNhomMark')?'n':(m.querySelector('#khuBpMark')?'b':'')):''; render(); if(a==='n') qltsMoNhomTB(); else if(a==='b') qltsMoBoPhan(); }
 
 /* ===== 07/11/2026: 🧩 QUẢN LÝ NHÓM THIẾT BỊ (thêm / sửa / xóa nhóm tự khai báo, gán nhóm hàng loạt) ===== */
 function nhomDangDung(){ var m={}; taiSanList(true).forEach(function(x){ if(x.nhom) m[x.nhom]=(m[x.nhom]||0)+1; }); return m; }
@@ -63572,9 +63783,9 @@ window.qltsNhomThem=function(){
   if(!isAdmin()){ alert('Chỉ Quản lý được thêm nhóm.'); return; }
   var g=function(x){ var el=document.getElementById(x); return el?el.value:''; };
   var r=nhomMoi(g('ntbTen'), g('ntbIc'), g('ntbTk'), (document.getElementById('ntbSc')||{}).checked); if(!r || r.cu) return;
-  r.p.then(function(){ toast('🧩 Đã thêm nhóm "'+r.ten+'"'); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+  r.p.then(function(){ toast('🧩 Đã thêm nhóm "'+r.ten+'"'); veLaiKhu(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
 };
-window.qltsNhomDuaVao=function(ten){ var r=nhomMoi(ten,'🧩','',false,true); if(!r || r.cu) return; r.p.then(function(){ toast('🧩 Đã đưa "'+ten+'" vào danh mục nhóm'); render(); }); };
+window.qltsNhomDuaVao=function(ten){ var r=nhomMoi(ten,'🧩','',false,true); if(!r || r.cu) return; r.p.then(function(){ toast('🧩 Đã đưa "'+ten+'" vào danh mục nhóm'); veLaiKhu(); }); };
 window.qltsNhomLuu=function(){
   if(!isAdmin()) return; var c=(S.cfg&&S.cfg.nhomTB)||{}, up={}, doiTen=[], loi='';
   nhomTuThem().forEach(function(x){ var o=Object.assign({}, c[x.k]||{});
@@ -63583,16 +63794,16 @@ window.qltsNhomLuu=function(){
     if(o.ten!==x.ten) doiTen.push([x.ten,o.ten]); up[x.k]=o; });
   if(loi){ alert(loi); return; }
   var ups={}; doiTen.forEach(function(d){ taiSanList(true).forEach(function(t){ if(DM()[t.ma] && DM()[t.ma].nhom===d[0]) ups['danhMuc/'+t.ma+'/nhom']=d[1]; }); });
-  luuNhomTB(up).then(function(){ return Object.keys(ups).length?luu(ups):null; }).then(function(){ toast('💾 Đã lưu nhóm thiết bị'+(Object.keys(ups).length?(' · đổi tên cho '+Object.keys(ups).length+' máy'):'')); render(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
+  luuNhomTB(up).then(function(){ return Object.keys(ups).length?luu(ups):null; }).then(function(){ toast('💾 Đã lưu nhóm thiết bị'+(Object.keys(ups).length?(' · đổi tên cho '+Object.keys(ups).length+' máy'):'')); veLaiKhu(); }).catch(function(er){ alert('Lỗi lưu: '+er.message); });
 };
 window.qltsNhomXoa=function(k){
   if(!isAdmin()) return; var x=nhomTuThem().filter(function(n){ return n.k===k; })[0]; if(!x) return;
   var gan=Object.keys(DM()).filter(function(m){ return (DM()[m]||{}).nhom===x.ten; });
   if(!confirm('Xóa nhóm "'+x.ten+'"?'+(gan.length?('\n\n'+gan.length+' máy đang gán nhóm này sẽ trở về "tự nhận theo tên".'):''))) return;
   var o={}; o[k]=null; var ups={}; gan.forEach(function(m){ ups['danhMuc/'+m+'/nhom']=null; });
-  luuNhomTB(o).then(function(){ return gan.length?luu(ups):null; }).then(function(){ toast('🗑 Đã xóa nhóm'); render(); }).catch(function(er){ alert('Lỗi: '+er.message); });
+  luuNhomTB(o).then(function(){ return gan.length?luu(ups):null; }).then(function(){ toast('🗑 Đã xóa nhóm'); veLaiKhu(); }).catch(function(er){ alert('Lỗi: '+er.message); });
 };
-window.qltsNhomLoc=function(ten){ S.loc=S.loc||{}; S.loc.nhom=ten; S.tab='dm'; render(); };
+window.qltsNhomLoc=function(ten){ qltsDongModal(); S.loc=S.loc||{}; S.loc.nhom=ten; S.tab='dm'; render(); };
 /* — gán nhóm cho các máy đã tick ở Danh mục — */
 window.qltsGanNhom=function(){
   if(!isAdmin()){ alert('Chỉ Quản lý được gán nhóm.'); return; }
@@ -63878,6 +64089,7 @@ function viewCauHinh(){
       +'</tbody></table></div><button onclick="qltsLuuNql()" style="'+BTN+'background:#0b3c5d;color:#fff;margin-top:10px">💾 Lưu nhóm quản lý</button>')
     +khuNhomTB()
     +khuBoPhan()
+    +'<div style="margin:0 0 12px"><button onclick="qltsMoCfgCot()" style="'+BTN+'background:#0b3c5d;color:#fff">🗂 Cấu hình cột Kanban & nút từng giai đoạn</button></div>'
     +the(h3('🛠 Chu kỳ bảo dưỡng – kiểm định – hiệu chuẩn theo nhóm (tháng)')
       +'<div style="font-size:12px;color:#78909c;margin-bottom:6px">Giá trị sẵn có là <b>gợi ý</b>; anh/chị chỉnh theo hướng dẫn của hãng và danh mục thiết bị phải kiểm định của Phòng VT-TTBYT. Để trống / 0 = không theo dõi. Máy nào khác nhóm thì đặt riêng trong ✏️ Sửa tài sản.</div>'
       +'<div style="overflow:auto"><table class="qlts-tb"><thead><tr><th>Nhóm thiết bị</th><th>🧰 Bảo dưỡng</th><th>📜 Kiểm định</th><th>🎯 Hiệu chuẩn</th></tr></thead><tbody>'
