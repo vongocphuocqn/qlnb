@@ -13686,9 +13686,10 @@ function kbNoteTypeSync(){ // các nút cũ (VD "Ghi chú nhanh" → xem trên b
   if(chk.checked && sel.value!=='nhanh') sel.value='nhanh';
   else if(!chk.checked && sel.value==='nhanh') sel.value='';
 }
+function kbMoGdn(id){ if(typeof window.ddnlMoPhieu==='function') window.ddnlMoPhieu(id); else alert('Chưa tải được phân hệ Giấy đề nghị.'); }
 function kbQuickTag(c){
   if(!c.quickNote && cu && cu.role==='admin' && kbIsGdnCard(c))
-    return '<div style="margin:6px 0 2px;font-size:11px;line-height:1.45;padding:3px 8px;border-radius:6px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80"><i class="ti ti-lock" style="font-size:11px"></i> <b>Thẻ Giấy đề nghị</b> — chỉ Admin thấy (Xem công khai và nhân viên KHÔNG thấy)</div>';
+    return '<div style="margin:6px 0 2px;font-size:11px;line-height:1.45;padding:3px 8px;border-radius:6px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80"><i class="ti ti-lock" style="font-size:11px"></i> <b>Thẻ Giấy đề nghị</b> — chỉ Admin thấy (Xem công khai và nhân viên KHÔNG thấy)</div>'+(c.vbId?'<button onclick="event.stopPropagation();kbMoGdn(\''+String(c.vbId).replace(/[^\w-]/g,'')+'\')" title="Mở thẳng phiếu Giấy đề nghị của thẻ này để xem / sửa / in" style="display:block;width:100%;margin:5px 0 3px;padding:7px 10px;border-radius:8px;border:none;background:#e65100;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">📄 Mở Giấy đề nghị '+(c.vbHeader?'':'')+'→</button>':'');
   if(!c.quickNote || !(cu && cu.role==='admin')) return '';
   return '<div style="margin:6px 0 2px;font-size:11px;line-height:1.45;padding:3px 8px;border-radius:6px;background:#e0f2f1;color:#00695c;border:1px solid #80cbc4"><i class="ti ti-eye-off" style="font-size:11px"></i> <b>Ghi chú nhanh</b> — nhân viên và Xem công khai KHÔNG thấy thẻ này</div>';
 }
@@ -32210,19 +32211,7 @@ function bindVanBanEvents(){
     await downloadDocTemplateFile(f);
     b.disabled = false; b.textContent = old;
   });
-  document.querySelectorAll('[data-edit-vb]').forEach(b=>b.onclick=()=>{
-    const v = vbRecords.find(x=>x.id===b.dataset.editVb);
-    if(!v) return;
-    if(!(isAdmin() || v.nguoiSoan===currentUserName)){ alert("Bạn chỉ có thể sửa văn bản do chính mình soạn. Liên hệ Admin nếu cần sửa văn bản của người khác."); return; }
-    vbLastSaveNotice = null;
-    editingVBId = v.id;
-    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"", khoGiay:v.khoGiay||"" };
-    collapsedCards.delete('vb-form'); // luôn mở thẻ "Sửa văn bản" ra, tránh trường hợp thẻ đang bị Ẩn
-    // khiến bấm Sửa cuộn tới đúng chỗ nhưng form bên trong lại không hiện ra, nhìn như chưa chạy vào.
-    render();
-    const cardEditVb = document.getElementById('ddnlCard_vb-form');
-    if(cardEditVb) cardEditVb.scrollIntoView({behavior:'smooth', block:'start'});
-  });
+  document.querySelectorAll('[data-edit-vb]').forEach(b=>b.onclick=()=>vbBatDauSua(b.dataset.editVb));
   document.querySelectorAll('[data-del-vb]').forEach(b=>b.onclick=async ()=>{
     const vPre = vbRecords.find(x=>x.id===b.dataset.delVb);
     const laChuVanBan = vPre && vPre.nguoiSoan===currentUserName;
@@ -36493,6 +36482,36 @@ function bindConfigEvents(){
     await ddSoTongHopRef.child(id).remove().catch(()=>alert('Không xóa được, kiểm tra kết nối mạng.'));
   });
 }
+
+/* 07/11/2026: mở thẳng phiếu Giấy đề nghị (từ thẻ Kanban chính) — tách thân nút "Sửa" thành hàm dùng chung */
+function vbBatDauSua(id){
+  const v = vbRecords.find(x=>x.id===id);
+    if(!v) return;
+    if(!(isAdmin() || v.nguoiSoan===currentUserName)){ alert("Bạn chỉ có thể sửa văn bản do chính mình soạn. Liên hệ Admin nếu cần sửa văn bản của người khác."); return; }
+    vbLastSaveNotice = null;
+    editingVBId = v.id;
+    draftVB = { soVanBan:v.soVanBan||"", loaiVanBan:v.loaiVanBan||"", nguoiSoan:v.nguoiSoan||"", nguoiKy:v.nguoiKy||"", hinhThucVB:v.hinhThucVB||(config.hinhThucVB&&config.hinhThucVB[0])||"Giấy đề nghị", veViec:v.veViec||"", noiNhan:[...(v.noiNhan||[])], ngayLap:v.ngayLap||todayISO(), ngayGui:v.ngayGui||"", trangThai:vbNormTrangThai(v.trangThai||"Đang soạn"), ngayHoanThanh:v.ngayHoanThanh||"", tomTat:v.tomTat||"", dinhKemLink:v.dinhKemLink||"", ghiChu:v.ghiChu||"", ghiChuTienDo:v.ghiChuTienDo||"", nguoiLapLabel:v.nguoiLapLabel||"", chucDanhKy:v.chucDanhKy||"", hangMucDeNghi:(v.hangMucDeNghi||[]).map(hm=>({...hm})), dinhKemFiles:[...vbGetFiles(v)], mauDangChon:"", noiDungSoan:v.noiDungSoan||"", khoGiay:v.khoGiay||"" };
+    collapsedCards.delete('vb-form'); // luôn mở thẻ "Sửa văn bản" ra, tránh trường hợp thẻ đang bị Ẩn
+    // khiến bấm Sửa cuộn tới đúng chỗ nhưng form bên trong lại không hiện ra, nhìn như chưa chạy vào.
+    render();
+    const cardEditVb = document.getElementById('ddnlCard_vb-form');
+    if(cardEditVb) cardEditVb.scrollIntoView({behavior:'smooth', block:'start'});
+}
+window.ddnlMoPhieu = function(id){
+  if(!id) return;
+  try{ if(typeof goHome==='function' && document.getElementById('appScreen') && document.getElementById('appScreen').style.display!=='none') goHome(); }catch(e){}
+  openDdnlScreen('vanban');
+  const t0 = Date.now();
+  const lap = setInterval(()=>{
+    if(!(vbLoaded && configLoaded)){ if(Date.now()-t0>60000){ clearInterval(lap); alert('Chưa tải được dữ liệu Giấy đề nghị — kiểm tra mạng rồi thử lại.'); } return; }
+    clearInterval(lap);
+    const v = vbRecords.find(x=>x.id===id);
+    if(!v){ alert('Không tìm thấy phiếu Giấy đề nghị của thẻ này (có thể đã bị xóa).'); return; }
+    if(isAdmin() || v.nguoiSoan===currentUserName){ vbBatDauSua(id); }
+    else { const b = document.querySelector('[data-xemtruoc-vb="'+id+'"]'); if(b) b.click(); }
+    setTimeout(()=>{ const card = document.getElementById('ddnlCard_vb-form'); if(card){ card.style.transition='box-shadow .3s'; card.style.boxShadow='0 0 0 4px #ffb300'; setTimeout(()=>{ card.style.boxShadow=''; }, 2500); } }, 400);
+  }, 300);
+};
 
 /* ============================================================
    06/11/2026 — 📲 NHỜ IN QUA ZALO (soạn trên máy không có máy in → nhờ đồng nghiệp in)
