@@ -3076,6 +3076,7 @@ table.dkp-dt td{padding:9px 12px;border-bottom:1px solid #eef4e5;vertical-align:
         <option value="amber">🟡 Trung bình 7–29 ngày</option>
         <option value="green">🟢 Ngắn &lt;7 ngày</option>
       </select>
+      <select id="dtSort" onchange="try{localStorage.setItem('dtSort',this.value)}catch(e){};renderDt()" title="Thứ tự hiển thị" style="padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-weight:700"><option value="moi">🆕 Mới nhất trước</option><option value="cu">Cũ nhất trước</option><option value="dt">⏳ Downtime lâu nhất</option></select>
       <input type="text" id="dtSearch" placeholder="🔍 Tìm tên, nội dung..." oninput="renderDt()" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px">
       <span id="dtCount" style="font-size:12px;color:#888;white-space:nowrap;align-self:center"></span>
     </div>
@@ -4423,7 +4424,7 @@ function ttGetCurrentFilteredData(){
 }
 function ttRender(){
   const allData=ttLoad();
-  const isAdmin=(window.cu&&window.cu.role==='admin')||(document.getElementById('btnExport')&&document.getElementById('btnExport').style.display!=='none');
+  const isAdmin=ttLaAdmin();
   const tbody=document.getElementById('ttBody');
   const delCol=document.getElementById('ttDelCol');
   if(delCol) delCol.textContent=isAdmin?'':'';
@@ -4802,7 +4803,7 @@ function ttRenderEvidGrid(idx){
   } else {
     grid.innerHTML=evid.map((item,i)=>ttEvidThumb(item, `ttRemoveSavedEvid(${idx},${i})`)).join('');
   }
-  const isAdmin=(window.cu&&window.cu.role==='admin')||(document.getElementById('btnExport')&&document.getElementById('btnExport').style.display!=='none');
+  const isAdmin=ttLaAdmin();
   document.getElementById('ttEvidAddBox').style.display=isAdmin?'flex':'none';
 }
 function ttRemoveSavedEvid(idx,i){
@@ -5154,7 +5155,7 @@ let ptEvidLookupSeq=0;
 let ptListeners={};     // tránh đăng ký .on() trùng cho cùng 1 nhân viên
 
 function ptIsAdmin(){
-  return (window.cu&&window.cu.role==='admin')||(document.getElementById('btnExport')&&document.getElementById('btnExport').style.display!=='none');
+  return ttLaAdmin();
 }
 
 function ptInitFirebase(){
@@ -11009,6 +11010,13 @@ const DPWD = 'gmhs2026';
 const STAFF_DEFAULT = ["Võ Huy Cường","Nguyễn Thành","Nguyễn Hà Tiến Dũng","Võ Ngọc Phước","Lê Văn Thủy","Nguyễn Trung Thành","Trần Thị Dung","Hứa Hữu Tuấn","Nguyễn Thị Quỳnh Thoa","Trần Thị Cẩm Nhung","Lê Võ Thu","Phạm Thị Chiến","Hồ Thị Chúng","Nguyễn Thị Hảo","Trương Thị Thu Hằng","Ngô Thị Lẹ","Nguyễn Đình Kim Loan","Phan Thị Thanh Nga","Hồ Thái Nhiều","Lê Thị Ái Phương","Lê Thị Thúy Vân","Nguyễn Thị Minh Châu","Lê Thị Kim Sao","Lê Thị Kim Thịnh","Nguyễn Thị Xuân Thảo","Trương Thị Tín","Nguyễn Thị Thanh Nhi","Võ Thị Tường Vi","Nguyễn Thị Diệu My","Nguyễn Thị Thúy Hằng","Hoàng Thị Ngọc Lan","Phan Thị Hòa","Trần Thị Lệ Tuyết","Nguyễn Thị Út","Trương Thị Gia Ly Ly","Phạm Thị Kim Cúc","Trương Ngọc Báu","Võ Ngọc Bình","Đặng Văn Cảnh","Nguyễn Văn Chinh","Nguyễn Văn Chung","Trần Thị Mỹ Dung","Nguyễn Tiến Dũng","Trần Văn Đại","Hoàng Minh Hải","Đặng Thu Hiền","Nguyễn Xuân Hoài","Nguyễn Thanh Hoàng","Trần Xuân Hùng","Lê Thị Huệ","Lê Văn Kha","Thân Hoàng Khang","Trần Quốc Khang","Đỗ Thành Khương","Trương Thị Bích Liễu","Đặng Thị Mỹ Lai","Nguyễn Cảnh Muộn","Nguyễn Duy Mỹ","Ngô Thị Nhựt","Trần Thị Ngâng","Nguyễn Thị Hồng Nhi","Đỗ Lê Thanh Ngọc","Nguyễn Hoàng Sơn Nữ","Đỗ Kim Oanh","Trương Văn Pháp","Đặng Hồ Hồng Phi","Nguyễn Phan Anh Quân","Lê Văn Sang","Phan Quốc Sang","Võ Đình Tây","Cao Việt Thắng","Trần Tiến Thành","Trần Đăng Trung","Nguyễn Vũ Cẩm Tú","Nguyễn Văn Tuy","Nguyễn Đình Thắng","La Thị Thanh Trà","Trần Bá Quyền","Lê Thị Mạnh Quyền","Võ Thị Xuân Việt","Đinh Kim Vũ","Lê Thị Thanh Hương","Đỗ Thị Thúy Sinh","Phạm Thị Thu Thảo","Vũ Thị Kim Lệ","Huỳnh Thị Ngọc Thơ","Đỗ Hồ Mỹ Hạnh","Trương Đình Trí","Trần Đình Bản","Phạm Thị Hoàng Cúc","Đinh Thị Thu Hoài","Trần Thị Thanh Huyền","Trần Đình Duy","Nguyễn Văn Thương","Ngô Thị Hồng Diễm","Võ Đông Kinh","Nguyễn Thị Bích Thủy","Nguyễn Hữu Phước","Hồ Thị Mỹ","Phan Thị Mỹ Duyên","Đỗ Thị Ngọc Diễm","Nguyễn Xuân Hiền","Đỗ Ngọc Vũ","Nguyễn Chí Bảo","Thân Thị Liễu","Nguyễn Kim Sơn","Đào Thị Phương Thúy","Lê Thị Quỳnh Diễm","Lê Văn Long","Lương Phan Thu Hằng","Nguyễn Thị Ngọc Mỹ","Huỳnh Thị Sự","Phan Thảo Vy","Trần Thị Bích Tuyền","Huỳnh Thị Kim Hồng","Lê Quốc Triều","Nguyễn Tài Thu"];
 
 let cards=[], cu=null, pendingImgs=[], editPendingImgs=[], sFiltered=[], sHi=-1, staffList=[];
+/* 08/11/2026: "cu" khai báo bằng let nên window.cu luôn undefined → nhiều chỗ kiểm tra window.cu (VD Thành tích) không nhận ra Quản lý. Cho window.cu trỏ tới biến cu. */
+try{ if(!Object.getOwnPropertyDescriptor(window,'cu')) Object.defineProperty(window,'cu',{configurable:true, get:function(){ return cu; }, set:function(v){ cu=v; }}); }catch(e){}
+function ttLaAdmin(){
+  try{ if(typeof cu!=='undefined' && cu && cu.role==='admin') return true; }catch(e){}
+  try{ if(typeof adminSession!=='undefined' && adminSession && adminSession.active) return true; }catch(e){}
+  var b=document.getElementById('btnExport'); return !!(b && b.style.display!=='none');
+}
 /* Danh mục Bộ phận báo cáo — có thể thêm/sửa/xóa tại nút "Danh mục Bộ phận" (chỉ Quản lý) */
 const DEPT_DEFAULT=["PM 201","PM 202","PM 203","PM 204","PM 301","PM 302","PM 303","PM 304","PM 401","PM 402","PM 403","PM 404","HT 02","HT 03","HT 04","HS","KHÁC"];
 let DEPT_OPTS=[...DEPT_DEFAULT];
@@ -12152,6 +12160,19 @@ function openDowntimePanel(){
   document.getElementById('dtPanelBg').classList.add('on');
   renderDt();
 }
+/* 08/11/2026: cột Nội dung hiện ĐỦ nội dung thẻ (tiêu đề + Cần làm / Đang làm / Đã làm), dài thì thu gọn */
+function dtNoiDungHtml(c){
+  const dong=s=>String(s||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const tieuDe=dong(c.content), gdn=(typeof kbIsGdnCard==='function') && kbIsGdnCard(c);
+  const khoi=(nhan,mau,bg,arr)=>arr.length?`<div style="margin-top:5px;padding:5px 8px;border-left:3px solid ${mau};background:${bg};border-radius:0 6px 6px 0"><div style="font-size:11px;font-weight:800;color:${mau};margin-bottom:2px">${nhan}</div>${arr.map(x=>`<div style="font-size:12.5px;line-height:1.45;color:#37474f">${esc(x)}</div>`).join('')}</div>`:'';
+  const t0=tieuDe[0]||'—', tRest=tieuDe.slice(1);
+  const than=(tRest.length?`<div style="font-size:12.5px;color:#455a64;margin-top:2px">${tRest.map(esc).join('<br>')}</div>`:'')
+    +khoi('📋 Cần làm','#e65100','#fff8e1',dong(c.todo))+khoi('⚙ Đang làm','#1565c0','#e3f2fd',dong(c.doing))+khoi('✅ Đã làm','#2e7d32','#e8f5e9',dong(c.done));
+  const soDong=tRest.length+dong(c.todo).length+dong(c.doing).length+dong(c.done).length;
+  return `<div style="font-weight:700;color:#1b3a1b;line-height:1.45;white-space:normal">${esc(t0)}</div>`
+    +(soDong>6?`<details><summary style="cursor:pointer;color:#1565c0;font-size:12px;font-weight:700;margin-top:3px">Xem đủ nội dung (${soDong} dòng)</summary>${than}</details>`:than)
+    +(gdn&&c.vbId&&cu&&cu.role==='admin'?`<button type="button" onclick="closeDtPanel();kbMoGdn('${String(c.vbId).replace(/[^\w-]/g,'')}')" style="margin-top:5px;background:#fff3e0;color:#e65100;border:1px solid #ffb74d;border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer">📄 Mở Giấy đề nghị</button>`:'');
+}
 function closeDtPanel(e){
   if(!e||e.target===document.getElementById('dtPanelBg'))
     document.getElementById('dtPanelBg').classList.remove('on');
@@ -12169,7 +12190,7 @@ function renderDt(){
   if(fr) list=list.filter(c=>c.date>=fr);
   if(to) list=list.filter(c=>c.date<=to);
   if(st) list=list.filter(c=>c.status===st);
-  if(q) list=list.filter(c=>(c.person||'').toLowerCase().includes(q)||vnNoAccent(c.person||'').includes(vnNoAccent(q))||(c.content||'').toLowerCase().includes(q));
+  if(q){ const qn=vnNoAccent(q); list=list.filter(c=>(c.person||'').toLowerCase().includes(q)||vnNoAccent(c.person||'').includes(qn)||[c.content,c.todo,c.doing,c.done].some(x=>x&&(String(x).toLowerCase().includes(q)||vnNoAccent(String(x)).includes(qn)))); }
   if(lv){
     list=list.filter(c=>{
       const d=calcDowntime(c);
@@ -12208,7 +12229,15 @@ function renderDt(){
   const empty=document.getElementById('dtEmpty');
   if(!list.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
-  tbody.innerHTML=list.sort((a,b)=>(calcDowntime(b)||0)-(calcDowntime(a)||0)).map((c,i)=>{
+  // 08/11/2026: mặc định NGÀY MỚI LÊN TRÊN (chọn được Cũ nhất / Downtime lâu nhất; nhớ trên máy)
+  const sortEl=document.getElementById('dtSort');
+  if(sortEl && !sortEl.dataset.nap){ sortEl.dataset.nap='1'; try{ const m=localStorage.getItem('dtSort'); if(m) sortEl.value=m; }catch(e){} }
+  const kieuSx=(sortEl&&sortEl.value)||'moi';
+  const tgian=c=>String(c.date||'')+'|'+String(c.id||'').padStart(16,'0');
+  const sx = kieuSx==='dt' ? ((a,b)=>(calcDowntime(b)||0)-(calcDowntime(a)||0))
+           : kieuSx==='cu' ? ((a,b)=>tgian(a)<tgian(b)?-1:tgian(a)>tgian(b)?1:0)
+           : ((a,b)=>tgian(a)<tgian(b)?1:tgian(a)>tgian(b)?-1:0);
+  tbody.innerHTML=list.sort(sx).map((c,i)=>{
     const days=calcDowntime(c);
     let lvCls='dt-green',lvTxt='🟢';
     if(days>=30){lvCls='dt-red';lvTxt='🔴';}
@@ -12222,7 +12251,7 @@ function renderDt(){
       <td class="col-no">${i+1}</td>
       <td class="col-name">${esc(c.person||'')}</td>
       <td class="col-date">${fmtD(c.date)}</td>
-      <td class="col-content" title="${esc(content)}" style="cursor:help">${esc(content.substring(0,80))}${content.length>80?'…':''}
+      <td class="col-content">${dtNoiDungHtml(c)}
         ${lastProgress?`<div style="margin-top:4px;color:#1a7a4a;font-size:11px;font-style:italic;" title="${esc(lastProgress.at?new Date(lastProgress.at).toLocaleString('vi-VN'):'')}">📝 ${esc(lastProgress.action.replace(/^Ghi tiến độ:\s*/,''))}</div>`:``}
       </td>
       <td class="col-done">${c.doneAt?fmtD(c.doneAt):`<span style="color:#bbb;font-size:12px">Chưa xong</span>`}</td>
@@ -25933,7 +25962,8 @@ table.tv-tb th{background:#fbf3d9;color:#5c4a15;font-weight:700}
       <h2>🏆 Thành tích Khoa Gây mê Hồi sức</h2>
       <small>Chế độ chỉ xem — Tập thể công khai, Cá nhân riêng từng người</small>
     </div>
-    <button class="tv-btn" id="tvWideBtn" onclick="kpiToggleWideBox('tvMainBox','tvWideBtn')" style="margin-left:auto"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
+    <button class="tv-btn" onclick="tvMoQuanLy()" style="margin-left:auto;background:#fff;color:#5c4a15;border-color:#fff;font-weight:800" title="Quản lý: thêm / sửa / xóa thành tích tập thể, danh mục danh hiệu, cơ quan cấp, minh chứng"><i class="ti ti-pencil"></i> ✏️ Thêm / sửa / xóa (Quản lý)</button>
+    <button class="tv-btn" id="tvWideBtn" onclick="kpiToggleWideBox('tvMainBox','tvWideBtn')"><i class="ti ti-arrows-maximize"></i> Phóng to giao diện</button>
   </div>
   <div class="tv-main" id="tvMainBox">
     <div class="tv-section">
@@ -26060,6 +26090,16 @@ table.tv-tb th{background:#fbf3d9;color:#5c4a15;font-weight:700}
     }catch(e){ document.getElementById('tvCaNhanBox').innerHTML='<div class="tv-empty">Không tải được dữ liệu.</div>'; }
   };
 
+  /* 08/11/2026: từ màn Thành tích (chỉ xem) mở thẳng bảng quản lý thêm/sửa/xóa — cần Quản lý */
+  window.tvMoQuanLy=function(){
+    if(!ttLaAdmin()){
+      var pwd=window.prompt('Thêm / sửa / xóa thành tích cần quyền Quản lý.\n\nNhập mật khẩu Quản lý:'); if(pwd===null) return;
+      if(typeof adminPwd==='undefined' || pwd!==adminPwd){ alert('Mật khẩu không đúng!'); return; }
+      try{ if(typeof adminSessionStart==='function') adminSessionStart(); else adminSession.active=true; }catch(e){}
+      try{ if(!cu || cu.role!=='admin') cu={name:'Quản lý', role:'admin'}; }catch(e){}
+    }
+    openThanhTichPanel();
+  };
   var tvInited=false;
   window.goThanhTichView=function(){
     document.getElementById('homeScreen').style.display='none';
@@ -65642,9 +65682,10 @@ function viewKhoa(){
 }
 
 /* ════════ TAB 1: VIỆC TRONG NGÀY ════════ */
-function dongViec(d, k){
+function dongViec(d, k, stt){
   var v=d.v, xong=!!(d.kq && d.kq.xong), u=UT[v.uuTien]||UT.tb, hn=keyNgay(), qua=!xong && v.gio && k===hn && (p2(new Date().getHours())+':'+p2(new Date().getMinutes()))>v.gio;
   return '<div class="lc-row" style="'+(xong?'opacity:.75':'')+'">'
+    +(stt?'<div title="Số thứ tự" style="flex-shrink:0;min-width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;margin-top:3px;'+(xong?'background:#e8f5e9;color:#2e7d32':'background:#ede7f6;color:#4527a0')+'">'+stt+'</div>':'')
     +'<button class="lc-chk'+(xong?' on':'')+'" title="'+(xong?'Bỏ đánh dấu':'Đánh dấu đã xong')+'" onclick="lcvTick(\''+k+'\',\''+d.id+'\','+(d.ps?'true':'false')+')">'+(xong?'✓':'')+'</button>'
     +'<div style="flex:1;min-width:0"><div style="font-weight:700;color:'+(xong?'#2e7d32':'#263238')+';'+(xong?'text-decoration:line-through;':'')+'font-size:14.5px">'+(v.gio?'<span style="color:'+(qua?'#c62828':'#5e35b1')+';margin-right:6px">'+e(v.gio)+'</span>':'')+e(v.ten)+'</div>'
     +'<div style="font-size:12px;color:#78909c;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
@@ -65665,19 +65706,19 @@ function viewHom(){
   var k=S.ngay||keyNgay(), hn=keyNgay(); napThang(thangCua(k));
   var ds=viecNgay(k), xong=ds.filter(function(d){ return d.kq && d.kq.xong; }).length, pt=ds.length?Math.round(xong/ds.length*100):0;
   var nhom={}, thuTuNhom=[]; ds.forEach(function(d){ var n=d.ps?'Việc phát sinh':(d.v.nhom||'Khác'); if(!nhom[n]){ nhom[n]=[]; thuTuNhom.push(n); } nhom[n].push(d); });
-  var td=k===hn?tonDong():[];
+  var td=k===hn?tonDong():[], sttDem=0;
   return '<div class="lc-the" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     +'<button onclick="lcvDoiNgay(-1)" class="lc-btn" style="background:#ede7f6;color:#4527a0">◀</button>'
     +'<input type="date" value="'+k+'" onchange="lcvChonNgay(this.value)" class="lc-inp" style="width:auto">'
     +'<button onclick="lcvDoiNgay(1)" class="lc-btn" style="background:#ede7f6;color:#4527a0">▶</button>'
     +(k!==hn?'<button onclick="lcvChonNgay(\''+hn+'\')" class="lc-btn" style="background:#4527a0;color:#fff">Hôm nay</button>':'')
     +'<div style="flex:1;min-width:200px;text-align:right"><b style="font-size:15px;color:#311b92">'+THU_DAI[tuKey(k).getDay()]+' '+fmtN(k)+'</b></div></div>'
-    +'<div class="lc-the"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div style="font-weight:800;color:#311b92;font-size:15px">Hoàn thành <span style="font-size:22px;color:'+(pt===100?'#2e7d32':'#4527a0')+'">'+xong+'/'+ds.length+'</span> việc</div><div style="font-weight:800;color:'+(pt===100?'#2e7d32':'#4527a0')+'">'+pt+'%</div></div>'
+    +'<div class="lc-the"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div style="font-weight:800;color:#311b92;font-size:15px">Hoàn thành <span style="font-size:22px;color:'+(pt===100?'#2e7d32':'#4527a0')+'">'+xong+'/'+ds.length+'</span> việc'+(ds.length-xong>0?' <span style="font-size:13px;color:#e65100;font-weight:700">· còn '+(ds.length-xong)+' việc chưa xong</span>':'')+'</div><div style="font-weight:800;color:'+(pt===100?'#2e7d32':'#4527a0')+'">'+pt+'%</div></div>'
     +'<div style="height:10px;background:#ede7f6;border-radius:6px;margin-top:6px;overflow:hidden"><div style="height:100%;width:'+pt+'%;background:'+(pt===100?'#43a047':'#7e57c2')+'"></div></div></div>'
     +(td.length?'<div class="lc-the" style="border:2px solid #ffb74d;background:#fffaf2"><div style="font-weight:800;color:#e65100;margin-bottom:4px">⚠ Còn tồn từ 7 ngày qua ('+td.length+')</div>'
       +td.map(function(x){ return '<div class="lc-row"><button class="lc-chk" title="Đánh dấu đã xong (ghi vào ngày '+fmtN(x.k)+')" onclick="lcvTick(\''+x.k+'\',\''+x.d.id+'\','+(x.d.ps?'true':'false')+')"></button><div style="flex:1"><b>'+e(x.d.v.ten)+'</b><div style="font-size:12px;color:#e65100">Hạn '+THU[tuKey(x.k).getDay()]+' '+fmtN(x.k).slice(0,5)+' · '+e(x.d.ps?'việc phát sinh':moTaLap(x.d.v))+'</div></div><button onclick="lcvChonNgay(\''+x.k+'\')" class="lc-btn" style="background:#fff3e0;color:#e65100;padding:5px 9px">Xem ngày</button></div>'; }).join('')+'</div>':'')
     +(ds.length?thuTuNhom.map(function(n){ var a=nhom[n], x=a.filter(function(d){ return d.kq && d.kq.xong; }).length;
-        return '<div class="lc-the"><div style="font-weight:800;color:#4527a0;margin-bottom:2px">'+e(n)+' <span style="color:#90a4ae;font-weight:600">('+x+'/'+a.length+')</span></div>'+a.map(function(d){ return dongViec(d,k); }).join('')+'</div>'; }).join('')
+        return '<div class="lc-the"><div style="font-weight:800;color:#4527a0;margin-bottom:2px">'+e(n)+' <span style="color:#90a4ae;font-weight:600">('+x+'/'+a.length+')</span></div>'+a.map(function(d){ return dongViec(d,k,++sttDem); }).join('')+'</div>'; }).join('')
       :'<div class="lc-the" style="color:#78909c;text-align:center;padding:20px">Không có công việc nào theo lịch ngày này.'+(Object.keys(S.viec).length?'':'<div style="margin-top:8px"><button onclick="lcvTab(\'ch\')" class="lc-btn" style="background:#4527a0;color:#fff">⚙️ Khai báo danh mục công việc</button></div>')+'</div>')
     +'<div class="lc-the"><div style="font-weight:800;color:#e65100;margin-bottom:6px">✚ Thêm việc phát sinh cho ngày '+fmtN(k)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap">'
     +'<input id="lcvPsTen" placeholder="VD: Gửi tờ trình mua vật tư cho P.VTYT" class="lc-inp" style="flex:1;min-width:220px" onkeydown="if(event.key===\'Enter\')lcvThemPS()">'
