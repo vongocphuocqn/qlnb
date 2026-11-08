@@ -24137,7 +24137,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 
 <div class="qt-modal-ov" id="qtModalOv">
   <div class="qt-modal">
-    <h3>Thêm / rút gọn quy trình mới</h3>
+    <h3 id="qtModalTitle">Thêm / rút gọn quy trình mới</h3>
     <div class="qt-tabrow">
       <button class="qt-tabbtn on" onclick="qtSwitchTab('manual')" id="qtTabManualBtn">Nhập từng ô</button>
       <button class="qt-tabbtn" onclick="qtSwitchTab('quick')" id="qtTabQuickBtn">⚡ Dán nhanh (từ Claude)</button>
@@ -24177,7 +24177,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     </div>
     <div class="qt-modal-actions">
       <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtModalOv').classList.remove('open')">Hủy</button>
-      <button class="qt-btn solid" style="color:#fff" onclick="qtSave()">Lưu vào thư viện</button>
+      <button class="qt-btn solid" id="qtSaveBtn" style="color:#fff" onclick="qtSave()">Lưu vào thư viện</button>
     </div>
   </div>
 </div>
@@ -24344,6 +24344,8 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       <div style="font-size:10.8px;color:#8d6e63;margin-top:6px;line-height:1.45">VD: “QĐ 3916/QĐ-BYT – bản gốc” + link Google Drive/iDesk/Cổng TTĐT Bộ Y tế. Với Google Drive: bấm <b>Chia sẻ → “Bất kỳ ai có đường liên kết” → Người xem</b>, nếu không nhân viên sẽ bị đòi quyền truy cập.</div>
     </div>
     <div class="qt-modal-actions">
+      <button type="button" class="tbtn" style="color:#fff;background:#1565c0;border-color:#0d47a1;font-weight:700" onclick="qtEditSop(document.getElementById('qtValidityOv').dataset.sopid)" title="Sửa tên, nhóm, mục đích, trách nhiệm, các bước, lưu ý…">✏️ Sửa toàn bộ nội dung</button>
+      <button type="button" class="tbtn" style="margin-right:auto;color:#fff;background:#c62828;border-color:#b71c1c;font-weight:700" onclick="qtDeleteSop()" title="Xóa hẳn quy trình khỏi Thư viện (có lưu bản sao để khôi phục)">🗑 Xóa quy trình này</button>
       <button class="tbtn" style="color:#333;border-color:#ccc" onclick="document.getElementById('qtValidityOv').classList.remove('open')">Hủy</button>
       <button class="qt-btn solid" style="color:#fff" onclick="qtSaveValidity()">Lưu thay đổi</button>
     </div>
@@ -24809,7 +24811,7 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
               '<span class="qt-nhom" style="background:'+qtValidityStatus(s).bg+';color:'+qtValidityStatus(s).fg+';border-color:'+qtValidityStatus(s).bd+'">'+qtValidityStatus(s).label+'</span>'+
               (s.apDungNhom && s.apDungNhom.length && s.apDungNhom.indexOf('ALL')<0 ? '<span class="qt-nhom" style="background:#ede7f6;color:#4527a0;border-color:#d1c4e9">Áp dụng: '+s.apDungNhom.join(', ')+'</span>' : '')+
               (qtDkList(s).length ? '<span class="qt-nhom" style="background:#fff8e1;color:#8a5a00;border-color:#ffe082" title="Có văn bản gốc/tài liệu đính kèm">📎 '+qtDkList(s).length+' tài liệu</span>' : '')+
-              (qtIsAdmin() ? '<button onclick="event.stopPropagation();qtOpenValidityModal(\''+s._id+'\')" style="font-size:10px;border:1px solid #bcaaa4;background:#fff;color:#5d4037;border-radius:4px;padding:1px 6px;cursor:pointer">✏️ Sửa hiệu lực / đính kèm</button>' : '')+
+              (qtIsAdmin() ? '<button onclick="event.stopPropagation();qtOpenValidityModal(\''+s._id+'\')" style="font-size:10px;border:1px solid #bcaaa4;background:#fff;color:#5d4037;border-radius:4px;padding:1px 6px;cursor:pointer">✏️ Sửa / Xóa</button>' : '')+
               (qtIsNewRec(s)?'<span class="qt-new">MỚI</span>':'')+'</div>'+
             '<p class="qt-title">'+s.ten+'</p>'+
             '<div class="qt-meta">'+s.khoa+' · hiệu lực '+s.ngay+' · '+readCount+'/'+scopeTotal+' đã đọc · 👁 '+(qtViews[s._id]||0)+' lượt tra cứu</div>'+
@@ -25630,6 +25632,34 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     try{ if(typeof showAl==='function') showAl('Đã cập nhật hiệu lực quy trình!'); }catch(e){}
   };
 
+  /* 08/11/2026: Xóa quy trình (chỉ Quản lý) — lưu bản sao vào quyTrinhDaXoa trước khi xóa */
+  window.qtDeleteSop=function(){
+    var sopId = document.getElementById('qtValidityOv').dataset.sopid;
+    if(!sopId) return;
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được xóa quy trình.'); return; }
+    var s = qtSops.find(function(x){return x._id===sopId;}) || {};
+    var ten = (s.ma||'')+' — '+(s.ten||'');
+    var go = window.prompt('⚠️ XÓA QUY TRÌNH khỏi Thư viện:\n\n'+ten+'\n\nQuy trình sẽ biến mất với mọi nhân viên (bản sao vẫn được lưu để khôi phục khi cần).\n\nĐể xác nhận, gõ chữ: XOA');
+    if(go===null) return;
+    var g = go.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d');
+    if(g!=='xoa'){ alert('Chưa gõ đúng chữ XOA — đã HỦY, quy trình vẫn còn.'); return; }
+    db.ref('quyTrinh').child(sopId).once('value').then(function(snap){
+      var v = snap.val();
+      if(!v){ alert('Quy trình này không còn trong dữ liệu (có thể đã bị xóa).'); return; }
+      v.xoaLuc = new Date().toISOString();
+      v.xoaBoi = 'Quản lý';
+      return db.ref('quyTrinhDaXoa').child(sopId).set(v).then(function(){
+        return db.ref('quyTrinh').child(sopId).remove();
+      }).then(function(){
+        try{ db.ref('quyTrinhViews').child(sopId).remove(); }catch(e){}
+        document.getElementById('qtValidityOv').classList.remove('open');
+        try{ if(typeof showAl==='function') showAl('Đã xóa quy trình: '+ten); else alert('Đã xóa quy trình: '+ten); }catch(e){}
+      });
+    }).catch(function(err){
+      alert('Không xóa được — kiểm tra mạng rồi thử lại.\n'+(err&&err.message||err));
+    });
+  };
+
   window.qtRemindUnread=function(sopId){
     var s = qtSops.find(function(x){return x._id===sopId;});
     if(!s) return;
@@ -25765,9 +25795,46 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
 
   window.qtOpenAddModal=function(){
     if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được thêm quy trình. Vui lòng đăng nhập.'); return; }
+    var ov=document.getElementById('qtModalOv');
+    if(ov.dataset.editid){
+      ov.dataset.editid='';
+      ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+      document.getElementById('qt_hethieuluc').checked=false;
+    }
+    document.getElementById('qtModalTitle').textContent='Thêm / rút gọn quy trình mới';
+    document.getElementById('qtTabQuickBtn').style.display='';
+    var sb=document.getElementById('qtSaveBtn'); if(sb) sb.textContent='Lưu vào thư viện';
     qtRenderApDungBox('qt', []);
     qtDkRender('qt', []);
-    document.getElementById('qtModalOv').classList.add('open');
+    ov.classList.add('open');
+  };
+  /* 08/11/2026: SỬA TOÀN BỘ NỘI DUNG quy trình (dùng lại hộp Thêm) */
+  window.qtEditSop=function(sopId){
+    if(!qtIsAdmin()){ alert('⚠️ Chỉ Quản lý mới được sửa quy trình. Vui lòng đăng nhập.'); return; }
+    var s = qtSops.find(function(x){return x._id===sopId;});
+    if(!s){ alert('Không tìm thấy quy trình.'); return; }
+    var v=function(x){ return (x==null||x==='—')?'':String(x); };
+    document.getElementById('qtValidityOv').classList.remove('open');
+    qtSwitchTab('manual');
+    document.getElementById('qtTabQuickBtn').style.display='none';
+    document.getElementById('qtModalTitle').textContent='✏️ Sửa quy trình: '+(s.ten||'');
+    document.getElementById('qt_ten').value=v(s.ten);
+    document.getElementById('qt_ma').value=v(s.ma);
+    document.getElementById('qt_khoa').value=(s.khoa==='Chưa phân loại')?'':v(s.khoa);
+    var sel=document.getElementById('qt_nhom');
+    if(s.nhom && !Array.prototype.some.call(sel.options,function(o){return o.value===s.nhom;})){ var o=document.createElement('option'); o.textContent=s.nhom; sel.appendChild(o); }
+    sel.value=s.nhom||sel.options[0].value;
+    document.getElementById('qt_ngay').value=v(s.ngay);
+    document.getElementById('qt_chuky').value=(typeof s.chuKyNam==='number')?s.chuKyNam:2;
+    document.getElementById('qt_hethieuluc').checked=s.hetHieuLuc===true;
+    document.getElementById('qt_mucdich').value=v(s.mucdich);
+    document.getElementById('qt_trachnhiem').value=(Array.isArray(s.trachnhiem)?s.trachnhiem:[]).filter(function(p){return p&&(v(p[0])||v(p[1]));}).map(function(p){return v(p[0])+' — '+v(p[1]);}).join('\n');
+    document.getElementById('qt_buoc').value=(Array.isArray(s.buoc)?s.buoc:[]).join('\n');
+    document.getElementById('qt_luuy').value=(s.luuy==='Chưa ghi nhận.')?'':v(s.luuy);
+    qtRenderApDungBox('qt', s.apDungNhom||[]);
+    qtDkRender('qt', qtDkList(s));
+    var sb=document.getElementById('qtSaveBtn'); if(sb) sb.textContent='💾 Lưu thay đổi';
+    var ov=document.getElementById('qtModalOv'); ov.dataset.editid=sopId; ov.classList.add('open');
   };
 
   function qtParseLines(txt){return (txt||'').split('\n').map(function(x){return x.replace(/^-+\s*/,'').trim();}).filter(Boolean);}
@@ -25801,6 +25868,18 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
         apDungNhom: qtReadApDungBox('qt')};
     }
     rec.dinhKem = qtDkRead('qt');
+    var ovE=document.getElementById('qtModalOv'), editId=ovE.dataset.editid;
+    if(editId){
+      rec.suaLuc = Date.now();
+      db.ref('quyTrinh').child(editId).update(rec).then(function(){
+        try{ if(typeof showAl==='function') showAl('Đã lưu thay đổi quy trình!'); }catch(e){}
+      }).catch(function(err){ alert('Không lưu được — kiểm tra mạng rồi thử lại.\n'+(err&&err.message||err)); });
+      ovE.dataset.editid='';
+      ovE.classList.remove('open');
+      document.getElementById('qt_hethieuluc').checked=false;
+      ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+      return;
+    }
     rec.createdAt = Date.now();
     var newScopeCount = (function(){
       if(rec.apDungNhom && rec.apDungNhom.length && rec.apDungNhom.indexOf('ALL')<0){
