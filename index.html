@@ -34142,10 +34142,14 @@ function buildVanBanRtfBody(data){
   out += '\\pard\\fs20\\i '+rtfEsc('– Lưu: VT, Khoa GMHS.')+'\\i0\\par\n';
   return out;
 }
+function vbDuoiWord(){ try{ return localStorage.getItem('ddnlDuoiWord')==='doc'?'doc':'rtf'; }catch(e){ return 'rtf'; } }
 function downloadRtf(filename, bodyRtf){
   const rtf = rtfHeader() + bodyRtf + '}';
-  if(typeof window.__ddnlBatRtf==='function'){ window.__ddnlBatRtf(new File([rtf], filename, {type:'application/rtf'})); return; } // 06/11: chia sẻ file (Nhờ in)
-  const blob = new Blob([rtf], { type: 'application/rtf' });
+  // 09/11/2026: mặc định vẫn .rtf như cũ; máy nào chọn ".doc" ở Cấu hình → Sổ tổng hợp thì tải về đuôi .doc (nội dung giữ nguyên).
+  const duoi = vbDuoiWord(), mime = duoi==='rtf' ? 'application/rtf' : 'application/msword';
+  filename = String(filename||'VanBan').replace(/\.rtf$/i,'') + '.' + duoi;
+  if(typeof window.__ddnlBatRtf==='function'){ window.__ddnlBatRtf(new File([rtf], filename, {type:mime})); return; } // 06/11: chia sẻ file (Nhờ in)
+  const blob = new Blob([rtf], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -35751,6 +35755,11 @@ function renderConfig(){
   ${cardClose()}
   ${cardOpen('cfg-sotonghop', '📚 Sổ tổng hợp', 'Mỗi sổ là 1 file .rtf gộp nhiều phiếu — ai soạn phiếu cũng chọn "Gộp vào Sổ tổng hợp" được (không riêng Admin), phiếu mới luôn chèn lên trên cùng, phiếu cũ giữ nguyên bên dưới, mỗi phiếu vẫn nằm riêng 1 trang để in tách ra được.')}
     <button type="button" class="ddnl-btn ddnl-btn-sm" id="ddnlBtnTaoSoMoiCfg" style="margin-bottom:10px"><i class="ti ti-plus"></i> Tạo sổ mới</button>
+    <div style="margin:0 0 10px;padding:8px 10px;border:1px dashed #90caf9;border-radius:8px;background:#f5faff;font-size:13px">💾 <b>Đuôi file Word khi tải về (máy này):</b>
+      <select onchange="try{localStorage.setItem('ddnlDuoiWord',this.value)}catch(e){}; alert('Đã chọn đuôi '+this.value+' cho máy này.')" style="margin-left:6px;padding:4px 8px">
+        <option value="rtf" ${vbDuoiWord()==='rtf'?'selected':''}>.rtf — mặc định (như trước)</option>
+        <option value="doc" ${vbDuoiWord()==='doc'?'selected':''}>.doc — hiện biểu tượng Word</option>
+      </select></div>
     <div class="ddnl-rows-wrap" style="max-height:300px;overflow-y:auto;">
     <table>
       <thead><tr><th>Tên sổ</th><th>Số phiếu đã gộp</th><th>Cập nhật lần cuối</th><th>Người tạo</th><th style="width:140px;"></th></tr></thead>
@@ -35762,7 +35771,7 @@ function renderConfig(){
           <td>${s.capNhatLanCuoi?new Date(s.capNhatLanCuoi).toLocaleString('vi-VN'):""}</td>
           <td>${esc(s.taoBoi||"")}</td>
           <td>
-            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-tai-so-cfg="${esc(s.id)}">⬇ Tải .rtf</button>
+            <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-tai-so-cfg="${esc(s.id)}">⬇ Tải file Word</button>
             <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-doi-ten-so-cfg="${esc(s.id)}">✏️ Sửa tên</button>
             ${isAdmin()?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-sotonghop="${esc(s.id)}">Xóa</button>`:``}
           </td>
@@ -36957,7 +36966,7 @@ function niHuongDanFile(v, t, s, tin, ok, file){
       ${file && navigator.canShare && navigator.canShare({files:[file]}) ? `<button id="niShare2" style="${NI_BTN};background:#ede7f6;color:#4527a0">📤 Chia sẻ file</button>` : ''}
       <button id="niXong" style="${NI_BTN};background:#2e7d32;color:#fff">✓ Đã gửi xong</button></div></div>`, 500);
   const k = o.querySelector('#niKeo');
-  if(k && file && file.__url) k.addEventListener('dragstart', ev=>{ try{ ev.dataTransfer.setData('DownloadURL', 'application/rtf:'+file.name+':'+file.__url); ev.dataTransfer.effectAllowed = 'copy'; }catch(e){} try{ ev.dataTransfer.items.add(file); }catch(e){} });
+  if(k && file && file.__url) k.addEventListener('dragstart', ev=>{ try{ ev.dataTransfer.setData('DownloadURL', (/\.rtf$/i.test(file.name)?'application/rtf:':'application/msword:')+file.name+':'+file.__url); ev.dataTransfer.effectAllowed = 'copy'; }catch(e){} try{ ev.dataTransfer.items.add(file); }catch(e){} });
   else if(k){ k.draggable = false; k.style.cursor = 'default'; k.querySelector('div>div:last-child').textContent = 'Phiếu dùng file đính kèm — lấy file trong mục Tải xuống (Ctrl + J)'; }
   o.querySelector('#niTaiLai').onclick = ()=>{ const f = niTaiFile(v); if(f) file = f; niToast('⬇ Đã tải lại file'); };
   o.querySelector('#niChepLai').onclick = async ()=>{ const c = await niChep(tin); niToast(c?'📋 Đã chép tin nhắn':'Không chép được'); };
@@ -65695,6 +65704,7 @@ window.bcvsLuuCfg=function(){
 var LD_VER='2026-11-08';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-09', nd:'Giấy đề nghị: thêm tùy chọn đuôi file Word khi tải về (.rtf mặc định / .doc) — Danh mục / Cấu hình → Sổ tổng hợp.'},
   {d:'2026-11-09', nd:'Giấy đề nghị: bấm "💾 Lưu nội dung" xong app hỏi "Lưu phiếu vào Sổ nào?" (nhớ sổ dùng gần nhất, tạo sổ mới) → "Ghi nhận văn bản ngay".'},
   {d:'2026-11-09', nd:'Bảng tin thiết bị + tab Trạng thái: hiện ngày giờ báo sự cố (báo dd/mm; 📅 Báo: giờ ngày) cạnh thời gian ngừng.'},
   {d:'2026-11-09', nd:'Giấy đề nghị: thêm tùy chọn chữ ký PHẪU THUẬT VIÊN (ô ký giữa, dưới hàng Người lập bảng | Trưởng khoa) + Danh mục PTV + Nhật ký ký (xuất Excel).'},
