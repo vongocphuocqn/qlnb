@@ -63049,7 +63049,7 @@ function viewMuonTra(){
     +o(nCx,'⏳ Hạn chưa xác định','linear-gradient(135deg,#ffa000,#e65100)','')+'</div>';
   // A. Ghi nhận mượn
   html+=the(h3('➕ Ghi nhận MƯỢN thiết bị','<span style="font-size:11.5px;color:#78909c">Gõ tên / mã / phòng → bấm 🔁 Mượn</span>')
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="qltsMtTim" value="'+e(S.mtQ||'')+'" oninput="qltsMtTim(this.value)" placeholder="🔍 VD: máy thở, lọc máu, TS0795, Hồi sức…" autocomplete="off" style="'+INP+';flex:1;min-width:240px;font-size:15px;padding:11px 12px"><button onclick="qltsQuet()" style="'+BTN+'background:#ffca28;color:#3e2723"><i class="ti ti-qrcode"></i> Quét QR</button></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="qltsMtTim" value="'+e(S.mtQ||'')+'" oninput="qltsMtTim(this.value)" placeholder="🔍 VD: máy thở, lọc máu, TS0795, Hồi sức…" autocomplete="off" style="'+INP+';flex:1;min-width:240px;font-size:15px;padding:11px 12px"><button onclick="qltsQuet()" title="Quét tem QR trên máy → mở ngay hộp Mượn (hoặc Trả nếu máy đang được mượn)" style="'+BTN+'background:#ffca28;color:#3e2723"><i class="ti ti-qrcode"></i> Quét QR</button></div>'
     +'<div id="qltsMtKq" style="margin-top:8px">'+mtKqHTML()+'</div>');
   // B. Đang mượn
   html+=the(h3('🔁 Thiết bị ĐANG MƯỢN ('+md.length+')','<span style="font-size:11.5px;color:#78909c">Dòng đỏ = quá hạn · bấm ↩ Trả khi nhận lại máy</span>')
@@ -64439,7 +64439,7 @@ window.qltsQuet=function(){
     quet.stream=st; var v=document.getElementById('qltsVid'); if(!v){ dongQuet(); return; } v.srcObject=st; v.play();
     var det=null; try{ if('BarcodeDetector' in window) det=new BarcodeDetector({formats:['qr_code']}); }catch(x){ det=null; }
     var cv=document.createElement('canvas'), cx=cv.getContext('2d', {willReadFrequently:true});
-    function xong(txt){ var ma=maTuQR(txt); dongQuet(); qltsDongModal(); if(!taiSan(ma)){ alert('Mã quét được: '+txt+'\nKhông có trong danh mục tài sản.'); return; } qltsOpen('ts', ma); }
+    function xong(txt){ var ma=maTuQR(txt); dongQuet(); qltsDongModal(); if(!taiSan(ma)){ alert('Mã quét được: '+txt+'\nKhông có trong danh mục tài sản.'); return; } if(S.tab==='muon'){ qltsMuonTam(ma); return; } qltsOpen('ts', ma); }
     function lap(){
       var v=document.getElementById('qltsVid'); if(!v || !quet.stream) return;
       if(v.readyState>=2){
@@ -64452,7 +64452,7 @@ window.qltsQuet=function(){
   }).catch(function(){ msg('Không mở được camera (chưa cho phép). Có thể dùng camera điện thoại quét trực tiếp tem QR, hoặc gõ mã bên dưới.'); });
 };
 function dongQuet(){ try{ if(quet.raf) cancelAnimationFrame(quet.raf); if(quet.stream) quet.stream.getTracks().forEach(function(t){ t.stop(); }); }catch(x){} quet.stream=null; quet.raf=null; }
-window.qltsMaTayOk=function(){ var v=(document.getElementById('qltsMaTay').value||'').trim().toUpperCase(); if(!v) return; var ma=maTuQR(v); dongQuet(); qltsDongModal(); qltsOpen('ts', ma); };
+window.qltsMaTayOk=function(){ var v=(document.getElementById('qltsMaTay').value||'').trim().toUpperCase(); if(!v) return; var ma=maTuQR(v); dongQuet(); qltsDongModal(); if(S.tab==='muon' && taiSan(ma)){ qltsMuonTam(ma); return; } qltsOpen('ts', ma); };
 var _dongModalGoc=window.qltsDongModal; window.qltsDongModal=function(){ dongQuet(); _dongModalGoc(); };
 
 /* ════════ TAB 5: DOWNTIME – THỐNG KÊ ════════ */
