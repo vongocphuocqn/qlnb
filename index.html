@@ -66314,9 +66314,11 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-16j';
+var LD_VER='2026-11-16l';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-16', nd:'HƯỚNG DẪN NHANH cho nhân viên: nút ❓ ở góc 20 thẻ nhân viên dùng (Trang chủ) và nút nổi "❓ Hướng dẫn" khi đang trong chức năng — từng bước chữ to, "🔊 Đọc cho tôi nghe", "📋 Xem tất cả các bước", "📞 Vẫn chưa làm được?" (người hỗ trợ; Quản lý sửa tại "✏️ Sửa người hỗ trợ").'},
+  {d:'2026-11-16', nd:'Trang chủ: nút "🔄 Cập nhật app" (kèm số phiên bản) dưới "Kết nối Firebase realtime"; máy đang dùng bản cũ tự hiện thanh "🔄 Đã có phiên bản mới" → "Cập nhật ngay".'},
   {d:'2026-11-16', nd:'Trang chủ không hiện tên Quản lý (Võ Ngọc Phước): máy chọn tên này luôn xem khung tiến độ khoa, không nhắc đọc, không tính vào tổng số nhân viên.'},
   {d:'2026-11-16', nd:'Trang chủ: Quản lý thấy khung "📢 Quy trình mới / cập nhật — tiến độ của khoa" (👥 số người đã hoàn thành từng quy trình); nhân viên làm xong hết thấy dòng "✅ … đã hoàn thành".'},
   {d:'2026-11-16', nd:'Đổi lời nhắc nhân viên nhẹ nhàng: "nắm nhanh nội dung chính quy trình thông qua 5 câu — để nắm rõ và thực hiện tốt quy trình"; nút "✍️ Nắm nhanh 5 câu & xác nhận".'},
@@ -67687,7 +67689,7 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 #qtTBBox{display:none;margin-bottom:4px}
 #qtTBBox .qtb-khung{background:linear-gradient(135deg,#e8f5e9,#d7eedb);border:1.5px solid #81c784;border-radius:11px;padding:10px 14px}
 #qtTBBox .qtb-dau{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-#qtTBBox .qtb-tieude{flex:1;min-width:0;font-size:13px;font-weight:700;color:#1b5e20}
+#qtTBBox .qtb-tieude{flex:1 1 230px;min-width:0;font-size:13px;font-weight:700;color:#1b5e20}
 #qtTBBox .qtb-nut{border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
 #qtTBBox .qtb-ds{margin-top:6px;display:flex;flex-direction:column;gap:5px}
 #qtTBBox .qtb-dong{display:flex;align-items:flex-start;gap:8px;background:#fff;border:1px solid #c8e6c9;border-radius:8px;padding:6px 9px;cursor:pointer;font-size:12.5px;color:#263238}
@@ -68227,6 +68229,312 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 })();
 </script>
 <!-- ══ HẾT POST-TEST QUY TRÌNH ══ -->
+<!-- ══ CẬP NHẬT APP (16/11/2026) — module RIÊNG. Điện thoại hay giữ bản cũ của GitHub Pages:
+     - APP_BAN = thời điểm dựng bản này. Máy chạy bản MỚI HƠN (trên vongocphuocqn.github.io) ghi Firebase `appBan` = {ban, t}.
+     - Máy chạy bản CŨ HƠN thấy thanh "🔄 Đã có phiên bản mới" → "Cập nhật ngay" (tải lại kèm ?v=… để bỏ bộ nhớ đệm). Không tự tải lại (tránh vòng lặp).
+     - Trang chủ luôn có nút "🔄 Cập nhật app" + số phiên bản (cạnh "Kết nối Firebase realtime"). ══ -->
+<style>
+#cnBar{position:fixed;left:0;right:0;top:0;z-index:100500;background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;line-height:1.35;padding:9px 12px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+#cnBar button{border:none;border-radius:8px;padding:6px 12px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer}
+#cnNut{display:inline-flex;align-items:center;gap:6px;margin-top:8px;border:1px solid #b0bec5;background:#fff;color:#37474f;border-radius:999px;padding:5px 12px;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer}
+#cnNut:active{background:#eceff1}
+</style>
+<script>
+(function(){
+  var APP_BAN='2026-11-16 13:20';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
+  function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
+  function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
+  window.cnTaiLai=function(ban){
+    var v=String(ban||Date.now()).replace(/\D/g,'') || Date.now();
+    var hash=location.hash||'#trangchu';
+    try{ sessionStorage.setItem('cnVuaTai','1'); }catch(e){}
+    location.replace(location.pathname+'?v='+v+hash);
+  };
+  function thanh(ban){
+    if(document.getElementById('cnBar')) return;
+    var an; try{ an=sessionStorage.getItem('cnDeSau'); }catch(e){}
+    if(an===ban) return;
+    var d=document.createElement('div'); d.id='cnBar';
+    d.innerHTML='<span>🔄 Đã có <b>phiên bản mới</b> của app ('+hienBan(ban)+'). Bấm cập nhật để dùng tính năng mới nhất.</span>'+
+      '<button style="background:#fff;color:#0d47a1" onclick="cnTaiLai(\''+ban+'\')">Cập nhật ngay</button>'+
+      '<button style="background:rgba(255,255,255,.18);color:#fff" onclick="try{sessionStorage.setItem(\'cnDeSau\',\''+ban+'\')}catch(e){};this.parentNode.remove()">Để sau</button>';
+    (document.body||document.documentElement).appendChild(d);
+  }
+  function nutTrangChu(){
+    if(document.getElementById('cnNut')) return true;
+    var dot=document.getElementById('homeDot'); if(!dot || !dot.parentNode) return false;
+    var o=document.createElement('div'); o.style.cssText='text-align:center';
+    o.innerHTML='<button id="cnNut" onclick="cnTaiLai()" title="Tải lại app để nhận bản mới nhất">🔄 Cập nhật app <span style="font-weight:500;color:#78909c">· phiên bản '+hienBan(APP_BAN)+'</span></button>';
+    dot.parentNode.parentNode.insertBefore(o, dot.parentNode.nextSibling); return true;
+  }
+  function batDau(){
+    if(!nutTrangChu()) setTimeout(nutTrangChu, 1500);
+    if(!coDb()) return setTimeout(batDau, 1500);
+    try{
+      db.ref('appBan').on('value', function(sn){ var v=sn.val()||{}, ban=String(v.ban||'');
+        if(ban && ban>APP_BAN) thanh(ban);
+        else if(laTrangThat() && (!ban || APP_BAN>ban)) db.ref('appBan').set({ban:APP_BAN, t:Date.now()}).catch(function(){});
+      }, function(e){ console.warn('appBan:', e); });
+    }catch(e){ console.warn(e); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(batDau, 400); }); else setTimeout(batDau, 400);
+})();
+</script>
+<!-- ══ HẾT CẬP NHẬT APP ══ -->
+<!-- ══ HƯỚNG DẪN NHANH CHO NHÂN VIÊN (16/11/2026) — module RIÊNG (chỉ THÊM).
+     - Nút ❓ tròn ở góc thẻ Trang chủ (chỉ thẻ nhân viên dùng) → hướng dẫn TỪNG BƯỚC, chữ to, "🔊 Đọc cho tôi nghe" (giọng tiếng Việt của máy).
+     - Đang ở trong chức năng: nút nổi "❓ Hướng dẫn" góc dưới trái (theo thẻ vừa mở).
+     - "📞 Vẫn chưa làm được?" → người hỗ trợ: Firebase huongDanCfg/hoTro = [{ten, sdt}] (Quản lý sửa ngay trong hộp hướng dẫn).
+     - Nội dung HD_NV viết theo thao tác NHÂN VIÊN, tên nút trong ngoặc kép = đúng chữ trên màn hình. Khi sửa thao tác thẻ → sửa HD_NV cùng lúc với LD_MD. ══ -->
+<style>
+.hd-hoi{position:absolute;left:5px;top:5px;width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.28);color:#fff;font:800 15px/22px Arial,sans-serif;text-align:center;cursor:pointer;z-index:3;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.hd-hoi:active{transform:scale(.92)}
+#hdNoi{position:fixed;left:12px;bottom:16px;z-index:9990;display:none;border:none;border-radius:999px;background:#ff8f00;color:#fff;font-family:inherit;font-weight:800;font-size:15px;padding:10px 16px;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer}
+#hdOv{position:fixed;inset:0;z-index:100400;background:rgba(15,25,35,.6);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:14px 8px}
+#hdOv .hd-hop{background:#fff;border-radius:16px;max-width:600px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.35);margin:auto 0;font-family:inherit;color:#263238}
+#hdOv .hd-dau{background:linear-gradient(135deg,#ff8f00,#ef6c00);color:#fff;border-radius:16px 16px 0 0;padding:14px 16px;display:flex;gap:10px;align-items:flex-start}
+#hdOv .hd-dau h3{margin:0;font-size:18px;line-height:1.35;flex:1}
+#hdOv .hd-dau .hd-mt{font-size:13.5px;font-weight:500;opacity:.95;margin-top:3px}
+#hdOv .hd-x{border:none;background:rgba(255,255,255,.25);color:#fff;width:36px;height:36px;border-radius:10px;font-size:20px;cursor:pointer;flex:0 0 36px}
+#hdOv .hd-than{padding:16px}
+#hdOv .hd-so{font-size:14px;font-weight:800;color:#ef6c00;margin-bottom:6px}
+#hdOv .hd-buoc{font-size:19px;line-height:1.55;background:#fff8e1;border:2px solid #ffe082;border-radius:14px;padding:16px 16px;min-height:110px}
+#hdOv .hd-buoc b{color:#bf360c}
+#hdOv .hd-cham{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}
+#hdOv .hd-cham span{width:10px;height:10px;border-radius:50%;background:#ffe0b2;cursor:pointer}
+#hdOv .hd-cham span.on{background:#ef6c00}
+#hdOv .hd-nut{border:none;border-radius:12px;padding:13px 18px;font-family:inherit;font-weight:800;font-size:16.5px;cursor:pointer}
+#hdOv .hd-hang{display:flex;gap:10px;margin-top:12px}
+#hdOv .hd-hang .hd-nut{flex:1}
+#hdOv .hd-ds{margin:0;padding-left:24px;font-size:16.5px;line-height:1.55}
+#hdOv .hd-ds li{margin-bottom:10px}
+#hdOv .hd-ds b{color:#bf360c}
+#hdOv .hd-ht{margin-top:14px;background:#e3f2fd;border-radius:12px;padding:11px 13px;font-size:15px;line-height:1.5;color:#0d47a1}
+#hdOv .hd-ht a{color:#0d47a1;font-weight:800}
+#hdOv .hd-lk{display:block;text-align:center;margin-top:10px;font-size:14.5px;color:#ef6c00;font-weight:700;cursor:pointer;text-decoration:underline}
+</style>
+<script>
+(function(){
+  var TEN='Gõ tên của anh/chị vào ô tìm → bấm chọn đúng tên → bấm "Vào chức năng".';
+  /* ── Hướng dẫn theo thao tác NHÂN VIÊN ── */
+  var HD_NV={
+    '1':{ten:'Báo cáo Công việc', mt:'Báo việc phát sinh, sự cố, đề xuất để Quản lý xử lý.', b:[
+      'Ở Trang chủ bấm thẻ "Báo cáo Công việc".', TEN,
+      'Ở khung báo cáo: chọn "Ngày báo cáo", "Bộ phận báo cáo".',
+      'Gõ "Nội dung báo cáo" (bấm "Phóng to" để gõ chữ to cho dễ). Nếu có thì ghi thêm "Việc cần làm" và chọn "Mức độ ưu tiên".',
+      'Có ảnh minh chứng: bấm "Camera" để chụp hoặc "Thư mục ảnh" để chọn ảnh có sẵn.',
+      'Bấm "Thêm báo cáo". Báo cáo hiện ở cột Chưa xử lý — Quản lý sẽ tiếp nhận và xử lý.']},
+    '2':{ten:'Xem Báo cáo Công việc', mt:'Xem tình hình xử lý các báo cáo của khoa (chỉ xem).', b:[
+      'Ở Trang chủ bấm thẻ "Xem Báo cáo Công việc".',
+      'Nhìn 3 ô trên cùng: "Chưa xử lý", "Đang xử lý", "Đã xong".',
+      'Muốn tìm báo cáo của mình: chọn "Tên NV" hoặc gõ vào ô "🔍 Tìm nội dung thẻ"; chọn "Từ ngày", "Đến ngày" nếu cần.',
+      'Bấm vào 1 thẻ để xem chi tiết. Màn này chỉ để xem — muốn báo việc mới, dùng thẻ "Báo cáo Công việc".']},
+    '3':{ten:'Đổi trực', mt:'Đăng ký đổi ca trực với đồng nghiệp, chờ Quản lý duyệt.', b:[
+      'Ở Trang chủ bấm thẻ "Đổi Trực".',
+      'Ở ô "Đăng ký / xem phiếu của tôi": chọn tên của anh/chị → bấm "Vào với tên này".',
+      'Ở tab "Đăng ký đổi trực": chọn "Người nhận trực thay", "Ngày trực cần đổi", "Ca trực".',
+      'Ghi "Lý do đổi trực" → bấm "Gửi phiếu đăng ký".',
+      'Phiếu chờ Quản lý duyệt. Xem kết quả ở tab "Danh sách phiếu".']},
+    '4':{ten:'Lịch trực khoa', mt:'Xem lịch trực tháng của khoa.', b:[
+      'Ở Trang chủ bấm thẻ "Lịch trực khoa".', TEN,
+      'Ở "Chọn tháng": chọn tháng cần xem (hoặc bấm nhanh tháng có sẵn lịch).',
+      'Bấm "Lịch chính" để xem lịch trực; bấm "Lịch điều chỉnh" nếu có thay đổi trong tháng.',
+      'Xem lịch trực của tháng. Trên điện thoại: dùng 2 ngón tay để phóng to cho dễ đọc.']},
+    '5':{ten:'Đăng ký Nghỉ bù', mt:'Gửi phiếu xin nghỉ bù, chờ Quản lý duyệt.', b:[
+      'Ở Trang chủ bấm thẻ "Đăng ký Nghỉ Bù".', TEN,
+      'Ở tab "Đăng ký nghỉ bù": kiểm tra tên ở "Nhân viên đăng ký", ghi "Lý do nghỉ bù".',
+      'Chọn ngày nghỉ. Nghỉ nhiều ngày: bấm "Thêm dòng" hoặc "Thêm khoảng" để thêm ngày.',
+      'Bấm "Gửi phiếu đăng ký".',
+      'Theo dõi phiếu ở "Phiếu đã đăng ký của tôi" (Chờ duyệt / Đã duyệt).']},
+    '6':{ten:'Đăng ký Nghỉ phép', mt:'Gửi phiếu nghỉ phép (phép năm, ốm, con ốm…), chờ Quản lý duyệt.', b:[
+      'Ở Trang chủ bấm thẻ "Đăng ký Nghỉ Phép".', TEN,
+      'Ở tab "Đăng ký nghỉ phép": chọn "Từ ngày", "Đến ngày". Nghỉ nửa ngày: chọn thêm "Buổi nghỉ".',
+      'Chọn "Loại nghỉ phép", ghi "Lý do / ghi chú".',
+      'Có giấy tờ (giấy ốm, giấy khám…): bấm "Chụp ảnh" hoặc "Chọn file" để đính kèm.',
+      'Bấm "Gửi phiếu đăng ký". Theo dõi ở "Phiếu đã đăng ký của tôi".']},
+    '8':{ten:'Thư viện Quy trình', mt:'Đọc quy trình của khoa và xác nhận đã nắm nội dung.', b:[
+      'Cách nhanh nhất: ở Trang chủ, bấm tên quy trình trong khung "📘 Chào …! Khoa có … quy trình mới" — app mở đúng quy trình.',
+      'Lần đầu dùng: bấm "👤 Chọn tên của bạn" để app nhớ tên anh/chị trên máy này.',
+      'Đọc kỹ: Mục đích, Tóm tắt nhanh, Trách nhiệm chính, Các bước cốt lõi, Lưu ý.',
+      'Kéo xuống cuối, kiểm tra tên ở ô "Gõ để tìm tên nhân viên..." → bấm "✍️ Nắm nhanh 5 câu & xác nhận".',
+      'Chọn đáp án cho 5 câu → bấm "📨 Gửi câu trả lời". Đủ số câu đúng là hoàn thành; chưa đủ thì đọc lại các ý khung đỏ rồi trả lời lại.',
+      'Muốn tra cứu quy trình khác: gõ tên, mã số hoặc từ khóa vào ô tìm phía trên.']},
+    '9':{ten:'CNKT — Cập nhật kiến thức', mt:'Ghi nhận giờ/tín chỉ đào tạo liên tục của mình.', b:[
+      'Ở Trang chủ bấm thẻ "CNKT".', TEN,
+      'Lần đầu: ở "Hồ sơ của tôi" điền chức danh, trình độ, số CCHN → bấm "Lưu hồ sơ".',
+      'Ở "Ghi nhận hoạt động CNKT của tôi": ghi "Tên hoạt động", chọn "Hình thức", "Từ ngày", "Số giờ / tín chỉ".',
+      'Ở "Bằng chứng": chụp hoặc chọn ảnh/PDF giấy chứng nhận → bấm "Ghi nhận". Phiếu chờ Quản lý duyệt.',
+      'Xem tổng giờ ở "Chu kỳ hiện tại của tôi"; cần nộp hồ sơ thì bấm "Xuất Word hồ sơ của tôi".']},
+    '10':{ten:'Xem Thành tích', mt:'Xem thành tích tập thể và cá nhân của khoa.', b:[
+      'Ở Trang chủ bấm thẻ "Xem Thành tích".',
+      'Xem mục "🏆 Thành tích Tập thể".',
+      'Xem của mình: ở "🏅 Thành tích Cá nhân" chọn tên anh/chị.']},
+    '12':{ten:'Dụng cụ sau mổ', mt:'Báo thiếu, thất lạc dụng cụ sau ca mổ.', b:[
+      'Ở Trang chủ bấm thẻ "Dụng cụ sau mổ".', TEN,
+      'Ở "Ghi nhận thiếu / thất lạc dụng cụ": chọn "Ngày phát hiện", "Bộ dụng cụ / tài sản".',
+      'Chọn ê-kíp liên quan và "Bộ phận" của mình.',
+      'Ở "Danh sách dụng cụ thất lạc" ghi tên, số lượng (thêm bằng "Thêm dòng dụng cụ") → bấm "Ghi nhận".',
+      'Theo dõi xử lý ở "Danh sách công khai".']},
+    '13':{ten:'Bàn giao trực Phòng Hồi sức', mt:'Lập biên bản bàn giao tài sản giữa 2 ca, ký 2 bên.', b:[
+      'Ở Trang chủ bấm thẻ "Bàn giao trực Phòng Hồi sức".', TEN,
+      'Bấm "Phòng Hồi sức".',
+      'Ở "Lập biên bản bàn giao ca trực": chọn Ngày, Giờ, "Ca trực", "Người bàn giao (ca đi)", "Người nhận (ca đến)".',
+      'Kiểm từng tài sản, chọn "Trạng thái" (đủ / thiếu / hư hỏng). Có vấn đề cần báo ngay: ghi ở "🚨 Báo cáo khẩn cấp".',
+      'Hai bên ký → bấm "Xác nhận đã ký" → bấm "Lưu biên bản bàn giao".',
+      'Người nhận chưa ký kịp: sau đó bấm "Nhập mã biên bản để ký". Biên bản thiếu chữ ký nằm ở "Biên bản CHỜ HOÀN THÀNH".']},
+    '14':{ten:'Bàn giao Phòng Mổ', mt:'Lập biên bản bàn giao phòng mổ (Gây mê / Dụng cụ).', b:[
+      'Ở Trang chủ bấm thẻ "Bàn giao Phòng Mổ".', TEN,
+      'Bấm đúng phòng mổ của mình (hoặc nút "Bàn giao nhóm …" để ký 1 lần cho cả nhóm phòng).',
+      'Chọn ca và nhóm "Gây mê" hoặc "Dụng cụ"; kiểm từng mục.',
+      'Hai bên ký → bấm "Lưu biên bản bàn giao".',
+      'Muốn đổi sang phòng khác: bấm "Đổi phòng".']},
+    '15':{ten:'Theo dõi Giao nhận trực', mt:'Xem bộ phận nào đã / chưa giao trực đúng giờ.', b:[
+      'Ở Trang chủ bấm thẻ "Theo dõi Giao nhận trực".',
+      'Nhìn các ô: "Đã giao trực", "Trễ hạn – chưa giao", "Chưa đến hạn".',
+      'Bộ phận của mình chưa giao: bấm "Vào xem / Lập biên bản" để lập biên bản ngay.']},
+    '17':{ten:'Giấy đề nghị', mt:'Soạn giấy đề nghị, xuất Word/PDF để in, trình ký.', b:[
+      'Ở Trang chủ bấm thẻ "Giấy đề nghị".',
+      'Đăng nhập: "Tên của bạn" + "Mật khẩu" (do Quản lý cấp) → bấm "Đăng nhập".',
+      'Ở tab "Sổ văn bản đi": chọn Thể loại, ghi "Về việc", "Nơi gửi", "Kính gửi"; số văn bản app tự điền.',
+      'Soạn nội dung → bấm "Xem trước nhanh" để kiểm tra.',
+      'Bấm "💾 Lưu nội dung" → chọn sổ → "Ghi nhận văn bản ngay".',
+      'In: bấm "Xuất Word" hoặc "Xuất PDF". Máy không có máy in: bấm "📲 Nhờ in (Zalo)".']},
+    '27':{ten:'Đăng ký phép BV', mt:'Làm phiếu nghỉ phép theo mẫu của Bệnh viện để in, trình ký.', b:[
+      'Ở Trang chủ bấm thẻ "Đăng ký phép BV".',
+      'Chọn "Họ và tên" — chức danh, khoa app tự điền (sửa được).',
+      'Chọn "Người ký duyệt".',
+      'Chọn "Từ ngày", "Đến ngày"; ghi "Lý do nghỉ phép", "Địa chỉ nghỉ phép", "Phương tiện di chuyển".',
+      'Bấm "Tạo phiếu" → in phiếu, trình ký. Xem lại ở "Danh sách theo dõi".']},
+    '29':{ten:'Bàn giao Hộ lý', mt:'Bàn giao hằng ngày theo bộ phận, đếm đủ cơ số.', b:[
+      'Ở Trang chủ bấm thẻ "Bàn giao Hộ lý".',
+      'Ở tab "📝 Bàn giao": chọn "Nhân viên bàn giao", bấm chọn "Bộ phận bàn giao".',
+      'Đếm cơ số: đủ hết thì bấm "✓ Tất cả đủ cơ số"; thiếu thì ghi số thiếu ở từng dòng.',
+      'Bấm "✍️ Bấm để ký" (hoặc "Dùng chữ ký mẫu đã lưu") → bấm "Lưu bàn giao".',
+      'Bộ phận hiện 🔒 bị khóa (quá giờ): báo Quản lý để mở khóa rồi bàn giao bổ sung.']},
+    '30':{ten:'Tài sản – Sự cố thiết bị', mt:'Báo hỏng thiết bị, kiểm tra máy đầu ca.', b:[
+      'Ở Trang chủ bấm thẻ "Tài sản – Sự cố thiết bị".',
+      'Báo hỏng nhanh: bấm "Quét QR báo hỏng" → đưa camera vào tem QR dán trên máy. (Hoặc bấm tab "⚠️ Báo hỏng" rồi chọn máy.)',
+      'Điền lần lượt: 2. Người báo · 3. Mức độ ảnh hưởng · 4. Tình trạng sử dụng hiện tại · 5. Hiện tượng / mô tả.',
+      'Chụp ảnh minh chứng nếu có (mục 6), ký tên (mục 7) → bấm "📨 Gửi báo hỏng".',
+      'Theo dõi máy đang sửa ở tab "📡 Trạng thái". Kiểm tra máy đầu ca: tab "✅ Kiểm tra đầu ca".']},
+    '32':{ten:'Báo cáo vệ sinh', mt:'Báo cáo vệ sinh lavabo phòng mổ trước 08:00 hằng ngày.', b:[
+      'Ở Trang chủ bấm thẻ "Báo cáo vệ sinh".',
+      'Ở tab "📝 Báo cáo hôm nay": bấm vào ô phòng mổ của mình (ô màu cam = chưa báo).',
+      'Chọn hộ lý thực hiện; chụp đủ các góc theo ảnh mẫu.',
+      'Bấm "📨 Gửi báo cáo" — nhớ báo trước 08:00.',
+      'Phòng hiện "⛓ Bị khóa": liên hệ Quản lý để được mở khóa.']},
+    '35':{ten:'Mượn – Trả tài sản', mt:'Ghi nhận cho mượn thiết bị và nhận trả.', b:[
+      'Ở Trang chủ bấm thẻ "Mượn – Trả tài sản".',
+      'Cho mượn: bấm "➕ CHO MƯỢN thiết bị" → chọn phòng đang giữ máy (hoặc "QUÉT QR TEM MÁY") → bấm "🔁 Mượn" ở máy cần cho mượn.',
+      'Chọn nơi mượn: "🏠 Phòng / bộ phận trong khoa" hoặc "🏥 Khoa khác mượn" (bấm chọn khoa, tên người mượn).',
+      'Ghi "Người mượn", chọn hạn trả (ví dụ "Ngày mai", "3 ngày" hoặc "⏳ Chưa xác định") → bấm "💾 Lưu mượn tạm".',
+      'Nhận lại máy: bấm "↩ NHẬN TRẢ thiết bị" → "↩ Trả" ở máy đó → ghi tình trạng → bấm "↩ Xác nhận trả về …".']},
+    '36':{ten:'Bundle Hồi sức', mt:'Ghi bundle phòng ngừa theo ca cho từng giường (không ghi họ tên người bệnh).', b:[
+      'Ở Trang chủ bấm thẻ "Bundle Hồi sức".',
+      'Nhận người bệnh: bấm vào giường trống → nhập "Mã bệnh án HIS" (không ghi họ tên), tick Thở máy / Catheter / Sonde tiểu → bấm "💾 Lưu".',
+      'Mỗi ca: bấm từng giường (giường đỏ = chưa ghi) → chọn ✓ Đạt / ✗ Không / Không áp dụng (hoặc "✓ Đạt hết") → bấm "💾 Lưu bundle".',
+      '08:00 hằng ngày: kiểm tra thiết bị từng giường → bấm "📌 Chốt kiểm đếm hôm nay".',
+      'Có sự kiện (tuột ống, té ngã…): tab "⚠️ Sự kiện" → "➕ Ghi sự kiện".']}
+  };
+  window.HD_NV=HD_NV;
+  var S={cfg:null, the:null, buoc:0, ds:false};
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function dam(t){ return esc(t).replace(/&quot;(.+?)&quot;/g,'<b>"$1"</b>'); }
+  function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
+  function laQL(){ try{ return typeof adminSession!=='undefined' && adminSession && adminSession.active===true; }catch(e){ return false; } }
+  function hoTro(){ var c=S.cfg&&S.cfg.hoTro; if(Array.isArray(c) && c.length) return c; return [{ten:'Võ Ngọc Phước', sdt:'', vt:'Quản lý khoa'}]; }
+
+  /* ── giọng đọc tiếng Việt ── */
+  function giongVi(){ try{ var v=speechSynthesis.getVoices()||[]; return v.filter(function(x){ return /^vi/i.test(x.lang); })[0]||null; }catch(e){ return null; } }
+  window.hdDoc=function(){
+    var h=HD_NV[S.the]; if(!h) return;
+    if(!('speechSynthesis' in window)){ alert('Máy này chưa hỗ trợ đọc to. Anh/chị đọc chữ trên màn hình nhé.'); return; }
+    try{ speechSynthesis.cancel(); }catch(e){}
+    var t=S.ds ? h.b.map(function(x,i){ return 'Bước '+(i+1)+'. '+x; }).join(' ') : 'Bước '+(S.buoc+1)+'. '+h.b[S.buoc];
+    var u=new SpeechSynthesisUtterance(t.replace(/["“”]/g,'')); u.lang='vi-VN'; u.rate=0.92; var g=giongVi(); if(g) u.voice=g;
+    if(!g) setTimeout(function(){ if(!speechSynthesis.speaking) alert('Máy này chưa có giọng đọc tiếng Việt.\nAnh/chị có thể cài thêm giọng Tiếng Việt trong Cài đặt của điện thoại (mục Trợ năng / Đọc màn hình).'); }, 1500);
+    speechSynthesis.speak(u);
+  };
+  function ngungDoc(){ try{ speechSynthesis.cancel(); }catch(e){} }
+
+  /* ── hộp hướng dẫn ── */
+  function ve(){
+    var h=HD_NV[S.the], ov=document.getElementById('hdOv'); if(!h||!ov) return;
+    var n=h.b.length, i=S.buoc, than;
+    if(S.ds){
+      than='<ol class="hd-ds">'+h.b.map(function(x){ return '<li>'+dam(x)+'</li>'; }).join('')+'</ol>'+
+        '<div class="hd-hang"><button class="hd-nut" style="background:#fff3e0;color:#e65100" onclick="hdDoc()">🔊 Đọc cho tôi nghe</button><button class="hd-nut" style="background:#ef6c00;color:#fff" onclick="hdDong()">✓ Đã hiểu</button></div>'+
+        '<span class="hd-lk" onclick="hdCheDo(false)">👉 Xem lại từng bước</span>';
+    } else {
+      than='<div class="hd-so">Bước '+(i+1)+' / '+n+'</div><div class="hd-buoc">'+dam(h.b[i])+'</div>'+
+        '<div class="hd-cham">'+h.b.map(function(_,k){ return '<span class="'+(k===i?'on':'')+'" onclick="hdDen('+k+')"></span>'; }).join('')+'</div>'+
+        '<div class="hd-hang"><button class="hd-nut" style="background:#eceff1;color:#37474f'+(i?'':';opacity:.45')+'" '+(i?'onclick="hdDen('+(i-1)+')"':'disabled')+'>‹ Quay lại</button>'+
+        (i<n-1?'<button class="hd-nut" style="background:#ef6c00;color:#fff" onclick="hdDen('+(i+1)+')">Tiếp ›</button>':'<button class="hd-nut" style="background:#2e7d32;color:#fff" onclick="hdDong()">✓ Đã hiểu</button>')+'</div>'+
+        '<div class="hd-hang"><button class="hd-nut" style="background:#fff3e0;color:#e65100" onclick="hdDoc()">🔊 Đọc cho tôi nghe</button></div>'+
+        '<span class="hd-lk" onclick="hdCheDo(true)">📋 Xem tất cả các bước</span>';
+    }
+    var ht=hoTro().map(function(p){ var sdt=String(p.sdt||'').replace(/[^\d+]/g,'');
+      return '<b>'+esc(p.ten)+'</b>'+(p.vt?' ('+esc(p.vt)+')':'')+(sdt?' — <a href="tel:'+sdt+'">📞 '+esc(p.sdt)+'</a> · <a href="https://zalo.me/'+sdt.replace(/^\+?84/,'0')+'" target="_blank" rel="noopener">💬 Zalo</a>':''); }).join('<br>');
+    than+='<div class="hd-ht">📞 <b>Vẫn chưa làm được?</b> Anh/chị liên hệ:<br>'+ht+
+      (laQL()?'<div style="margin-top:6px"><a href="javascript:hdSuaHoTro()" style="font-size:13px;font-weight:700">✏️ Sửa người hỗ trợ (Quản lý)</a></div>':'')+'</div>';
+    ov.querySelector('.hd-than').innerHTML=than;
+  }
+  window.hdMo=function(hc, ev, tuTrong){
+    if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(e){} }
+    hc=String(hc); var h=HD_NV[hc]; if(!h) return;
+    S.the=hc; S.buoc=0; S.ds=false; hdDong(true);
+    if(tuTrong){ for(var k=0;k<h.b.length-1;k++){ if(/^Ở Trang chủ bấm thẻ/.test(h.b[k]) || h.b[k]===TEN) S.buoc=k+1; else break; } }   /* đang trong chức năng → bỏ qua bước đã làm */
+    var ov=document.createElement('div'); ov.id='hdOv';
+    ov.innerHTML='<div class="hd-hop"><div class="hd-dau"><div style="flex:1"><h3>❓ Hướng dẫn nhanh: '+esc(h.ten)+'</h3><div class="hd-mt">'+esc(h.mt)+'</div></div><button class="hd-x" onclick="hdDong()">✕</button></div><div class="hd-than"></div></div>';
+    ov.addEventListener('click', function(e){ if(e.target===ov) hdDong(); });
+    document.body.appendChild(ov); ve();
+    if(coDb()){ try{ db.ref('huongDanCfg/dem/'+hc).transaction(function(c){ return (c||0)+1; }); }catch(e){} }   /* đếm lượt mở → biết thẻ nào khó dùng */
+  };
+  window.hdDen=function(k){ S.buoc=k; ngungDoc(); ve(); };
+  window.hdCheDo=function(ds){ S.ds=!!ds; ngungDoc(); ve(); };
+  window.hdDong=function(im){ ngungDoc(); var o=document.getElementById('hdOv'); if(o) o.remove(); };
+  window.hdSuaHoTro=function(){
+    if(!laQL()){ alert('Chỉ Quản lý mới sửa được.'); return; }
+    var cu=hoTro().map(function(p){ return [p.ten, p.sdt||'', p.vt||''].join(' | '); }).join('\n');
+    var t=prompt('Người hỗ trợ (mỗi dòng 1 người): Họ tên | Số điện thoại | Vai trò\nVD: Võ Ngọc Phước | 09xxxxxxxx | Quản lý khoa', cu);
+    if(t==null) return;
+    var ds=t.split('\n').map(function(d){ var p=d.split('|').map(function(x){ return x.trim(); }); return p[0]?{ten:p[0].slice(0,60), sdt:(p[1]||'').slice(0,20), vt:(p[2]||'').slice(0,40)}:null; }).filter(Boolean).slice(0,3);
+    if(!ds.length){ alert('Chưa có tên người hỗ trợ.'); return; }
+    S.cfg=S.cfg||{}; S.cfg.hoTro=ds; ve();
+    if(coDb()) db.ref('huongDanCfg/hoTro').set(ds).then(function(){ if(typeof showAl==='function') showAl('Đã lưu người hỗ trợ.'); }, function(e){ alert('Chưa lưu được: '+(e&&e.message||e)); });
+  };
+
+  /* ── nút ❓ trên thẻ Trang chủ + nút nổi trong chức năng ── */
+  function gan(){
+    [].slice.call(document.querySelectorAll('.home-card[data-hc]')).forEach(function(c){
+      var hc=c.getAttribute('data-hc'); if(!HD_NV[hc] || c.querySelector('.hd-hoi')) return;
+      if(getComputedStyle(c).position==='static') c.style.position='relative';
+      var b=document.createElement('button'); b.className='hd-hoi'; b.type='button'; b.title='Hướng dẫn nhanh'; b.textContent='?';
+      b.addEventListener('click', function(e){ hdMo(hc, e); }, true);
+      c.appendChild(b);
+      if(!c._hdNghe){ c._hdNghe=1; c.addEventListener('click', function(e){ if(e.target.closest && e.target.closest('.hd-hoi')) return; S.vuaMo=hc; }, true); }
+    });
+  }
+  function noi(){
+    var b=document.getElementById('hdNoi');
+    if(!b){ b=document.createElement('button'); b.id='hdNoi'; b.type='button'; b.textContent='❓ Hướng dẫn'; b.onclick=function(){ if(S.vuaMo) hdMo(S.vuaMo, null, true); }; document.body.appendChild(b); }
+    var home=document.getElementById('homeScreen'), oHome=home && getComputedStyle(home).display!=='none';
+    var hien=!oHome && S.vuaMo && HD_NV[S.vuaMo] && S.vuaMo!=='36' && !document.getElementById('hdOv');   /* Bundle đã có nút "❓ Hướng dẫn" riêng */
+    b.style.display=hien?'block':'none';
+  }
+  function batDau(){
+    gan(); noi();
+    setInterval(function(){ gan(); noi(); }, 1500);   /* Trang chủ gọn có thể dựng lại thẻ */
+    if(coDb()){ try{ db.ref('huongDanCfg/hoTro').on('value', function(sn){ S.cfg=S.cfg||{}; S.cfg.hoTro=sn.val()||null; if(document.getElementById('hdOv')) ve(); }); }catch(e){} }
+    try{ if('speechSynthesis' in window) speechSynthesis.getVoices(); }catch(e){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(batDau, 600); }); else setTimeout(batDau, 600);
+})();
+</script>
+<!-- ══ HẾT HƯỚNG DẪN NHANH ══ -->
+
+
 
 
 
