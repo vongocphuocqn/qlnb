@@ -25914,13 +25914,17 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
     var ovE=document.getElementById('qtModalOv'), editId=ovE.dataset.editid;
     if(editId){
       rec.suaLuc = Date.now();
-      db.ref('quyTrinh').child(editId).update(rec).then(function(){
-        try{ if(typeof showAl==='function') showAl('Đã lưu thay đổi quy trình!'); }catch(e){}
-      }).catch(function(err){ alert('Không lưu được — kiểm tra mạng rồi thử lại.\n'+(err&&err.message||err)); });
-      ovE.dataset.editid='';
-      ovE.classList.remove('open');
-      document.getElementById('qt_hethieuluc').checked=false;
-      ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+      /* 16/11/2026: chờ máy chủ xác nhận rồi mới đóng hộp; lỗi thì báo, GIỮ nguyên nội dung để lưu lại */
+      if(!qtNutLuu(true)) return;
+      qtGhiCho(db.ref('quyTrinh').child(editId).update(rec)).then(function(){
+        qtNutLuu(false);
+        ovE.dataset.editid='';
+        ovE.classList.remove('open');
+        document.getElementById('qt_hethieuluc').checked=false;
+        ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+        qtHienQT(editId);
+        try{ if(typeof showAl==='function') showAl('✅ Đã lưu thay đổi quy trình lên máy chủ!'); }catch(e){}
+      }).catch(function(err){ qtNutLuu(false); qtBaoLoiLuu(err); });
       return;
     }
     rec.createdAt = Date.now();
@@ -25930,15 +25934,35 @@ ol.qt-steps{margin:0;padding-left:17px;font-size:12.8px;line-height:1.6}
       }
       return qtStaffNames.length;
     })();
-    db.ref('quyTrinh').push(rec);
-    qtCreateBroadcastTask(rec);
-    try{ if(typeof showAl==='function') showAl('Đã lưu quy trình và tạo thẻ nhắc việc "Phổ biến quy trình" trên Kanban!'); }catch(e){}
-    document.getElementById('qtModalOv').classList.remove('open');
-    document.getElementById('qtRemindTextArea').value = qtBuildRemindTextFromRec(rec, 0, newScopeCount);
-    document.getElementById('qtRemindTextOv').classList.add('open');
-    document.getElementById('qt_hethieuluc').checked=false;
-    ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+    /* 16/11/2026: trước đây push() không chờ kết quả → máy chủ từ chối (mạng/phiên) vẫn báo "Đã lưu", vào lại không thấy. Nay chờ xác nhận + bỏ bộ lọc + mở đúng quy trình mới. */
+    if(!qtNutLuu(true)) return;
+    var newRef = db.ref('quyTrinh').push();
+    qtGhiCho(newRef.set(rec)).then(function(){
+      qtNutLuu(false);
+      try{ qtCreateBroadcastTask(rec); }catch(e){ console.error(e); }
+      document.getElementById('qtModalOv').classList.remove('open');
+      document.getElementById('qtRemindTextArea').value = qtBuildRemindTextFromRec(rec, 0, newScopeCount);
+      document.getElementById('qtRemindTextOv').classList.add('open');
+      document.getElementById('qt_hethieuluc').checked=false;
+      ['qt_ten','qt_ma','qt_khoa','qt_ngay','qt_chuky','qt_mucdich','qt_trachnhiem','qt_buoc','qt_luuy','qt_quick'].forEach(function(id){document.getElementById(id).value='';});
+      qtHienQT(newRef.key);
+      try{ if(typeof showAl==='function') showAl('✅ Đã lưu quy trình lên máy chủ và tạo thẻ nhắc việc "Phổ biến quy trình" trên Kanban!'); }catch(e){}
+    }).catch(function(err){ qtNutLuu(false); qtBaoLoiLuu(err); });
   };
+  /* Nút Lưu: chống bấm 2 lần, hiện "Đang lưu…" */
+  var qtDangLuu=false;
+  function qtNutLuu(bat){ var b=document.getElementById('qtSaveBtn');
+    if(bat){ if(qtDangLuu) return false; qtDangLuu=true; if(b){ b.dataset.goc=b.textContent; b.disabled=true; b.textContent='⏳ Đang lưu lên máy chủ...'; } return true; }
+    qtDangLuu=false; if(b){ b.disabled=false; if(b.dataset.goc) b.textContent=b.dataset.goc; } return true; }
+  /* Chờ máy chủ xác nhận tối đa 20 giây (mất mạng thì Firebase giữ hàng đợi, không báo lỗi) */
+  function qtGhiCho(p){ return new Promise(function(ok, loi){ var xong=false;
+    var t=setTimeout(function(){ if(!xong){ xong=true; loi(new Error('Quá 20 giây chưa nhận được xác nhận từ máy chủ (mạng yếu hoặc mất kết nối).')); } }, 20000);
+    p.then(function(v){ if(!xong){ xong=true; clearTimeout(t); ok(v); } }, function(e){ if(!xong){ xong=true; clearTimeout(t); loi(e); } }); }); }
+  function qtBaoLoiLuu(err){ var m=String((err&&err.message)||err||'');
+    alert('❌ CHƯA LƯU ĐƯỢC quy trình lên máy chủ.\n\n'+(/permission|denied/i.test(m)?'Máy chủ từ chối ghi (phiên đăng nhập / quyền). Hãy đăng nhập lại Quản lý rồi bấm Lưu lại.':m)+'\n\nNội dung anh/chị đã nhập VẪN CÒN trong hộp — kiểm tra mạng rồi bấm Lưu lại.'); }
+  /* Sau khi lưu: bỏ mọi bộ lọc + ô tìm, mở và cuộn tới quy trình vừa lưu */
+  function qtHienQT(id){ try{ for(var m in qtExtra) qtExtra[m]=''; qtActiveFilter='Tất cả'; qtQuickFilter='all'; var si=document.getElementById('qtSearchInput'); if(si) si.value=''; qtOpenId=id; qtRender();
+    setTimeout(function(){ var c=document.querySelector('#qtCardList .qt-card[data-id="'+id+'"]'); if(c){ c.scrollIntoView({behavior:'smooth',block:'center'}); c.style.outline='3px solid #2e7d32'; setTimeout(function(){ c.style.outline=''; },4000); } }, 300); }catch(e){} }
 })();
 </script>
 
@@ -66007,6 +66031,7 @@ window.bcvsLuuCfg=function(){
 var LD_VER='2026-11-13';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-16', nd:'Thư viện quy trình: nút "Lưu vào thư viện" / "💾 Lưu thay đổi" chờ máy chủ xác nhận (hiện "⏳ Đang lưu lên máy chủ..."), lỗi thì báo và giữ nội dung; lưu xong tự bỏ bộ lọc và mở đúng quy trình vừa lưu.'},
   {d:'2026-11-15', nd:'THẺ MỚI "Bundle Hồi sức" (thử nghiệm): giường – thiết bị, ghi bundle theo ca, chốt kiểm đếm 8h, sự kiện (KSNK xác nhận), kiểm tra đột xuất, chỉ số tháng /1.000 ngày thiết bị, KPI dự kiến (chưa áp dụng).'},
   {d:'2026-11-15', nd:'Trang chủ (bản demo): thẻ nhân viên xếp thành 7 nhóm bấm mở/đóng (Công việc hằng ngày, Trực & nhân lực, Nghỉ & chế độ, Bàn giao, Thiết bị – Vệ sinh, Chuyên môn – Đào tạo, Đánh giá – Hành chính), ô "Tìm thẻ", nút "Kiểu cũ" / "Thử kiểu gọn".'},
   {d:'2026-11-15', nd:'Tài sản – Kiểm tra đầu ca: máy đang cho KHOA KHÁC mượn không còn tạo ô phòng theo tên khoa, không tính vào tổng kiểm tra, chỉ hiện trong ô "Mượn tạm" với nhãn "🏥 Đang ở … — không kiểm tra".'},
