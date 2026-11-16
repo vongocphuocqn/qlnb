@@ -67884,8 +67884,11 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
   /* ── Lần đầu: bổ sung thông báo cho quy trình đã thêm/sửa trong 14 ngày qua (trước khi có module này) ── */
   function msTu(v){ if(typeof v==='number') return v; var t=Date.parse(v); return isNaN(t)?0:t; }
   /* Đọc Thư viện quy trình 1 lần mỗi lần mở trang (và 10 phút/lần): quy trình thêm/sửa trong 14 ngày → S.dsPhu; bổ sung vào quyTrinhTB nếu thiếu */
-  function boSungCu(){
+  var LS_QUET='qtTBQuet_v2', CACH_QUET=6*3600000;
+  function boSungCu(epBuoc){
     if(!coDb()) return;
+    var cu=null; try{ cu=JSON.parse(lsG(LS_QUET)||'null'); }catch(e){}
+    if(!epBuoc && cu && cu.t && Date.now()-cu.t<CACH_QUET) return;   /* 16/11 19:45: tránh tải cả Thư viện mỗi lần mở trang (làm chậm đồng bộ các thẻ khác) */
     var tu=Date.now()-SO_NGAY*86400000;
     db.ref('quyTrinh').once('value').then(function(snap){
       var d=snap.val()||{}, phu={}, up={}, n=0;
@@ -67894,7 +67897,7 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
         var o={ten:String(r.ten).replace(/<[^>]+>/g,' ').slice(0,200), ma:String(r.ma||'').slice(0,60), khoa:String(r.khoa||'').slice(0,100), nhom:String(r.nhom||'').slice(0,60),
                loai:(tMoi>=tu?'moi':'capnhat'), t:t, gc:''};
         phu[k]=o; if(!S.ds[k]){ up[k]=o; n++; } });
-      S.dsPhu=phu; S.loiQT=null; ve();
+      S.dsPhu=phu; S.loiQT=null; ve(); lsS(LS_QUET, JSON.stringify({t:Date.now(), ds:phu}));
       if(n) db.ref(NODE).update(up).catch(function(e){ S.loiGhi=e; ve(); });
     }).catch(function(e){ S.loiQT=e; console.warn('Không đọc được Thư viện quy trình:', e); ve(); });
   }
@@ -67904,7 +67907,8 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
     var lanDau=true;
     try{ db.ref(NODE).on('value', function(snap){ S.ds=snap.val()||{}; S.loiTB=null; ve(); },
       function(e){ S.loiTB=e; console.warn('Không đọc được thông báo quy trình:', e); ve(); }); }catch(e){ console.warn(e); }
-    setTimeout(boSungCu, 2500); setInterval(boSungCu, 10*60*1000);
+    try{ var c0=JSON.parse(lsG(LS_QUET)||'null'); if(c0 && c0.ds) S.dsPhu=c0.ds; }catch(e){}   /* hiện ngay danh sách đã quét lần trước */
+    setTimeout(function(){ boSungCu(false); }, 15000); setInterval(function(){ boSungCu(false); }, 60*60*1000);
     theoDoiHop(); ngheTen();
     var adCu=cheDoQL();
     setInterval(function(){ ngheTen(); var a=cheDoQL(); if(a!==adCu){ adCu=a; ve(); } else huyHieu(a?dsConHan().length:dsChuaXem().length); }, 3000);   /* tên đổi ở Thư viện → cập nhật */   /* Trang chủ gọn có thể dựng lại thẻ */
@@ -68241,7 +68245,7 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-16 13:20';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-16 19:50';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
