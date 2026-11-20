@@ -22023,7 +22023,7 @@ function nbRestore(evt){
       if(v){
         // Chỉ tự chuyển sang "Đã đồng bộ" nếu đang ở trạng thái chờ kết nối ban đầu,
         // không đè lên trạng thái "Đang đồng bộ..." khi có thao tác ghi dữ liệu đang chạy.
-        if(msg.textContent==='Đang kết nối...'){ dot.className='sync-dot'; msg.textContent='Đã đồng bộ'; }
+        if(msg.textContent==='Đang kết nối...'||msg.textContent==='Mất kết nối'){ dot.className='sync-dot'; msg.textContent='Đã đồng bộ'; }
       } else {
         dot.className='sync-dot off'; msg.textContent='Mất kết nối';
       }
@@ -22484,7 +22484,7 @@ function npPopulatePersonSelect(){
     document.getElementById('npPersonSearch').value='';document.getElementById('npPersonVal').value='';}
   else{if(sd){sd.style.display='block';sd.value=npCurrentUser.name;}if(aw)aw.style.display='none';
     document.getElementById('npPersonVal').value=npCurrentUser?npCurrentUser.name:'';}
-  document.getElementById('npReplSearch').value='';document.getElementById('npReplVal').value='';
+  (function(){var a=document.getElementById('npReplSearch'),b=document.getElementById('npReplVal');if(a)a.value='';if(b)b.value='';})();
   npUpdateRemainDisplay();
 }
 /* Person */
@@ -66315,9 +66315,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-18b';
+var LD_VER='2026-11-20a';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-20', nd:'Nghỉ phép / Nghỉ bù: sửa lỗi vào màn hình không tự tải phiếu (toàn số 0, "Đang đồng bộ..." đứng yên, phải bấm Làm mới); tự kết nối lại khi chập mạng; bỏ tự tải lại toàn bộ dữ liệu mỗi 3 phút để giảm chậm.'},
   {d:'2026-11-18', nd:'Checklist › 📝 Ghi chú kiểm tra: chọn "👤 Nhân viên liên quan" (gõ tìm tên trong danh sách nhân viên); loại ⚠ Vấn đề có ô "Trừ điểm KPI" + loại sự kiện → tự ghi sang thẻ KPI. Sổ ghi chú tháng: lọc theo nhân viên, "👥 Thống kê theo nhân viên", Excel thêm sheet theo nhân viên.'},
   {d:'2026-11-18', nd:'Ghi chú Báo cáo: ô Danh mục (Ghi chú mới, Sửa ghi chú, Bộ lọc) gõ được để tìm — gõ vài chữ có dấu hoặc không dấu, ↑ ↓ chọn, Enter xác nhận.'},
   {d:'2026-11-17', nd:'Điểm danh: thêm "🏥 Nhận trực" — Quản lý đăng ký máy tính bàn của khoa; trưởng tua mở mã trên máy đó, từng thành viên quét bằng điện thoại cá nhân; quên điện thoại thì ghi tay kèm lý do.'},
@@ -67426,6 +67427,192 @@ window.gcbcTimDmBoc=chay;
 </script>
 <!-- ══ HẾT: Ô DANH MỤC GÕ ĐỂ TÌM ══ -->
 
+<!-- ══ KẾT NỐI NGHỈ PHÉP / NGHỈ BÙ — TỰ HỒI PHỤC + GIẢM TẢI (20/11/2026) ══ -->
+<script>
+(function(){
+  function hien(id){ var e=document.getElementById(id); return !!(e && getComputedStyle(e).display!=='none'); }
+  function npUser(){ try{ return npCurrentUser; }catch(e){ return null; } }
+  function nbUser(){ try{ return nbCurrentUser; }catch(e){ return null; } }
+  var mang = true, daTaiNp = false, daTaiNb = false;
+  var npThu = 0, nbThu = 0, npHen = null, nbHen = null;
+  var CHO = [5000,15000,30000,60000];
+
+  /* Đo dung lượng lần tải đầu (để biết nhánh nặng tới đâu) */
+  function doNp(snap, t0){
+    try{
+      var v = snap.val()||{}, n = Object.keys(v).length;
+      var kb = Math.round(JSON.stringify(v).length/1024);
+      var dk = 0; Object.keys(v).forEach(function(k){ var r=v[k]||{}; if(r.attachments) dk += JSON.stringify(r.attachments).length; if(r.chuKyTruongKhoaAnh) dk += String(r.chuKyTruongKhoaAnh).length; if(r.chuKyDieuDuongTruongAnh) dk += String(r.chuKyDieuDuongTruongAnh).length; });
+      window.__npDoDung = {phieu:n, kb:kb, anhKb:Math.round(dk/1024), giay:((Date.now()-t0)/1000).toFixed(1)};
+      console.log('[NP] đo nhánh nghiPhep:', window.__npDoDung);
+      var b = document.getElementById('npDoDung');
+      var ban = document.getElementById('npAdminBanner');
+      if(!b && ban){ b=document.createElement('span'); b.id='npDoDung'; b.style.cssText='font-size:11px;opacity:.85;margin-left:10px'; ban.firstElementChild && ban.firstElementChild.appendChild(b); }
+      if(b) b.textContent = '· '+n+' phiếu · '+(kb>=1024?(kb/1024).toFixed(1)+' MB':kb+' KB')+' · '+window.__npDoDung.giay+' giây';
+    }catch(e){}
+  }
+
+  /* Nghe lại khi listener bị từ chối / chưa trả dữ liệu */
+  function ngheLaiNp(lyDo){
+    if(!npUser() || !hien('npScreen')) return;
+    console.log('[NP] nghe lại:', lyDo);
+    try{ npRef.off('value'); }catch(e){}
+    _npListenerActive = false;
+    var t0 = Date.now(), xong = false;
+    _npListenerActive = true;
+    npSetSync('sync');
+    var gioiHan = setTimeout(function(){ if(!xong){ xong=true; loiNp('quá 45 giây'); } }, 45000);
+    npRef.on('value', function(snap){
+      var data = snap.val()||{};
+      npRecords = Object.values(data);
+      if(!daTaiNp) doNp(snap, t0);
+      daTaiNp = true; npThu = 0; xong = true; clearTimeout(gioiHan);
+      npSetSync('ok'); bang('npScreen', false);
+      var u = npUser(); if(!u) return;
+      try{ npRenderMyList(); if(u.role==='admin'||u.role==='viewer'){ npRenderList(); npRenderStat(); } }catch(e){ console.error(e); }
+    }, function(err){
+      xong = true; clearTimeout(gioiHan); _npListenerActive = false; loiNp(err && err.message);
+    });
+  }
+  function loiNp(lyDo){
+    _npSS(mang ? 'sync' : 'err');
+    if(!daTaiNp) bang('npScreen', true);
+    clearTimeout(npHen);
+    var c = CHO[Math.min(npThu, CHO.length-1)]; npThu++;
+    console.warn('[NP] lỗi tải ('+lyDo+'), thử lại sau '+c/1000+' giây');
+    npHen = setTimeout(function(){ npHen = null; ngheLaiNp('thử lại'); }, c);
+  }
+  function ngheLaiNb(lyDo){
+    if(!nbUser() || !hien('nbScreen')) return;
+    console.log('[NB] nghe lại:', lyDo);
+    try{ nbRef.off('value'); }catch(e){}
+    var xong = false; _nbListenerActive = true; nbSetSync('sync');
+    var gioiHan = setTimeout(function(){ if(!xong){ xong=true; loiNb('quá 45 giây'); } }, 45000);
+    nbRef.on('value', function(snap){
+      nbRecords = Object.values(snap.val()||{});
+      daTaiNb = true; nbThu = 0; xong = true; clearTimeout(gioiHan);
+      nbSetSync('ok'); bang('nbScreen', false);
+      var u = nbUser(); if(!u) return;
+      try{ nbRenderMyList(); if(u.role==='admin'||u.role==='viewer'){ nbRenderList(); nbRenderStat(); } }catch(e){ console.error(e); }
+    }, function(err){ xong = true; clearTimeout(gioiHan); _nbListenerActive = false; loiNb(err && err.message); });
+  }
+  function loiNb(lyDo){
+    _nbSS(mang ? 'sync' : 'err');
+    if(!daTaiNb) bang('nbScreen', true);
+    clearTimeout(nbHen);
+    var c = CHO[Math.min(nbThu, CHO.length-1)]; nbThu++;
+    nbHen = setTimeout(function(){ nbHen = null; ngheLaiNb('thử lại'); }, c);
+  }
+
+  /* Dải cam: số 0 chưa phải số thật */
+  function bang(scr, bat){
+    var id = scr+'_chuaTai', el = document.getElementById(id), sc = document.getElementById(scr);
+    if(!bat){ if(el) el.remove(); return; }
+    if(el || !sc) return;
+    el = document.createElement('div'); el.id = id;
+    el.style.cssText = 'margin:8px auto;max-width:1420px;width:calc(100% - 24px);background:#fff3e0;border:1px solid #ffb74d;color:#e65100;border-radius:8px;padding:8px 12px;font-size:13px';
+    el.innerHTML = '⏳ Đang tải dữ liệu từ máy chủ — <b>các số 0 hiện tại chưa phải số thật</b>. App tự thử lại, anh/chị không cần thao tác.';
+    var tb = sc.querySelector('.nb-topbar'); if(tb && tb.nextSibling) sc.insertBefore(el, tb.nextSibling); else sc.prepend(el);
+  }
+
+  /* Mọi chỗ báo lỗi ("Mất kết nối") khi máy vẫn có mạng → tự thử lại thay vì đứng yên */
+  var _npSS = window.npSetSync, _nbSS = window.nbSetSync;
+  window.npSetSync = function(s){
+    if(s==='err' && mang && hien('npScreen') && npUser()){ _npSS('sync'); if(!npHen) loiNp('báo lỗi'); return; }
+    return _npSS(s);
+  };
+  window.nbSetSync = function(s){
+    if(s==='err' && mang && hien('nbScreen') && nbUser()){ _nbSS('sync'); if(!nbHen) loiNb('báo lỗi'); return; }
+    return _nbSS(s);
+  };
+
+  /* Vào màn hình: canh 15 giây, chưa có dữ liệu thì tự nghe lại */
+  var _enterNp = window.enterNpScreen;
+  if(typeof _enterNp === 'function'){
+    window.enterNpScreen = function(){
+      var r; try{ r = _enterNp.apply(this, arguments); }catch(e){ console.error('[NP] enterNpScreen lỗi:', e); try{ startNpListening(); }catch(e2){} }
+      if(!daTaiNp){
+        bang('npScreen', true);
+        setTimeout(function(){ if(!daTaiNp && !(npRecords&&npRecords.length)) ngheLaiNp('15 giây chưa có dữ liệu'); }, 15000);
+      }
+      if(true){
+        setTimeout(function(){ if(!_npListenerActive && !npHen) ngheLaiNp('listener chưa chạy'); }, 6000);
+      }
+      return r;
+    };
+  }
+  var _enterNb = window.enterNbScreen;
+  if(typeof _enterNb === 'function'){
+    window.enterNbScreen = function(){
+      var r; try{ r = _enterNb.apply(this, arguments); }catch(e){ console.error('[NB] enterNbScreen lỗi:', e); try{ startNbListening(); }catch(e2){} }
+      if(!daTaiNb){
+        setTimeout(function(){ if(!daTaiNb && !(nbRecords&&nbRecords.length)) ngheLaiNb('15 giây chưa có dữ liệu'); }, 15000);
+      }
+      if(true){
+        setTimeout(function(){ if(!_nbListenerActive && !nbHen) ngheLaiNb('listener chưa chạy'); }, 6000);
+      }
+      return r;
+    };
+  }
+  /* Listener gốc chạy được thì đánh dấu đã tải */
+  try{ npRef.on('value', function(snap){ if(!daTaiNp){ daTaiNp = true; bang('npScreen', false); } }); }catch(e){}
+  try{ nbRef.on('value', function(){ daTaiNb = true; bang('nbScreen', false); }); }catch(e){}
+
+  /* Chập mạng < 12 giây: chỉ hiện "Đang kết nối..."; có mạng lại thì tự nghe lại nếu listener đã rớt */
+  var hMat = null;
+  try{
+    db.ref('.info/connected').on('value', function(snap){
+      var v = !!snap.val();
+      clearTimeout(hMat);
+      if(!v){
+        mang = false;
+        ['npSyncMsg','nbSyncMsg'].forEach(function(id){ var m=document.getElementById(id); if(m) m.textContent='Đang kết nối...'; });
+        hMat = setTimeout(function(){ if(!mang){ try{ npSetSync('err'); nbSetSync('err'); }catch(e){} } }, 12000);
+      } else {
+        mang = true;
+        if(hien('npScreen') && (!_npListenerActive || !daTaiNp)) ngheLaiNp('có mạng lại');
+        else if(hien('npScreen')) npSetSync('ok');
+        if(hien('nbScreen') && (!_nbListenerActive || !daTaiNb)) ngheLaiNb('có mạng lại');
+        else if(hien('nbScreen')) nbSetSync('ok');
+      }
+    });
+  }catch(e){}
+
+  /* GIẢM TẢI: bỏ "tự tải lại toàn bộ nhánh mỗi 3 phút" — listener đã cập nhật tức thì.
+     Chỉ còn kiểm tra nhẹ: nếu listener rớt thì nghe lại. */
+  window.npStartAutoRefresh = function(){
+    npStopAutoRefresh();
+    _npAutoRefresh = setInterval(function(){
+      if(hien('npScreen') && npUser() && mang && (!_npListenerActive || !daTaiNp)) ngheLaiNp('kiểm tra 3 phút');
+    }, 3*60*1000);
+  };
+  window.nbStartAutoRefresh = function(){
+    nbStopAutoRefresh();
+    _nbAutoRefresh = setInterval(function(){
+      if(hien('nbScreen') && nbUser() && mang && (!_nbListenerActive || !daTaiNb)) ngheLaiNb('kiểm tra 3 phút');
+    }, 3*60*1000);
+  };
+
+  /* "Tải lại": listener đang chạy và đã có dữ liệu thì vẽ lại ngay (không tải lại toàn nhánh);
+     ngược lại mới tải, có hạn chờ 30 giây */
+  var _fr = window.npForceReload;
+  window.npForceReload = function(btn){
+    if(_npListenerActive && daTaiNp && mang){
+      try{ npRenderMyList(); npRenderList(); npRenderStat(); }catch(e){}
+      npSetSync('ok');
+      npShowAl('Dữ liệu đang cập nhật trực tiếp — '+(npRecords||[]).length+' phiếu', 'warn');
+      return;
+    }
+    var het = setTimeout(function(){
+      if(_npReloading){ _npReloading = false; npSetSync('sync'); npShowAl('Mạng chậm — app vẫn tự thử lại, anh/chị không cần bấm thêm', 'warn'); ngheLaiNp('Tải lại quá 30 giây'); try{ var b=document.querySelector('#npScreen button[disabled]'); if(b) b.disabled=false; }catch(e){} }
+    }, 30000);
+    return _fr.apply(this, arguments);
+  };
+  window.__fbConNoi = function(){ return {mang:mang, np:_npListenerActive, daTaiNp:daTaiNp, nb:_nbListenerActive, daTaiNb:daTaiNb, doDung:window.__npDoDung}; };
+})();
+</script>
+<!-- ══ HẾT: KẾT NỐI NGHỈ PHÉP / NGHỈ BÙ ══ -->
+
 <script>
 /* 19/10/2026 — BẢN CHẠY THỬ: tải file lên GitHub với tên thu.html (vongocphuocqn.github.io/qlnb/thu.html)
    thì hiện dải đỏ nhắc "đây là bản thử, dữ liệu là dữ liệu THẬT". index.html không bị ảnh hưởng. */
@@ -68513,7 +68700,7 @@ window.gcbcTimDmBoc=chay;
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-18 11:30';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-20 15:00';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
