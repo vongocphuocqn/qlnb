@@ -23257,6 +23257,7 @@ function npExportExcel(){
   const now=new Date();
   const nowStr=`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
   const slb={'pending':'Chờ duyệt','approved':'Đã duyệt','denied':'Từ chối'};
+  const _ct=!!window.npCtMode;
   let html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
   <head><meta charset="UTF-8"><style>
     body{font-family:Times New Roman;font-size:11pt}
@@ -23272,13 +23273,13 @@ function npExportExcel(){
     <tr><td colspan="10" class="org">SỞ Y TẾ TỈNH GIA LAI</td></tr>
     <tr><td colspan="10" class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</td></tr>
     <tr><td colspan="10" class="org2">KHOA GÂY MÊ HỒI SỨC</td></tr>
-    <tr><td colspan="10" class="title">DANH SÁCH ĐĂNG KÝ NGHỈ PHÉP</td></tr>
-    <tr><td colspan="10" class="org">Xuất ngày: ${nowStr} | Tổng phiếu: ${list.length} | Tổng ngày phép: ${list.reduce((s,r)=>s+(r.days||0),0)}</td></tr>
+    <tr><td colspan="10" class="title">${_ct?'LỊCH CÔNG TÁC':'DANH SÁCH ĐĂNG KÝ NGHỈ PHÉP'}</td></tr>
+    <tr><td colspan="10" class="org">Xuất ngày: ${nowStr} | Tổng phiếu: ${list.length} | ${_ct?'Tổng ngày công tác':'Tổng ngày phép'}: ${list.reduce((s,r)=>s+(r.days||0),0)}</td></tr>
     <tr></tr>
     <tr>
       <td class="th">STT</td><td class="th">Họ và tên</td><td class="th">Lập phiếu</td>
       <td class="th">Từ ngày</td><td class="th">Đến ngày</td><td class="th">Số ngày</td>
-      <td class="th">Loại phép</td><td class="th">Lý do</td>
+      ${_ct?'<td class="th">Nơi công tác / Căn cứ</td><td class="th">Nội dung công tác</td>':'<td class="th">Loại phép</td><td class="th">Lý do</td>'}
       <td class="th">Trạng thái</td><td class="th">Người thay thế</td><td class="th">Ghi chú QT</td>
     </tr>`;
   list.forEach((r,i)=>{
@@ -23291,8 +23292,8 @@ function npExportExcel(){
       <td class="td-c${ev}">${fmtD(r.dateFrom)}</td>
       <td class="td-c${ev}">${fmtD(r.dateTo)}</td>
       <td class="td-c${ev}" style="font-weight:700;color:#00695c;text-align:center;mso-number-format:General">${r.days}</td>
-      <td class="td${ev}">${npTypeLabel[r.type]||''}</td>
-      <td class="td${ev}">${plainQTNote(r.reason)}${npCtTxt(r,1)}</td>
+      <td class="td${ev}">${_ct?npCtNoiCanCu(r):(npTypeLabel[r.type]||'')}</td>
+      <td class="td${ev}">${plainQTNote(r.reason)}${_ct?'':npCtTxt(r,1)}</td>
       <td class="td-c${ev}${stCls}">${slb[r.status]||''}</td>
       <td class="td${ev}">${r.replacer||'—'}</td>
       <td class="td${ev}">${plainQTNote(r.adminNote)}</td>
@@ -23301,7 +23302,7 @@ function npExportExcel(){
   html+=`</table></body></html>`;
   const blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`NghiPhep_GMHS_${today()}.xls`;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  a.download=`${_ct?'LichCongTac':'NghiPhep'}_GMHS_${today()}.xls`;document.body.appendChild(a);a.click();document.body.removeChild(a);
   npShowAl('Xuất Excel thành công!');
 }
 
@@ -23318,9 +23319,10 @@ function npExportWord(){
   const totalDays=appr.reduce((s,r)=>s+(r.days||0),0);
   const byP={};list.forEach(r=>{if(!byP[r.person])byP[r.person]={name:r.person,totalDays:0,totalPhieu:0};byP[r.person].totalDays+=(r.days||0);byP[r.person].totalPhieu++;});
   const persSum=Object.values(byP).sort((a,b)=>b.totalDays-a.totalDays);
-  const docFileName=`NghiPhep_GMHS_${today()}.doc`;
+  const _ct=!!window.npCtMode;
+  const docFileName=`${_ct?'LichCongTac':'NghiPhep'}_GMHS_${today()}.doc`;
   const html=`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
-<title>Danh sách Nghỉ Phép – Khoa GMHS – ${printDate}</title>
+<title>${_ct?'Lịch công tác':'Danh sách Nghỉ Phép'} – Khoa GMHS – ${printDate}</title>
 <style>
   @media print{.no-print{display:none!important}@page{size:A4 landscape;margin:1.5cm 2cm}}
   body{font-family:'Times New Roman',serif;font-size:11pt;color:#111;margin:0;background:#f5f5f5}
@@ -23357,7 +23359,7 @@ function npExportWord(){
 </style></head><body>
 <div class="preview-wrap">
   <div class="toolbar no-print">
-    <span>📄 Xem trước – Danh sách Nghỉ Phép Khoa GMHS (${printDate})</span>
+    <span>📄 Xem trước – ${_ct?'Lịch công tác':'Danh sách Nghỉ Phép'} Khoa GMHS (${printDate})</span>
     <div class="zoom-grp">
       <button onclick="previewZoom(-10)" title="Thu nhỏ">−</button>
       <span id="pvZoomPct">100%</span>
@@ -23375,21 +23377,21 @@ function npExportWord(){
       <div class="org">BỆNH VIỆN ĐA KHOA TRUNG TÂM</div>
       <div class="dep">KHOA GÂY MÊ HỒI SỨC</div>
     </div>
-    <div class="doc-title">Danh sách Đăng ký Nghỉ Phép</div>
+    <div class="doc-title">${_ct?'Lịch công tác':'Danh sách Đăng ký Nghỉ Phép'}</div>
     <div class="doc-sub">Ngày xuất: ${printDate} | Giờ: ${printTime} | Người xuất: Quản lý</div>
     <div class="sum-grid">
       <div class="sum-box"><div class="sn">${list.length}</div><div class="sl">Tổng phiếu</div></div>
       <div class="sum-box"><div class="sn" style="color:#1b5e20">${appr.length}</div><div class="sl">Đã duyệt</div></div>
       <div class="sum-box"><div class="sn" style="color:#e65100">${list.filter(r=>r.status==='pending').length}</div><div class="sl">Chờ duyệt</div></div>
-      <div class="sum-box"><div class="sn">${totalDays}</div><div class="sl">Tổng ngày phép</div></div>
+      <div class="sum-box"><div class="sn">${totalDays}</div><div class="sl">${_ct?'Tổng ngày công tác':'Tổng ngày phép'}</div></div>
     </div>
-    <div class="section-title">I. CHI TIẾT PHIẾU NGHỈ PHÉP</div>
+    <div class="section-title">${_ct?'I. CHI TIẾT LỊCH CÔNG TÁC':'I. CHI TIẾT PHIẾU NGHỈ PHÉP'}</div>
     <table>
       <thead><tr>
         <th style="width:28pt">STT</th><th style="min-width:90pt">Họ và tên</th>
         <th style="width:65pt">Từ ngày</th><th style="width:65pt">Đến ngày</th>
-        <th style="width:45pt">Số ngày</th><th style="width:75pt">Loại phép</th>
-        <th>Lý do</th><th style="width:65pt">Trạng thái</th><th>Người thay thế</th><th>Ghi chú QT</th>
+        <th style="width:45pt">Số ngày</th><th style="width:${_ct?'120pt':'75pt'}">${_ct?'Nơi công tác / Căn cứ':'Loại phép'}</th>
+        <th>${_ct?'Nội dung công tác':'Lý do'}</th><th style="width:65pt">Trạng thái</th><th>Người thay thế</th><th>Ghi chú QT</th>
       </tr></thead>
       <tbody>${list.map((r,i)=>`<tr class="${i%2===1?'ev':''}">
         <td style="text-align:center">${i+1}</td>
@@ -23397,8 +23399,8 @@ function npExportWord(){
         <td style="text-align:center">${fmtD(r.dateFrom)}</td>
         <td style="text-align:center">${fmtD(r.dateTo)}</td>
         <td style="text-align:center;font-weight:700;color:#00695c">${r.days}</td>
-        <td>${npTypeLabel[r.type]||''}</td>
-        <td>${plainQTNote(r.reason)}${npCtTxt(r,1)}</td>
+        <td>${_ct?npCtNoiCanCu(r):(npTypeLabel[r.type]||'')}</td>
+        <td>${plainQTNote(r.reason)}${_ct?'':npCtTxt(r,1)}</td>
         <td class="st-${r.status==='approved'?'ok':r.status==='denied'?'deny':'pend'}" style="text-align:center">${slb[r.status]||''}</td>
         <td>${npReplacerDisplay(r)}</td>
         <td style="font-size:9pt">${plainQTNote(r.adminNote)}</td>
@@ -23411,7 +23413,7 @@ function npExportWord(){
     </table>
     <div class="section-title">II. THỐNG KÊ THEO CÁ NHÂN</div>
     <table>
-      <thead><tr><th style="width:28pt">STT</th><th>Họ và tên</th><th>Tổng phiếu</th><th>Tổng ngày phép</th></tr></thead>
+      <thead><tr><th style="width:28pt">STT</th><th>Họ và tên</th><th>Tổng phiếu</th><th>${_ct?'Tổng ngày công tác':'Tổng ngày phép'}</th></tr></thead>
       <tbody>${persSum.map((p,i)=>`<tr class="${i%2===1?'ev':''}">
         <td style="text-align:center">${i+1}</td><td style="font-weight:700">${esc(p.name)}</td>
         <td style="text-align:center">${p.totalPhieu}</td>
@@ -23422,7 +23424,7 @@ function npExportWord(){
       <div class="sig-box"><div><b>Người lập danh sách</b></div><div style="font-style:italic;color:#888;font-size:9pt">(Ký, ghi rõ họ tên)</div><div style="margin-top:40pt"></div></div>
       <div class="sig-box"><div><b>Trưởng khoa Gây mê Hồi sức</b></div><div style="font-style:italic;color:#888;font-size:9pt">(Ký, đóng dấu)</div><div style="margin-top:40pt"></div></div>
     </div>
-    <div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Hệ thống quản lý Nghỉ Phép nội bộ</div>
+    <div class="foot">Khoa Gây mê Hồi sức – BVĐK Trung tâm tỉnh Gia Lai · Hệ thống quản lý ${_ct?'Công tác':'Nghỉ Phép'} nội bộ</div>
   </div>
   </div>
 </div>
@@ -66356,9 +66358,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-20e';
+var LD_VER='2026-11-20f';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-20', nd:'Màn Công tác: Xuất Word / Xuất Excel có tiêu đề "LỊCH CÔNG TÁC", cột "Nơi công tác / Căn cứ" và "Nội dung công tác", "Tổng ngày công tác"; tên file LichCongTac_GMHS_….'},
   {d:'2026-11-20', nd:'Trang chủ: "Thông báo hôm nay – Nhân sự vắng" có nhóm ✈️ Công tác (đã duyệt / chờ duyệt, kèm nơi công tác); khung phiếu chờ xử lý có dòng "✈️ Công tác — chờ duyệt" (bấm vào mở màn Công tác); Nghỉ phép chờ duyệt không còn tính phiếu công tác.'},
   {d:'2026-11-20', nd:'Công tác có màn hình riêng giống Nghỉ phép/Nghỉ bù (màu xanh dương, chỉ hiện phiếu công tác; màn Nghỉ phép không lẫn phiếu công tác); mọi nhân viên đăng ký công tác được. Hộp chọn tên: nút Vào chức năng / Hủy nằm lại trong khung; người chưa được cấp quyền ĐK Nghỉ Phép / ĐK Nghỉ Bù thấy thông báo rõ.'},
   {d:'2026-11-20', nd:'Đối chiếu Dịch vụ PTTT: người đang CÔNG TÁC (phiếu Công tác đã duyệt hoặc Chấm công HIS ghi "CT") mà có tên trong danh sách phẫu thuật → báo KHÔNG HỢP LỆ. Đối chiếu HIS: ngày công tác không bị đòi ký hiệu "P".'},
@@ -67965,6 +67968,11 @@ function authBaoKhongQuyen(ten, chucNang, oQuyen){
 </script>
 <!-- ══ HẾT: CÔNG TÁC — MÀN HÌNH RIÊNG ══ -->
 <script>
+/* 20/11/2026 — Xuất Excel/Word ở màn Công tác: cột "Nơi công tác / Căn cứ" */
+function npCtNoiCanCu(r){ if(!r) return ''; var t=esc(r.noiCongTac||'—'); if(r.canCuCongTac) t+='<br><i>Căn cứ: '+esc(r.canCuCongTac)+'</i>'; return t; }
+</script>
+
+<script>
 /* 20/11/2026 — Trang chủ: dòng "✈️ Công tác — chờ duyệt" mở màn hình Công tác */
 (function(){ var _g=window.notifGoTo; if(typeof _g!=='function') return;
   window.notifGoTo=function(k){ if(k==='ct'){ window._npCtSapVao=true; var r=_g.call(this,'np'); setTimeout(function(){ window._npCtSapVao=false; },3000); return r; } return _g.apply(this, arguments); }; })();
@@ -69058,7 +69066,7 @@ function authBaoKhongQuyen(ten, chucNang, oQuyen){
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-20 18:00';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-20 18:30';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
