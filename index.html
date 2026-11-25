@@ -66478,9 +66478,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-25e';
+var LD_VER='2026-11-25f';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-25', nd:'Điểm danh: điện thoại lệch giờ mà chưa lấy được giờ chuẩn máy chủ thì chờ 1–2 giây rồi kiểm tra mã lại, tránh báo nhầm "Mã đã đổi".'},
   {d:'2026-11-25', nd:'Điểm danh: THỐNG KÊ THEO PHÒNG MỔ (đặt tên máy theo phòng, VD "Phòng mổ 2") — Danh sách buổi nhận ca có dòng "🚪 Theo phòng"; Tổng hợp có cột "Phòng đã quét" cho từng người và bảng "Thống kê theo phòng mổ" (lượt vào, số người, số ngày, tổng giờ làm, lượt nhóm trực / chương trình); Excel thêm trang "Theo phong".'},
   {d:'2026-11-25', nd:'Điểm danh nhận ca CHẶT CHẼ: (A) máy khoa phân loại 🏥 trong / 🚪 ngoài phòng mổ — mã VÀO chỉ hiện ở máy trong phòng mổ, máy ngoài chỉ mã RA; (B) mỗi lượt ghi "Quét VÀO tại" (máy nào, QR hay 6 số), lượt bất thường tô cam; (C) mã nhận ca chỉ nhận ~20–40 giây, không nhập 6 số (không quét được → trưởng tua ghi tay); (D) màn mã hiện người vừa quét kèm nút "❌ Không có mặt" để trưởng tua gạch, Quản lý xem / bỏ gạch.'},
   {d:'2026-11-25', nd:'Điểm danh nhận ca: hình thức "Quét VÀO đầu ca + RA cuối ca" (mặc định) để tính giờ làm việc — mã VÀO/RA hiện được trên BẤT KỲ máy khoa đã đăng ký, nút "⏹ Mã RA" ngay ở danh sách buổi, "✋ Ghi RA" cho người quên quét (qua nửa đêm tự hiểu ngày hôm sau). Trên điện thoại: ô "🔍 Gõ vài chữ trong tên" (nút tên to), máy nhớ tên; mã đúng lúc quét được giữ hiệu lực 5 phút để chọn tên.'},
@@ -69224,7 +69225,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-25 13:15';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-25 13:20';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
@@ -69786,7 +69787,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 
   /* ── dữ liệu ── */
   function gan(){ var d=db0(); if(!d || S.on) return; S.on=true;
-    try{ d.ref('.info/serverTimeOffset').on('value', function(s){ var v=s.val(); if(typeof v==='number') S.lech=v; }); }catch(x){}
+    try{ d.ref('.info/serverTimeOffset').on('value', function(s){ var v=s.val(); if(typeof v==='number'){ S.lech=v; S.lechOK=1; } }); }catch(x){}
     R('buoi').on('value', function(s){ S.buoi=s.val()||{}; ve(); veChieu(); });
     R('mayKhoa').on('value', function(s){ S.mayKhoa=s.val()||{}; ve(); });
     try{ d.ref('staffList').on('value', function(s){ var v=s.val()||[]; v=(Array.isArray(v)?v:Object.keys(v).map(function(k){ return v[k]; })).filter(function(x){ return typeof x==='string' && x.trim(); }).map(function(x){ return x.trim(); });
@@ -69968,7 +69969,9 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
       if(!b){ hopCk('<div style="font-size:18px;font-weight:800;color:#c62828">Không tìm thấy buổi điểm danh.</div><button class="dd-to" style="background:#eceff1" onclick="ddDongCk()">Đóng</button>'); return; }
       b=Object.assign({id:id},b);
       if(b.dong){ hopCk('<div style="font-size:18px;font-weight:800;color:#c62828">🔒 Buổi "'+e(b.ten)+'" đã kết thúc.</div><button class="dd-to" style="background:#eceff1" onclick="ddDongCk()">Đóng</button>'); return; }
-      if(!maHopLe(b,pha,ma)){ hopCk('<div style="font-size:18px;font-weight:800;color:#e65100">⏳ Mã đã đổi</div><div style="margin-top:6px;font-size:15px">Mã điểm danh đổi sau 20 giây. Anh/chị vui lòng <b>quét lại mã đang hiện</b> (hoặc nhập 6 số mới).</div><button class="dd-to" style="background:#eceff1" onclick="ddDongCk()">Đóng</button>'); return; }
+      /* 25/11/2026 — đồng hồ điện thoại lệch mà chưa lấy được giờ máy chủ (S.lech) → chờ tối đa ~2,5 giây rồi kiểm tra lại, tránh báo nhầm "Mã đã đổi" */
+      if(!maHopLe(b,pha,ma) && !S.lechOK && (lam.cho=(lam.cho||0)+1)<=5){ if(lam.cho===1) hopCk('<div style="font-size:16px;font-weight:800;color:#00695c">⏳ Đang kiểm tra mã…</div>'); setTimeout(lam, 500); return; }
+      if(!maHopLe(b,pha,ma)){ hopCk('<div style="font-size:18px;font-weight:800;color:#e65100">⏳ Mã đã đổi</div><div style="margin-top:6px;font-size:15px">Mã điểm danh đổi sau 20 giây. Anh/chị vui lòng <b>quét lại mã đang hiện</b>'+(b.loai==='nhantruc'?' trên máy phòng mổ.':' (hoặc nhập 6 số mới).')+'</div><button class="dd-to" style="background:#eceff1" onclick="ddDongCk()">Đóng</button>'); return; }
       S.ck={id:id, pha:pha, ma:ma, t:now(), src:src||{c:'so'}}; ngheBuoi(id);   /* 25/11/2026: mã đúng lúc quét → giữ hiệu lực 5 phút để chọn tên */
       var ten=lsG('qtMyName')||'', may=lsG('ddMay_'+id);
       var dsTen=S.staff.map(function(n){ return '<option'+(bd(n)===bd(ten)?' selected':'')+'>'+e(n)+'</option>'; }).join('');
