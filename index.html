@@ -66478,9 +66478,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-25k';
+var LD_VER='2026-11-25l';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-25', nd:'Hướng dẫn nhanh ❓: bổ sung cho 16 thẻ còn thiếu (Quản lý Phép năm, KPI, Điều động nhân lực, Phụ trách bàn giao, Bình bệnh án, SV/HV Thực hành, Sổ đi buồng, Danh sách NV, Ghi chú Báo cáo, Mẫu văn bản, Đánh giá xếp loại, Đối chiếu PTTT, Checklist, Quản lý Admin, Phân quyền, Lưu đồ) — nay tất cả thẻ Trang chủ đều có nút ❓. Điểm danh thêm bước Cỡ chữ / Lọc hôm nay.'},
   {d:'2026-11-25', nd:'Điểm danh: nút "🗑 Xóa / ✏️ Sửa buổi" luôn hiện (bấm sẽ hỏi mật khẩu Quản lý); hộp Danh sách có "🔍 Cỡ chữ" và "🗑 Xóa buổi này"; thanh trên ghi số bản để kiểm tra đã tải đúng.'},
   {d:'2026-11-25', nd:'Điểm danh: lượt quét bản cũ (trước 12:45, chưa ghi máy quét) không còn hiện "Không rõ" — lấy theo máy đã mở mã của buổi nhận ca, ghi "(máy mở mã)".'},
   {d:'2026-11-25', nd:'Điểm danh: lọc "📅 Hôm nay / chọn ngày / Cả tháng" ở danh sách buổi; bảng "👥 Nhân viên đã / chưa điểm danh" theo ngày (2 cột, giờ VÀO–RA, nhóm, nơi quét; đối chiếu người trong buổi hoặc toàn khoa; 📋 chép danh sách chưa điểm danh gửi Zalo). Tổng hợp: nút nhanh Hôm nay / Hôm qua / Tuần này / Tháng này / Tháng trước / Năm nay.'},
@@ -69230,7 +69231,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-25 19:20';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-25 21:45';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
@@ -69442,6 +69443,107 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
       'NHẬN CA / NHẬN TRỰC: khi trưởng tua mở mã trên máy tính của khoa, anh/chị quét bằng điện thoại của mình như trên và chọn "🏥 Nhóm trực" hoặc "🗓 Nhóm chương trình" (máy nhớ cho lần sau). Quên điện thoại thì báo trưởng tua ghi giúp.',
       'ĐẦU CA phải quét mã QR trên máy TRONG phòng mổ (không nhận nhập 6 số, mã chỉ nhận khoảng 30 giây; trưởng tua có thể gạch người không có mặt). CUỐI CA: quét "⏹ Mã RA" trên bất kỳ máy phòng mổ để tính giờ làm việc. Trên điện thoại gõ vài chữ trong tên (không dấu) ở ô 🔍 để tìm nhanh.',
       'Mỗi điện thoại chỉ điểm danh cho 1 người mỗi buổi. Mã đổi sau 20 giây — nếu báo "Mã đã đổi" thì quét lại.']};
+  /* 25/11/2026 — bổ sung hướng dẫn ❓ cho các thẻ còn thiếu (thẻ Quản lý ghi rõ "Dành cho Quản lý") */
+  var QLDN='Khi app hỏi: nhập mật khẩu Quản lý.';
+  HD_NV['7']={ten:'Quản lý Phép năm', mt:'Dành cho Quản lý — quỹ phép, thâm niên, phép còn lại của toàn khoa.', b:[
+      'Ở Trang chủ bấm thẻ "Quản lý Phép năm".',
+      'Đầu năm: mở "Cấu hình quy tắc tính phép" (phép cơ bản, cộng thêm của khoa, thâm niên, hạn dùng phép cũ, Năm hiện hành) → bấm "Lưu cấu hình".',
+      'Mở "Cấu hình ngày nghỉ đặc biệt" (Lễ, Tết) → bấm "Lưu".',
+      'Ở "Bảng phép nhân viên": lọc theo đơn nguyên, nhóm, Đã nghỉ / Chưa nghỉ; người mới vào khoa bấm "Thêm nhân viên mới".',
+      'Bấm "Lưu chốt số thâm niên hiện tại" khi có thay đổi thâm niên. Sau 31/1: bấm "Tính số ngày phép năm cũ được giải quyết".',
+      'Cần báo cáo: bấm "Xuất Excel" hoặc "Xuất Word".']};
+  HD_NV['11']={ten:'Đánh giá KPI', mt:'Dành cho Quản lý — điểm KPI tự tổng hợp từ Kanban và các sự kiện KPI.', b:[
+      'Ở Trang chủ bấm thẻ "Đánh giá KPI". '+QLDN,
+      'Lần đầu: mở "Danh mục loại sự kiện KPI & thang điểm trừ" (Nhẹ -2 / Vừa -5 / Nặng -10) để thống nhất cách trừ điểm.',
+      'Có sự việc: ở "Ghi nhận sự kiện KPI" chọn nhân viên, ngày, loại, số lần, đính kèm minh chứng → bấm "Lưu sự kiện".',
+      'Chọn "Theo tháng" hoặc "Tổng hợp cả năm" → xem "Bảng tổng hợp KPI" và "Danh sách sự kiện KPI trong tháng".',
+      'Cần báo cáo: bấm "Xuất Excel" hoặc "Xuất Word".']};
+  HD_NV['16']={ten:'Điều động nhân lực', mt:'Lập giấy đề nghị điều động nhân lực, duyệt, in và thống kê giờ điều động.', b:[
+      'Ở Trang chủ bấm thẻ "Điều động nhân lực". '+QLDN,
+      'Tab "Lập phiếu mới": chọn người được điều động, nơi đến, thời gian, lý do → bấm lưu phiếu.',
+      'Tab "Danh sách phiếu": kiểm tra phiếu. Phiếu sai thì sửa hoặc hủy.',
+      'Phiếu đúng: bấm duyệt → "In" hoặc "Xuất Word" để trình ký.',
+      'Tab "Thống kê giờ": chọn nhân viên, khoảng thời gian để xem tổng giờ điều động.']};
+  HD_NV['18']={ten:'Đăng ký phụ trách bàn giao', mt:'Nhân viên nhận bộ phận phụ trách theo tháng (dùng để tính KPI).', b:[
+      'Ở Trang chủ bấm thẻ "Đăng ký phụ trách bàn giao".',
+      'Chọn tháng, chọn tên của anh/chị và bộ phận / phòng mình phụ trách → lưu đăng ký.',
+      'Xem lại ở "Danh sách" hoặc "Bảng lưới"; các lần đã đăng ký nằm ở "Lịch sử đăng ký".',
+      'Quản lý: "Thêm bộ phận / phòng", "Thêm nhóm lịch giao trực" (12/24, 24/24, theo tháng); có thể "Nhập từ Excel".',
+      'Cuối tháng Quản lý bấm "Tính thống kê" → "Xuất Excel" / "Xuất Word".']};
+  HD_NV['19']={ten:'Bình bệnh án', mt:'Lưu trữ biên bản bình bệnh án; xuất Word khi cần in kiểm tra.', b:[
+      'Ở Trang chủ bấm thẻ "Bình bệnh án".', TEN,
+      'Bấm "Thêm bệnh án mới": nhập tên người bệnh, số vào viện, khoa, ngày, kỳ (Tháng / Quý).',
+      'Chọn kết luận "Đạt" / "Chưa đạt"; đính kèm file biên bản (.docx, .pdf hoặc ảnh chụp).',
+      'Bấm "Lưu biên bản".',
+      'Tìm lại: lọc theo kết luận, kỳ, ngày. Cần in: bấm "Xuất Word".']};
+  HD_NV['22']={ten:'SV/HV Thực hành (NĐ 96)', mt:'Quản lý sinh viên thực tập và học viên thực hành cấp chứng chỉ hành nghề.', b:[
+      'Ở Trang chủ bấm thẻ "SV/HV Thực hành" → bấm "Đăng nhập Quản lý/HD" (người hướng dẫn dùng mật khẩu được cấp).',
+      'Tab "Kế hoạch đào tạo": tạo đợt (tên đợt, cơ sở đào tạo, loại, từ ngày – đến ngày, số kế hoạch, số quyết định) → "Lưu".',
+      'Mục "Danh sách người hướng dẫn": cập nhật văn bằng, CCHN của người hướng dẫn.',
+      'Bấm "+ Thêm học viên/sinh viên mới" (app cấp mật khẩu riêng và mã tra cứu cho từng người).',
+      'Hằng ngày: tab "Chấm công" — tick có mặt cho học viên/sinh viên.',
+      'Cuối đợt: tab "Thống kê" → "Xuất Excel" / "Xuất Word", Phụ lục I, Phụ lục II.']};
+  HD_NV['23']={ten:'Sổ đi buồng', mt:'Điều dưỡng trưởng ghi nhận đi buồng hằng ngày: giám sát, nhiễm khuẩn, vệ sinh.', b:[
+      'Ở Trang chủ bấm thẻ "Sổ đi buồng" → chọn tên → bấm "Vào Sổ đi buồng".',
+      'Bấm "Thêm mới": chọn phòng, người bệnh có diễn biến, chẩn đoán, diễn biến, chỉ định / việc cần làm.',
+      'Bấm "Lưu" (lưu nháp) hoặc "Lưu và thực hiện".',
+      'Xem lại từng ngày: "Xem theo ngày (lật trang)".',
+      'Gửi nhóm: bấm "Tóm tắt nhanh" → "Sao chép" rồi dán vào Zalo. Cần in: "Xem trước & in".',
+      'Lần đầu (Quản lý): "Cấu hình nội dung" và "Quản lý quyền truy cập".']};
+  HD_NV['24']={ten:'Danh sách nhân viên khoa', mt:'Danh bạ tra cứu nhanh họ tên, đơn vị, chức vụ, số điện thoại.', b:[
+      'Ở Trang chủ bấm thẻ "Danh sách nhân viên khoa".',
+      'Gõ tên vào ô tìm, hoặc lọc theo đơn vị, nhóm, giới, đảng viên, văn bằng.',
+      'Muốn xem thêm thông tin: bấm chọn cột cần hiện.',
+      'Quản lý: "Thêm nhân viên", "Nhập từ Excel", "Nhập SĐT/Email/CCCD", "Quản lý nhóm", "Lấy Số CCHN từ CNKT".',
+      'Cần danh sách: bấm "Xuất Excel", "Xuất Word" hoặc "In danh sách".']};
+  HD_NV['25']={ten:'Ghi chú Báo cáo', mt:'Dành cho Quản lý — sổ ghi nhanh số liệu, sự kiện quanh năm để soạn sơ kết, tổng kết.', b:[
+      'Ở Trang chủ bấm thẻ "Ghi chú Báo cáo". '+QLDN,
+      'Lần đầu: bấm "Quản lý danh mục" để tạo các chủ đề báo cáo.',
+      'Ghi mới: chọn "Ngày sự việc", "Danh mục" (gõ vài chữ, VD "tap huan", rồi Enter), ghi "Số liệu", "Nội dung", đính kèm minh chứng → bấm "Lưu ghi chú".',
+      'Khi viết báo cáo: lọc theo danh mục hoặc gõ ở "Tìm từ khóa".',
+      'Bấm "Copy văn bản (đã lọc)" hoặc "Xuất Word (đã lọc)" để đưa vào báo cáo.']};
+  HD_NV['26']={ten:'Mẫu văn bản', mt:'Kho file mẫu: Nghỉ phép, Nghỉ bù, Đổi trực…', b:[
+      'Ở Trang chủ bấm thẻ "Mẫu văn bản".',
+      'Chọn mẫu cần dùng → bấm "Xem mẫu hiện tại" để xem / tải về.',
+      'Quản lý cập nhật mẫu mới: chọn mẫu → bấm "Thay file" → chọn file mới.',
+      'Sau khi thay, nhân viên in phiếu sẽ dùng đúng mẫu mới.']};
+  HD_NV['28']={ten:'Đánh giá, xếp loại VC – NLĐ', mt:'Dành cho Quản lý — lưu kết quả đánh giá, xếp loại viên chức, người lao động hằng năm.', b:[
+      'Ở Trang chủ bấm thẻ "Đánh giá, Xếp loại" → bấm "Đăng nhập Quản lý".',
+      'Chọn "Năm" và "Danh mục".',
+      'Ghi số quyết định, ngày ban hành; đính kèm kết quả (ảnh, bản scan, tệp hoặc link).',
+      'Bấm "Lưu kết quả".',
+      'Tìm lại theo năm / danh mục. Xong việc bấm "Thoát chế độ Quản lý".']};
+  HD_NV['31']={ten:'Đối chiếu Công – PTTT', mt:'Đối chiếu chấm công, chấm trực với danh sách phẫu thuật – thủ thuật của tháng.', b:[
+      'Ở Trang chủ bấm thẻ "Đối chiếu Công – PTTT" (tài khoản cần có quyền "Đối chiếu PTTT").',
+      'Mở tab "Đối chiếu Dịch vụ PTTT".',
+      'Tải 3 file bắt buộc: Chấm công tháng (PDF), Chấm trực tháng (PDF), Danh sách PTTT (Excel). Nên tải thêm chấm công / chấm trực THÁNG TRƯỚC và file kiêm nhiệm (nếu có).',
+      'Xem kết luận "HỢP LỆ" / "KHÔNG HỢP LỆ" của từng ca.',
+      'Sửa chấm công / chấm trực các ca không hợp lệ trước khi nộp.']};
+  HD_NV['33']={ten:'Checklist công việc', mt:'Dành cho Quản lý — việc cần kiểm tra hằng ngày, tuần, tháng.', b:[
+      'Ở Trang chủ bấm thẻ "Checklist công việc". '+QLDN,
+      'Lần đầu: tab "⚙️ Danh mục công việc" → "+ Thêm công việc" hoặc "Nạp danh sách gợi ý" → bấm "💾 Lưu danh mục".',
+      'Hằng ngày: tab "✅ Việc trong ngày" — làm theo số thứ tự. Việc có "🔗 Tên thẻ ↗": bấm để mở thẳng thẻ, kiểm tra xong bấm "✓ Xong & quay lại".',
+      'Kiểm tra thấy chưa đạt: bấm 📝 cuối dòng → chọn "⚠ Vấn đề", bộ phận, nhân viên liên quan (có thể trừ điểm KPI) → "💾 Lưu". Đã khắc phục thì bấm "✓ Đã xử lý".',
+      'Cuối ngày: "📄 Biên bản ngày" → In / Tải Word → "📌 Lưu biên bản". Tab "📅 Lịch tháng" xem tỷ lệ hoàn thành.']};
+  HD_NV['20']={ten:'Quản lý Admin', mt:'Dành cho Quản lý — vào Kanban với toàn quyền.', b:[
+      'Ở Trang chủ bấm thẻ "Quản lý Admin" → nhập mật khẩu Admin.',
+      'Làm việc trên Kanban với toàn quyền (phiên đăng nhập 30 phút).',
+      'Thanh công cụ: quản lý "Nhân viên", "Đổi mật khẩu".',
+      'Định kỳ bấm "Sao lưu TOÀN BỘ ứng dụng" và giữ file .json cẩn thận.',
+      'Chỉ khi thật cần: "Phục hồi TOÀN BỘ" — sẽ ghi đè dữ liệu hiện tại.']};
+  HD_NV['21']={ten:'Phân quyền Nhân viên', mt:'Dành cho Quản lý — cấp / thu hồi quyền vào các thẻ.', b:[
+      'Ở Trang chủ bấm thẻ "Phân quyền Nhân viên" → nhập mật khẩu Admin.',
+      'Ở bảng nhân viên × chức năng: tick quyền cần cấp (VD Đối chiếu PTTT, HIS…).',
+      'Bấm "Lưu tất cả quyền".',
+      'Mục "Chức năng cho NV": ẩn / hiện các nút trên Kanban cho nhân viên.',
+      'Nhân viên chuyển công tác: bỏ tick các quyền → "Lưu tất cả quyền".']};
+  HD_NV['34']={ten:'Lưu đồ hướng dẫn', mt:'Dành cho Quản lý — lưu đồ các bước thao tác của từng thẻ.', b:[
+      'Ở Trang chủ bấm thẻ "Lưu đồ hướng dẫn" → nhập mật khẩu Quản lý.',
+      'Chọn thẻ cần xem để mở lưu đồ từng bước.',
+      'Bấm "Mở thẻ" để đi thẳng tới chức năng đó.',
+      'Cần chỉnh: "Sửa lưu đồ" hoặc "Thêm lưu đồ riêng". Cần in cho nhân viên: bấm "In".',
+      'Mục nhật ký cập nhật cho biết app vừa thay đổi gì.']};
+  HD_NV['37'].b.push('Chữ nhỏ khó nhìn: bấm "🔍 Cỡ chữ" (Thường → Lớn → Rất lớn). Trưởng tua / Quản lý: "📅 Lọc → Hôm nay" để xem bảng ai đã / chưa điểm danh.');
   window.HD_NV=HD_NV;
   var S={cfg:null, the:null, buoc:0, ds:false};
   function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
