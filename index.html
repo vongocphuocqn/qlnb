@@ -66478,9 +66478,11 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-25i';
+var LD_VER='2026-11-25k';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-25', nd:'Điểm danh: nút "🗑 Xóa / ✏️ Sửa buổi" luôn hiện (bấm sẽ hỏi mật khẩu Quản lý); hộp Danh sách có "🔍 Cỡ chữ" và "🗑 Xóa buổi này"; thanh trên ghi số bản để kiểm tra đã tải đúng.'},
+  {d:'2026-11-25', nd:'Điểm danh: lượt quét bản cũ (trước 12:45, chưa ghi máy quét) không còn hiện "Không rõ" — lấy theo máy đã mở mã của buổi nhận ca, ghi "(máy mở mã)".'},
   {d:'2026-11-25', nd:'Điểm danh: lọc "📅 Hôm nay / chọn ngày / Cả tháng" ở danh sách buổi; bảng "👥 Nhân viên đã / chưa điểm danh" theo ngày (2 cột, giờ VÀO–RA, nhóm, nơi quét; đối chiếu người trong buổi hoặc toàn khoa; 📋 chép danh sách chưa điểm danh gửi Zalo). Tổng hợp: nút nhanh Hôm nay / Hôm qua / Tuần này / Tháng này / Tháng trước / Năm nay.'},
   {d:'2026-11-25', nd:'Điểm danh: nút "🔍 Cỡ chữ" (Thường / Lớn / Rất lớn — thanh trên cùng và màn mã; máy nhớ). Quản lý: "✏️ Sửa / 🗑 Xóa" — tick nhiều buổi để xóa (buổi thử, trùng; app giữ bản dự phòng), sửa cả buổi nhận ca (tên, ngày, giờ, cho trễ, hình thức, thành viên), ✏️ đổi tên máy khoa.'},
   {d:'2026-11-25', nd:'Điểm danh: sửa lỗi mở app bằng link quét mã khi mạng chậm — ô chọn tên trống (danh sách nhân viên về sau hộp điểm danh) → nay tự nạp lại; chọn tên từ ô 🔍 luôn ăn.'},
@@ -69228,7 +69230,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-25 19:00';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-25 19:20';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
@@ -69714,7 +69716,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 <!-- ══ ĐIỂM DANH — CHẾ ĐỘ PHÓNG ĐẠI (25/11/2026) — module RIÊNG: 3 mức Thường / Lớn / Rất lớn, máy nhớ (localStorage ddZoom). Áp cho màn Điểm danh, các hộp, màn mã (trừ ảnh QR tự canh cỡ). ══ -->
 <style>
 .dd-zbtn{border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.18);color:#fff;border-radius:9px;padding:7px 11px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
-#ddChieu .dd-zbtn{background:#e0f2f1;color:#004d40;border-color:#80cbc4}
+#ddChieu .dd-zbtn,#ddOv .dd-zbtn{background:#e0f2f1;color:#004d40;border-color:#80cbc4}
 html.dd-z1 #ddScreen .dd-body{zoom:1.2} html.dd-z2 #ddScreen .dd-body{zoom:1.4}
 html.dd-z1 #ddScreen .dd-top{zoom:1.1} html.dd-z2 #ddScreen .dd-top{zoom:1.2}
 html.dd-z1 #ddOv .dd-hop,html.dd-z1 #ddCk .dd-hop{zoom:1.2} html.dd-z2 #ddOv .dd-hop,html.dd-z2 #ddCk .dd-hop{zoom:1.4}
@@ -69795,8 +69797,9 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
   /* 25/11/2026 — CHẶT CHẼ: mã VÀO của buổi nhận ca chỉ hiện ở máy đặt TRONG phòng mổ (mayKhoa/{id}.phongMo) — máy ngoài chỉ hiện mã RA */
   function tenQua(x, tay){ if(tay) return 'Ghi tay'; if(!x) return '—'; return x.c==='qr' ? 'QR · '+(x.m||'?')+(x.pm?'':' (ngoài PM)') : 'Nhập 6 số'; }
   /* 25/11/2026 — THỐNG KÊ THEO PHÒNG: phòng = tên máy nơi quét VÀO (đặt tên máy theo phòng mổ, VD "Phòng mổ 2") */
-  function phongCua(x){ if(!x||!x.vao||x.gach) return ''; if(x.tay) return '✋ Ghi tay'; var v=x.vaoQua; if(!v) return 'Không rõ'; return v.c==='qr' ? ((v.m||'?')+(v.pm?'':' (ngoài PM)')) : 'Nhập 6 số'; }
-  function demPhong(b){ var q=S.quet[b.id]||{}, m={}; Object.keys(q).forEach(function(k){ var p=phongCua(q[k]); if(p) m[p]=(m[p]||0)+1; }); return m; }
+  function quaCu(b){ if(!b||!b.may||!b.may.ten) return null; var mq=S.mayKhoa[b.may.id]; return {c:'qr', m:b.may.ten+' (máy mở mã)', pm:!!(mq&&mq.phongMo), cu:1}; }
+  function phongCua(x, b){ if(!x||!x.vao||x.gach) return ''; if(x.tay) return '✋ Ghi tay'; var v=x.vaoQua||quaCu(b); if(!v) return 'Không rõ'; return v.c==='qr' ? ((v.m||'?')+(v.pm?'':' (ngoài PM)')) : 'Nhập 6 số'; }
+  function demPhong(b){ var q=S.quet[b.id]||{}, m={}; Object.keys(q).forEach(function(k){ var p=phongCua(q[k], b); if(p) m[p]=(m[p]||0)+1; }); return m; }
   function choVao(b){ var m=mayNay(); return laQL() || !b || b.loai!=='nhantruc' || !!(m && m.phongMo); }
   function coQuyenBuoi(b){ return laQL() || (b && b.loai==='nhantruc' && !!mayNay()); }   /* 25/11/2026: MỌI máy khoa đã đăng ký đều hiện được mã VÀO/RA của buổi nhận ca (đầu ca ở máy này, cuối ca ở máy khác) */
   function toast(m,mau){ var t=document.createElement('div'); t.textContent=m; t.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:'+(mau||'#263238')+';color:#fff;padding:10px 16px;border-radius:10px;z-index:100600;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:90vw'; document.body.appendChild(t); setTimeout(function(){ t.remove(); },2600); }
@@ -69830,13 +69833,13 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
   function chuaGanNhom(b){ if(b && Array.isArray(b.thanhVien)) return 0; var dt=Array.isArray(b.doiTuong)?b.doiTuong:null; if(!dt||!dt.length) return 0; return S.staff.filter(function(n){ return !laTenQL(n) && !S.nhom[n]; }).length; }
   /* Kết quả 1 người */
   function ketQua(b, ten){ var q=(S.quet[b.id]||{})[keyTen(ten)], m=(S.mien[b.id]||{})[keyTen(ten)], t0=msTu(b.ngay,b.bd), t1=b.kt?msTu(b.ngay,b.kt):0, tre=(+b.tre||0)*60000;
-    if(q && q.vao){ if(q.gach) return {k:'vang', gach:q.gach, vao:q.vao, vaoQua:q.vaoQua||null};
-      var o={k:'co', vao:q.vao, ra:q.ra||0, tay:!!q.tay, lyTay:q.lyTay||'', nhomDD:q.nhomDD||'', vaoQua:q.vaoQua||null, raQua:q.raQua||null, nhan:[]};
+    if(q && q.vao){ if(q.gach) return {k:'vang', gach:q.gach, vao:q.vao, vaoQua:q.vaoQua||(b.loai==='nhantruc'?quaCu(b):null)};
+      var o={k:'co', vao:q.vao, ra:q.ra||0, tay:!!q.tay, lyTay:q.lyTay||'', nhomDD:q.nhomDD||'', vaoQua:q.vaoQua||(b.loai==='nhantruc'?quaCu(b):null), raQua:q.raQua||null, nhan:[]};
       if(q.vao>t0+tre){ o.k='tre'; o.nhan.push('Trễ '+Math.round((q.vao-t0)/60000)+' phút'); } else o.nhan.push('Đúng giờ');
       if(b.cheDo==='vaora'){ if(!q.ra) o.nhan.push('Chưa quét ra'); else if(t1 && q.ra<t1-10*60000){ o.nhan.push('Về sớm '+Math.round((t1-q.ra)/60000)+' phút'); o.veSom=true; } }
       o.phut = (b.cheDo==='vaora' && q.ra) ? Math.max(0,Math.round((q.ra-q.vao)/60000)) : null;
       o.du = b.cheDo==='vaora' ? !!(q.ra && !o.veSom) : true;
-      if(b.loai==='nhantruc' && !q.tay && (!q.vaoQua || q.vaoQua.c!=='qr' || !q.vaoQua.pm)){ o.canh=true; o.nhan.push('⚠️ VÀO không quét tại máy trong phòng mổ'); }
+      if(b.loai==='nhantruc' && !q.tay && (!o.vaoQua || o.vaoQua.c!=='qr' || !o.vaoQua.pm)){ o.canh=true; o.nhan.push('⚠️ VÀO không quét tại máy trong phòng mổ'); }
       return o; }
     if(m) return {k:'mien', lyDo:m.lyDo};
     return {k: now()<t0 ? 'chua' : 'vang'}; }
@@ -69848,7 +69851,7 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
   window.ddTab=function(t){ S.tab=t; ve(); };
   function moMan(){ var sc=document.getElementById('ddScreen'); return sc && sc.style.display!=='none'; }
   function ve(){ if(!moMan()) return; var sc=document.getElementById('ddScreen'), ql=laQL();
-    var top='<div class="dd-top"><button class="dd-btn" onclick="ddDong()" style="background:rgba(255,255,255,.18);color:#fff">🏠 Trang chủ</button><div style="flex:1;min-width:200px"><div style="font-weight:900;font-size:17px">✅ Điểm danh</div><div style="font-size:12px;opacity:.9">Tập huấn · giao ban · họp · sinh hoạt — quét mã QR động</div></div>'+
+    var top='<div class="dd-top"><button class="dd-btn" onclick="ddDong()" style="background:rgba(255,255,255,.18);color:#fff">🏠 Trang chủ</button><div style="flex:1;min-width:200px"><div style="font-weight:900;font-size:17px">✅ Điểm danh</div><div style="font-size:12px;opacity:.9">Tập huấn · giao ban · họp · sinh hoạt — quét mã QR động · <b>bản 25/11 19:20</b></div></div>'+
       (typeof window.ddZoomNut==='function'?window.ddZoomNut():'')+(ql?'<span style="font-size:12px;background:rgba(255,255,255,.2);border-radius:8px;padding:4px 8px">👑 Quản lý</span>':'<button class="dd-btn" onclick="if(ddQL())ddTab(\'ds\')" style="background:rgba(255,255,255,.18);color:#fff">🔐 Quản lý</button>')+'</div>';
     var tabs='<div class="dd-tabs">'+[['ds','📋 Các buổi'],['nhap','✍ Nhập mã điểm danh'],['th','📊 Tổng hợp']].map(function(t){ return '<button class="dd-tab'+(S.tab===t[0]?' on':'')+'" onclick="ddTab(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
     var body=S.tab==='nhap'?veNhap():S.tab==='th'?veTH():veDSBuoi();
@@ -69865,7 +69868,7 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
       '<input type="date" value="'+ln+'" onchange="ddLocNgay(this.value)" title="Chọn 1 ngày" style="padding:5px;border:1px solid #b2dfdb;border-radius:8px">'+
       '<button class="dd-btn" onclick="ddLocNgay(\'\')" style="padding:5px 9px;background:'+(!ln?'#00695c':'#fff')+';color:'+(!ln?'#fff':'#004d40')+'">Cả tháng</button>'+
       '<input type="month" value="'+th+'" onchange="ddThang(this.value)" title="Chọn tháng" style="padding:5px;border:1px solid #b2dfdb;border-radius:8px"></span>'+
-      (ql?'<button class="dd-btn" onclick="ddSuaXoa()" style="background:'+(S.suaXoa?'#c62828':'#eceff1')+';color:'+(S.suaXoa?'#fff':'#37474f')+'">'+(S.suaXoa?'✓ Xong sửa / xóa':'✏️ Sửa / 🗑 Xóa')+'</button><button class="dd-btn" onclick="ddMoTao()" style="background:#00695c;color:#fff">➕ Tạo buổi điểm danh</button>':'')+'</div>'+
+      '<button class="dd-btn" onclick="ddSuaXoa()" style="background:'+(ql&&S.suaXoa?'#2e7d32':'#c62828')+';color:#fff">'+(ql&&S.suaXoa?'✓ Xong sửa / xóa':'🗑 Xóa / ✏️ Sửa buổi')+'</button>'+(ql?'<button class="dd-btn" onclick="ddMoTao()" style="background:#00695c;color:#fff">➕ Tạo buổi điểm danh</button>':'')+'</div>'+
       (ql&&S.suaXoa?'<div class="dd-the" style="background:#fff3e0;border:1.5px dashed #ef6c00;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="color:#e65100;flex:1;min-width:220px">✏️ Chế độ sửa / xóa — tick các buổi muốn xóa (buổi thử, buổi trùng…)</b><button class="dd-btn" onclick="ddChonHet()" style="background:#fff;color:#37474f;border:1px solid #cfd8dc">☑ Chọn tất cả trong tháng</button><button class="dd-btn" onclick="ddXoaChon()" style="background:#c62828;color:#fff">🗑 Xóa các buổi đã chọn (<span id="ddSoChon">0</span>)</button></div>':'');
     h+=veDaChua(ln||hn);
     if(!ds.length) return h+'<div class="dd-the" style="color:#78909c">Chưa có buổi nào '+(ln?'trong ngày '+fNgay(ln):'trong tháng')+'.'+(ql?' Bấm "➕ Tạo buổi điểm danh".':'')+'</div>';
@@ -69889,7 +69892,7 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
       duKien(b).forEach(function(n){ moi[n]=1; var k=ketQua(b,n); if(k.k==='mien') mien[n]=k.lyDo||'Miễn'; if(k.gach) gach[n]=1; });
       Object.keys(q).forEach(function(kk){ var x=q[kk]; if(!x||!x.vao||x.gach) return; var n=x.ten||((S.staff.filter(function(t){ return keyTen(t)===kk; })[0])||kk.replace(/_/g,' '));
         var r=da[n]=da[n]||{ten:n, vao:x.vao, ra:0, nhom:'', phong:'', buoi:[]}; if(x.vao<r.vao) r.vao=x.vao; if(x.ra && x.ra>r.ra) r.ra=x.ra;
-        if(x.nhomDD) r.nhom=x.nhomDD; var p=phongCua(x); if(p && !r.phong) r.phong=p; r.buoi.push(b.ten); }); });
+        if(x.nhomDD) r.nhom=x.nhomDD; var p=phongCua(x, b); if(p && !r.phong) r.phong=p; r.buoi.push(b.ten); }); });
     var pham=S.dcPham==='khoa'?'khoa':'moi', goc=pham==='khoa'?S.staff.filter(function(n){ return !laTenQL(n); }):Object.keys(moi);
     var chua=goc.filter(function(n){ return !da[n]; }).sort(function(a,b){ return a.localeCompare(b,'vi'); });
     var daL=Object.keys(da).map(function(n){ return da[n]; }).sort(function(a,b){ return a.vao-b.vao; });
@@ -69987,17 +69990,17 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
     var nd=(document.getElementById('ntNgay')||{}).value; if(nd) up.ngay=nd;
     R('buoi/'+id).update(up).then(function(){ dongHop(); toast('💾 Đã lưu buổi: '+up.ten,'#00695c'); }, function(err){ alert('Chưa lưu được: '+(err&&err.message||err)); }); };
   /* 25/11/2026 — CHẾ ĐỘ SỬA / XÓA buổi (Quản lý). Xóa: chép dự phòng vào diemDanh/daXoa/{id} (buổi + lượt quét + miễn) rồi mới xóa */
-  window.ddSuaXoa=function(){ if(!laQL() && !dangNhapQL()) return; S.suaXoa=!S.suaXoa; ve(); };
+  window.ddSuaXoa=function(){ if(!laQL()){ if(!dangNhapQL()) return; S.suaXoa=true; ve(); return; } S.suaXoa=!S.suaXoa; ve(); };
   window.ddDemChon=function(){ var n=document.querySelectorAll('.ddChonXoa:checked').length, el=document.getElementById('ddSoChon'); if(el) el.textContent=n; };
   window.ddChonHet=function(){ var a=[].slice.call(document.querySelectorAll('.ddChonXoa')), het=a.every(function(x){ return x.checked; }); a.forEach(function(x){ x.checked=!het; }); ddDemChon(); };
   window.ddXoaChon=function(){ var ids=[].slice.call(document.querySelectorAll('.ddChonXoa:checked')).map(function(x){ return x.value; }); if(!ids.length){ alert('Tick các buổi muốn xóa trước.'); return; } ddXoaBuoi(ids); };
-  window.ddXoaBuoi=function(ids){ if(!laQL()) return; ids=ids.filter(function(id){ return S.buoi[id]; }); if(!ids.length) return;
+  window.ddXoaBuoi=function(ids){ if(!laQL() && !dangNhapQL()) return; ids=ids.filter(function(id){ return S.buoi[id]; }); if(!ids.length) return;
     var soQuet=0; ids.forEach(function(id){ soQuet+=Object.keys(S.quet[id]||{}).length; });
     var ds=ids.map(function(id){ var b=S.buoi[id]; return '• '+b.ten+' ('+fNgay(b.ngay)+' '+(b.bd||'')+(b.may&&b.may.ten?' · '+b.may.ten:'')+') — '+Object.keys(S.quet[id]||{}).length+' lượt quét'; });
     if(!confirm('XÓA '+ids.length+' buổi điểm danh?\n\n'+ds.slice(0,12).join('\n')+(ds.length>12?'\n… và '+(ds.length-12)+' buổi khác':'')+'\n\nTổng '+soQuet+' lượt quét sẽ bị xóa khỏi danh sách và thống kê.\n(App vẫn giữ bản dự phòng để khôi phục khi cần.)')) return;
     if(soQuet>0 && !confirm('Xác nhận lần 2: các buổi này có '+soQuet+' lượt điểm danh thật. Vẫn xóa?')) return;
     var up={}; ids.forEach(function(id){ up['daXoa/'+id]={buoi:S.buoi[id], quet:S.quet[id]||null, mien:S.mien[id]||null, t:now(), ai:'Quản lý'}; up['buoi/'+id]=null; up['quet/'+id]=null; up['mien/'+id]=null; });
-    R('').update(up).then(function(){ ids.forEach(function(id){ delete S.buoi[id]; }); toast('🗑 Đã xóa '+ids.length+' buổi','#c62828'); ve(); }, function(err){ alert('Chưa xóa được: '+(err&&err.message||err)); }); };
+    R('').update(up).then(function(){ ids.forEach(function(id){ delete S.buoi[id]; }); if(S.dsMo && ids.indexOf(S.dsMo)>=0){ S.dsMo=null; dongHop(); } toast('🗑 Đã xóa '+ids.length+' buổi','#c62828'); ve(); }, function(err){ alert('Chưa xóa được: '+(err&&err.message||err)); }); };
   /* 25/11/2026 — đổi tên máy khoa (Quản lý) */
   window.ddSuaMay=function(k){ if(!laQL()) return; var m=S.mayKhoa[k]; if(!m) return; var t=prompt('Tên mới cho máy (VD: Phòng mổ 2):', m.ten||''); if(t===null) return; t=t.trim(); if(!t) return;
     R('mayKhoa/'+k+'/ten').set(t.slice(0,60)).then(function(){ toast('✏️ Đã đổi tên máy: '+t,'#00695c'); }); };
@@ -70138,11 +70141,11 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
     if(k.k==='mien') return '<span style="color:#6a1b9a;font-weight:700">Miễn: '+e(k.lyDo||'')+'</span>'; if(k.gach) return '<span style="color:#c62828;font-weight:800">Vắng — ❌ trưởng tua gạch (không có mặt)</span> <span style="color:#78909c;font-size:12px">'+e(k.gach.boi||'')+' · '+fGio(k.gach.t)+'</span>'+(laQL()&&S.dsMo?' <button class="dd-btn" style="padding:2px 7px;background:#eceff1;font-size:12px" onclick="ddBoGach(\''+S.dsMo+'\',\''+keyTen(h.ten)+'\')">↺ Bỏ gạch</button>':''); if(k.k==='chua') return '<span style="color:#90a4ae">Chưa đến giờ</span>'; return '<span style="color:#c62828;font-weight:800">Vắng</span>'; }
   window.ddMoDS=function(id){ S.dsMo=id; ngheBuoi(id); hop('<div id="ddDSBox"></div>'); veDS(); };
   function veDS(){ var box=document.getElementById('ddDSBox'); if(!box||!S.dsMo) return; var R0=bangBuoi(S.dsMo), b=R0.b, ql=laQL(), cq=coQuyenBuoi(b), tk=R0.tk;
-    box.innerHTML='<div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><b style="font-size:16px;color:#004d40">📄 '+loai(b.loai).ic+' '+e(b.ten)+'</b><div style="font-size:12.5px;color:#546e7a">'+fNgay(b.ngay)+' · '+e(b.bd)+(b.kt?'–'+e(b.kt):'')+(b.gv?' · '+e(b.gv):'')+' · '+(b.cheDo==='vaora'?'Quét VÀO + RA':'Chỉ quét VÀO')+(b.tiet?' · CNKT đề xuất '+b.tiet+' tiết':'')+'</div></div><button class="dd-btn" onclick="ddDongHop()" style="background:#eceff1">✕</button></div>'+
+    box.innerHTML='<div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><b style="font-size:16px;color:#004d40">📄 '+loai(b.loai).ic+' '+e(b.ten)+'</b><div style="font-size:12.5px;color:#546e7a">'+fNgay(b.ngay)+' · '+e(b.bd)+(b.kt?'–'+e(b.kt):'')+(b.gv?' · '+e(b.gv):'')+' · '+(b.cheDo==='vaora'?'Quét VÀO + RA':'Chỉ quét VÀO')+(b.tiet?' · CNKT đề xuất '+b.tiet+' tiết':'')+'</div></div>'+(typeof window.ddZoomNut==='function'?window.ddZoomNut():'')+'<button class="dd-btn" onclick="ddDongHop()" style="background:#eceff1">✕</button></div>'+
       (chuaGanNhom(b)?'<div style="background:#fff3e0;border-radius:8px;padding:6px 9px;font-size:12.5px;color:#e65100;margin-top:6px">⚠ '+chuaGanNhom(b)+' nhân viên chưa gán nhóm nên không nằm trong danh sách dự kiến (nếu có quét vẫn hiện ở cuối danh sách).</div>':'')+
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;margin:10px 0">'+[['Dự kiến',tk.du,'#37474f'],['Có mặt',tk.co,'#2e7d32'],['Trong đó trễ',tk.tre,'#e65100'],['Vắng',tk.vang,'#c62828'],['Miễn',tk.mien,'#6a1b9a'],['Ngoài DS',tk.ngoai,'#546e7a'],['Tỷ lệ có mặt',(tk.du-tk.mien)?Math.round(tk.co*100/(tk.du-tk.mien))+'%':'—','#00695c']]
         .map(function(x){ return '<div style="border:1px solid #e0e0e0;border-radius:9px;padding:6px 8px"><div style="font-size:11px;color:#78909c">'+x[0]+'</div><div style="font-size:19px;font-weight:900;color:'+x[2]+'">'+x[1]+'</div></div>'; }).join('')+'</div>'+
-      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="dd-btn" onclick="ddExcel(\''+b.id+'\')" style="background:#1b5e20;color:#fff">📊 Xuất Excel</button><button class="dd-btn" onclick="ddIn(\''+b.id+'\')" style="background:#37474f;color:#fff">🖨 In danh sách</button><button class="dd-btn" onclick="ddZalo(\''+b.id+'\')" style="background:#e0f2f1;color:#004d40">📋 Chép Zalo người vắng</button></div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="dd-btn" onclick="ddExcel(\''+b.id+'\')" style="background:#1b5e20;color:#fff">📊 Xuất Excel</button><button class="dd-btn" onclick="ddIn(\''+b.id+'\')" style="background:#37474f;color:#fff">🖨 In danh sách</button><button class="dd-btn" onclick="ddZalo(\''+b.id+'\')" style="background:#e0f2f1;color:#004d40">📋 Chép Zalo người vắng</button><span style="flex:1"></span><button class="dd-btn" onclick="ddXoaBuoi([\''+b.id+'\'])" style="background:#ffebee;color:#c62828;border:1px solid #ef9a9a">🗑 Xóa buổi này</button></div>'+
       (b.loai==='nhantruc'?(function(){ var m=demPhong(b), ks=Object.keys(m).sort(function(a,c){ return a.localeCompare(c,'vi',{numeric:true}); }); return ks.length?'<div style="margin:-2px 0 6px;font-size:14px">🚪 Theo phòng: '+ks.map(function(p){ return '<span style="display:inline-block;background:'+(/ngoài PM|6 số|Không rõ/.test(p)?'#fff3e0':'#e0f2f1')+';border-radius:7px;padding:1px 8px;margin:2px 3px 2px 0">'+e(p)+': <b>'+m[p]+'</b></span>'; }).join('')+'</div>':''; })():'')+
       (b.loai==='nhantruc'?'<div style="margin:-2px 0 8px;font-size:14px">🏥 Nhóm trực: <b>'+R0.hang.filter(function(h){ return h.kq.nhomDD==='truc'; }).length+'</b> người · 🗓 Nhóm chương trình: <b>'+R0.hang.filter(function(h){ return h.kq.nhomDD==='ct'; }).length+'</b> người</div>':'')+
       '<div style="max-height:58vh;overflow:auto"><table><tr><th>STT</th><th>Họ và tên</th><th>Nhóm</th>'+(b.loai==='nhantruc'?'<th>Làm hôm nay</th>':'')+'<th>Giờ vào</th>'+(b.loai==='nhantruc'?'<th>Quét VÀO tại</th>':'')+(b.cheDo==='vaora'?'<th>Giờ ra</th><th>Thời gian dự</th>':'')+'<th>Kết quả</th>'+(b.tiet?'<th>CNKT đề xuất</th>':'')+(cq?'<th>'+(ql?'QL':'Trưởng tua')+'</th>':'')+'</tr>'+
@@ -70217,7 +70220,7 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
   function tinhTH(tu,den,lo){ var ds=dsBuoi().filter(function(b){ return b.ngay>=tu && b.ngay<=den && (!lo||b.loai===lo); }).reverse(), m={};
     ds.forEach(function(b){ duKien(b).forEach(function(n){ var r=m[n]=m[n]||{ten:n, nhom:S.nhom[n]||'', moi:0, co:0, tre:0, vang:0, mien:0, phut:0, tiet:0, truc:0, ct:0}; var k=ketQua(b,n); if(b.loai==='nhantruc' && (k.k==='co'||k.k==='tre') && (k.nhomDD==='truc'||k.nhomDD==='ct')) r[k.nhomDD]++;
       if(k.k==='chua') return; r.moi++; if(k.k==='co'||k.k==='tre'){ r.co++; if(k.k==='tre') r.tre++; if(k.phut) r.phut+=k.phut; if(b.tiet && k.du) r.tiet+=(+b.tiet||0); } else if(k.k==='mien') r.mien++; else r.vang++; }); });
-    var ph={}; ds.forEach(function(b){ if(b.loai!=='nhantruc') return; var q=S.quet[b.id]||{}; Object.keys(q).forEach(function(k){ var x=q[k], p=phongCua(x); if(!p) return;
+    var ph={}; ds.forEach(function(b){ if(b.loai!=='nhantruc') return; var q=S.quet[b.id]||{}; Object.keys(q).forEach(function(k){ var x=q[k], p=phongCua(x, b); if(!p) return;
       var r=ph[p]=ph[p]||{phong:p, luot:0, nguoi:{}, ngay:{}, phut:0, truc:0, ct:0}; r.luot++; r.nguoi[x.ten]=1; r.ngay[b.ngay]=1; if(x.ra) r.phut+=Math.max(0,Math.round((x.ra-x.vao)/60000)); if(x.nhomDD==='truc') r.truc++; else if(x.nhomDD==='ct') r.ct++;
       if(m[x.ten]){ var pp=m[x.ten].phong=m[x.ten].phong||{}; pp[p]=(pp[p]||0)+1; } }); });
     var phong=Object.keys(ph).map(function(k){ var r=ph[k]; r.soNguoi=Object.keys(r.nguoi).length; r.soNgay=Object.keys(r.ngay).length; return r; }).sort(function(a,c){ return a.phong.localeCompare(c.phong,'vi',{numeric:true}); });
