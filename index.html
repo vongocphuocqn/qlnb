@@ -55262,7 +55262,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       var content = await page.getTextContent();
       var items = content.items.map(function(it){
         var pt = viewport.convertToViewportPoint(it.transform[4], it.transform[5]);
-        return {str:it.str, x:pt[0], y:pt[1], w:(it.width||0)};
+        return {str:it.str, x:pt[0], y:pt[1]+(p-1)*100000, w:(it.width||0), pg:p};
       }).filter(function(it){ return it.str && it.str.trim(); });
       allItems = allItems.concat(items);
     }
@@ -55272,12 +55272,16 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     var lines = sdbGroupPdfItemsToLines(allItems);
     // Dò tọa độ X bắt đầu của cột "Chẩn đoán vào viện" từ chính dòng tiêu đề bảng, để chỉ lấy ĐÚNG
     // dữ liệu trong cột này (xem chi tiết cách cắt trong sdbParsePdfLinesToRows bên dưới).
-    sdbChanDoanColX = null;
-    var hdLine = lines.find(function(ln){ return /Chẩn/.test(ln.text) && /đoán/.test(ln.text); });
-    if(hdLine && hdLine.items){
-      var cdHdItem = hdLine.items.find(function(it){ return /Chẩn/.test(it.str); });
-      if(cdHdItem) sdbChanDoanColX = cdHdItem.x;
-    }
+    sdbChanDoanColX = null; sdbChanDoanColXTrang = {}; sdbCdDauCot = {};
+    lines.forEach(function(ln){ if(!ln.items || !(/Chẩn/.test(ln.text) && /đoán/.test(ln.text))) return;
+      var cdHdItem = ln.items.find(function(it){ return /Chẩn/.test(it.str); }); if(!cdHdItem) return;
+      var pg = Math.floor(ln.y/100000); if(sdbChanDoanColXTrang[pg]==null) sdbChanDoanColXTrang[pg] = cdHdItem.x;
+      if(sdbChanDoanColX==null) sdbChanDoanColX = cdHdItem.x;
+      var dcIt = ln.items.find(function(it){ return /Địa/.test(it.str); }); if(!dcIt) return;
+      var dem = {}; lines.forEach(function(l2){ if(Math.floor(l2.y/100000)!==pg || l2.y<=ln.y || !l2.items) return;
+        l2.items.forEach(function(it){ if(it.x>dcIt.x+20 && it.x<cdHdItem.x+5){ var k=Math.round(it.x); dem[k]=(dem[k]||0)+1; } }); });
+      var tot=0, kMax=null; Object.keys(dem).forEach(function(k){ if(kMax==null || dem[k]>dem[kMax]) kMax=k; });
+      if(kMax!=null && dem[kMax]>=2) sdbCdDauCot[pg] = +kMax; });
     var rows = sdbParsePdfLinesToRows(lines);
     if(!rows.length){
       var texts = lines.map(function(l){return l.text;}).filter(Boolean);
@@ -55287,7 +55291,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
     return rows;
   }
   var sdbLastPdfRawLines = [];
-  var sdbChanDoanColX = null;
+  var sdbChanDoanColX = null, sdbChanDoanColXTrang = {}, sdbCdDauCot = {};
   // Ghép các mẩu chữ đã được gán vào 1 dòng thành 1 chuỗi văn bản, sắp theo X (trái→phải), chèn dấu
   // cách DỰA THEO KHOẢNG HỞ thực tế giữa 2 mẩu liền nhau (không chèn cố định) — vì pdf.js có thể trả
   // mỗi TỪ là 1 mẩu hoặc mỗi CỤM/KÝ TỰ là 1 mẩu tùy máy, chèn cách cố định sẽ làm rời rạc cả số/chữ.
@@ -55330,7 +55334,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
   }
   function sdbParsePdfLinesToRows(lines){
     var out = [];
-    var reRow = /^(\d{1,3})\s+(\d{6,12})\s+(\p{Lu}[\p{L}\s]{2,40}?)\s+(\d{1,2}\/\d{1,2}\/\d{1,4})\s+(Nam|Nữ)(.*)$/u;
+    var reRow = /^(\d{1,3})\s+(\d{6,12})\s+(\p{Lu}[\p{L}\s]{2,40}?)\s+(\d{1,2}\/\d{1,2}\/\d{1,4}|\d{1,3}\s*(?:tuổi|tháng|ngày)(?:\s*\d{1,2}\s*(?:tháng|ngày))?)\s*(Nam|Nữ)(.*)$/u;
     lines.forEach(function(ln){
       var t = sdbPreprocessPdfLine(ln.text);
       var m = t.match(reRow);
@@ -55343,6 +55347,7 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
       // cũng tính được tuổi chính xác — những trường hợp đó, đưa thẳng năm sinh (dù cụt) vào ô Tuổi
       // để anh còn thấy thông tin mà bổ sung/sửa tay, thay vì để trống hoàn toàn không biết gì.
       var tuoi = namSinh ? (new Date().getFullYear() - namSinh) : ngaySinh;
+      var mTuoi = /^(\d{1,3})\s*tuổi$/.exec(ngaySinh); if(mTuoi) tuoi = parseInt(mTuoi[1],10);
       var chanDoan;
       if(ln.items){
         // Cột "Địa chỉ" và "Chẩn đoán vào viện" trong file PDF gốc bị dính liền thành 1 khối chữ duy
@@ -55355,8 +55360,16 @@ table.svtt-dt td{padding:6px 8px;border:1px solid #eef1f6;vertical-align:middle}
         var afterX = genderItem ? genderItem.x : -Infinity;
         var beforeX = icdItem ? icdItem.x : Infinity;
         var cdItems = ln.items.filter(function(it){ return it.x+ (it.w||0) > afterX && it.x < beforeX; });
-        var cdStartX = sdbChanDoanColX;
+        var pgL = Math.floor(ln.y/100000), cdStartX = (sdbChanDoanColXTrang && sdbChanDoanColXTrang[pgL]!=null) ? sdbChanDoanColXTrang[pgL] : sdbChanDoanColX;
+        var dauCot = sdbCdDauCot[pgL];
         var parts = cdItems.map(function(it){
+          if(dauCot!=null){
+            if(it.x >= dauCot-3) return it.str;
+            if(it.x + (it.w||0) <= dauCot) return null;
+            var cw = (it.w||0)/Math.max(1,it.str.length);
+            var tot=-1, lech=1e9; for(var ci=1; ci<it.str.length; ci++){ if(!/\p{Lu}/u.test(it.str[ci])) continue; var d=Math.abs(it.x+ci*cw-dauCot); if(d<=8*cw && d<lech){ lech=d; tot=ci; } }
+            if(tot>0) return it.str.slice(tot).replace(/^[-–\s]+/,'');
+          }
           if(cdStartX==null) return it.str; // không dò được ranh giới cột -> lấy nguyên mẩu (như cũ)
           if(it.x >= cdStartX) return it.str; // mẩu đã nằm trọn trong cột Chẩn đoán
           if(it.x + (it.w||0) <= cdStartX) return null; // mẩu nằm trọn TRƯỚC cột Chẩn đoán -> bỏ
@@ -66478,9 +66491,11 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-25l';
+var LD_VER='2026-11-26a';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-26', nd:'Điểm danh — bảng "✅ Đã điểm danh": xếp "🚪 Theo phòng" (mặc định; mỗi phòng/máy 1 nhóm, ghi số người, số Trực / Chương trình; nhóm ngoài phòng mổ tô cam) hoặc "🕘 Theo giờ" như cũ; máy nhớ lựa chọn.'},
+  {d:'2026-11-25', nd:'Sổ đi buồng — "Nhập DS BN từ PDF": đọc được mẫu HIS mới "Danh sách bệnh nhân đang điều trị" (cột Tuổi "78 tuổi", Đối tượng, Số thẻ); sửa lỗi file nhiều trang bị gộp dòng trang 2 vào trang 1.'},
   {d:'2026-11-25', nd:'Hướng dẫn nhanh ❓: bổ sung cho 16 thẻ còn thiếu (Quản lý Phép năm, KPI, Điều động nhân lực, Phụ trách bàn giao, Bình bệnh án, SV/HV Thực hành, Sổ đi buồng, Danh sách NV, Ghi chú Báo cáo, Mẫu văn bản, Đánh giá xếp loại, Đối chiếu PTTT, Checklist, Quản lý Admin, Phân quyền, Lưu đồ) — nay tất cả thẻ Trang chủ đều có nút ❓. Điểm danh thêm bước Cỡ chữ / Lọc hôm nay.'},
   {d:'2026-11-25', nd:'Điểm danh: nút "🗑 Xóa / ✏️ Sửa buổi" luôn hiện (bấm sẽ hỏi mật khẩu Quản lý); hộp Danh sách có "🔍 Cỡ chữ" và "🗑 Xóa buổi này"; thanh trên ghi số bản để kiểm tra đã tải đúng.'},
   {d:'2026-11-25', nd:'Điểm danh: lượt quét bản cũ (trước 12:45, chưa ghi máy quét) không còn hiện "Không rõ" — lấy theo máy đã mở mã của buổi nhận ca, ghi "(máy mở mã)".'},
@@ -69231,7 +69246,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-25 21:45';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-26 09:50';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
@@ -69953,7 +69968,7 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
   window.ddTab=function(t){ S.tab=t; ve(); };
   function moMan(){ var sc=document.getElementById('ddScreen'); return sc && sc.style.display!=='none'; }
   function ve(){ if(!moMan()) return; var sc=document.getElementById('ddScreen'), ql=laQL();
-    var top='<div class="dd-top"><button class="dd-btn" onclick="ddDong()" style="background:rgba(255,255,255,.18);color:#fff">🏠 Trang chủ</button><div style="flex:1;min-width:200px"><div style="font-weight:900;font-size:17px">✅ Điểm danh</div><div style="font-size:12px;opacity:.9">Tập huấn · giao ban · họp · sinh hoạt — quét mã QR động · <b>bản 25/11 19:20</b></div></div>'+
+    var top='<div class="dd-top"><button class="dd-btn" onclick="ddDong()" style="background:rgba(255,255,255,.18);color:#fff">🏠 Trang chủ</button><div style="flex:1;min-width:200px"><div style="font-weight:900;font-size:17px">✅ Điểm danh</div><div style="font-size:12px;opacity:.9">Tập huấn · giao ban · họp · sinh hoạt — quét mã QR động · <b>bản 26/11 09:50</b></div></div>'+
       (typeof window.ddZoomNut==='function'?window.ddZoomNut():'')+(ql?'<span style="font-size:12px;background:rgba(255,255,255,.2);border-radius:8px;padding:4px 8px">👑 Quản lý</span>':'<button class="dd-btn" onclick="if(ddQL())ddTab(\'ds\')" style="background:rgba(255,255,255,.18);color:#fff">🔐 Quản lý</button>')+'</div>';
     var tabs='<div class="dd-tabs">'+[['ds','📋 Các buổi'],['nhap','✍ Nhập mã điểm danh'],['th','📊 Tổng hợp']].map(function(t){ return '<button class="dd-tab'+(S.tab===t[0]?' on':'')+'" onclick="ddTab(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>';
     var body=S.tab==='nhap'?veNhap():S.tab==='th'?veTH():veDSBuoi();
@@ -69988,6 +70003,8 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
   /* 25/11/2026 — lọc ngày + bảng ĐÃ / CHƯA điểm danh theo ngày */
   window.ddLocNgay=function(v){ if(v==='hn') v=keyNgay(now()); S.locNgay=v||''; if(v) S.thang=v.slice(0,7); ve(); };
   window.ddDCPham=function(v){ S.dcPham=v; ve(); };
+  window.ddDCXep=function(v){ S.dcXep=v; try{ localStorage.setItem('ddDCXep',v); }catch(x){} ve(); };
+  try{ S.dcXep=localStorage.getItem('ddDCXep')||'phong'; }catch(x){}
   window.ddDCMo=function(){ S.dcDong=!S.dcDong; ve(); };
   function tinhDaChua(d){ var bs=dsBuoi().filter(function(b){ return b.ngay===d; }), da={}, moi={}, mien={}, gach={};
     bs.forEach(function(b){ ngheBuoi(b.id); var q=S.quet[b.id]||{};
@@ -70006,11 +70023,17 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
     if(!T.bs.length) return dau+'<div style="color:#78909c;margin-top:6px">Ngày này chưa có buổi điểm danh nào.</div></div>';
     if(S.dcDong) return dau+'<div style="margin-top:4px;font-size:13.5px">✅ Đã điểm danh <b style="color:#2e7d32">'+T.da.length+'</b> · ⏳ Chưa <b style="color:#c62828">'+T.chua.length+'</b></div></div>';
     var nhomTx=function(k){ return k==='truc'?'🏥 Trực':k==='ct'?'🗓 Chương trình':''; };
+    var theoPhong=S.dcXep!=='gio';
+    if(theoPhong && T.da.length){ var nhomP={}, thuTu=[]; T.da.forEach(function(r){ var k=r.phong||'Không rõ'; if(!nhomP[k]){ nhomP[k]=[]; thuTu.push(k); } nhomP[k].push(r); });
+      thuTu.sort(function(a,b){ var ca=/Không rõ|Ghi tay/.test(a), cb=/Không rõ|Ghi tay/.test(b); if(ca!==cb) return ca?1:-1; return a.localeCompare(b,'vi',{numeric:true}); });
+      var cotDaP=thuTu.map(function(k){ var ds=nhomP[k], tr=ds.filter(function(r){ return r.nhom==='truc'; }).length, ct=ds.filter(function(r){ return r.nhom==='ct'; }).length, cam=/ngoài PM|Không rõ|6 số/.test(k);
+        return '<tr><td colspan="5" style="text-align:left;background:'+(cam?'#fff3e0':'#e0f2f1')+';color:'+(cam?'#e65100':'#004d40')+';font-weight:900;padding:7px 10px">🚪 '+e(k)+' — '+ds.length+' người'+(tr||ct?' <span style="font-weight:600;font-size:12.5px">(🏥 Trực '+tr+' · 🗓 Chương trình '+ct+')</span>':'')+'</td></tr>'+
+          ds.map(function(r,i){ return '<tr><td>'+(i+1)+'</td><td style="text-align:left;font-weight:700">'+e(r.ten)+'</td><td>'+fGio(r.vao)+'</td><td>'+(r.ra?fGio(r.ra):'<span style="color:#b0bec5">—</span>')+'</td><td style="font-size:12.5px">'+(r.nhom==='truc'?'🏥 Trực':r.nhom==='ct'?'🗓 Chương trình':'')+'</td></tr>'; }).join(''); }).join(''); }
     var cotDa=T.da.length?T.da.map(function(r,i){ return '<tr><td>'+(i+1)+'</td><td style="text-align:left;font-weight:700">'+e(r.ten)+'</td><td>'+fGio(r.vao)+'</td><td>'+(r.ra?fGio(r.ra):'<span style="color:#b0bec5">—</span>')+'</td><td style="font-size:12.5px">'+nhomTx(r.nhom)+'</td><td style="text-align:left;font-size:12.5px'+(/ngoài PM|Không rõ|6 số/.test(r.phong)?';background:#fff3e0':'')+'">'+e(r.phong)+'</td></tr>'; }).join(''):'<tr><td colspan="6" style="color:#78909c">Chưa có ai.</td></tr>';
     var cotChua=T.chua.length?T.chua.map(function(n,i){ return '<tr><td>'+(i+1)+'</td><td style="text-align:left;font-weight:700">'+e(n)+'</td><td style="font-size:12.5px">'+(T.mien[n]?'<span style="color:#6a1b9a">Miễn: '+e(T.mien[n])+'</span>':T.gach[n]?'<span style="color:#c62828">❌ Không có mặt (bị gạch)</span>':'')+'</td></tr>'; }).join(''):'<tr><td colspan="3" style="color:#2e7d32;font-weight:700">Đã đủ 👍</td></tr>';
     return dau+'<div style="font-size:12.5px;color:#546e7a;margin:4px 0 8px">'+T.bs.length+' buổi trong ngày · đối chiếu '+T.soGoc+' người</div>'+
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px">'+
-      '<div style="border:1.5px solid #a5d6a7;border-radius:10px;overflow:auto"><div style="background:#e8f5e9;padding:7px 10px;font-weight:900;color:#1b5e20">✅ Đã điểm danh ('+T.da.length+')</div><table><tr><th>#</th><th>Họ và tên</th><th>VÀO</th><th>RA</th><th>Nhóm</th><th>Quét tại</th></tr>'+cotDa+'</table></div>'+
+      '<div style="border:1.5px solid #a5d6a7;border-radius:10px;overflow:auto"><div style="background:#e8f5e9;padding:7px 10px;font-weight:900;color:#1b5e20;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="flex:1">✅ Đã điểm danh ('+T.da.length+')</span><span style="font-size:12.5px;font-weight:700">Xếp:</span><button class="dd-btn" onclick="ddDCXep(\'phong\')" style="padding:4px 9px;font-size:12.5px;background:'+(theoPhong?'#2e7d32':'#fff')+';color:'+(theoPhong?'#fff':'#1b5e20')+';border:1px solid #a5d6a7">🚪 Theo phòng</button><button class="dd-btn" onclick="ddDCXep(\'gio\')" style="padding:4px 9px;font-size:12.5px;background:'+(!theoPhong?'#2e7d32':'#fff')+';color:'+(!theoPhong?'#fff':'#1b5e20')+';border:1px solid #a5d6a7">🕘 Theo giờ</button></div><table>'+(theoPhong&&T.da.length?'<tr><th>#</th><th>Họ và tên</th><th>VÀO</th><th>RA</th><th>Nhóm</th></tr>'+cotDaP:'<tr><th>#</th><th>Họ và tên</th><th>VÀO</th><th>RA</th><th>Nhóm</th><th>Quét tại</th></tr>'+cotDa)+'</table></div>'+
       '<div style="border:1.5px solid #ef9a9a;border-radius:10px;overflow:auto"><div style="background:#ffebee;padding:7px 10px;font-weight:900;color:#b71c1c;display:flex;gap:6px;align-items:center"><span style="flex:1">⏳ Chưa điểm danh ('+T.chua.length+')</span>'+(T.chua.length?'<button class="dd-btn" onclick="ddDCChep()" style="padding:4px 9px;background:#fff;color:#b71c1c;border:1px solid #ef9a9a;font-size:12.5px">📋 Chép gửi Zalo</button>':'')+'</div><table><tr><th>#</th><th>Họ và tên</th><th>Ghi chú</th></tr>'+cotChua+'</table></div></div></div>'; }
   window.ddDCChep=function(){ var K=S.dcKQ; if(!K) return; var t='chưa điểm danh ngày '+fNgay(K.d)+' ('+K.T.chua.length+' người): '+K.T.chua.join(', ');
     var ok=function(){ toast('📋 Đã chép — dán vào Zalo','#00695c'); };
