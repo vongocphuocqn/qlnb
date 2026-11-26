@@ -66494,10 +66494,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-26b';
+var LD_VER='2026-11-26c';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
-  {d:'2026-11-26', nd:'Kanban — Tiến độ công việc (Cần làm / Đang làm / Hoàn thành) và Ghi chú nhanh có thanh định dạng: B đậm, I nghiêng, U gạch chân, 5 màu chữ, 🖍 tô nền vàng, ✖ bỏ định dạng. Màn "Phóng to" soạn thấy ngay màu/đậm; ô nhỏ có khung "👁 Xem trước". Nội dung báo cáo thêm nút 🖍 Tô vàng.'},
+  {d:'2026-11-26', nd:'Kanban — Tiến độ công việc (Cần làm / Đang làm / Hoàn thành) và Ghi chú nhanh có thanh định dạng: B đậm, I nghiêng, U gạch chân, 5 màu chữ, 🖍 tô nền vàng, ✖ bỏ định dạng. Màn "Phóng to" soạn thấy ngay màu/đậm; ô nhỏ có khung "👁 Xem trước". Nội dung báo cáo thêm nút 🖍 Tô vàng. (23:30) Ô nhỏ 3 cột: thanh gọn 1 hàng (B I U · A▾ bảng màu · 🖍 · ✖); Cần làm / Đang làm không hiện khung xem trước vì danh sách Đánh dấu nhanh bên dưới đã hiện đúng định dạng; khung xem trước chỉ liệt kê dòng có định dạng, cao tối đa 110px.'},
   {d:'2026-11-26', nd:'Điểm danh — bảng "✅ Đã điểm danh": xếp "🚪 Theo phòng" (mặc định; mỗi phòng/máy 1 nhóm, ghi số người, số Trực / Chương trình; nhóm ngoài phòng mổ tô cam) hoặc "🕘 Theo giờ" như cũ; máy nhớ lựa chọn.'},
   {d:'2026-11-25', nd:'Sổ đi buồng — "Nhập DS BN từ PDF": đọc được mẫu HIS mới "Danh sách bệnh nhân đang điều trị" (cột Tuổi "78 tuổi", Đối tượng, Số thẻ); sửa lỗi file nhiều trang bị gộp dòng trang 2 vào trang 1.'},
   {d:'2026-11-25', nd:'Hướng dẫn nhanh ❓: bổ sung cho 16 thẻ còn thiếu (Quản lý Phép năm, KPI, Điều động nhân lực, Phụ trách bàn giao, Bình bệnh án, SV/HV Thực hành, Sổ đi buồng, Danh sách NV, Ghi chú Báo cáo, Mẫu văn bản, Đánh giá xếp loại, Đối chiếu PTTT, Checklist, Quản lý Admin, Phân quyền, Lưu đồ) — nay tất cả thẻ Trang chủ đều có nút ❓. Điểm danh thêm bước Cỡ chữ / Lọc hôm nay.'},
@@ -69250,7 +69250,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-26 23:00';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-26 23:30';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
@@ -70385,23 +70385,37 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
 .aeBar2 button:hover{background:#e3f2fd;border-color:#1565c0}
 .aeBar2 .sep{width:1px;height:18px;background:#c5cfe8;margin:0 2px}
 .aeEd.aeEd2{min-height:16vh;max-height:40vh}
-.aeXem{display:none;margin:4px 0 2px;padding:6px 9px;border:1px dashed #b0bec5;border-radius:8px;background:#fafafa;font-size:13.5px;line-height:1.5}
+.aeBar2.nho{gap:2px;margin:1px 0 4px}
+.aeBar2.nho button{padding:1px 4px;font-size:11.5px;border-radius:6px;min-width:21px;border-width:1px}
+.aeBar2.nho .sep{height:14px;margin:0 1px}
+.aeBar2.nho{position:relative}
+.aeBar2 .aePal{display:none;position:absolute;top:100%;left:0;z-index:50;background:#fff;border:1px solid #c5cfe8;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.15);padding:4px;gap:3px}
+.aeBar2 .aePal.on{display:flex}
+.aeXem{display:none;margin:4px 0 2px;padding:5px 8px;border:1px dashed #b0bec5;border-radius:8px;background:#fafafa;font-size:13px;line-height:1.45;max-height:110px;overflow:auto}
+.aeXem .dx{padding:1px 0;border-bottom:1px dotted #eceff1}
 .aeXem b.t{display:block;font-size:11px;color:#78909c;margin-bottom:2px;font-weight:700}
 </style>
 <script>
 (function(){
   var MAU=[['đỏ','#c62828','đỏ'],['xanh','#1565c0','xanh dương'],['lá','#2e7d32','xanh lá'],['cam','#e65100','cam'],['tím','#6a1b9a','tím']];
   function nut(fn, arg, title, html, st){ return '<button type="button" onmousedown="event.preventDefault()" onclick="'+fn+'(\''+arg[0]+'\''+(arg.length>1?',\''+arg[1]+'\'':'')+')" title="'+title+'" style="'+(st||'')+'">'+html+'</button>'; }
-  function thanh(fnF, fnC, fnH, fnX, id){
+  function thanh(fnF, fnC, fnH, fnX, id, nho){
+    var mauHtml=MAU.map(function(m){ return nut(fnC,[id,m[0]],'Chữ màu '+m[2],'A<span style="display:block;height:3px;background:'+m[1]+';border-radius:2px;margin-top:1px"></span>','color:'+m[1]+';font-weight:900;padding:3px 7px'); }).join('')+
+      nut(fnC,[id,''],'Bỏ màu (về chữ đen)','A<span style="display:block;height:3px;background:#1f2937;border-radius:2px;margin-top:1px"></span>','padding:3px 7px');
+    if(nho) return nut(fnF,[id,'bold'],'Chữ đậm','B','font-weight:900')+nut(fnF,[id,'italic'],'Chữ nghiêng','I','font-style:italic;font-family:serif')+nut(fnF,[id,'underline'],'Gạch chân','U','text-decoration:underline')+
+      '<button type="button" onmousedown="event.preventDefault()" onclick="aePalMo(this)" title="Màu chữ" style="font-weight:900;background:linear-gradient(90deg,#ffebee,#e3f2fd,#e8f5e9,#fff3e0,#f3e5f5)">A▾</button><span class="aePal" onclick="this.classList.remove(\'on\')">'+mauHtml+'</span>'+
+      nut(fnH,[id,'1'],'Tô nền vàng (bút dạ quang)','🖍','background:#fff176;border-color:#fbc02d')+nut(fnX,[id],'Bỏ hết định dạng phần đang chọn','✖','color:#546e7a');
     return nut(fnF,[id,'bold'],'Chữ đậm (Ctrl+B)','B','font-weight:900')+nut(fnF,[id,'italic'],'Chữ nghiêng (Ctrl+I)','I','font-style:italic;font-family:serif')+nut(fnF,[id,'underline'],'Gạch chân (Ctrl+U)','U','text-decoration:underline')+'<span class="sep"></span>'+
       MAU.map(function(m){ return nut(fnC,[id,m[0]],'Chữ màu '+m[2],'A<span style="display:block;height:3px;background:'+m[1]+';border-radius:2px;margin-top:1px"></span>','color:'+m[1]+';font-weight:900;padding:3px 7px'); }).join('')+
       nut(fnC,[id,''],'Bỏ màu (về chữ đen)','A<span style="display:block;height:3px;background:#1f2937;border-radius:2px;margin-top:1px"></span>','padding:3px 7px')+'<span class="sep"></span>'+
-      nut(fnH,[id,'1'],'Tô nền vàng (bút dạ quang)','🖍 Tô vàng','background:#fff176;border-color:#fbc02d')+nut(fnX,[id],'Bỏ hết định dạng phần đang chọn','✖ Bỏ định dạng','color:#546e7a'); }
+      nut(fnH,[id,'1'],'Tô nền vàng (bút dạ quang)',nho?'🖍':'🖍 Tô vàng','background:#fff176;border-color:#fbc02d')+nut(fnX,[id],'Bỏ hết định dạng phần đang chọn',nho?'✖':'✖ Bỏ định dạng','color:#546e7a'); }
   /* ---- soạn trực quan (contenteditable) ---- */
   window.aeTo=function(id, on){ var ed=document.getElementById(id); if(!ed) return; var sel=window.getSelection(); if(!sel.rangeCount || !ed.contains(sel.anchorNode)) aeFocus(id);
     try{ document.execCommand('styleWithCSS', false, true); }catch(x){} document.execCommand('hiliteColor', false, on?'#fff176':'transparent'); try{ document.execCommand('styleWithCSS', false, false); }catch(x){} };
   window.aeBo=function(id){ var ed=document.getElementById(id); if(!ed) return; var sel=window.getSelection(); if(!sel.rangeCount || !ed.contains(sel.anchorNode)) return;
     document.execCommand('removeFormat', false, null); aeTo(id, false); try{ document.execCommand('styleWithCSS', false, false); }catch(x){} document.execCommand('foreColor', false, '#1f2937'); };
+  window.aePalMo=function(b){ var p=b.nextElementSibling; [].slice.call(document.querySelectorAll('.aePal.on')).forEach(function(x){ if(x!==p) x.classList.remove('on'); }); if(p) p.classList.toggle('on'); };
+  document.addEventListener('mousedown', function(ev){ if(!ev.target.closest || !ev.target.closest('.aeBar2')) [].slice.call(document.querySelectorAll('.aePal.on')).forEach(function(x){ x.classList.remove('on'); }); });
   window.aeBarHtml2=function(id){ return '<div class="aeBar2" data-ed="'+id+'">'+thanh('aeFmt','aeColor','aeTo','aeBo',id)+'</div>'; };
   /* ---- ô chữ thường (textarea): chèn dấu định dạng quanh phần bôi đen + xem trước ---- */
   var BOC={bold:['**','**'],italic:['__','__'],underline:['++','++']};
@@ -70416,11 +70430,14 @@ html.dd-z1 #ddChieu>div:first-child,html.dd-z2 #ddChieu>div:first-child{zoom:1}
   window.aeTaX=function(id){ sua(id, function(t){ return t.split('\n').map(function(l){ return l.replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1').replace(/\+\+(.+?)\+\+/g,'$1').replace(/\{(đỏ|xanh|lá|cam|tím):(.+?)\}/g,'$2').replace(/==(.+?)==/g,'$1'); }).join('\n'); }); };
   function coDau(v){ return /\*\*.+?\*\*|__.+?__|\+\+.+?\+\+|==.+?==|\{(đỏ|xanh|lá|cam|tím):.+?\}/.test(v); }
   function xem(id){ var ta=document.getElementById(id), x=document.getElementById(id+'Xem'); if(!ta||!x) return; var v=ta.value||'';
-    if(coDau(v)){ x.style.display='block'; x.innerHTML='<b class="t">👁 Xem trước (hiển thị trên thẻ)</b>'+escNl(v); } else { x.style.display='none'; x.innerHTML=''; } }
+    var ds=v.split('\n').filter(coDau);
+    if(ds.length){ x.style.display='block'; x.innerHTML='<b class="t">👁 Xem trước dòng có định dạng ('+ds.length+')</b>'+ds.map(function(l){ return '<div class="dx">'+escNl(l)+'</div>'; }).join(''); } else { x.style.display='none'; x.innerHTML=''; } }
   window.aeTaXem=xem;
+  var KHONGXEM={editTodo:1, editDoing:1}; /* 2 ô này đã có danh sách Đánh dấu nhanh bên dưới hiển thị đúng định dạng */
   function ganTa(id){ var ta=document.getElementById(id); if(!ta || ta.getAttribute('data-ae2')) return; ta.setAttribute('data-ae2','1');
-    var bar=document.createElement('div'); bar.className='aeBar2'; bar.innerHTML=thanh('aeTaF','aeTaC','aeTaH','aeTaX',id).replace(/aeTaH\('([^']*)','1'\)/g,"aeTaH('$1')");
+    var bar=document.createElement('div'); bar.className='aeBar2 nho'; bar.innerHTML=thanh('aeTaF','aeTaC','aeTaH','aeTaX',id,1).replace(/aeTaH\('([^']*)','1'\)/g,"aeTaH('$1')");
     ta.parentNode.insertBefore(bar, ta);
+    if(KHONGXEM[id]) return;
     var x=document.createElement('div'); x.className='aeXem'; x.id=id+'Xem'; ta.parentNode.insertBefore(x, ta.nextSibling);
     ta.addEventListener('input', function(){ xem(id); }); }
   window.aeTaGanXem=function(){ ['editTodo','editDoing','editDone','inTodo','inDoing','inDone','qnInput'].forEach(xem); };
