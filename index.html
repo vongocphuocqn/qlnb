@@ -61204,7 +61204,7 @@ function tinhTomTat(){
   /* 01/11/2026 21:55: danh sách máy đang mượn tạm — phòng cho mượn → phòng mượn, hạn trả */
   o.muonDs=ds.filter(function(t){ return t.boPhanGoc && !t.thanhLy; }).map(function(t){ var x=muonInfo(t)||{}, pt=phongCua(t.boPhanGoc), pd=t.phong;
     if(pt===pd){ pt=String(t.boPhanGoc); pd=String(t.boPhan||''); }
-    return {ma:t.ma, ten:String(t.ten||'').slice(0,70), tu:pt, den:pd, han:x.han||'', qh:x.qh?1:0, t:x.t||0}; })
+    return {ma:t.ma, ten:String(t.ten||'').slice(0,70), tu:pt, den:pd, han:x.han||'', qh:x.qh?1:0, t:x.t||0, ai:String(x.ai||'').slice(0,60), cho:String(x.cho||'').slice(0,60)}; })
     .sort(function(a,b){ return b.qh-a.qh || String(a.tu).localeCompare(String(b.tu),'vi'); }).slice(0,10);
   return o;
 }
@@ -61240,7 +61240,7 @@ function bangTinHTML(o, gon){
       +mds.slice(0,mMax).map(function(x){ var mau=x.qh?'#c62828':'#6a1b9a';
         return '<div onclick="event.stopPropagation();qltsOpen(\'ts\',\''+e(x.ma)+'\')" title="'+e(x.ten)+'" style="cursor:pointer;display:flex;flex-wrap:wrap;gap:1px 8px;align-items:baseline;padding:3px 0 3px 10px;border-left:3px dashed '+mau+';margin-top:3px">'
           +'<span style="flex:1 1 160px;min-width:0;font-weight:700;color:#37474f">'+e(tenGonTin(x.ten))+'</span>'
-          +'<span style="flex:1 1 auto;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;color:'+mau+'">'+[ '<b>'+e(x.tu)+'</b> cho <b>'+e(x.den)+'</b> mượn', x.t?('từ <b>'+ngayMuonTxt(x.t)+'</b> ('+soNgayMuon(x.t)+')'):'', x.han?('hạn '+fmtD(x.han).slice(0,5)):'hạn chưa xác định', x.qh?'<b>QUÁ HẠN</b>':'' ].filter(Boolean).map(function(z,i){ return i?('<span style="white-space:nowrap">'+z+'</span>'):z; }).join(' · ')+'</span></div>'; }).join('')
+          +'<span style="flex:1 1 auto;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;color:'+mau+'">'+[ '<b>'+e(x.tu)+'</b> cho <b>'+e(x.den)+'</b> mượn', x.t?('từ <b>'+ngayMuonTxt(x.t)+'</b> ('+soNgayMuon(x.t)+')'):'', x.han?('hạn '+fmtD(x.han).slice(0,5)):'hạn chưa xác định', x.qh?'<b>QUÁ HẠN</b>':'', (x.ai?('👤 '+e(x.ai)):'<span style="color:#c62828">👤 chưa ghi người mượn</span>')+' · '+(x.cho?('🤝 cho mượn: '+e(x.cho)):'<span style="color:#c62828;font-weight:700">🤝 chưa ghi người cho mượn</span>') ].filter(Boolean).map(function(z,i){ return i?('<span style="white-space:nowrap">'+z+'</span>'):z; }).join(' · ')+'</span></div>'; }).join('')
       +(o.muon>mMax?'<div style="color:#78909c;padding-left:13px;margin-top:2px">+ '+(o.muon-mMax)+' máy khác — bấm "Đang mượn tạm" để xem</div>':'')+'</div>'; }
   var dongPhu=phu.length?'<div style="font-size:'+(gon?'11.5px':'12px')+';line-height:1.6;margin-top:6px;padding-top:5px;border-top:1px solid rgba(0,0,0,.08);display:flex;flex-wrap:wrap;gap:4px 14px">'+phu.map(function(x){ return '<span>'+x+'</span>'; }).join('')+'</div>':'';
   /* Không có thiết bị nào bị hạn chế sử dụng */
@@ -63048,7 +63048,7 @@ function conBH(ts){ return ts.hanBH && ts.hanBH>Date.now(); }
 function canhBaoTS(ts){ // chip cảnh báo dùng ở Báo hỏng / Hồ sơ / Trang QR
   var o=[]; ['bd','kd','hc'].forEach(function(l){ var h=hanBT(ts,l); if(h && (h.tt==='qua'||h.tt==='sap')) o.push(chipBT(h,l)); });
   if(conBH(ts)) o.push('<span class="qlts-pill" style="background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9">🛡 Còn bảo hành đến '+fmtD(ts.hanBH)+' — liên hệ '+e(ts.dvBaoTri||'hãng')+', không tự sửa</span>');
-  if(ts.boPhanGoc) o.push(pillMuon(ts));
+  if(ts.boPhanGoc) o.push(pillMuon(ts)+nguoiMuon(ts));
   return o.join(' ');
 }
 function dKeyMs(ms){ var d=new Date(ms); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
@@ -63430,7 +63430,28 @@ function boncMuon(t){ return Object.assign({}, t, {_choMuon:true, boPhan:t.boPha
 function dsChoMuon(){ return taiSanList(false).filter(function(t){ return t.boPhanGoc && !t.thanhLy && phongCua(t.boPhanGoc)!==t.phong; }).map(boncMuon); }
 function pillChoMuon(t, ngan){ var x=muonInfo(t)||{}; var qh=x.qh, mau=qh?'#c62828':'#6a1b9a';
   return '<span class="qlts-pill" title="Tài sản của '+e(t.boPhanGoc||t.boPhan)+' — đang cho '+e(t._dangO)+' mượn'+(x.ai?(' · người mượn: '+e(x.ai)):'')+(x.t?(' · từ '+fmtDT(x.t)):'')+'" style="background:'+(qh?'#ffebee':'#ede7f6')+';color:'+mau+';border:1px dashed '+mau+(ngan?';font-size:10.5px;padding:1px 6px':'')+'">↗ Đang cho '+e(phongCua(t._dangO)||t._dangO)+' mượn'+(x.han?(' · hạn trả '+fmtD(x.han).slice(0,5)):' · hạn chưa xác định')+(qh?' · QUÁ HẠN':'')+'</span>'; }
-function nguoiMuon(t){ var x=muonInfo(t); if(!x||(!x.ai&&!x.cho)) return ''; return '<div style="font-size:11.5px;color:#4a148c;margin-top:2px">'+(x.ngoai?'<b style="background:#fff3e0;color:#e65100;border-radius:5px;padding:0 5px;margin-right:4px">🏥 Khoa khác</b>':'')+(x.ai?('👤 Người mượn: <b>'+e(x.ai)+'</b>'+(x.sdt?(' ☎ '+e(x.sdt)):'')):'')+(x.ai&&x.cho?' · ':'')+(x.cho?('🤝 Người cho mượn: <b>'+e(x.cho)+'</b>'):'')+(x.t?(' · <span style="color:#78909c">'+fmtDT(x.t)+'</span>'):'')+'</div>'; }
+function nguoiMuon(t){ var x=muonInfo(t); if(!x) return ''; var thieu=!x.ai||!x.cho;
+  return '<div style="font-size:11.5px;color:#4a148c;margin-top:2px">'+(x.ngoai?'<b style="background:#fff3e0;color:#e65100;border-radius:5px;padding:0 5px;margin-right:4px">🏥 Khoa khác</b>':'')
+    +(x.ai?('👤 Người mượn: <b>'+e(x.ai)+'</b>'+(x.sdt?(' ☎ '+e(x.sdt)):'')):'<span style="color:#c62828;font-weight:700">👤 Chưa ghi người mượn</span>')+' · '
+    +(x.cho?('🤝 Người cho mượn: <b>'+e(x.cho)+'</b>'):'<span style="color:#c62828;font-weight:700">🤝 Chưa ghi người cho mượn</span>')
+    +(x.t?(' · <span style="color:#78909c">'+fmtDT(x.t)+'</span>'):'')
+    +' <a href="javascript:void 0" onclick="event.stopPropagation();qltsBoSungMuon(\''+e(t.ma)+'\')" style="margin-left:6px;font-weight:800;color:'+(thieu?'#c62828':'#6a1b9a')+'">✏️ '+(thieu?'Bổ sung':'Sửa')+'</a></div>'; }
+/* 27/11/2026 — BỔ SUNG / SỬA người mượn, người cho mượn, hạn trả cho lần mượn đang mở (dữ liệu cũ chưa ghi người cho mượn) */
+window.qltsBoSungMuon=function(ma){ var t=taiSan(ma), x=muonInfo(t); if(!x) return;
+  modalBox('<div style="font-size:12px;color:#6a1b9a;font-weight:700">✏️ BỔ SUNG THÔNG TIN MƯỢN TẠM</div><div style="font-weight:800;color:#0b3c5d;font-size:15px">'+e(t.ten)+'</div><div style="font-size:12.5px;color:#546e7a">'+e(t.ma)+' · của <b>'+e(x.tu)+'</b> → đang ở <b>'+e(x.den)+'</b>'+(x.t?(' · từ '+fmtDT(x.t)):'')+'</div>'
+    +'<div style="background:#fff8e1;border-radius:8px;padding:7px 10px;font-size:12.5px;color:#795548;margin-top:8px">Không nhớ ai cho mượn: hỏi người đang giữ máy ở <b>'+e(x.den)+'</b>'+(x.ai?(' ('+e(x.ai)+')'):'')+' hoặc người phụ trách thiết bị của <b>'+e(x.tu)+'</b>, rồi ghi vào đây.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="'+LB+'">Người mượn <span style="color:#c62828">*</span></label><input id="bsAi" list="bsStaff" value="'+e(x.ai||'')+'" style="'+INP+'"></div><div><label style="'+LB+'">Người cho mượn <span style="color:#c62828">*</span></label><input id="bsCho" list="bsStaff" value="'+e(x.cho||'')+'" placeholder="Người của '+e(x.tu)+' giao máy" style="'+INP+'"></div></div><datalist id="bsStaff">'+S.staff.map(function(y){ return '<option value="'+e(y)+'">'; }).join('')+'</datalist>'
+    +(x.ngoai?'<label style="'+LB+'">SĐT người mượn</label><input id="bsSdt" inputmode="tel" value="'+e(x.sdt||'')+'" style="'+INP+'">':'')
+    +'<label style="'+LB+'">Hạn trả</label><input type="date" id="bsHan" value="'+(x.han?dKeyMs(x.han):'')+'" style="'+INP+';width:auto"> <span style="font-size:12px;color:#78909c">(để trống = chưa xác định)</span>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button id="bsLuu" onclick="qltsLuuBoSungMuon(\''+e(ma)+'\')" style="'+BTN+'background:#6a1b9a;color:#fff;padding:10px 16px">💾 Lưu</button><span style="flex:1"></span><button onclick="qltsDongModal()" style="'+BTN+'background:#eceff1;color:#37474f">Hủy</button></div>', 560); };
+window.qltsLuuBoSungMuon=function(ma){ var t=taiSan(ma), x=muonInfo(t); if(!x) return; var g=function(i){ return ((document.getElementById(i)||{}).value||'').trim().replace(/\s+/g,' '); };
+  var ai=g('bsAi'), cho=g('bsCho'); if(!ai){ alert('Vui lòng nhập tên người mượn.'); return; } if(!cho){ alert('Vui lòng nhập tên người cho mượn.'); return; }
+  var c2=chuanTen(cho); if(!c2){ alert('Tên người cho mượn không có trong Danh sách nhân viên khoa.'); return; } cho=c2; if(!x.ngoai){ var a2=chuanTen(ai); if(a2) ai=a2; }
+  var han=ngayInput(g('bsHan')), sdt=x.ngoai?g('bsSdt'):'', P='danhMuc/'+ma+'/muon/', up={}, nguoiSua=lsGet('qltsNguoi')||(isAdmin()?'Quản lý':'');
+  up[P+'ai']=ai; up[P+'choMuon']=cho; up[P+'han']=han||null; if(x.ngoai) up[P+'sdt']=sdt||null; up[P+'boSung']={t:Date.now(), boi:nguoiSua||null};
+  if(t.dcId){ var D='dieuChuyen/'+t.dcId+'/'; up[D+'nhan']=ai; up[D+'nguoi']=ai; up[D+'giao']=cho; up[D+'hanTra']=han||null; if(x.ngoai) up[D+'sdt']=sdt||null; }
+  var b=document.getElementById('bsLuu'); if(b){ b.disabled=true; b.textContent='⏳ Đang lưu…'; }
+  luu(up).then(function(){ qltsDongModal(); render(); toast('✏️ Đã bổ sung: '+ai+' mượn · '+cho+' cho mượn','#6a1b9a'); }).catch(function(err){ alert('Lỗi lưu: '+err.message); if(b){ b.disabled=false; b.textContent='💾 Lưu'; } }); };
 function nutMuon(t, nho){ var pad=nho?'padding:3px 8px;font-size:12px':'padding:5px 10px';
   return t.boPhanGoc ? '<button onclick="qltsTraMuon(\''+e(t.ma)+'\')" title="Trả về '+e(t.boPhanGoc)+'" style="'+BTN+pad+';background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7">↩ Trả</button>'
     : '<button onclick="qltsMuonTam(\''+e(t.ma)+'\')" title="Ghi nhận phòng khác mượn tạm thiết bị này" style="'+BTN+pad+';background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8">🔁 Mượn</button>'; }
@@ -63538,7 +63559,7 @@ window.qltsMuonTam=function(ma){
     +'<div id="mtNvChip"></div>'
     +'<input id="mtKhoa" list="mtKhoaDl" oninput="qltsVeChipKhoa()" placeholder="VD: Khoa Ngoại tổng hợp (khoa mới gõ vào sẽ được lưu cho lần sau)" style="'+INP+'"><datalist id="mtKhoaDl">'+khoaNgoaiDs().map(function(x){ return '<option value="'+e(x)+'">'; }).join('')+'</datalist>'
     +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="'+LB+'">Người mượn <span style="color:#c62828">*</span></label><input id="mtAi" list="mtAiDl" value="'+e(lsGet('qltsNguoi')||'')+'" autocomplete="off" onchange="qltsMtAiChon()" style="'+INP+'"></div><div><label style="'+LB+'">Người cho mượn</label><input id="mtCho" list="mtStaff" style="'+INP+'"></div></div><datalist id="mtStaff">'+S.staff.map(function(x){ return '<option value="'+e(x)+'">'; }).join('')+'</datalist><datalist id="mtAiDl">'+mtAiOps()+'</datalist>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="'+LB+'">Người mượn <span style="color:#c62828">*</span></label><input id="mtAi" list="mtAiDl" value="'+e(lsGet('qltsNguoi')||'')+'" autocomplete="off" onchange="qltsMtAiChon()" style="'+INP+'"></div><div><label style="'+LB+'">Người cho mượn <span style="color:#c62828">*</span></label><input id="mtCho" list="mtStaff" placeholder="Người của phòng giao máy" style="'+INP+'"></div></div><datalist id="mtStaff">'+S.staff.map(function(x){ return '<option value="'+e(x)+'">'; }).join('')+'</datalist><datalist id="mtAiDl">'+mtAiOps()+'</datalist>'
     +'<div style="font-size:11.5px;color:#78909c;margin-top:3px">✍️ Tên người mượn nhập tự do — tên mới sẽ được lưu để lần sau chọn nhanh.</div>'
     +'<div id="mtKhuSdt" style="display:none"><label style="'+LB+'">SĐT liên hệ người mượn</label><input id="mtSdt" inputmode="tel" placeholder="Số điện thoại (không bắt buộc)" style="'+INP+'"></div>'
     +'<label style="'+LB+'">Ngày giờ mượn <span style="color:#c62828">*</span></label><input type="datetime-local" id="mtNgay" value="'+dtLocal(Date.now())+'" style="'+INP+';width:auto">'
@@ -63559,7 +63580,7 @@ window.qltsLuuMuon=function(ma){
   else { den=g('mtDen'); if(!den){ alert('Vui lòng chọn phòng mượn.'); return; } }
   var aiGo=g('mtAi').replace(/\s+/g,' '); if(!aiGo){ alert('Vui lòng nhập tên người mượn.'); return; }
   var aiNV=S.staff.length?chuanTen(aiGo):null, ai=aiNV||aiGo; if(aiNV && !ngoai) lsSet('qltsNguoi', ai);
-  var cho=g('mtCho'); if(cho){ var c2=chuanTen(cho); if(!c2){ alert('Tên người cho mượn không có trong Danh sách nhân viên.'); return; } cho=c2; }
+  var cho=g('mtCho'); if(!cho){ alert('Vui lòng nhập tên NGƯỜI CHO MƯỢN (người của phòng giao máy) — để sau này biết ai cho mượn.'); return; } var c2=chuanTen(cho); if(!c2){ alert('Tên người cho mượn không có trong Danh sách nhân viên.'); return; } cho=c2;
   var han=ngayInput(g('mtHan')), now=Date.now(), id='dc'+now.toString(36)+Math.floor(Math.random()*1296).toString(36), up={}, P='danhMuc/'+ma+'/';
   var tM=dtTuLocal(g('mtNgay')); if(!tM){ alert('Vui lòng nhập ngày giờ mượn.'); return; } if(tM>now+5*60000){ alert('Ngày giờ mượn không được sau thời điểm hiện tại.'); return; }
   if(han && han<new Date(new Date(tM).setHours(0,0,0,0)).getTime()){ alert('Hạn trả đang TRƯỚC ngày mượn — vui lòng chọn lại.'); return; }
@@ -66494,9 +66515,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-27a';
+var LD_VER='2026-11-27b';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-27', nd:'Tài sản — Mượn tạm: bắt buộc ghi "Người cho mượn"; Bảng tin, danh sách Đang mượn tạm và thẻ thiết bị hiện 👤 người mượn · 🤝 người cho mượn (thiếu thì báo đỏ); nút "✏️ Bổ sung / Sửa" ghi lại người mượn, người cho mượn, hạn trả cho các lần mượn cũ.'},
   {d:'2026-11-27', nd:'Điểm danh nhận ca: BỎ phân loại máy trong / ngoài phòng mổ — mọi máy khoa đã đăng ký đều có nút "🏥 Điểm danh nhận trực" và hiện mã VÀO + RA (khoa quản lý nhân viên theo phòng). App vẫn ghi quét ở máy nào; bảng đã điểm danh vẫn nhóm theo phòng/máy.'},
   {d:'2026-11-26', nd:'Kanban — Tiến độ công việc (Cần làm / Đang làm / Hoàn thành) và Ghi chú nhanh có thanh định dạng: B đậm, I nghiêng, U gạch chân, 5 màu chữ, 🖍 tô nền vàng, ✖ bỏ định dạng. Màn "Phóng to" soạn thấy ngay màu/đậm; ô nhỏ có khung "👁 Xem trước". Nội dung báo cáo thêm nút 🖍 Tô vàng. (23:30) Ô nhỏ 3 cột: thanh gọn 1 hàng (B I U · A▾ bảng màu · 🖍 · ✖); Cần làm / Đang làm không hiện khung xem trước vì danh sách Đánh dấu nhanh bên dưới đã hiện đúng định dạng; khung xem trước chỉ liệt kê dòng có định dạng, cao tối đa 110px.'},
   {d:'2026-11-26', nd:'Điểm danh — bảng "✅ Đã điểm danh": xếp "🚪 Theo phòng" (mặc định; mỗi phòng/máy 1 nhóm, ghi số người, số Trực / Chương trình; nhóm ngoài phòng mổ tô cam) hoặc "🕘 Theo giờ" như cũ; máy nhớ lựa chọn.'},
@@ -69251,7 +69273,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-27 08:45';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-27 16:30';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
