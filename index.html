@@ -61197,7 +61197,14 @@ function tinhTomTat(){
   dongBoCot();
   var m=mapTrangThai(), ds=taiSanList(false), o={ngung:0, hanChe:0, mo:0, quaHan:0, muon:ds.filter(function(t){ return t.boPhanGoc && !t.thanhLy; }).length, tong:ds.length, cot:{}, ds:[]}, list=scList(), moMoi={};
   COT.forEach(function(c){ if(c.k!=='xong') o.cot[c.k]=0; });
-  list.forEach(function(r){ if(moLai(r)){ o.mo++; if(quaHan(r)) o.quaHan++; if(o.cot[r.tt]!=null) o.cot[r.tt]++; if(!moMoi[r.ma] || r.t>moMoi[r.ma].t) moMoi[r.ma]=r; } });
+  var demMa={};
+  list.forEach(function(r){ if(moLai(r)){ o.mo++; demMa[r.ma]=(demMa[r.ma]||0)+1; if(quaHan(r)) o.quaHan++; if(o.cot[r.tt]!=null) o.cot[r.tt]++; if(!moMoi[r.ma] || r.t>moMoi[r.ma].t) moMoi[r.ma]=r; } });
+  /* 28/11/2026: số thiết bị có phiếu mở + phiếu cần rà soát */
+  o.moTB=Object.keys(demMa).length; o.lech=[];
+  Object.keys(demMa).forEach(function(ma){ var ts=taiSan(ma)||{}, d=m[ma], ten=String(ts.ten||ma).slice(0,60);
+    if(demMa[ma]>1) o.lech.push({ma:ma, ten:ten, n:demMa[ma], ly:'trung'});
+    if(d!=='khong' && d!=='hanChe') (o.duoc=o.duoc||[]).push({ma:ma, ten:ten, tt:(moMoi[ma]||{}).tt||''}); });
+  o.lech=o.lech.slice(0,10); o.nDuoc=(o.duoc||[]).length; o.duoc=(o.duoc||[]).slice(0,10);
   ds.forEach(function(ts){ var d=m[ts.ma]; if(d==='khong') o.ngung++; else if(d==='hanChe') o.hanChe++; else return;
     var r=moMoi[ts.ma]; o.ds.push({ma:ts.ma, ten:String(ts.ten||'').slice(0,70), p:ts.phong, d:d, tt:r?r.tt:'', t:r?r.t:0, nb:r?(r.tBao||r.t||0):0, qh:(r&&quaHan(r))?(r.tBao||r.t):null}); });
   o.ds.sort(function(a,b){ return (a.d==='khong'?0:1)-(b.d==='khong'?0:1) || b.t-a.t; }); o.ds=o.ds.slice(0,12);
@@ -61230,7 +61237,13 @@ function bangTinHTML(o, gon){
   /* Dòng phụ: phiếu đang xử lý theo bước (chỉ hiện bước có số) + chưa ai nhận + mượn tạm */
   var gd=COT.filter(function(c){ return c.k!=='xong' && cot[c.k]; }).map(function(c){ return lk(c.k, (cot[c.k])+' '+(BT_GD[c.k]||c.t).toLowerCase(), c.mau, 'Bấm để xem phiếu: '+c.t); });
   var phu=[];
-  if(gd.length) phu.push('<span style="color:#546e7a">Phiếu đang xử lý:</span> '+gd.join('<span style="color:#b0bec5"> · </span>'));
+  if(gd.length) phu.push('<span style="color:#546e7a">Phiếu sự cố đang mở: <b style="color:#37474f">'+(o.mo||0)+' phiếu</b>'+(o.moTB?(' / <b style="color:#37474f">'+o.moTB+' thiết bị</b>'):'')+' —</span> '+gd.join('<span style="color:#b0bec5"> · </span>'));
+  var lech=o.lech||[], duoc=o.duoc||[];
+  var dong=function(x, ghi){ return '<div onclick="event.stopPropagation();qltsOpen(\'ts\',\''+e(x.ma)+'\')" style="cursor:pointer;padding:2px 0 2px 10px;border-left:3px solid #ffb74d;margin-top:3px"><b>'+e(x.ten)+'</b> — '+ghi+'</div>'; };
+  if(o.nDuoc) phu.push('<details onclick="event.stopPropagation()" style="display:inline-block;vertical-align:top"><summary style="cursor:pointer;color:#2e7d32;font-weight:800">✅ '+o.nDuoc+' máy có phiếu nhưng vẫn dùng được (lỗi nhẹ)</summary><div style="margin-top:4px;font-weight:400;white-space:normal">'
+      +duoc.map(function(x){ return dong(x,'<span style="color:#2e7d32">vẫn dùng được · phiếu ở bước "'+e(String(BT_GD[x.tt]||x.tt||''))+'"</span>'); }).join('')+'</div></details>');
+  if(lech.length) phu.push('<details onclick="event.stopPropagation()" style="display:inline-block;vertical-align:top"><summary style="cursor:pointer;color:#e65100;font-weight:800">⚠️ Cần rà soát: '+lech.length+' máy có phiếu trùng</summary><div style="margin-top:4px;font-weight:400;white-space:normal">'
+      +lech.map(function(x){ return dong(x,'<span style="color:#e65100">'+x.n+' phiếu cùng 1 máy → giữ 1 phiếu, đóng phiếu thừa</span>'); }).join('')+'</div></details>');
   if(o.quaHan) phu.push(lk('quaHan','⏰ '+o.quaHan+' phiếu chưa ai nhận xử lý','#b71c1c','Phiếu chờ quá thời hạn mà chưa ai bấm Tiếp nhận'));
   var mds=o.muonDs||[], khMuon='';
   if(o.muon && !mds.length) phu.push(lk('muon','🔁 '+o.muon+' máy đang mượn tạm','#6a1b9a','Bấm để xem máy đang mượn tạm'));
@@ -66516,9 +66529,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-27d';
+var LD_VER='2026-11-28a';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-28', nd:'Bảng tin thiết bị: dòng phiếu ghi rõ "Phiếu sự cố đang mở: N phiếu / M thiết bị — … đang sửa"; thêm mục "✅ máy có phiếu nhưng vẫn dùng được" (giải thích vì sao số phiếu nhiều hơn số máy hỏng) và "⚠️ Cần rà soát: máy có phiếu trùng" (bấm tên máy để xử lý).'},
   {d:'2026-11-27', nd:'Điểm danh hộ: lần 1 và 2 trong ngày hiện CẢNH BÁO (ghi nhận vi phạm); lần thứ 3 → điện thoại bị KHÓA mọi chức năng của ứng dụng cho đến khi Quản lý mở khóa ("🔑 Quản lý mở khóa" trên điện thoại, hoặc bảng "🔒 Điện thoại bị khóa" ở màn Điểm danh).'},
   {d:'2026-11-27', nd:'Điểm danh: 1 điện thoại chỉ điểm danh cho 1 người TRONG NGÀY (trước chỉ khóa theo từng buổi); ghi mã thiết bị vào lượt quét; Danh sách / bảng đã điểm danh báo "📱 Cùng điện thoại với …" hoặc "📱? Nghi cùng máy" (cùng loại máy, quét cách nhau < 90 giây). Trang chủ: dòng người mượn / cho mượn tự xuống dòng, không tràn màn hình điện thoại.'},
   {d:'2026-11-27', nd:'Tài sản — Mượn tạm: bắt buộc ghi "Người cho mượn"; Bảng tin, danh sách Đang mượn tạm và thẻ thiết bị hiện 👤 người mượn · 🤝 người cho mượn (thiếu thì báo đỏ); nút "✏️ Bổ sung / Sửa" ghi lại người mượn, người cho mượn, hạn trả cho các lần mượn cũ.'},
@@ -69276,7 +69290,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-27 23:15';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-28 06:45';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
