@@ -31888,6 +31888,7 @@ function renderVanBan(){
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-use-as-mau="${v.id}" title="Tạo văn bản MỚI dựa theo văn bản này (giữ Loại văn bản, Kính gửi, Người ký, Tóm tắt — chỉ cần sửa lại phần khác)">📋 Dùng làm mẫu</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-xemtruoc-vb="${v.id}" title="Xem trước &amp; in nhanh ngay trên trình duyệt, không cần mở Word">🖨 Xem trước</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-export-vbword="${v.id}" title="Xuất văn bản này ra file Word đúng thể thức (quốc hiệu, kính gửi, chữ ký)">📄 Xuất Word</button>
+              <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-export-vbexcel="${v.id}" title="Xuất văn bản này ra file Excel (.xlsx) để chỉnh sửa tiếp — giữ bảng kẻ khung, gộp ô, chữ đậm/nghiêng, khổ giấy dọc/ngang" style="border-color:#1d6f42;color:#1d6f42;">📊 Xuất Excel</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-inpdf-vb="${v.id}" title="In / Lưu phiếu này thành file PDF đúng thể thức (trong hộp thoại in chọn &quot;Lưu dưới dạng PDF&quot;)" style="border-color:#c62828;color:#c62828;">📕 Xuất PDF</button>
               <button class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" data-nhoin-vb="${v.id}" title="Máy này không có máy in? Nhờ đồng nghiệp in qua Zalo: chép sẵn tin nhắn + đường link in phiếu, mở đúng khung chat Zalo của người in" style="border-color:#0068ff;color:#0068ff;">📲 Nhờ in (Zalo)</button>
               ${(isAdmin() || v.nguoiSoan===currentUserName)?`<button class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" data-del-vb="${v.id}" title="Xóa văn bản này (dùng khi lập thừa hoặc lập sai)">Xóa</button>`:""}
@@ -32619,6 +32620,10 @@ function bindVanBanEvents(){
   document.querySelectorAll('[data-export-vbword]').forEach(b=>b.onclick=()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.exportVbword);
     if(v) exportVanBanToWord(v);
+  });
+  document.querySelectorAll('[data-export-vbexcel]').forEach(b=>b.onclick=()=>{
+    const v = vbRecords.find(x=>x.id===b.dataset.exportVbexcel);
+    if(v) exportVanBanToExcel(v);
   });
   document.querySelectorAll('[data-use-as-mau]').forEach(b=>b.onclick=async ()=>{
     const v = vbRecords.find(x=>x.id===b.dataset.useAsMau);
@@ -34597,6 +34602,154 @@ function taoFileWordTrongDeSoan(){
   downloadRtf(`VanBan_Moi_${(draftVB.hinhThucVB||"VanBan").replace(/[\/\\:*?"<>|]/g,'-')}${fileTimeSuffix()}.rtf`, body);
 }
 
+// 28/11/2026: XUẤT EXCEL (.xlsx THẬT, có kẻ khung / gộp ô / chữ đậm-nghiêng / Times New Roman / khổ giấy) cho 1 văn bản
+// đã soạn trong app — để mở bằng Excel chỉnh sửa tiếp khi cần (vd danh sách nâng lương dán từ Excel vào).
+// Tự dựng file .xlsx (zip không nén) — không cần thư viện ngoài, không phụ thuộc mạng.
+function vbXlsxZip(files){
+  const enc = new TextEncoder(); const crcT = vbXlsxZip.t || (vbXlsxZip.t = (()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1); t[n]=c>>>0; } return t; })());
+  const crc = b=>{ let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c = crcT[(c^b[i])&255] ^ (c>>>8); return (c^0xFFFFFFFF)>>>0; };
+  const parts=[], cd=[]; let off=0;
+  const u16=v=>[v&255,(v>>>8)&255], u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
+  files.forEach(f=>{ const name=enc.encode(f.name), data=enc.encode(f.data), c=crc(data);
+    const lh = new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
+    parts.push(lh,name,data);
+    cd.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]), name);
+    off += lh.length+name.length+data.length; });
+  const cdLen = cd.reduce((a,b)=>a+b.length,0);
+  const end = new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cdLen),...u32(off),...u16(0)]);
+  return new Blob([...parts,...cd,end], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function exportVanBanToExcel(v){
+  try{
+    const ngang = v.khoGiay==='ngang';
+    const ngay = (v.ngayLap||todayISO()).split('-');
+    const signerInfo = (config.signers||[]).find(x=>x.ten===v.nguoiKy) || { chucDanh:'Trưởng khoa' };
+    const tmp = document.createElement('div'); tmp.innerHTML = v.noiDungSoan || (v.tomTat ? '<p>'+esc(v.tomTat)+'</p>' : '');
+    tmp.querySelectorAll('style,script,meta,xml,.ddnl-col-resize-handle,.ddnl-row-resize-handle').forEach(x=>x.remove());
+    const chu = el=>{ const c=el.cloneNode(true); c.querySelectorAll('br').forEach(b=>b.replaceWith('\n')); c.querySelectorAll('img').forEach(b=>b.replaceWith('[hình ảnh]')); c.querySelectorAll('p,div,li').forEach(p=>{ p.prepend('\n'); }); return (c.textContent||'').replace(/ /g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n[ \t]+/g,'\n').replace(/^\n+|\n+$/g,'').replace(/\n{3,}/g,'\n\n'); };
+    const toanBo = (el, sel)=>{ const t=(el.textContent||'').replace(/\s/g,''); if(!t) return false; let n=''; el.querySelectorAll(sel).forEach(x=>{ if(!x.parentElement.closest(sel) || !el.contains(x.parentElement.closest(sel))) n+=(x.textContent||''); }); return n.replace(/\s/g,'').length>=t.length; };
+    const damEl = el=>{ const fw=String(el.style&&el.style.fontWeight||'').toLowerCase(); return fw==='bold'||parseInt(fw,10)>=600||/^(TH|H[1-6])$/.test(el.tagName)||toanBo(el,'b,strong'); };
+    const nghiengEl = el=>String(el.style&&el.style.fontStyle||'')==='italic'||toanBo(el,'i,em');
+    const gachEl = el=>/underline/.test(String(el.style&&el.style.textDecoration||''))||toanBo(el,'u');
+    const canEl = el=>{ let t=String(el.style&&el.style.textAlign||el.getAttribute('align')||'').toLowerCase(); return ['left','center','right','justify'].includes(t)?t:''; };
+    // 1) gom khối: đoạn văn / bảng
+    const khoi = [];
+    (function duyet(node){ Array.from(node.childNodes).forEach(n=>{
+      if(n.nodeType===3){ const t=n.textContent.replace(/\s+/g,' ').trim(); if(t) khoi.push({k:'p', t:t}); return; }
+      if(n.nodeType!==1) return; const tg=n.tagName;
+      if(tg==='TABLE'){ khoi.push({k:'t', el:n}); return; }
+      if(tg==='UL'||tg==='OL'){ Array.from(n.children).forEach((li,i)=>{ const t=chu(li); if(t) khoi.push({k:'p', t:(tg==='OL'?(i+1)+'. ':'- ')+t, el:li}); }); return; }
+      if(/^(DIV|SECTION|ARTICLE|BLOCKQUOTE|SPAN|FONT)$/.test(tg) && n.querySelector('table,p,div,ul,ol')){ duyet(n); return; }
+      if(tg==='BR'){ return; }
+      const t=chu(n); if(!t){ if(/^(P|DIV)$/.test(tg)) khoi.push({k:'p', t:''}); return; }
+      khoi.push({k:'p', t:t, el:n});
+    }); })(tmp);
+    // 2) lưới các bảng + số cột chung
+    const luoiBang = t=>{ const rows=Array.from(t.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr, :scope > tr')); const chiem={}, o=[]; let soCot=0;
+      rows.forEach((tr,ri)=>{ let c=0; Array.from(tr.cells).forEach(td=>{ while(chiem[ri+','+c]) c++; const cs=Math.max(1,td.colSpan||1), rs=Math.max(1,Math.min(td.rowSpan||1, rows.length-ri)); for(let a=0;a<rs;a++) for(let b=0;b<cs;b++) chiem[(ri+a)+','+(c+b)]=1; o.push({r:ri,c:c,cs:cs,rs:rs,td:td}); c+=cs; soCot=Math.max(soCot,c); }); });
+      let ws=null; const cols=Array.from(t.querySelectorAll(':scope > colgroup > col'));
+      if(cols.length===soCot){ const a=cols.map(c=>parseFloat(c.style.width)||0); if(a.every(x=>x>0)) ws=a; }
+      if(!ws){ const mau=rows.find(tr=>tr.cells.length===soCot && Array.from(tr.cells).every(td=>(td.colSpan||1)===1 && parseFloat(td.style.width)>0)); if(mau) ws=Array.from(mau.cells).map(td=>parseFloat(td.style.width)); }
+      return {soHang:rows.length, soCot:soCot, o:o, ws:ws}; };
+    khoi.forEach(b=>{ if(b.k==='t') b.g=luoiBang(b.el); });
+    const bangs = khoi.filter(b=>b.k==='t' && b.g.soCot>0);
+    const goc = bangs.slice().sort((a,b)=>b.g.soCot-a.g.soCot)[0];
+    const N = goc ? Math.max(goc.g.soCot, 2) : 8;
+    const tongRong = ngang ? 150 : 100;
+    let rong = (goc && goc.g.ws) ? goc.g.ws.slice() : new Array(N).fill(1);
+    while(rong.length<N) rong.push(rong[rong.length-1]||1);
+    const tr0 = rong.reduce((a,b)=>a+b,0); rong = rong.map(x=>Math.max(4, Math.round(x/tr0*tongRong*10)/10));
+    const coTB = N>=9 ? 11 : 12, coVB = 13;
+    // 3) kiểu ô (font/khung/căn) -> chỉ số cellXfs
+    const fonts=[], fKey={}, xfs=[], xKey={};
+    const font = (sz,b,i,u)=>{ const k=[sz,b,i,u].join('|'); if(fKey[k]==null){ fKey[k]=fonts.length; fonts.push('<font>'+(b?'<b/>':'')+(i?'<i/>':'')+(u?'<u/>':'')+'<sz val="'+sz+'"/><name val="Times New Roman"/><family val="1"/></font>'); } return fKey[k]; };
+    const kieu = o=>{ const f=font(o.sz||coVB,!!o.b,!!o.i,!!o.u); const k=[f,o.vien?1:0,o.h||'',o.v||'center',o.ind||0].join('|'); if(xKey[k]==null){ xKey[k]=xfs.length; xfs.push('<xf numFmtId="0" fontId="'+f+'" fillId="0" borderId="'+(o.vien?1:0)+'" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment '+(o.h?'horizontal="'+o.h+'" ':'')+'vertical="'+(o.v||'center')+'" wrapText="1"'+(o.ind?' indent="'+o.ind+'"':'')+'/></xf>'); } return xKey[k]; };
+    kieu({});
+    // 4) dựng hàng
+    const hang = []; const gop = [];
+    const tenCot = c=>{ let s=''; c++; while(c>0){ const m=(c-1)%26; s=String.fromCharCode(65+m)+s; c=Math.floor((c-1)/26); } return s; };
+    const rongKhoang = (c0,c1)=>{ let w=0; for(let c=c0;c<=c1;c++) w+=rong[c]||8; return w; };
+    const soDong = (t,w,sz)=>{ const cpl=Math.max(4, w*1.15*11/sz); return String(t||'').split('\n').reduce((a,l)=>a+Math.max(1,Math.ceil(l.length/cpl)),0); };
+    const moiHang = ()=>{ const h={o:{}, ht:0}; hang.push(h); return hang.length-1; };
+    const datO = (r,c0,c1,t,st,r1)=>{ r1=r1==null?r:r1; const x=kieu(st); hang[r].o[c0]={t:t,s:x};
+      if(st.vien) for(let rr=r;rr<=r1;rr++) for(let cc=c0;cc<=c1;cc++) if(!(rr===r&&cc===c0)){ while(hang.length<=rr) moiHang(); hang[rr].o[cc]={t:null,s:x}; }
+      if(c1>c0 || r1>r) gop.push(tenCot(c0)+(r+1)+':'+tenCot(c1)+(r1+1));
+      if(r1===r){ const sz=st.sz||coVB; hang[r].ht=Math.max(hang[r].ht, soDong(t,rongKhoang(c0,c1),sz)*sz*1.35+4); } };
+    const dongTrong = ()=>{ const r=moiHang(); hang[r].ht=8; };
+    const kL = Math.max(1, Math.round(N*0.42)) - 1, kR = kL+1, nuaPhai = Math.floor(N/2);
+    const hai = (tTrai, sTrai, tPhai, sPhai)=>{ const r=moiHang(); if(tTrai!=null) datO(r,0,kL,tTrai,Object.assign({h:'center',sz:12},sTrai)); if(tPhai!=null) datO(r,kR,N-1,tPhai,Object.assign({h:'center',sz:12},sPhai)); return r; };
+    hai('BỆNH VIỆN ĐA KHOA TRUNG TÂM',{}, 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',{b:1});
+    hai('KHOA GÂY MÊ HỒI SỨC',{b:1}, 'Độc lập - Tự do - Hạnh phúc',{b:1,u:1});
+    hai('Số: '+(v.soVanBan||'……………'),{}, 'Gia Lai, ngày '+ngay[2]+' tháng '+ngay[1]+' năm '+ngay[0],{i:1});
+    dongTrong();
+    let r = moiHang(); datO(r,0,N-1,(v.hinhThucVB||'GIẤY ĐỀ NGHỊ').toUpperCase(),{h:'center',b:1,sz:14});
+    if(v.veViec){ r=moiHang(); datO(r,0,N-1,'(V/v '+v.veViec+')',{h:'center',i:1,sz:coVB}); }
+    dongTrong();
+    const nn = (v.noiNhan&&v.noiNhan.length) ? v.noiNhan : ['……………………'];
+    nn.forEach((x,i)=>{ r=moiHang(); datO(r,0,N-1,(i===0?'Kính gửi:   ':'')+'– '+x+';',{h:'left',ind:i===0?2:6,sz:coVB}); });
+    dongTrong();
+    // nội dung
+    khoi.forEach(b=>{
+      if(b.k==='p'){
+        r=moiHang(); if(!b.t){ hang[r].ht=8; return; }
+        const el=b.el; const pl = el && el.style && String(el.style.paddingLeft||'').trim()==='50%';
+        const st={sz:coVB, h:(el&&canEl(el))||'justify', b:el&&damEl(el), i:el&&nghiengEl(el), u:el&&gachEl(el)};
+        if(pl) datO(r,nuaPhai,N-1,b.t,Object.assign(st,{h:st.h==='justify'?'center':st.h})); else datO(r,0,N-1,b.t,st);
+        return;
+      }
+      const g=b.g; if(!g.soCot) return;
+      const r0 = hang.length; for(let i=0;i<g.soHang;i++) moiHang();
+      const map = c=>Math.round(c*N/g.soCot);
+      g.o.forEach(o=>{ const td=o.td; const c0=map(o.c), c1=Math.max(c0, map(o.c+o.cs)-1); const t=chu(td);
+        const so = /^\d{1,9}$/.test(t) && !/^0\d/.test(t);
+        const st={vien:1, sz:coTB, b:damEl(td), i:nghiengEl(td), u:gachEl(td), h:canEl(td)||(so?'center':''), v:(String(td.style.verticalAlign||'').toLowerCase()==='top'?'top':'center')};
+        datO(r0+o.r, c0, c1, so?Number(t):t, st, r0+o.r+o.rs-1); });
+      // ô gộp dọc: chia chiều cao còn thiếu cho các hàng của ô
+      g.o.filter(o=>o.rs>1).forEach(o=>{ const c0=map(o.c), c1=Math.max(c0,map(o.c+o.cs)-1); const can=soDong(chu(o.td),rongKhoang(c0,c1),coTB)*coTB*1.35+4; let co=0; for(let i=0;i<o.rs;i++) co+=Math.max(hang[r0+o.r+i].ht,15); if(can>co){ const them=(can-co)/o.rs; for(let i=0;i<o.rs;i++) hang[r0+o.r+i].ht=Math.max(hang[r0+o.r+i].ht,15)+them; } });
+    });
+    // chữ ký
+    dongTrong(); dongTrong();
+    hai('NGƯỜI LẬP BẢNG',{b:1,sz:coVB}, (v.chucDanhKy||signerInfo.chucDanh||'Trưởng khoa').toUpperCase(),{b:1,sz:coVB});
+    for(let i=0;i<4;i++){ const rr=moiHang(); hang[rr].ht=18; }
+    hai((v.nguoiLapLabel||v.nguoiSoan||'').toUpperCase(),{b:1,sz:coVB}, (v.nguoiKy||'').toUpperCase(),{b:1,sz:coVB});
+    try{ if(typeof vbPtvCo==='function' && vbPtvCo(v.ptv)){ dongTrong(); r=moiHang(); datO(r,0,N-1,vbPtvCd(v.ptv),{h:'center',b:1,sz:coVB}); for(let i=0;i<4;i++){ const rr=moiHang(); hang[rr].ht=18; } r=moiHang(); datO(r,0,N-1,String(v.ptv.ten||'').toUpperCase(),{h:'center',b:1,sz:coVB}); } }catch(e){}
+    dongTrong();
+    r=moiHang(); datO(r,0,kL,'Nơi nhận:',{h:'left',b:1,i:1,sz:12});
+    r=moiHang(); datO(r,0,kL,(v.noiNhan&&v.noiNhan.length)?'– Như trên;':'– ……………;',{h:'left',sz:11});
+    r=moiHang(); datO(r,0,kL,'– Lưu: VT, Khoa GMHS.',{h:'left',sz:11});
+    // 5) XML
+    const x = t=>String(t).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const sd = hang.map((h,ri)=>{ const cs = Object.keys(h.o).map(Number).sort((a,b)=>a-b).map(c=>{ const o=h.o[c], ref=tenCot(c)+(ri+1);
+        if(o.t==null || o.t==='') return '<c r="'+ref+'" s="'+o.s+'"/>';
+        if(typeof o.t==='number') return '<c r="'+ref+'" s="'+o.s+'"><v>'+o.t+'</v></c>';
+        return '<c r="'+ref+'" s="'+o.s+'" t="inlineStr"><is><t xml:space="preserve">'+x(o.t)+'</t></is></c>'; }).join('');
+      const ht = Math.max(15, Math.min(409, Math.round(h.ht||16)));
+      return '<row r="'+(ri+1)+'" ht="'+ht+'" customHeight="1">'+cs+'</row>'; }).join('');
+    const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+      +'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:'+tenCot(N-1)+hang.length+'"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>'
+      +'<cols>'+rong.map((w,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>').join('')+'</cols>'
+      +'<sheetData>'+sd+'</sheetData>'+(gop.length?'<mergeCells count="'+gop.length+'">'+gop.map(m=>'<mergeCell ref="'+m+'"/>').join('')+'</mergeCells>':'')
+      +'<pageMargins left="1.18" right="0.79" top="0.79" bottom="0.79" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="'+(ngang?'landscape':'portrait')+'" fitToWidth="1" fitToHeight="0"/></worksheet>';
+    const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      +'<fonts count="'+fonts.length+'">'+fonts.join('')+'</fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+      +'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>'
+      +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    const tenSheet = 'Văn bản';
+    const files = [
+      {name:'[Content_Types].xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+      {name:'_rels/.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+      {name:'xl/workbook.xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'+tenSheet+'" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+      {name:'xl/_rels/workbook.xml.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+      {name:'xl/styles.xml', data:styles},
+      {name:'xl/worksheets/sheet1.xml', data:sheet}
+    ];
+    const blob = vbXlsxZip(files);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'VanBan_'+String(v.soVanBan||v.id||'moi').replace(/[\/\\:*?"<>|]/g,'-')+(typeof fileTimeSuffix==='function'?fileTimeSuffix():'')+'.xlsx';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    return {N:N, hang:hang.length, gop:gop.length, files:files};
+  }catch(e){ console.error('exportVanBanToExcel', e); alert('Không xuất được Excel: '+e.message); }
+}
 // Xuất Word cho văn bản trong Sổ văn bản đi đã dùng "Soạn nội dung ngay" (khác với phiếu Điều động nhân lực)
 function exportVanBanToWord(v){
   const ngayLapParts = (v.ngayLap||todayISO()).split("-");
@@ -66647,9 +66800,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-28b';
+var LD_VER='2026-11-28c';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-28', nd:'Giấy đề nghị — Danh sách văn bản: thêm nút "📊 Xuất Excel" (cạnh Xuất Word/PDF) → file .xlsx mở bằng Excel chỉnh sửa tiếp: đủ quốc hiệu, số, ngày, tên văn bản, kính gửi, nội dung, chữ ký, nơi nhận; bảng giữ kẻ khung, gộp ô, đậm/nghiêng, tỷ lệ cột; Times New Roman; khổ dọc/ngang đúng như đã chọn, vừa 1 trang ngang khi in.'},
   {d:'2026-11-28', nd:'Giấy đề nghị / Soạn nội dung văn bản: copy vùng ô trong EXCEL rồi dán (Ctrl+V) → thành BẢNG sửa được (giữ gộp ô, chữ đậm/nghiêng, căn lề, tỷ lệ cột; bảng ≥ 9 cột tự chuyển trang sang khổ NGANG); dòng tiêu đề, "Tổng số…", ngày tháng, chữ ký (không kẻ khung) thành đoạn văn thường. Trước đây dán ra hình ảnh.'},
   {d:'2026-11-28', nd:'Bảng tin thiết bị: dòng phiếu ghi rõ "Phiếu sự cố đang mở: N phiếu / M thiết bị — … đang sửa"; thêm mục "✅ máy có phiếu nhưng vẫn dùng được" (giải thích vì sao số phiếu nhiều hơn số máy hỏng) và "⚠️ Cần rà soát: máy có phiếu trùng" (bấm tên máy để xử lý).'},
   {d:'2026-11-27', nd:'Điểm danh hộ: lần 1 và 2 trong ngày hiện CẢNH BÁO (ghi nhận vi phạm); lần thứ 3 → điện thoại bị KHÓA mọi chức năng của ứng dụng cho đến khi Quản lý mở khóa ("🔑 Quản lý mở khóa" trên điện thoại, hoặc bảng "🔒 Điện thoại bị khóa" ở màn Điểm danh).'},
@@ -69409,7 +69563,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-28 08:15';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-28 09:00';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
