@@ -33733,6 +33733,7 @@ function dedomWordFixedWidths(container){
   const layoutProps = ['width','min-width','max-width','margin','margin-left','margin-right','margin-top','margin-bottom',
     'position','left','right','top','bottom','transform','float','height','min-height','max-height'];
   container.querySelectorAll('*').forEach(el=>{
+    if(el.tagName==='COL' || el.tagName==='COLGROUP') return; // 28/11/2026: giữ độ rộng cột (%) của bảng
     el.removeAttribute('width');
     el.removeAttribute('height');
     el.removeAttribute('align');
@@ -33745,86 +33746,291 @@ function dedomWordFixedWidths(container){
 // cao của ô bảng do nội dung quyết định chứ không cố định), nên có lúc hiện có lúc mất. Cách mới: tính
 // tọa độ THẬT (bằng getBoundingClientRect) rồi đặt tay cầm nổi ngay trên cùng khung soạn — luôn hiện,
 // không phụ thuộc cách trình duyệt vẽ bảng.
+// ══ 28/11/2026 — SỬA BẢNG TRỰC TIẾP THEO LƯỚI CỘT THẬT ══
+// Bảng dán từ Excel/Word có Ô GỘP (colspan/rowspan) và độ rộng cột ghi trong <colgroup> (%). Trước đây tay
+// cầm kéo cột, nút ➕/➖ Hàng/Cột, ↔ Rộng cột… tính theo "ô thứ mấy trong hàng" nên với bảng có ô gộp kéo
+// không ăn, chèn/xóa bị lệch cột. Nay mọi thao tác đều tính theo LƯỚI CỘT THẬT (cột logic) của bảng.
+function ddnlLuoi(table){
+  const rows = Array.from(table.rows);
+  const map = [], pos = new Map(); let soCot = 0;
+  rows.forEach((tr, r)=>{
+    map[r] = map[r] || [];
+    let c = 0;
+    Array.from(tr.cells).forEach(cell=>{
+      while(map[r][c]) c++;
+      const cs = Math.max(1, cell.colSpan||1);
+      const rs = Math.max(1, Math.min(cell.rowSpan||1, rows.length - r));
+      pos.set(cell, {r, c, cs, rs});
+      for(let i=0;i<rs;i++){ map[r+i] = map[r+i]||[]; for(let j=0;j<cs;j++) map[r+i][c+j] = cell; }
+      c += cs;
+    });
+  });
+  map.forEach(row=>{ soCot = Math.max(soCot, row.length); });
+  return {rows, map, pos, soCot};
+}
+// Ghi độ rộng cột (%) vào <colgroup> — tổng luôn = 100 % nên bảng không bao giờ tràn trang
+function ddnlGhiCot(table, pct){
+  const tong = pct.reduce((a,b)=>a+b,0) || 1;
+  const p = pct.map(x=>x*100/tong);
+  table.querySelectorAll(':scope > colgroup, :scope > col').forEach(x=>x.remove());
+  const cg = document.createElement('colgroup');
+  p.forEach(x=>{ const col = document.createElement('col'); col.style.width = x.toFixed(2)+'%'; cg.appendChild(col); });
+  table.insertBefore(cg, table.firstChild);
+  table.style.tableLayout = 'fixed';
+  return p;
+}
+function ddnlDocCot(table, n){
+  const cols = [];
+  table.querySelectorAll(':scope > colgroup > col, :scope > col').forEach(c=>{
+    const k = Math.max(1, parseInt(c.getAttribute('span'),10)||1);
+    const w = String((c.style && c.style.width) || c.getAttribute('width') || '').trim();
+    for(let i=0;i<k;i++) cols.push(/%$/.test(w) ? parseFloat(w) : NaN);
+  });
+  return (cols.length===n && cols.every(x=>x>0)) ? cols : null;
+}
+// Bảo đảm bảng có <colgroup> đủ N cột (%). Bảng chưa có (bảng app tự dựng, bảng cũ) → đo độ rộng đang hiển thị.
+function ddnlDamBaoCot(table, L){
+  L = L || ddnlLuoi(table);
+  const n = L.soCot; if(!n) return null;
+  const co = ddnlDocCot(table, n);
+  if(co) return co;
+  const rongBang = table.getBoundingClientRect().width;
+  if(!rongBang) return null; // bảng đang ẩn — chưa đo được, để lần sau
+  const w = new Array(n).fill(0);
+  for(let c=0;c<n;c++){
+    for(let r=0;r<L.map.length;r++){
+      const o = L.map[r][c]; if(!o) continue;
+      const q = L.pos.get(o);
+      if(q.cs===1){ w[c] = Math.max(w[c], o.getBoundingClientRect().width); }
+    }
+  }
+  for(let c=0;c<n;c++) if(!(w[c]>0)){
+    for(let r=0;r<L.map.length && !(w[c]>0);r++){ const o = L.map[r][c]; if(o){ const q = L.pos.get(o); w[c] = o.getBoundingClientRect().width/q.cs; } }
+    if(!(w[c]>0)) w[c] = rongBang/n;
+  }
+  table.querySelectorAll('td, th').forEach(o=>{ if(o.style) o.style.removeProperty('width'); o.removeAttribute('width'); });
+  return ddnlGhiCot(table, w);
+}
+function ddnlTaoOMoi(mau){
+  const td = mau ? mau.cloneNode(false) : document.createElement('td');
+  td.removeAttribute('colspan'); td.removeAttribute('rowspan'); td.removeAttribute('id');
+  if(td.style){ td.style.removeProperty('width'); td.style.removeProperty('height'); }
+  if(!mau) td.style.cssText = 'padding:6px 8px;border:1px solid #999;';
+  td.innerHTML = '&nbsp;';
+  return td;
+}
+// Hàng không còn ô nào (sau khi gộp dọc / xóa cột) → bỏ hàng, giảm rowspan của ô phủ qua
+function ddnlDonHangRong(table){
+  for(let lap=0; lap<50; lap++){
+    const L = ddnlLuoi(table);
+    const r = L.rows.findIndex(tr=>tr.cells.length===0);
+    if(r<0) return;
+    const da = new Set();
+    (L.map[r]||[]).forEach(o=>{ if(o && !da.has(o)){ da.add(o); const q = L.pos.get(o); if(q.rs>1) o.rowSpan = q.rs-1; } });
+    L.rows[r].remove();
+  }
+}
+function ddnlChenHangDuoi(cell){
+  const table = cell.closest('table'); const L = ddnlLuoi(table); const p = L.pos.get(cell);
+  if(!p) return null;
+  const rCuoi = p.r + p.rs - 1, trRef = L.rows[rCuoi];
+  const trMoi = trRef.cloneNode(false); if(trMoi.style) trMoi.style.removeProperty('height');
+  const daTang = new Set();
+  for(let c=0;c<L.soCot;){
+    const X = L.map[rCuoi][c];
+    if(!X){ trMoi.appendChild(ddnlTaoOMoi(null)); c++; continue; }
+    const q = L.pos.get(X);
+    if(q.r+q.rs-1 > rCuoi){ if(!daTang.has(X)){ X.rowSpan = q.rs+1; daTang.add(X); } }
+    else { const td = ddnlTaoOMoi(X); if(q.cs>1) td.colSpan = q.cs; trMoi.appendChild(td); }
+    c = q.c + q.cs;
+  }
+  trRef.after(trMoi);
+  return trMoi;
+}
+function ddnlXoaHang(cell){
+  const table = cell.closest('table'); const L = ddnlLuoi(table); const p = L.pos.get(cell);
+  const r = Array.from(L.rows).indexOf(cell.closest('tr'));
+  const tr = L.rows[r], sau = L.rows[r+1];
+  for(let c=0;c<L.soCot;){
+    const X = L.map[r][c]; if(!X){ c++; continue; }
+    const q = L.pos.get(X);
+    if(q.rs>1){
+      if(q.r===r && sau){ // ô gộp dọc bắt đầu ở hàng bị xóa → dời xuống hàng dưới
+        const ref = Array.from(sau.cells).find(y=>{ const k = L.pos.get(y); return k && k.c > q.c; }) || null;
+        X.rowSpan = q.rs-1; sau.insertBefore(X, ref);
+      } else X.rowSpan = q.rs-1;
+    }
+    c = q.c + q.cs;
+  }
+  tr.remove();
+}
+function ddnlChenCotPhai(cell){
+  const table = cell.closest('table'); const L = ddnlLuoi(table); const p = L.pos.get(cell);
+  const pct = ddnlDamBaoCot(table, L) || new Array(L.soCot).fill(100/L.soCot);
+  const c = p.c + p.cs - 1; const da = new Set();
+  L.rows.forEach((tr, r)=>{
+    const X = L.map[r][c];
+    if(!X){ tr.appendChild(ddnlTaoOMoi(null)); return; }
+    const q = L.pos.get(X);
+    if(q.c+q.cs-1 > c){ if(!da.has(X)){ X.colSpan = q.cs+1; da.add(X); } return; }
+    if(q.r!==r) return; // ô gộp dọc từ hàng trên — ô mới đã chèn kèm rowspan ở hàng đó
+    const td = ddnlTaoOMoi(X); if(q.rs>1) td.rowSpan = q.rs; X.after(td);
+  });
+  const nua = pct[c]/2; pct.splice(c+1, 0, nua); pct[c] = nua;
+  ddnlGhiCot(table, pct);
+}
+function ddnlXoaCot(cell){
+  const table = cell.closest('table'); const L = ddnlLuoi(table); const p = L.pos.get(cell);
+  const pct = ddnlDamBaoCot(table, L) || new Array(L.soCot).fill(100/L.soCot);
+  const c = p.c; const da = new Set();
+  L.rows.forEach((tr, r)=>{
+    const X = L.map[r][c]; if(!X || da.has(X)) return; da.add(X);
+    const q = L.pos.get(X);
+    if(q.cs>1) X.colSpan = q.cs-1; else X.remove();
+  });
+  const w = pct[c]; pct.splice(c, 1);
+  if(pct.length){ pct[Math.max(0, c-1)] += w; ddnlGhiCot(table, pct); }
+  ddnlDonHangRong(table);
+}
+// Gộp các ô trong vùng bôi đen (từ ô A tới ô B) thành 1 ô — chữ các ô được nối lại, xuống dòng
+function ddnlGopO(oA, oB){
+  const table = oA.closest('table'); if(!table || table!==oB.closest('table')) return 0;
+  const L = ddnlLuoi(table); const a = L.pos.get(oA), b = L.pos.get(oB);
+  let r1 = Math.min(a.r,b.r), c1 = Math.min(a.c,b.c), r2 = Math.max(a.r+a.rs-1, b.r+b.rs-1), c2 = Math.max(a.c+a.cs-1, b.c+b.cs-1);
+  let doi = true;
+  while(doi){ doi = false;
+    for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++){ const X = L.map[r] && L.map[r][c]; if(!X) continue; const q = L.pos.get(X);
+      if(q.r<r1){ r1=q.r; doi=true; } if(q.c<c1){ c1=q.c; doi=true; }
+      if(q.r+q.rs-1>r2){ r2=q.r+q.rs-1; doi=true; } if(q.c+q.cs-1>c2){ c2=q.c+q.cs-1; doi=true; } }
+  }
+  const cacO = [];
+  for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++){ const X = L.map[r] && L.map[r][c]; if(X && cacO.indexOf(X)<0) cacO.push(X); }
+  if(cacO.length<2) return 0;
+  const dau = L.map[r1][c1] || cacO[0];
+  cacO.forEach(X=>{ if(X===dau) return;
+    if((X.textContent||'').replace(/ /g,' ').trim()){ const coChu = (dau.textContent||'').replace(/ /g,' ').trim(); dau.innerHTML = (coChu ? dau.innerHTML + '<br>' : '') + X.innerHTML; }
+    X.remove(); });
+  dau.colSpan = c2-c1+1; dau.rowSpan = r2-r1+1;
+  if(dau.colSpan===1) dau.removeAttribute('colspan'); if(dau.rowSpan===1) dau.removeAttribute('rowspan');
+  ddnlDonHangRong(table);
+  return cacO.length;
+}
+// Tách 1 ô đã gộp về lại các ô đơn
+function ddnlTachO(cell){
+  const table = cell.closest('table'); const L = ddnlLuoi(table); const p = L.pos.get(cell);
+  if(!p || (p.cs===1 && p.rs===1)) return false;
+  for(let k=1;k<p.rs;k++){
+    const tr = L.rows[p.r+k]; if(!tr) continue;
+    const ref = Array.from(tr.cells).find(y=>{ const q = L.pos.get(y); return q && q.c > p.c; }) || null;
+    for(let j=0;j<p.cs;j++) tr.insertBefore(ddnlTaoOMoi(cell), ref);
+  }
+  for(let j=1;j<p.cs;j++) cell.after(ddnlTaoOMoi(cell));
+  cell.removeAttribute('colspan'); cell.removeAttribute('rowspan');
+  return true;
+}
+// TAY CẦM KÉO-CHỈNH CỘT/HÀNG — nổi trên khung soạn, đặt theo tọa độ thật.
+// Cột: tay cầm ở MỌI đường kẻ dọc bên trong bảng (theo cột thật, kể cả bảng có ô gộp); kéo đường kẻ chỉ
+// đổi 2 cột hai bên (giống Word) nên bảng luôn vừa khổ giấy. Hàng: tay cầm ở đường kẻ dưới mỗi hàng.
+// Tự vẽ lại khi gõ chữ, đổi khổ giấy, phóng to/thu nhỏ.
 function layoutTableResizeHandles(container){
   if(!container) return;
   if(getComputedStyle(container).position === 'static') container.style.position = 'relative';
+  if(!container.__ddnlTuVeLai){
+    container.__ddnlTuVeLai = true;
+    let hen = 0;
+    const veLaiSau = ()=>{ if(container.__ddnlDangKeo) return; clearTimeout(hen); hen = setTimeout(()=>{ if(container.isConnected) layoutTableResizeHandles(container); }, 120); };
+    container.addEventListener('input', veLaiSau);
+    try{ new ResizeObserver(veLaiSau).observe(container); }catch(e){}
+  }
   container.querySelectorAll(':scope > .ddnl-col-resize-handle, :scope > .ddnl-row-resize-handle').forEach(h=>h.remove());
   const contRect = container.getBoundingClientRect();
-  // 19/10/2026: hệ số thu phóng (khi phóng to/thu nhỏ trang giấy) — đổi toạ độ màn hình về toạ độ thật của khung soạn
   const kZ = (container.offsetWidth && contRect.width) ? (contRect.width/container.offsetWidth) : 1;
+  const nhan = (function(){ let n = document.getElementById('ddnlKeoNhan'); if(!n){ n = document.createElement('div'); n.id = 'ddnlKeoNhan'; n.style.cssText = 'position:fixed;z-index:2147483002;display:none;pointer-events:none;background:#1565C0;color:#fff;font:600 12px/1.5 Arial,sans-serif;padding:2px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25)'; document.body.appendChild(n); } return n; })();
+  const batDauKeo = (con, onMove, onUp)=>{
+    container.__ddnlDangKeo = true; document.body.style.cursor = con;
+    function mv(e2){ onMove(e2); }
+    function up(){ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
+      container.__ddnlDangKeo = false; document.body.style.cursor = ''; nhan.style.display = 'none';
+      if(onUp) onUp(); layoutTableResizeHandles(container); }
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  };
   container.querySelectorAll('table').forEach(table=>{
+    if(!table.rows.length) return;
+    const L = ddnlLuoi(table);
+    const pct = ddnlDamBaoCot(table, L);
     table.style.tableLayout = 'fixed';
-    const firstRow = table.rows[0];
-    if(!firstRow || !firstRow.cells.length) return;
-    const soCot = firstRow.cells.length;
     const tableRect = table.getBoundingClientRect();
+    if(!tableRect.width) return;
     const topRel = (tableRect.top - contRect.top)/kZ + container.scrollTop;
     const botRel = (tableRect.bottom - contRect.top)/kZ + container.scrollTop;
     const leftRel = (tableRect.left - contRect.left)/kZ + container.scrollLeft;
-    // --- Tay cầm CỘT: 1 thanh dọc tại mỗi đường viền cột, kéo dài suốt chiều cao bảng ---
-    for(let idx=0; idx<soCot; idx++){
-      const cell = firstRow.cells[idx];
-      const cellRect = cell.getBoundingClientRect();
-      const xRel = (cellRect.right - contRect.left)/kZ + container.scrollLeft;
-      const handle = document.createElement('div');
-      handle.contentEditable = 'false';
-      handle.className = 'ddnl-col-resize-handle';
-      handle.title = 'Kéo để chỉnh chiều rộng cột';
-      handle.style.cssText = `position:absolute !important;left:${Math.round(xRel-4)}px !important;top:${Math.round(topRel)}px !important;width:8px !important;height:${Math.round(botRel-topRel)}px !important;cursor:col-resize;z-index:50;user-select:none;background:transparent;`;
-      container.appendChild(handle);
-      handle.addEventListener('mouseenter', ()=>{ handle.style.background='linear-gradient(to right,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px)'; handle.style.opacity='1'; });
-      handle.addEventListener('mouseleave', ()=>{ handle.style.background='transparent'; handle.style.opacity='1'; });
-      handle.addEventListener('mousedown', function(e){
-        e.preventDefault(); e.stopPropagation();
-        const startX = e.clientX;
-        const startWidth = cell.getBoundingClientRect().width;
-        function onMove(e2){
-          const newWidth = Math.max(30, Math.round((startWidth + (e2.clientX - startX))/kZ));
-          Array.from(table.rows).forEach(r=>{ if(r.cells[idx]) r.cells[idx].style.width = newWidth+'px'; });
-          layoutTableResizeHandles(container);
-        }
-        function onUp(){
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-        }
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
+    const cmMoiPx = 2.54/96/kZ; // đổi px màn hình → cm thật
+    // --- Tay cầm CỘT ---
+    if(pct){
+      let tichLuy = 0;
+      for(let c=0; c<L.soCot-1; c++){
+        tichLuy += pct[c];
+        let x = null;
+        for(let r=0; r<L.map.length && x===null; r++){ const o = L.map[r][c]; if(!o) continue; const q = L.pos.get(o); if(q.c+q.cs-1===c) x = o.getBoundingClientRect().right; }
+        if(x===null) x = tableRect.left + tableRect.width*tichLuy/100;
+        const xRel = (x - contRect.left)/kZ + container.scrollLeft;
+        const handle = document.createElement('div');
+        handle.contentEditable = 'false';
+        handle.className = 'ddnl-col-resize-handle';
+        handle.title = 'Kéo để chỉnh chiều rộng cột '+(c+1)+' / '+(c+2);
+        handle.style.cssText = `position:absolute !important;left:${Math.round(xRel-4)}px !important;top:${Math.round(topRel)}px !important;width:8px !important;height:${Math.round(botRel-topRel)}px !important;cursor:col-resize;z-index:50;user-select:none;background:transparent;`;
+        container.appendChild(handle);
+        handle.addEventListener('mouseenter', ()=>{ handle.style.background='linear-gradient(to right,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px)'; });
+        handle.addEventListener('mouseleave', ()=>{ if(!container.__ddnlDangKeo) handle.style.background='transparent'; });
+        handle.addEventListener('mousedown', function(e){
+          e.preventDefault(); e.stopPropagation();
+          const startX = e.clientX, a = pct[c], b = pct[c+1], rong = tableRect.width;
+          const cols = Array.from(table.querySelectorAll(':scope > colgroup > col'));
+          let hen = 0;
+          batDauKeo('col-resize', function(e2){
+            const d = (e2.clientX - startX)/rong*100;
+            const na = Math.min(a+b-2, Math.max(2, a+d)), nb = a+b-na;
+            if(cols[c]) cols[c].style.width = na.toFixed(2)+'%';
+            if(cols[c+1]) cols[c+1].style.width = nb.toFixed(2)+'%';
+            pct[c] = na; pct[c+1] = nb;
+            handle.style.setProperty('left', Math.round(xRel-4 + (e2.clientX-startX)/kZ)+'px', 'important');
+            nhan.textContent = 'Cột '+(c+1)+': '+(na*rong/100*cmMoiPx).toFixed(1).replace('.',',')+' cm  ·  Cột '+(c+2)+': '+(nb*rong/100*cmMoiPx).toFixed(1).replace('.',',')+' cm';
+            Object.assign(nhan.style, {display:'block', left:(e2.clientX+12)+'px', top:(e2.clientY-30)+'px'});
+            if(!hen) hen = requestAnimationFrame(()=>{ hen = 0; });
+          });
+        });
+      }
     }
-    // --- Tay cầm HÀNG: 1 thanh ngang tại mỗi đường viền hàng, kéo dài suốt chiều rộng bảng ---
-    Array.from(table.rows).forEach(row=>{
+    // --- Tay cầm HÀNG ---
+    L.rows.forEach((row, r)=>{
       const rowRect = row.getBoundingClientRect();
       const yRel = (rowRect.bottom - contRect.top)/kZ + container.scrollTop;
       const handle = document.createElement('div');
       handle.contentEditable = 'false';
       handle.className = 'ddnl-row-resize-handle';
-      handle.title = 'Kéo để chỉnh chiều cao hàng';
+      handle.title = 'Kéo để chỉnh chiều cao hàng '+(r+1);
       handle.style.cssText = `position:absolute !important;left:${Math.round(leftRel)}px !important;top:${Math.round(yRel-4)}px !important;width:${Math.round(tableRect.width/kZ)}px !important;height:8px !important;cursor:row-resize;z-index:50;user-select:none;background:transparent;`;
       container.appendChild(handle);
-      handle.addEventListener('mouseenter', ()=>{ handle.style.background='linear-gradient(to bottom,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px)'; handle.style.opacity='1'; });
-      handle.addEventListener('mouseleave', ()=>{ handle.style.background='transparent'; handle.style.opacity='1'; });
+      handle.addEventListener('mouseenter', ()=>{ handle.style.background='linear-gradient(to bottom,transparent 3px,#1565C0 3px,#1565C0 5px,transparent 5px)'; });
+      handle.addEventListener('mouseleave', ()=>{ if(!container.__ddnlDangKeo) handle.style.background='transparent'; });
       handle.addEventListener('mousedown', function(e){
         e.preventDefault(); e.stopPropagation();
-        const startY = e.clientY;
-        const startHeight = row.getBoundingClientRect().height;
-        function onMove(e2){
-          const newHeight = Math.max(20, Math.round((startHeight + (e2.clientY - startY))/kZ));
-          Array.from(row.cells).forEach(c=>{ c.style.height = newHeight+'px'; });
-          layoutTableResizeHandles(container);
-        }
-        function onUp(){
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-        }
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        const startY = e.clientY, startH = rowRect.height/kZ, y0 = yRel;
+        const oDon = Array.from(row.cells).filter(o=>{ const q = L.pos.get(o); return q && q.rs===1; });
+        batDauKeo('row-resize', function(e2){
+          const h = Math.max(18, Math.round(startH + (e2.clientY - startY)/kZ));
+          row.style.height = h+'px';
+          (oDon.length ? oDon : Array.from(row.cells)).forEach(o=>{ o.style.height = h+'px'; });
+          const thuc = row.getBoundingClientRect().height/kZ;
+          handle.style.setProperty('top', Math.round(y0-4 + (thuc-startH))+'px', 'important');
+          nhan.textContent = 'Hàng '+(r+1)+': cao '+(thuc*2.54/96).toFixed(2).replace('.',',')+' cm' + (thuc>h+1 ? ' (chữ trong ô cần chỗ — xóa bớt chữ/giảm cỡ chữ mới thấp hơn được)' : '');
+          Object.assign(nhan.style, {display:'block', left:(e2.clientX+12)+'px', top:(e2.clientY-30)+'px'});
+        });
       });
     });
   });
 }
-// Giữ lại 2 tên hàm cũ để không phải sửa mọi chỗ gọi — đều trỏ chung về cách làm mới, gọi 2 lần liền
-// nhau (như các chỗ gọi cũ vẫn làm) chỉ tính toán lại 2 lần, không gây lỗi hay trùng lặp gì (hàm luôn
-// xóa sạch tay cầm cũ trước khi vẽ lại).
+try{ window.__ddnlBang = {ddnlLuoi:ddnlLuoi, ddnlDamBaoCot:ddnlDamBaoCot, htmlToRtf:function(h){return htmlToRtf(h);}, xemTruoc:function(h){return ddnlChuanHoaFontXemTruoc(h);}}; }catch(e){} // để kiểm tra nhanh từ console
 function enableTableColResize(container){ layoutTableResizeHandles(container); }
 function enableTableRowResize(container){ layoutTableResizeHandles(container); }
 
@@ -34155,6 +34361,7 @@ function vbPvChuanBang(root){
       if(mau){ const ws = cellsOf(mau).map(pxOf); const tong = ws.reduce((a,b)=>a+b,0); if(tong>0) tyLe = ws.map(w=>w/tong*100); }
       // xóa bề rộng px trên mọi ô (để không ô nào đẩy bảng tràn trang)
       rows.forEach(tr=>cellsOf(tr).forEach(c=>{ if(c.style && /px$/i.test(c.style.width||'')) c.style.removeProperty('width'); c.style.removeProperty('min-width'); if(c.getAttribute('width') && !/%/.test(c.getAttribute('width'))) c.removeAttribute('width'); }));
+      if(!tyLe){ try{ let n=0; rows.forEach(tr=>{ let k=0; cellsOf(tr).forEach(c=>k+=Math.max(1,c.colSpan||1)); n=Math.max(n,k); }); const cg0 = ddnlDocCot(t, n); if(cg0) tyLe = cg0; }catch(x){} } // 28/11/2026: giữ tỷ lệ cột đã kéo trong app (colgroup %)
       t.querySelectorAll(':scope > colgroup').forEach(cg=>cg.remove());
       if(tyLe){
         const cg = document.createElement('colgroup');
@@ -34838,8 +35045,10 @@ function openNoiDungSoanModal(){
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChenCot" title="Chèn 1 cột mới ngay bên phải cột đang đặt con trỏ">➕ Cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaHang" title="Xóa hàng đang đặt con trỏ">➖ Hàng</button>
           <button type="button" class="ddnl-btn ddnl-btn-danger ddnl-btn-sm" id="ddnlBtnXoaCot" title="Xóa cột đang đặt con trỏ">➖ Cột</button>
-          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnCaoHang" title="Nhập số chính xác cho chiều cao hàng đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↕ Cao hàng</button>
-          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnRongCot" title="Nhập số chính xác cho chiều rộng cột đang đặt con trỏ — không cần rê chuột tìm tay cầm kéo">↔ Rộng cột</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnGopO" title="Bôi đen (giữ chuột kéo) từ ô đầu tới ô cuối cần gộp rồi bấm — chữ các ô được nối lại trong 1 ô">⊞ Gộp ô</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnTachO" title="Đặt con trỏ vào ô đã gộp rồi bấm để tách về các ô đơn">⊟ Tách ô</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnCaoHang" title="Nhập chiều cao (cm) cho hàng đang đặt con trỏ — hoặc rê chuột tới đường kẻ ngang dưới hàng, thấy vạch xanh thì giữ chuột kéo">↕ Cao hàng</button>
+          <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnRongCot" title="Nhập chiều rộng (cm) cho cột đang đặt con trỏ, các cột khác tự co cho vừa trang — hoặc rê chuột tới đường kẻ dọc, thấy vạch xanh thì giữ chuột kéo">↔ Rộng cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnTuGianCot" title="Tự chia lại độ rộng các cột theo nội dung (giống AutoFit của Word) cho bảng đang đặt con trỏ — cột chữ dài rộng ra, cột ngắn (Stt, ngày) hẹp lại, tránh chữ bị bẻ dòng">⇔ Tự giãn cột</button>
           <button type="button" class="ddnl-btn ddnl-btn-ghost ddnl-btn-sm" id="ddnlBtnChonCot" title="Chọn cả cột đang đặt con trỏ (hoặc giữ Alt + bấm vào 1 ô) — sau đó bấm B / I / U / Trái / Giữa / Đều 2 bên sẽ áp dụng cho cả cột; Delete để xóa chữ cả cột; Esc hoặc bấm ra chỗ khác để bỏ chọn">▥ Chọn cột</button>
           <span style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding-left:8px;border-left:1px solid var(--ddnl-line);font-size:12px;font-weight:600;color:var(--ddnl-ink-soft);">Khổ giấy:
@@ -34971,77 +35180,99 @@ function openNoiDungSoanModal(){
     if(node.nodeType===3) node = node.parentElement;
     return node ? node.closest('td, th') : null;
   }
+  // 28/11/2026: chèn/xóa hàng–cột, rộng cột, cao hàng, gộp/tách ô — tính theo LƯỚI CỘT THẬT (đúng cả bảng có ô gộp)
+  const veLaiTayCam = ()=>layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+  const canO = (loi)=>{ const o = timOConTroHienTai(); const ed = document.getElementById('ddnlNoiDungEditable'); if(!o || !ed.contains(o)){ alert(loi || 'Đặt con trỏ vào 1 ô trong bảng trước đã.'); return null; } return o; };
+  ['ddnlBtnChenHang','ddnlBtnChenCot','ddnlBtnXoaHang','ddnlBtnXoaCot','ddnlBtnCaoHang','ddnlBtnRongCot','ddnlBtnGopO','ddnlBtnTachO','ddnlBtnTuGianCot','ddnlBtnChonCot'].forEach(id=>{
+    const b = document.getElementById(id); if(b) b.addEventListener('mousedown', ev=>ev.preventDefault()); // giữ nguyên vùng bôi đen / con trỏ trong bảng khi bấm nút
+  });
   document.getElementById('ddnlBtnChenHang').onclick = (e)=>{
     e.preventDefault();
-    const cell = timOConTroHienTai();
-    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
-    const tr = cell.closest('tr'), table = cell.closest('table');
-    const soCot = Array.from(tr.parentNode.rows[0]?tr.parentNode.rows[0].cells:tr.cells).length || tr.cells.length;
-    const newRow = table.insertRow(Array.from(table.rows).indexOf(tr)+1);
-    for(let c=0;c<tr.cells.length;c++){ const td=newRow.insertCell(-1); td.style.cssText='padding:6px 8px;border:1px solid #999;'; td.innerHTML='&nbsp;'; }
-    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+    const cell = canO(); if(!cell) return;
+    const moi = ddnlChenHangDuoi(cell);
+    if(moi && moi.cells[0]) datConTroVaoO(moi.cells[0], false);
+    veLaiTayCam();
   };
   document.getElementById('ddnlBtnChenCot').onclick = (e)=>{
     e.preventDefault();
-    const cell = timOConTroHienTai();
-    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
-    const table = cell.closest('table');
-    const idx = Array.from(cell.parentNode.children).indexOf(cell);
-    Array.from(table.rows).forEach(row=>{
-      const newCell = row.insertCell(idx+1);
-      newCell.style.cssText='padding:6px 8px;border:1px solid #999;';
-      newCell.innerHTML = '&nbsp;';
-    });
-    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+    const cell = canO(); if(!cell) return;
+    ddnlChenCotPhai(cell);
+    veLaiTayCam();
   };
   document.getElementById('ddnlBtnXoaHang').onclick = (e)=>{
     e.preventDefault();
-    const cell = timOConTroHienTai();
-    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
-    const tr = cell.closest('tr'), table = cell.closest('table');
+    const cell = canO(); if(!cell) return;
+    const table = cell.closest('table');
     if(table.rows.length<=1){ alert('Bảng chỉ còn 1 hàng, không xóa được nữa.'); return; }
     if(!confirm('Xóa hàng đang chọn?')) return;
-    tr.remove();
-    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+    ddnlXoaHang(cell);
+    veLaiTayCam();
   };
   document.getElementById('ddnlBtnXoaCot').onclick = (e)=>{
     e.preventDefault();
-    const cell = timOConTroHienTai();
-    if(!cell){ alert('Đặt con trỏ vào 1 ô trong bảng trước đã.'); return; }
+    const cell = canO(); if(!cell) return;
     const table = cell.closest('table');
-    const idx = Array.from(cell.parentNode.children).indexOf(cell);
-    if(table.rows[0].cells.length<=1){ alert('Bảng chỉ còn 1 cột, không xóa được nữa.'); return; }
+    if(ddnlLuoi(table).soCot<=1){ alert('Bảng chỉ còn 1 cột, không xóa được nữa.'); return; }
     if(!confirm('Xóa cột đang chọn?')) return;
-    Array.from(table.rows).forEach(row=>{ if(row.cells[idx]) row.deleteCell(idx); });
-    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+    ddnlXoaCot(cell);
+    veLaiTayCam();
   };
-  // Cách NHẬP SỐ trực tiếp cho chiều cao hàng / chiều rộng cột — dùng khi rê chuột tìm tay cầm kéo
-  // (thanh mảnh ở viền ô) khó thấy hoặc khó bấm trúng. Thao tác giống hệt nút Hàng/Cột: đặt con trỏ
-  // vào 1 ô trong hàng/cột muốn chỉnh, rồi bấm nút.
   document.getElementById('ddnlBtnCaoHang').onclick = (e)=>{
     e.preventDefault();
-    const cell = timOConTroHienTai();
-    if(!cell){ alert('Đặt con trỏ vào 1 ô trong hàng muốn chỉnh chiều cao trước đã.'); return; }
-    const tr = cell.closest('tr');
-    const hienTai = parseFloat(cell.style.height) || Math.round(cell.getBoundingClientRect().height);
-    const nhap = prompt('Chiều cao hàng này (đơn vị: px)?', hienTai || 40);
-    const px = parseFloat(nhap);
-    if(!nhap || isNaN(px) || px<=0){ return; }
-    Array.from(tr.cells).forEach(c=>{ c.style.height = Math.round(px)+'px'; });
-    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+    const cell = canO('Đặt con trỏ vào 1 ô trong hàng muốn chỉnh chiều cao trước đã.'); if(!cell) return;
+    const tr = cell.closest('tr'), ed = document.getElementById('ddnlNoiDungEditable');
+    const kZ = (ed.offsetWidth && ed.getBoundingClientRect().width) ? ed.getBoundingClientRect().width/ed.offsetWidth : 1;
+    const hienTai = tr.getBoundingClientRect().height/kZ*2.54/96;
+    const nhap = prompt('Chiều cao hàng này (cm)? — VD: 0,8 hoặc 1,2', hienTai.toFixed(2).replace('.',','));
+    if(nhap===null) return;
+    const cm = parseFloat(String(nhap).replace(',','.'));
+    if(isNaN(cm) || cm<=0){ alert('Số không hợp lệ.'); return; }
+    const px = Math.round(cm*96/2.54);
+    const L = ddnlLuoi(tr.closest('table'));
+    tr.style.height = px+'px';
+    Array.from(tr.cells).forEach(c=>{ const q = L.pos.get(c); if(q && q.rs===1) c.style.height = px+'px'; });
+    veLaiTayCam();
   };
   document.getElementById('ddnlBtnRongCot').onclick = (e)=>{
     e.preventDefault();
-    const cell = timOConTroHienTai();
-    if(!cell){ alert('Đặt con trỏ vào 1 ô trong cột muốn chỉnh chiều rộng trước đã.'); return; }
-    const table = cell.closest('table');
-    const idx = Array.from(cell.parentNode.children).indexOf(cell);
-    const hienTai = parseFloat(cell.style.width) || Math.round(cell.getBoundingClientRect().width);
-    const nhap = prompt('Chiều rộng cột này (đơn vị: px)?', hienTai || 100);
-    const px = parseFloat(nhap);
-    if(!nhap || isNaN(px) || px<=0){ return; }
-    Array.from(table.rows).forEach(row=>{ if(row.cells[idx]) row.cells[idx].style.width = Math.round(px)+'px'; });
-    layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
+    const cell = canO('Đặt con trỏ vào 1 ô trong cột muốn chỉnh chiều rộng trước đã.'); if(!cell) return;
+    const table = cell.closest('table'), ed = document.getElementById('ddnlNoiDungEditable');
+    const L = ddnlLuoi(table); const p = L.pos.get(cell);
+    const pct = ddnlDamBaoCot(table, L); if(!pct) return;
+    if(L.soCot<2){ alert('Bảng chỉ có 1 cột — cột luôn rộng bằng cả trang.'); return; }
+    const kZ = (ed.offsetWidth && ed.getBoundingClientRect().width) ? ed.getBoundingClientRect().width/ed.offsetWidth : 1;
+    const rongCm = table.getBoundingClientRect().width/kZ*2.54/96;
+    const c = p.c;
+    const nhap = prompt('Chiều rộng CỘT '+(c+1)+' (cm)?\nCả bảng rộng '+rongCm.toFixed(1).replace('.',',')+' cm — các cột còn lại tự co/giãn theo tỷ lệ cho vừa trang.', (pct[c]*rongCm/100).toFixed(1).replace('.',','));
+    if(nhap===null) return;
+    const cm = parseFloat(String(nhap).replace(',','.'));
+    if(isNaN(cm) || cm<=0){ alert('Số không hợp lệ.'); return; }
+    const moi = Math.min(100-2*(L.soCot-1), Math.max(2, cm/rongCm*100));
+    const conLai = 100-pct[c] || 1;
+    const p2 = pct.map((x,i)=> i===c ? moi : x*(100-moi)/conLai);
+    ddnlGhiCot(table, p2);
+    veLaiTayCam();
+  };
+  document.getElementById('ddnlBtnGopO').onclick = (e)=>{
+    e.preventDefault();
+    const ed = document.getElementById('ddnlNoiDungEditable');
+    const sel = window.getSelection();
+    const oCua = n=>{ if(!n) return null; if(n.nodeType===3) n = n.parentElement; return n && n.closest ? n.closest('td, th') : null; };
+    let a = null, b = null;
+    if(sel.rangeCount){ const rg = sel.getRangeAt(0); a = oCua(rg.startContainer); b = oCua(rg.endContainer);
+      // bôi đen kết thúc ngay đầu ô sau (chưa có chữ nào của ô đó) → lấy ô trước
+      if(b && a && b!==a && rg.endOffset===0 && rg.endContainer.nodeType!==3 && rg.endContainer===b){ const L0 = ddnlLuoi(b.closest('table')); const tatCa = []; L0.rows.forEach(tr=>Array.from(tr.cells).forEach(x=>tatCa.push(x))); const i = tatCa.indexOf(b); if(i>0 && tatCa[i-1]!==a) b = tatCa[i-1]; }
+    }
+    if(!a || !b || !ed.contains(a) || a===b){ alert('Bôi đen (giữ chuột kéo) từ ô ĐẦU tới ô CUỐI của vùng cần gộp, rồi bấm "⊞ Gộp ô".\nVD: gộp 2 ô tiêu đề cạnh nhau, hoặc 3 ô trên–dưới cùng một cột.'); return; }
+    if(a.closest('table')!==b.closest('table')){ alert('Hai ô phải nằm trong cùng 1 bảng.'); return; }
+    const n = ddnlGopO(a, b);
+    if(n>1){ datConTroVaoO(a.isConnected ? a : b, false); veLaiTayCam(); }
+  };
+  document.getElementById('ddnlBtnTachO').onclick = (e)=>{
+    e.preventDefault();
+    const cell = canO('Đặt con trỏ vào ô ĐÃ GỘP muốn tách trước đã.'); if(!cell) return;
+    if(!ddnlTachO(cell)){ alert('Ô này không phải ô gộp — không có gì để tách.'); return; }
+    veLaiTayCam();
   };
   // ── CHỌN CẢ CỘT (19/10/2026) ──
   // Trình duyệt không cho bôi đen theo cột (kéo chuột sẽ bôi theo hàng). Nút "▥ Chọn cột" (hoặc Alt + bấm
@@ -35057,7 +35288,9 @@ function openNoiDungSoanModal(){
     document.body.appendChild(phu); document.body.appendChild(nhan);
     function oTrongCot(){
       if(!cotDangChon || !cotDangChon.table.isConnected) return [];
-      return Array.from(cotDangChon.table.rows).map(r=>r.cells[cotDangChon.idx]).filter(Boolean);
+      const L = ddnlLuoi(cotDangChon.table); const ds = [];
+      L.map.forEach(h=>{ const o = h[cotDangChon.idx]; if(o && ds.indexOf(o)<0) ds.push(o); });
+      return ds;
     }
     function veLai(){
       if(!ed.isConnected){ phu.remove(); nhan.remove(); window.removeEventListener('scroll', veLai, true); window.removeEventListener('resize', veLai); return; }
@@ -35070,7 +35303,8 @@ function openNoiDungSoanModal(){
       Object.assign(nhan.style,{display:'block',left:l+'px',top:Math.max(0,t-18)+'px'});
     }
     function chonCot(cell){
-      cotDangChon = {table: cell.closest('table'), idx: cell.cellIndex};
+      const tb = cell.closest('table'); const q = ddnlLuoi(tb).pos.get(cell);
+      cotDangChon = {table: tb, idx: q ? q.c : cell.cellIndex};
       const btn = document.getElementById('ddnlBtnChonCot'); if(btn) btn.style.background='#e3f2fd';
       veLai();
     }
@@ -35198,18 +35432,19 @@ function openNoiDungSoanModal(){
     const bang = (cell && ed.contains(cell)) ? [cell.closest('table')] : Array.from(ed.querySelectorAll('table'));
     if(!bang.length){ alert('Chưa có bảng nào trong nội dung.'); return; }
     bang.forEach(t=>{
+      // 28/11/2026: đo theo LƯỚI CỘT THẬT (bảng có ô gộp vẫn đúng), ghi kết quả vào <colgroup> %
+      const L = ddnlLuoi(t); const n = L.soCot; if(!n) return;
+      const cgCu = Array.from(t.querySelectorAll(':scope > colgroup, :scope > col'));
       const cells = Array.from(t.querySelectorAll('td, th'));
       const cu = cells.map(c=>c.style.width);
+      cgCu.forEach(x=>x.remove());
       cells.forEach(c=>{ c.style.width=''; });
       t.style.tableLayout = 'auto';
-      const hang = Array.from(t.rows).find(r=>Array.from(r.cells).every(c=>(c.colSpan||1)===1)) || t.rows[0];
-      const kZ2 = (ed.offsetWidth && ed.getBoundingClientRect().width) ? ed.getBoundingClientRect().width/ed.offsetWidth : 1;
-      // Ô dùng box-sizing:border-box -> width = đúng bề rộng ô đo được; làm tròn LÊN + chừa 2px để không bẻ chữ, phần dư trừ vào cột rộng nhất
-      const w = Array.from(hang.cells).map(c=>Math.ceil(c.getBoundingClientRect().width/kZ2)+2);
-      if(w.length>1){ const tong = w.reduce((x,y)=>x+y,0), rongBang = Math.floor(t.getBoundingClientRect().width/kZ2); let du = Math.max(0, tong - rongBang); const tb = tong/w.length; const lon = w.map((x,i)=>i).filter(i=>w[i]>tb); const tongLon = lon.reduce((x,i)=>x+w[i],0)||1; lon.forEach(i=>{ const bot = Math.min(du, Math.ceil(du*w[i]/tongLon)); w[i]-=bot; }); }
-      if(!w.every(x=>x>0)){ cells.forEach((c,i)=>{ c.style.width=cu[i]; }); t.style.tableLayout='fixed'; return; }
-      Array.from(t.rows).forEach(r=>{ Array.from(r.cells).forEach((c,i)=>{ if(w[i] && (c.colSpan||1)===1) c.style.width = w[i]+'px'; }); });
-      t.style.tableLayout = 'fixed';
+      const w = new Array(n).fill(0);
+      for(let c=0;c<n;c++) for(let r=0;r<L.map.length;r++){ const o = L.map[r][c]; if(!o) continue; const q = L.pos.get(o); if(q.cs===1) w[c] = Math.max(w[c], o.getBoundingClientRect().width); }
+      for(let c=0;c<n;c++) if(!(w[c]>0)){ for(let r=0;r<L.map.length && !(w[c]>0);r++){ const o = L.map[r][c]; if(o) w[c] = o.getBoundingClientRect().width/L.pos.get(o).cs; } }
+      if(!w.every(x=>x>0)){ cgCu.forEach(x=>t.insertBefore(x, t.firstChild)); cells.forEach((c,i)=>{ c.style.width=cu[i]; }); t.style.tableLayout='fixed'; return; }
+      const tongW = w.reduce((x,y)=>x+y,0); ddnlGhiCot(t, w.map(x=>Math.max(x, tongW*0.03))); // cột trống không co dưới 3 %
     });
     layoutTableResizeHandles(ed);
   };
@@ -35248,10 +35483,8 @@ function openNoiDungSoanModal(){
       return;
     }
     // Đang ở ô cuối cùng của bảng -> tự thêm 1 hàng mới rồi nhảy vào ô đầu hàng vừa thêm.
-    const soCot = table.rows[0].cells.length;
-    const newRow = table.insertRow(-1);
-    for(let c=0;c<soCot;c++){ const td=newRow.insertCell(-1); td.style.cssText='padding:6px 8px;border:1px solid #999;'; td.innerHTML='&nbsp;'; }
-    datConTroVaoO(newRow.cells[0], true);
+    const newRow = ddnlChenHangDuoi(cell); // 28/11/2026: theo lưới cột thật (giữ ô gộp)
+    if(newRow && newRow.cells[0]) datConTroVaoO(newRow.cells[0], true);
     layoutTableResizeHandles(document.getElementById('ddnlNoiDungEditable'));
   });
 // Dán từ Word/Excel/web vào thường mang theo font, màu, cỡ chữ riêng của nguồn -> chữ bị lệch
@@ -66800,9 +67033,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-28c';
+var LD_VER='2026-11-28d';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-28', nd:'Giấy đề nghị / Soạn nội dung văn bản: SỬA BẢNG TRỰC TIẾP — kéo đường kẻ dọc để đổi rộng cột (chỉ 2 cột hai bên thay đổi, bảng luôn vừa trang, hiện số cm), kéo đường kẻ ngang để đổi cao hàng; tay cầm tự cập nhật khi gõ chữ. Đúng cả bảng dán từ Excel có ô gộp: ➕/➖ Hàng, ➕/➖ Cột, ↔ Rộng cột, ↕ Cao hàng (nhập cm), ⇔ Tự giãn cột, ▥ Chọn cột. Thêm nút "⊞ Gộp ô" (bôi đen các ô) và "⊟ Tách ô".'},
   {d:'2026-11-28', nd:'Giấy đề nghị — Danh sách văn bản: thêm nút "📊 Xuất Excel" (cạnh Xuất Word/PDF) → file .xlsx mở bằng Excel chỉnh sửa tiếp: đủ quốc hiệu, số, ngày, tên văn bản, kính gửi, nội dung, chữ ký, nơi nhận; bảng giữ kẻ khung, gộp ô, đậm/nghiêng, tỷ lệ cột; Times New Roman; khổ dọc/ngang đúng như đã chọn, vừa 1 trang ngang khi in.'},
   {d:'2026-11-28', nd:'Giấy đề nghị / Soạn nội dung văn bản: copy vùng ô trong EXCEL rồi dán (Ctrl+V) → thành BẢNG sửa được (giữ gộp ô, chữ đậm/nghiêng, căn lề, tỷ lệ cột; bảng ≥ 9 cột tự chuyển trang sang khổ NGANG); dòng tiêu đề, "Tổng số…", ngày tháng, chữ ký (không kẻ khung) thành đoạn văn thường. Trước đây dán ra hình ảnh.'},
   {d:'2026-11-28', nd:'Bảng tin thiết bị: dòng phiếu ghi rõ "Phiếu sự cố đang mở: N phiếu / M thiết bị — … đang sửa"; thêm mục "✅ máy có phiếu nhưng vẫn dùng được" (giải thích vì sao số phiếu nhiều hơn số máy hỏng) và "⚠️ Cần rà soát: máy có phiếu trùng" (bấm tên máy để xử lý).'},
@@ -66878,7 +67112,7 @@ var LD_NK=[
   {d:'2026-11-08', nd:'Checklist: Danh mục công việc xếp A → Z (đổi được: theo nhóm, theo giờ, thứ tự tự đặt); thêm ô tìm nội dung.'},
   {d:'2026-11-08', nd:'Tạo thẻ "Lưu đồ hướng dẫn": 34 lưu đồ cho 33 thẻ (thẻ Tài sản tách 2 lưu đồ). Có Sửa lưu đồ, Thêm lưu đồ riêng, In.'}
 ];
-var LD_MD=[{"id": "hc1", "hc": 1, "g": "A. Công việc hằng ngày", "ten": "Báo cáo Công việc (Kanban)", "mt": "Thẻ chính để giao, theo dõi và đóng việc của nhân viên.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Báo cáo Công việc\""}, {"k": "p", "t": "Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Xem 3 cột: Chưa xử lý / Đang xử lý / Hoàn thành\n(lọc: Tìm nội dung, Tên NV, Đến ngày, Loại thẻ)"}, {"k": "p", "t": "Thẻ mới: Phân công / Gửi phòng ban (nếu cần)"}, {"k": "p", "t": "Bấm \"→ Đang xử lý\""}, {"k": "d", "t": "Đã xử lý xong?", "co": "Có", "khong": "Chưa", "nhanh": "Ghi tiến độ (+ Ghi lý do) — thẻ vẫn tính Downtime", "ve": 4}, {"k": "p", "t": "Bấm \"✓ Xong\""}, {"k": "e", "t": "Cuối tháng: Downtime, TK Bộ phận, Xuất Excel / In Word, Sao lưu"}], "cn": "2026-11-08"}, {"id": "hc2", "hc": 2, "g": "A. Công việc hằng ngày", "ten": "Xem Báo cáo Công việc", "mt": "Màn chỉ xem cho nhân viên.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Xem Báo cáo Công việc\""}, {"k": "p", "t": "Xem bảng Kanban (không sửa được)"}, {"k": "d", "t": "Cần sửa / chuyển trạng thái?", "co": "Có", "khong": "Không", "nhanh": "Chỉ xem, đóng lại", "ve": "x"}, {"k": "p", "t": "Về Trang chủ → thẻ \"Báo cáo Công việc\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "e", "t": "Ẩn/hiện nút cho NV: Kanban → \"Chức năng cho NV\""}], "cn": "2026-11-08"}, {"id": "hc3", "hc": 3, "g": "A. Công việc hằng ngày", "ten": "Đổi trực", "mt": "Duyệt phiếu đổi ca trực.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đổi Trực\""}, {"k": "p", "t": "Nhập \"Mật khẩu quản lý\" → Đăng nhập Quản lý"}, {"k": "p", "t": "Chọn \"Tháng xem\" (hoặc Xem tất cả các tháng)"}, {"k": "p", "t": "Danh sách phiếu đổi trực → lọc Trạng thái \"Chờ duyệt\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối phiếu", "ve": ""}, {"k": "p", "t": "Duyệt phiếu (Đã duyệt)"}, {"k": "e", "t": "Thống kê đổi trực (tháng / khoảng ngày / lũy kế) → Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc4", "hc": 4, "g": "A. Công việc hằng ngày", "ten": "Lịch trực khoa", "mt": "Tải lịch trực tháng lên cho cả khoa xem.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Lịch trực khoa\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Bấm \"Tải lên lịch mới\""}, {"k": "p", "t": "Chọn Tháng áp dụng + Loại lịch (Lịch chính / Lịch điều chỉnh) + chọn file"}, {"k": "p", "t": "Bấm \"Tải lên\""}, {"k": "p", "t": "Kiểm tra: Chọn tháng → Lịch chính / Lịch điều chỉnh → Xem dạng ảnh"}, {"k": "p", "t": "Theo dõi: dưới Lịch chính có bảng 2 cột ✅ ĐÃ XEM / ⚠️ CHƯA XEM (tỉ lệ x/y, ô Lọc tên) → \"📋 Chép tin nhắc Zalo\" gửi người chưa xem / \"📊 Xuất Excel\""}, {"k": "e", "t": "Nhân viên xem lịch; bản cũ lưu ở \"Lịch sử tất cả phiên bản\""}], "cn": "2026-11-24"}, {"id": "hc33", "hc": 33, "g": "A. Công việc hằng ngày", "ten": "Checklist công việc", "mt": "Việc của Quản lý hằng ngày / tuần / tháng.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Checklist công việc\" → Đăng nhập Quản lý"}, {"k": "p", "t": "Danh mục công việc → khối \"🏠 Thẻ trên Trang chủ\": tick thẻ cần kiểm tra → chỉnh Giờ; ô Nhóm theo dõi bấm chọn 1 hoặc nhiều nhóm (Hồi sức, Phòng mổ… hoặc thêm nhóm mới) → 💾 Lưu danh mục (thấy \"✅ Đã lưu lúc hh:mm\"; chữ cam \"● Có thay đổi CHƯA LƯU\" là chưa lưu). Việc ngoài app: \"+ Thêm công việc\" như cũ"}, {"k": "p", "t": "Lần đầu: tab \"⚙️ Danh mục công việc\" → Thêm / \"Nạp danh sách gợi ý\" → \"💾 Lưu danh mục\" (danh mục xếp A → Z; đổi kiểu ở nút \"Sắp xếp\")"}, {"k": "p", "t": "Hằng ngày: tab \"✅ Việc trong ngày\" — làm theo số thứ tự; ô 🔎 tìm nội dung để lọc nhanh"}, {"k": "p", "t": "Hằng ngày theo giờ: bấm \"🔗 Tên thẻ ↗\" ở dòng việc → app mở thẳng thẻ → kiểm tra xong bấm \"✓ Xong & quay lại\" (hoặc 📝 Ghi chú / ⬅ Quay lại) → làm việc kế tiếp"}, {"k": "p", "t": "Việc trên phần mềm khác (VD QLVT): dán link https://… vào ô Công việc hoặc Ghi chú → bấm \"🌐 Mở trang ↗\" (hoặc chữ link) → trang mở ở tab mới → quay lại Checklist bấm \"✓ Đã kiểm tra xong\" trên thanh xanh (hoặc 📝 Ghi chú)"}, {"k": "p", "t": "Tick ô khi xong; \"+ Thêm\" việc phát sinh"}, {"k": "p", "t": "Kiểm tra thấy chưa đạt → bấm 📝 cuối dòng → chọn ⚠ Vấn đề / 📝 Ghi nhận, Bộ phận (Hồi sức, Phòng mổ…), câu nhanh hoặc gõ → 💾 Lưu (tự ghi giờ, tên)"}, {"k": "p", "t": "Có người chưa thực hiện: ô \"👤 Nhân viên liên quan\" gõ vài chữ tên → chọn (chọn được nhiều người) → giữ tick \"Trừ điểm KPI\" + chọn loại sự kiện KPI → 💾 Lưu (tự ghi sang thẻ KPI; xóa ghi chú thì gỡ luôn điểm trừ)"}, {"k": "p", "t": "Vấn đề đã khắc phục → bấm \"✓ Đã xử lý\" (ghi cách xử lý). Xem tổng hợp: khối \"📝 Ghi chú kiểm tra\" trong ngày / \"📒 Sổ ghi chú kiểm tra\" (Lịch tháng) → lọc, Excel"}, {"k": "p", "t": "Thống kê: \"📒 Sổ ghi chú kiểm tra\" → ô \"👤 Mọi nhân viên\" để lọc / nút \"👥 Thống kê theo nhân viên\" (vấn đề, đã xử lý, điểm trừ KPI) → 📊 Excel (có sheet Theo nhân viên)"}, {"k": "p", "t": "Xem khối \"Còn tồn từ 7 ngày qua\""}, {"k": "p", "t": "Cuối ngày: \"📄 Biên bản ngày\" → In / Tải Word → \"📌 Lưu biên bản\". Tra lại: Lịch tháng → \"📚 Biên bản đã lưu\""}, {"k": "e", "t": "Tab \"📅 Lịch tháng\" xem tỷ lệ hoàn thành"}], "cn": "2026-11-18"}, {"id": "hc36", "hc": 36, "g": "A. Công việc hằng ngày", "ten": "Bundle Hồi sức", "mt": "Phòng ngừa viêm phổi thở máy, nhiễm khuẩn catheter/sonde, loét tì đè, té ngã — ghi theo ca, chỉ số tháng (thử nghiệm).", "cn": "2026-11-24", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bundle Hồi sức\" (chữ nhỏ: bấm \"🔍 Cỡ chữ\" → Lớn / Rất lớn — hộp ghi tràn toàn màn hình, máy nhớ lựa chọn)"}, {"k": "d", "t": "Giường trống?", "co": "Có", "khong": "Không", "nhanh": "Bấm giường → ghi bundle ca hiện tại", "ve": ""}, {"k": "p", "t": "Bấm giường → nhập Mã bệnh án HIS (không ghi họ tên), tick Thở máy / Catheter TMTT / Sonde tiểu → \"💾 Lưu\""}, {"k": "p", "t": "Mỗi ca: bấm từng giường → ✓ Đạt / ✗ Không / Không áp dụng (bắt buộc ghi lý do) (hoặc \"✓ Đạt hết\") → \"💾 Lưu bundle\" (giường đỏ = chưa ghi). Gói VAP 11 mục theo SHEA/IDSA/APIC 2022"}, {"k": "p", "t": "08:00: kiểm tra thiết bị từng giường → \"📌 Chốt kiểm đếm hôm nay\""}, {"k": "p", "t": "Có sự kiện → tab \"⚠️ Sự kiện\" → \"➕ Ghi sự kiện\"; nhiễm khuẩn chờ KSNK xác nhận"}, {"k": "p", "t": "Quản lý: tab \"🔍 Kiểm tra đột xuất\" (🎲 chọn ngẫu nhiên 2 giường) và \"⚙️ Cấu hình\" (cấu hình cũ: bấm \"⬆ Cập nhật gói VAP\")"}, {"k": "e", "t": "Tab \"📊 Chỉ số tháng\" → \"📊 Xuất Excel\" (KPI chỉ hiển thị dự kiến – giai đoạn thử nghiệm)"}]}, {"id":  "hc37", "hc":  37, "g":  "A. Công việc hằng ngày", "ten":  "Điểm danh", "mt":  "Điểm danh tập huấn, giao ban, họp, sinh hoạt bằng mã QR động — tự có danh sách theo ngày / chủ đề.", "cn":  "2026-11-25", "b":  [{"k":  "s", "t":  "Trang chủ → thẻ \"Điểm danh\" → \"🔐 Quản lý\""}, {"k":  "p", "t":  "\"➕ Tạo buổi điểm danh\":  Loại buổi, Chủ đề, Ngày, Bắt đầu – Kết thúc, Cho trễ (phút), Người giảng, Hình thức (Chỉ quét VÀO / Quét VÀO + RA), Đối tượng (nhóm), CNKT đề xuất, \"👤 Người được giao đưa mã\" → \"💾 Lưu\""}, {"k":  "d", "t":  "Có máy chiếu?", "co":  "Có", "khong":  "Không", "nhanh":  "Người được giao mở thẻ \"Điểm danh\" trên điện thoại → \"📱 Hiện mã\" (nhập đúng tên) → giơ mã cho mọi người quét", "ve":  ""}, {"k":  "p", "t":  "\"📱 Hiện mã\" → \"⛶ Toàn màn hình\" (mã đổi 20 giây, kèm 6 số để nhập tay); buổi Vào + Ra: cuối buổi bấm \"⏹ Mã RA\""}, {"k":  "p", "t":  "Nhân viên mở camera điện thoại quét mã → app mở → chọn tên (máy nhớ) → \"✅ Xác nhận điểm danh\"; không quét được: thẻ \"Điểm danh\" → \"✍ Nhập mã điểm danh\""}, {"k":  "p", "t":  "\"📄 Danh sách\":  tự động có Giờ vào / ra, Đúng giờ / Trễ / Về sớm / Vắng; Quản lý \"✋ Có mặt\" (ghi tay), \"Miễn\" (ghi lý do)"}, {"k":  "p", "t":  "\"📊 Xuất Excel\" / \"🖨 In danh sách\" (thể thức hành chính) / \"📋 Chép Zalo người vắng\"; \"🔒 Kết thúc\" buổi"}, {"k":  "p", "t":  "NHẬN TRỰC: Quản lý đăng ký máy tính bàn của khoa 1 lần (\"🖥 Máy tính khoa\" → \"➕ Đăng ký máy này\", đặt tên máy)"}, {"k":  "p", "t":  "Lúc nhận trực, trưởng tua trên máy đã đăng ký bấm \"🏥 Điểm danh nhận trực\" → tick thành viên tua (cả nhóm trực và nhóm chương trình; máy gợi ý lần gần nhất; ô \"🔍 Gõ tên để tìm\", Enter để tick) — khi quét, mỗi người tự chọn \"🏥 Nhóm trực\" / \"🗓 Nhóm chương trình\" → \"📱 Mở mã nhận trực\" → từng người quét bằng điện thoại cá nhân; màn hình hiện \"Chưa điểm danh: …\""}, {"k":  "p", "t":  "Mọi máy khoa đã đăng ký đều hiện mã VÀO + RA (từ 27/11) — đặt tên máy theo phòng, Quản lý bấm tên máy để đổi tên; nhận ca chỉ QUÉT QR (không nhập 6 số), mã nhận ~20–40 giây; màn mã có \"❌ Không có mặt\" để trưởng tua gạch người không có trong phòng; Danh sách cột \"Quét VÀO tại\" tô cam lượt bất thường; Tổng hợp có bảng \"🚪 Thống kê theo phòng mổ\" (đặt tên máy theo phòng; ✏️ đổi tên máy). Quản lý: \"✏️ Sửa / 🗑 Xóa\" để sửa buổi hoặc tick xóa nhiều buổi thử/trùng; \"🔍 Cỡ chữ\" phóng to màn hình; \"📅 Lọc\" theo ngày + bảng \"👥 đã / chưa điểm danh\" (📋 chép gửi Zalo)"}, {"k":  "p", "t":  "Cuối ca (hình thức VÀO + RA): ở BẤT KỲ máy khoa đã đăng ký → \"⏹ Mã RA\" → mọi người quét lại → app tính giờ làm việc; ai quên quét: \"📄 Danh sách\" → \"✋ Ghi RA\""}, {"k":  "p", "t":  "Người quên điện thoại: trưởng tua \"📄 Danh sách\" → \"✋ Có mặt\" → ghi lý do (đánh dấu ghi tay)"}, {"k":  "e", "t":  "Tab \"📊 Tổng hợp\":  Từ ngày – Đến ngày, Loại buổi → số buổi được mời / có mặt / trễ / vắng / miễn, giờ dự, CNKT đề xuất từng người → Xuất Excel"}]}, {"id": "hc5", "hc": 5, "g": "B. Nghỉ & chế độ", "ten": "Đăng ký Nghỉ bù", "mt": "Duyệt phiếu nghỉ bù và đối chiếu chấm công.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký Nghỉ Bù\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Tab \"Danh sách phiếu\" → lọc \"Chờ duyệt\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối", "ve": ""}, {"k": "p", "t": "Duyệt"}, {"k": "p", "t": "Tab \"Lịch nghỉ chung\" — kiểm tra người nghỉ trùng ngày"}, {"k": "p", "t": "Tab \"Thống kê\" (Tháng này / Tháng trước / Năm nay)"}, {"k": "e", "t": "Xuất Excel / Xuất Word; Sao lưu"}], "cn": "2026-11-08"}, {"id": "hc6", "hc": 6, "g": "B. Nghỉ & chế độ", "ten": "Đăng ký Nghỉ phép", "mt": "Duyệt phiếu nghỉ phép (phép năm, ốm, con ốm, thai sản…) và phiếu công tác (không trừ phép/bù).", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký Nghỉ Phép\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Tab \"Danh sách phiếu\" → lọc \"Chờ duyệt\""}, {"k": "p", "t": "Xem loại phép, số ngày, giấy tờ đính kèm"}, {"k": "p", "t": "Công tác: bấm \"✈️ Công tác\" trên thanh (Kanban / Nghỉ phép / Nghỉ bù) → danh sách lọc sẵn phiếu Công tác; loại \"✈️ Công tác\" KHÔNG trừ phép năm, KHÔNG trừ nghỉ bù — phiếu ghi Nơi công tác, Căn cứ (số QĐ / giấy mời), in ra \"Giấy đăng ký đi công tác\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối", "ve": ""}, {"k": "p", "t": "Duyệt"}, {"k": "p", "t": "Tab \"Lịch nghỉ chung\" / \"Thống kê\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-20"}, {"id": "hc38", "hc": 38, "g": "B. Nghỉ & chế độ", "ten": "Đăng ký Công tác", "mt": "Phiếu đi công tác (học, tập huấn, hội nghị, hỗ trợ tuyến…) — KHÔNG trừ phép năm, KHÔNG trừ nghỉ bù.", "cn": "2026-11-20", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký Công tác\" → chọn tên / đăng nhập Quản lý → màn hình CÔNG TÁC riêng (màu xanh dương; tab Đăng ký công tác / Danh sách phiếu / Lịch công tác chung / Thống kê; chỉ hiện phiếu công tác). Mọi nhân viên đều đăng ký được (không cần quyền ĐK Nghỉ Phép)"}, {"k": "p", "t": "Nhân viên: tab \"Đăng ký công tác\" (loại Công tác cố định) → Từ ngày – Đến ngày, Nơi công tác, Căn cứ (số QĐ / giấy mời), nội dung ở ô Lý do → \"Gửi phiếu đăng ký\" (ký tên)"}, {"k": "p", "t": "Quản lý: tab \"Danh sách phiếu\" (chỉ phiếu công tác). Chuyển qua lại: nút \"✈️ Công tác\" / \"🏖 Nghỉ Phép\" trên thanh (thanh Kanban, Nghỉ bù cũng có nút \"✈️ Công tác\"). Màn Nghỉ phép không còn lẫn phiếu công tác"}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối", "ve": ""}, {"k": "p", "t": "Duyệt (không trừ quỹ phép năm, không trừ nghỉ bù)"}, {"k": "p", "t": "Rà soát phẫu thuật: Nghỉ bù → tab \"Đối chiếu Dịch vụ PTTT\" → \"So sánh\": người có phiếu Công tác ĐÃ DUYỆT (hoặc Chấm công HIS ghi \"CT\") mà có tên trong danh sách phẫu thuật → báo KHÔNG HỢP LỆ (dòng ✈️). Tab \"Đối chiếu HIS\" không đòi ký hiệu \"P\" cho ngày công tác"}, {"k": "e", "t": "\"Xem phiếu\" / \"Xuất Word\" → \"Giấy đăng ký đi công tác\"; thẻ số \"✈️ Ngày công tác\""}]}, {"id": "hc7", "hc": 7, "g": "B. Nghỉ & chế độ", "ten": "Quản lý Phép năm", "mt": "Quỹ phép, thâm niên, phép còn lại toàn khoa.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Quản lý Phép năm\""}, {"k": "p", "t": "Đầu năm: \"Cấu hình quy tắc tính phép\" (phép cơ bản, cộng thêm khoa, thâm niên, hạn phép cũ, Năm hiện hành) → Lưu cấu hình"}, {"k": "p", "t": "\"Cấu hình ngày nghỉ đặc biệt\" (Lễ, Tết) → Lưu"}, {"k": "p", "t": "Bảng phép nhân viên: lọc đơn nguyên / nhóm / Đã nghỉ – Chưa nghỉ; Thêm nhân viên mới"}, {"k": "p", "t": "\"Lưu chốt số thâm niên hiện tại\""}, {"k": "p", "t": "Sau 31/1: \"Tính số ngày phép năm cũ được giải quyết\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc8", "hc": 8, "g": "C. Chuyên môn & phát triển", "ten": "Thư viện Quy trình", "mt": "Ban hành quy trình và theo dõi nhân viên đã đọc.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Thư viện Quy trình\" → \"Quản lý đăng nhập\""}, {"k": "p", "t": "\"Thêm quy trình\": \"📄 Đọc từ file PDF / Word\" (app tự RÚT GỌN và điền Mục đích, Trách nhiệm, Các bước, Lưu ý, Tóm tắt nhanh; chọn lần lượt file Quyết định + file Quy trình — app tự ghép) — hoặc Nhập từng ô / \"⚡ Dán nhanh (từ Claude)\" (đoạn dán không theo mẫu lưu thành \"Tóm tắt nhanh\")"}, {"k": "p", "t": "Điền: Tên, Mã số, Nhóm, Ngày hiệu lực, Nhóm chuyên môn áp dụng, Các bước, Link văn bản gốc"}, {"k": "p", "t": "Khi Sửa: tick \"📢 Báo lên Trang chủ\" + ghi nội dung thay đổi → cả khoa phải đọc lại và làm lại post-test (bỏ tick nếu chỉ sửa lỗi chính tả); thêm mới luôn được báo"}, {"k": "p", "t": "\"Lưu vào thư viện\""}, {"k": "p", "t": "Trang chủ hiện khung \"📘 Chào …! Khoa có n quy trình mới dành cho anh/chị\" theo TỪNG NGƯỜI (\"👤 Chọn tên của bạn\" lần đầu; \"Không phải tôi?\" để đổi) + huy hiệu \"📘 n mới\"; bấm tên quy trình → app mở đúng quy trình, điền sẵn tên; dòng chỉ mất khi người đó đã đạt; Quản lý thấy khung tiến độ khoa (👥 x/y đã hoàn thành)"}, {"k": "p", "t": "Nhân viên mở quy trình, đọc đủ thời gian tối thiểu (30–120 giây) → chọn tên → \"✍️ Nắm nhanh 5 câu & xác nhận\" (5 câu app tự soạn)"}, {"k": "d", "t": "Đạt post-test?", "co": "Đạt (Thường ≥4/5, Trọng yếu 5/5)", "khong": "Chưa đạt", "nhanh": "Đọc lại quy trình đủ thời gian → làm lại (câu hỏi đổi mới)", "ve": 6}, {"k": "p", "t": "Ghi nhận đã đọc + điểm; quy trình Trọng yếu ôn lại sau 6 tháng"}, {"k": "p", "t": "Quản lý theo dõi theo kỳ: \"📅 Theo dõi theo thời gian\" (Từ ngày – Đến ngày, hạn hoàn thành) → bảng Đúng hạn / Trễ hạn / Không thực hiện từng nhân viên, \"📊 Xuất Excel\""}, {"k": "p", "t": "Quản lý: \"📝 Câu hỏi post-test\" (mức áp dụng, câu hỏi riêng, \"Yêu cầu cả khoa làm post-test\" cho quy trình cũ) · \"📊 Kết quả post-test\" (đạt/chưa đạt/chưa làm, câu hay sai, \"📋 Chép tin nhắc Zalo\")"}, {"k": "p", "t": "Mở 1 quy trình → cuối thẻ có 2 cột ✅ ĐÃ ĐỌC (ngày giờ, điểm post-test) / ⚠️ CHƯA ĐỌC (nhóm) và tỉ lệ x/y → \"📋 Nhắc Zalo\" người chưa đọc"}, {"k": "p", "t": "\"Thống kê tuân thủ\" / Thống kê đọc quy trình mới"}, {"k": "e", "t": "Khi cần: Sửa / Hiệu lực / Xóa (gõ XOA) → \"Xuất dữ liệu\" → \"Thoát Quản lý\""}], "cn": "2026-11-24"}, {"id": "hc9", "hc": 9, "g": "C. Chuyên môn & phát triển", "ten": "CNKT – Cập nhật kiến thức", "mt": "Theo dõi giờ/tín chỉ theo Thông tư 32/2023/TT-BYT.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"CNKT\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Đầu kỳ: \"Cấu hình chu kỳ\", \"Đối tượng áp dụng\""}, {"k": "p", "t": "Nhân viên \"Ghi nhận hoạt động CNKT\" (tên, hình thức, số giờ/tín chỉ, bằng chứng)"}, {"k": "p", "t": "Mục \"Chờ duyệt (n)\" → xem bằng chứng"}, {"k": "d", "t": "Hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Hủy phiếu (vào \"Danh sách phiếu đã hủy\")", "ve": ""}, {"k": "p", "t": "Duyệt"}, {"k": "e", "t": "\"Danh sách nhân viên toàn khoa\": lọc Đã đạt / Sắp hết hạn / Chưa đạt → Xuất Word / Excel toàn khoa"}], "cn": "2026-11-08"}, {"id": "hc10", "hc": 10, "g": "C. Chuyên môn & phát triển", "ten": "Thành tích", "mt": "Thành tích tập thể (công khai) và cá nhân.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Thành tích\""}, {"k": "p", "t": "Bấm \"✏️ Thêm / sửa / xóa (Quản lý)\" → nhập mật khẩu"}, {"k": "p", "t": "Lần đầu: Danh mục danh hiệu / Danh mục cơ quan cấp / Danh mục nhóm ban hành"}, {"k": "p", "t": "\"Thêm danh hiệu\": Năm, Danh hiệu, Nhóm, Số quyết định, Cơ quan cấp, Ngày, minh chứng"}, {"k": "p", "t": "Sửa / xóa từng dòng; lọc theo nhóm, danh hiệu, năm"}, {"k": "e", "t": "Xuất Excel / In Word (hồ sơ thi đua)"}], "cn": "2026-11-08"}, {"id": "hc11", "hc": 11, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Đánh giá KPI", "mt": "Tự tổng hợp từ Kanban + sự kiện KPI.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đánh giá KPI\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Lần đầu: \"Danh mục loại sự kiện KPI & thang điểm trừ\" (Nhẹ -2 / Vừa -5 / Nặng -10)"}, {"k": "p", "t": "\"Ghi nhận sự kiện KPI\": nhân viên, ngày, loại, số lần, minh chứng → Lưu sự kiện"}, {"k": "p", "t": "Chọn \"Theo tháng\" hoặc \"Tổng hợp cả năm\""}, {"k": "p", "t": "Xem \"Bảng tổng hợp KPI\" và \"Danh sách sự kiện KPI trong tháng\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc12", "hc": 12, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Dụng cụ sau mổ", "mt": "Thiếu, thất lạc dụng cụ và bồi hoàn.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Dụng cụ sau mổ\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Lần đầu: \"Danh mục Bộ dụng cụ\"; \"KPI & Xác nhận hàng ngày\" (số ngày cho phép xử lý)"}, {"k": "p", "t": "\"Ghi nhận thiếu / thất lạc\": ngày, bộ dụng cụ, ê-kíp, danh sách dụng cụ → Ghi nhận"}, {"k": "p", "t": "Danh sách công khai: Chưa xử lý → Đang xử lý"}, {"k": "d", "t": "Đã bồi hoàn / khắc phục?", "co": "Có", "khong": "Chưa", "nhanh": "Theo dõi tiếp (quá hạn → tính KPI)", "ve": 3}, {"k": "p", "t": "Chuyển \"Đã bồi hoàn/khắc phục\""}, {"k": "e", "t": "Thống kê → Xuất Excel / In Word"}], "cn": "2026-11-08"}, {"id": "hc13", "hc": 13, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Bàn giao trực Phòng Hồi sức", "mt": "Biên bản bàn giao tài sản hằng ngày, ký 2 bên.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bàn giao trực Phòng Hồi sức\""}, {"k": "p", "t": "Lần đầu (Quản lý): \"Danh mục tài sản\""}, {"k": "p", "t": "Lập biên bản: ngày, giờ, ca, người giao, người nhận; đánh dấu Thiếu / Hư hỏng"}, {"k": "p", "t": "Ký 2 bên (\"Xác nhận đã ký\" / \"Nhập mã biên bản để ký\") → Lưu"}, {"k": "d", "t": "Đủ 2 chữ ký?", "co": "Có", "khong": "Chưa", "nhanh": "Nằm ở \"Biên bản CHỜ HOÀN THÀNH\" — nhắc ký", "ve": 3}, {"k": "p", "t": "Hoàn thành"}, {"k": "e", "t": "Thống kê, KPI tự động → Xuất Excel / In Word"}], "cn": "2026-11-08"}, {"id": "hc14", "hc": 14, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Bàn giao Phòng Mổ", "mt": "12 phòng mổ × nhóm Gây mê / Dụng cụ.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bàn giao Phòng Mổ\" → chọn phòng (\"Đổi phòng\")"}, {"k": "p", "t": "Quản lý: Cấu hình phòng; \"Khai báo giờ tất cả phòng\"; \"Mở khóa bỏ tua\""}, {"k": "p", "t": "Lập biên bản: ca (Ngày / Đêm / Cả ngày / Bàn giao tháng), nhóm Gây mê / Dụng cụ"}, {"k": "p", "t": "Ký 2 bên → Lưu biên bản bàn giao"}, {"k": "p", "t": "Thống kê: chọn phòng → kiểm tra đã / chưa bàn giao theo ngày"}, {"k": "p", "t": "\"Theo dõi bàn giao tháng\" (bảng bàn giao tháng, lưới ngày) / Bảng có chữ ký"}, {"k": "e", "t": "In A4 ngang / Chép tin Zalo gửi phòng chưa bàn giao"}], "cn": "2026-11-08"}, {"id": "hc15", "hc": 15, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Theo dõi Giao nhận trực", "mt": "Cảnh báo bộ phận chưa giao trực đúng giờ.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Theo dõi Giao nhận trực\""}, {"k": "p", "t": "Xem cảnh báo phòng / bộ phận chưa giao trực"}, {"k": "p", "t": "Quản lý: \"Khai báo giờ khóa bỏ tua\""}, {"k": "p", "t": "\"Thống kê trễ hạn\""}, {"k": "e", "t": "\"Xuất báo cáo\"; nhắc bộ phận trễ"}], "cn": "2026-11-08"}, {"id": "hc29", "hc": 29, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Bàn giao Hộ lý", "mt": "Bàn giao hằng ngày theo bộ phận, so cơ số.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bàn giao Hộ lý\""}, {"k": "p", "t": "Quản lý (lần đầu): tab \"⚙️ Cấu hình\" — bộ phận, cơ số"}, {"k": "p", "t": "Tab \"📝 Bàn giao\": nhân viên, bộ phận, đếm cơ số (\"✓ Tất cả đủ cơ số\" hoặc ghi thiếu)"}, {"k": "p", "t": "Ký (hoặc \"Dùng chữ ký mẫu đã lưu\") → \"Lưu bàn giao\""}, {"k": "p", "t": "Tab \"📊 Hôm nay\": bộ phận nào chưa bàn giao"}, {"k": "p", "t": "Bộ phận quá giờ/🔒 bị khóa mà nhân viên cần ghi bổ sung → Admin bấm \"🔓 Mở khóa cho nhân viên\" (dưới ô Bộ phận) → tick bộ phận, chọn thời hạn (30′…hết ngày), ghi lý do → hết hạn tự khóa lại; \"🔒 Khóa lại\" để đóng sớm"}, {"k": "e", "t": "Tab \"🗂 Lịch sử\": Xem nhanh, Xuất Excel / Xuất Word"}], "cn": "2026-11-09"}, {"id": "hc32", "hc": 32, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Báo cáo vệ sinh", "mt": "Vệ sinh lavabo phòng mổ trước 8h00.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Báo cáo vệ sinh\""}, {"k": "p", "t": "Quản lý (lần đầu): tab \"⚙️ Cấu hình\" — lavabo, góc chụp cố định, ảnh mẫu, giờ chụp"}, {"k": "p", "t": "Nhân viên: tab \"📝 Báo cáo hôm nay\" — chụp đủ góc trước 8h00"}, {"k": "d", "t": "Phòng bị \"⛓ Bị khóa: đã KHÔNG BÁO ngày …\"?", "co": "Có", "khong": "Không", "nhanh": "", "ve": ""}, {"k": "p", "t": "Quản lý nhắc nhở → bấm \"🔓 Mở khóa (đã nhắc nhở)\" (ghi nội dung) → phòng báo cáo hôm nay (quá giờ: tự mở báo bù 2 giờ). Bật/tắt: \"⛓ Bật khóa hẳn\" / \"Tắt khóa hẳn\" ở dòng tự động khóa"}, {"k": "p", "t": "Tab \"🔍 Duyệt ảnh – đánh giá\""}, {"k": "d", "t": "Đạt?", "co": "Có", "khong": "Chưa", "nhanh": "Ghi chỗ chưa đạt, nhắc khắc phục", "ve": ""}, {"k": "p", "t": "Tab \"📋 Danh sách báo cáo\" / \"📅 Lịch tháng\""}, {"k": "p", "t": "Xem ảnh: bấm dòng báo cáo → chi tiết hiện đủ ảnh nhỏ → bấm 1 ảnh xem lớn, ◀ ▶ (hoặc phím mũi tên) chuyển ảnh, Esc đóng"}, {"k": "e", "t": "Tab \"📊 Thống kê\""}], "cn": "2026-11-13"}, {"id": "hc16", "hc": 16, "g": "E. Văn bản – nhân sự", "ten": "Điều động nhân lực", "mt": "Giấy đề nghị điều động và giờ điều động.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Điều động nhân lực\""}, {"k": "p", "t": "Tab \"Lập phiếu mới\" → điền → lưu"}, {"k": "p", "t": "Tab \"Danh sách phiếu\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Hủy / sửa phiếu", "ve": ""}, {"k": "p", "t": "Duyệt → In / Xuất Word"}, {"k": "p", "t": "Tab \"Thống kê giờ\" (theo nhân viên, khoảng thời gian)"}, {"k": "e", "t": "Tab \"Danh mục / Cấu hình\" khi cần"}], "cn": "2026-11-08"}, {"id": "hc17", "hc": 17, "g": "E. Văn bản – nhân sự", "ten": "Giấy đề nghị", "mt": "Lập, theo dõi văn bản đề nghị gửi đi.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Giấy đề nghị\" → tab \"Sổ văn bản đi\""}, {"k": "p", "t": "Điền: Thể loại, Về việc, Nơi gửi, Số (tự động), Người soạn, Người ký, Kính gửi"}, {"k": "d", "t": "Giấy liên quan Phẫu thuật viên?", "co": "Có", "khong": "Không", "nhanh": "Tick \"✍ Thêm chữ ký PHẪU THUẬT VIÊN\" → bấm chọn tên PTV (hoặc gõ) → xuất ra có ô ký PTV ở giữa, dưới hàng ký cũ", "ve": ""}, {"k": "p", "t": "Soạn nội dung: trong app / Word / Excel → \"Xem trước nhanh\""}, {"k": "p", "t": "Soạn trong app → \"💾 Lưu nội dung\" → app hỏi \"Lưu phiếu vào Sổ nào?\" (chọn sổ / Tạo sổ mới) → \"Ghi nhận văn bản ngay\" (tick \"Tạo thẻ Kanban\" nếu cần)"}, {"k": "p", "t": "Danh sách văn bản đi: Xuất Word / Xuất PDF"}, {"k": "d", "t": "Máy có máy in?", "co": "Có", "khong": "Không", "nhanh": "\"📲 Nhờ in (Zalo)\" → \"📎 Gửi file Word\" → Ctrl+V, kéo file vào Zalo", "ve": ""}, {"k": "p", "t": "Khai tên PTV: tab \"Danh mục / Cấu hình\" → \"✍ Danh mục Phẫu thuật viên\" (Admin); tab \"🕘 Nhật ký ký\" xem/xuất Excel phiếu nào PTV nào ký"}, {"k": "e", "t": "Cập nhật Trạng thái → \"Cập nhật thẻ Kanban\""}], "cn": "2026-11-09"}, {"id": "hc18", "hc": 18, "g": "E. Văn bản – nhân sự", "ten": "Đăng ký phụ trách bàn giao", "mt": "Nhân viên nhận bộ phận phụ trách theo tháng (tính KPI).", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký phụ trách bàn giao\""}, {"k": "p", "t": "Quản lý: \"Thêm bộ phận / phòng\"; \"Thêm nhóm lịch giao trực\" (12/24, 24/24, theo tháng)"}, {"k": "p", "t": "Nhân viên tự đăng ký theo tháng (hoặc \"Nhập từ Excel\")"}, {"k": "p", "t": "Xem \"Danh sách\" / \"Bảng lưới\"; \"Lịch sử đăng ký\""}, {"k": "p", "t": "\"Tính thống kê\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc19", "hc": 19, "g": "E. Văn bản – nhân sự", "ten": "Bình bệnh án", "mt": "Lưu trữ biên bản bình bệnh án.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bình bệnh án\" → đăng nhập"}, {"k": "p", "t": "\"Thêm bệnh án mới\": tên NB, số vào viện, khoa, ngày, kỳ (Tháng / Quý)"}, {"k": "p", "t": "Kết luận Đạt / Chưa đạt; đính kèm file (.docx, .pdf, ảnh)"}, {"k": "p", "t": "\"Lưu biên bản\""}, {"k": "p", "t": "Danh sách: lọc kết luận / kỳ / ngày"}, {"k": "e", "t": "Xuất Word khi cần in kiểm tra"}], "cn": "2026-11-08"}, {"id": "hc22", "hc": 22, "g": "E. Văn bản – nhân sự", "ten": "SV/HV Thực hành (NĐ 96)", "mt": "Sinh viên thực tập, học viên chứng chỉ hành nghề.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"SV/HV Thực hành\" → \"Đăng nhập Quản lý/HD\""}, {"k": "p", "t": "\"Kế hoạch đào tạo\": tạo đợt (tên đợt, cơ sở đào tạo, loại, từ – đến ngày, số KH, số QĐ) → Lưu"}, {"k": "p", "t": "\"Danh sách người hướng dẫn\" (văn bằng, CCHN)"}, {"k": "p", "t": "\"+ Thêm học viên/sinh viên mới\" (mật khẩu riêng, mã tra cứu)"}, {"k": "p", "t": "\"Chấm công\" hằng ngày"}, {"k": "e", "t": "\"Thống kê\" → Xuất Excel / Word, Phụ lục I, Phụ lục II"}], "cn": "2026-11-08"}, {"id": "hc23", "hc": 23, "g": "E. Văn bản – nhân sự", "ten": "Sổ đi buồng", "mt": "Điều dưỡng trưởng ghi nhận đi buồng.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Sổ đi buồng\" → chọn tên → \"Vào Sổ đi buồng\""}, {"k": "p", "t": "Quản lý (lần đầu): \"Cấu hình nội dung\", \"Quản lý quyền truy cập\""}, {"k": "p", "t": "\"Thêm mới\": phòng, người bệnh có diễn biến, chẩn đoán, diễn biến, chỉ định"}, {"k": "p", "t": "\"Lưu\" (nháp) hoặc \"Lưu và thực hiện\""}, {"k": "p", "t": "\"Xem theo ngày (lật trang)\""}, {"k": "e", "t": "\"Tóm tắt nhanh\" → Sao chép gửi nhóm; \"Xem trước & in\""}], "cn": "2026-11-08"}, {"id": "hc24", "hc": 24, "g": "E. Văn bản – nhân sự", "ten": "Danh sách nhân viên khoa", "mt": "Danh bạ; nguồn số điện thoại cho Zalo.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Danh sách nhân viên khoa\""}, {"k": "p", "t": "\"Thêm nhân viên\" / \"Nhập từ Excel\" / \"Nhập SĐT/Email/CCCD\""}, {"k": "p", "t": "\"Quản lý nhóm\"; \"Lấy Số CCHN từ CNKT\""}, {"k": "p", "t": "Lọc: đơn vị, nhóm, giới, đảng viên, văn bằng; chọn cột"}, {"k": "e", "t": "Xuất Excel / Xuất Word / In danh sách"}], "cn": "2026-11-08"}, {"id": "hc25", "hc": 25, "g": "E. Văn bản – nhân sự", "ten": "Ghi chú Báo cáo", "mt": "Sổ ghi nhanh số liệu quanh năm (chỉ Admin).", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Ghi chú Báo cáo\" → mật khẩu Quản lý"}, {"k": "p", "t": "Lần đầu: \"Quản lý danh mục\" (chủ đề báo cáo)"}, {"k": "p", "t": "Ghi: Ngày sự việc, Danh mục, Số liệu, Nội dung, minh chứng → \"Lưu ghi chú\""}, {"k": "p", "t": "Ô Danh mục: gõ vài chữ (vd \"tap huan\") để lọc nhanh → ↑ ↓ chọn, Enter (hoặc bấm ▾ xem tất cả)"}, {"k": "p", "t": "Khi viết báo cáo: lọc danh mục / \"Tìm từ khóa\""}, {"k": "e", "t": "\"Copy văn bản (đã lọc)\" / \"Xuất Word (đã lọc)\"; Sao lưu"}], "cn": "2026-11-18"}, {"id": "hc26", "hc": 26, "g": "E. Văn bản – nhân sự", "ten": "Mẫu văn bản", "mt": "File mẫu Nghỉ phép, Nghỉ bù, Đổi trực…", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Mẫu văn bản\""}, {"k": "p", "t": "Chọn mẫu → \"Xem mẫu hiện tại\""}, {"k": "d", "t": "Mẫu cần cập nhật?", "co": "Có", "khong": "Không", "nhanh": "Giữ nguyên", "ve": "x"}, {"k": "p", "t": "\"Thay file\" → chọn file mới"}, {"k": "e", "t": "Nhân viên tải mẫu mới khi in phiếu"}], "cn": "2026-11-08"}, {"id": "hc27", "hc": 27, "g": "E. Văn bản – nhân sự", "ten": "Đăng ký phép BV", "mt": "Mẫu BM.01.TCCB của Bệnh viện.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký phép BV\""}, {"k": "p", "t": "Lần đầu: \"Cấu hình sẵn danh sách người ký\""}, {"k": "p", "t": "Họ tên (chức danh, khoa tự điền) → Người ký duyệt"}, {"k": "p", "t": "Từ ngày – Đến ngày, lý do, địa chỉ, phương tiện → \"Tạo phiếu\""}, {"k": "p", "t": "In phiếu, trình ký"}, {"k": "e", "t": "\"Danh sách theo dõi\"; \"Chế độ Quản lý\" để xóa phiếu sai"}], "cn": "2026-11-08"}, {"id": "hc28", "hc": 28, "g": "E. Văn bản – nhân sự", "ten": "Đánh giá, xếp loại VC – NLĐ", "mt": "Lưu kết quả đánh giá, xếp loại hằng năm.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đánh giá, Xếp loại\" → \"Đăng nhập Quản lý\""}, {"k": "p", "t": "Chọn Năm, Danh mục"}, {"k": "p", "t": "Ghi chú (số quyết định, ngày ban hành) + đính kèm kết quả (ảnh / scan / tệp / link)"}, {"k": "p", "t": "\"Lưu kết quả\""}, {"k": "e", "t": "Tìm theo năm / danh mục; sửa đính kèm khi cần → \"Thoát chế độ Quản lý\""}], "cn": "2026-11-08"}, {"id": "hc31", "hc": 31, "g": "E. Văn bản – nhân sự", "ten": "Đối chiếu Công – PTTT", "mt": "Chấm công – trực ↔ danh sách PTTT tháng.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đối chiếu Công – PTTT\" (tài khoản có quyền \"Đối chiếu PTTT\")"}, {"k": "p", "t": "Mở tab \"Đối chiếu Dịch vụ PTTT\""}, {"k": "p", "t": "Tải 3 file bắt buộc: Chấm công tháng (PDF), Chấm trực tháng (PDF), Danh sách PTTT (Excel)"}, {"k": "p", "t": "(Khuyến nghị) Chấm công / Chấm trực THÁNG TRƯỚC; file Kiêm nhiệm nếu có"}, {"k": "p", "t": "Xem kết luận HỢP LỆ / KHÔNG HỢP LỆ từng ca"}, {"k": "e", "t": "Sửa chấm công / chấm trực các ca không hợp lệ trước khi nộp"}], "cn": "2026-11-08"}, {"id": "hc30a", "hc": 30, "g": "F. Tài sản – thiết bị", "ten": "Tài sản – Sự cố thiết bị (A): Xử lý sự cố", "mt": "Từ lúc báo hỏng đến khi nghiệm thu.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Tài sản – Sự cố thiết bị\" → Đăng nhập Quản lý (hoặc \"🔧 Phụ trách nhóm\" + PIN)"}, {"k": "p", "t": "Xem nhanh \"Bảng tin thiết bị\" (Trang chủ): mỗi máy hiện bước xử lý · báo dd/mm · ngừng N ngày (tab Trạng thái: 📅 Báo giờ ngày) → bấm tên máy xem chi tiết"}, {"k": "p", "t": "Tab \"Kanban sự cố\" (Thẻ hoặc Bảng; lọc tài sản / trạng thái)"}, {"k": "p", "t": "Mới báo → \"✋ Tiếp nhận\" (phân công nếu cần)"}, {"k": "p", "t": "\"📝 Lập đề nghị / báo cáo\" (số VB, nơi nhận; in phiếu) → \"📤 Gửi phòng ban\""}, {"k": "p", "t": "\"🛠 Bắt đầu sửa\"; chờ hãng → \"⏳ Chờ linh kiện\" → \"📦 Linh kiện đã về\""}, {"k": "p", "t": "\"🧪 Sửa xong – chờ nghiệm thu\""}, {"k": "d", "t": "Nghiệm thu đạt?", "co": "Có", "khong": "Chưa", "nhanh": "\"↩ Chưa đạt – sửa lại\" (ghi lý do)", "ve": 4}, {"k": "p", "t": "\"✅ Nghiệm thu đạt\" (kết quả, nguyên nhân, chi phí) → In biển xanh"}, {"k": "e", "t": "Downtime / \"Xuất báo cáo\" Word – Excel"}], "cn": "2026-11-09"}, {"id": "hc30b", "hc": 30, "g": "F. Tài sản – thiết bị", "ten": "Tài sản – Sự cố thiết bị (B): Danh mục & cấu hình", "mt": "Khai báo tài sản, nhóm, bộ phận, cột Kanban.", "b": [{"k": "s", "t": "Thẻ \"Tài sản – Sự cố thiết bị\" → Đăng nhập Quản lý → tab \"Danh mục\""}, {"k": "p", "t": "\"🏢 Thêm bộ phận\" / \"➕ Thêm nhóm thiết bị\" (nếu chưa có)"}, {"k": "p", "t": "\"+ Thêm tài sản\" (hoặc Nhập Excel) → \"Khai báo ảnh\""}, {"k": "p", "t": "\"In tem QR\" → dán tem lên máy"}, {"k": "p", "t": "Chuyển tài sản / \"🔁 Mượn\": chọn \"🏠 Phòng / bộ phận trong khoa\" hoặc \"🏥 Khoa khác mượn\" (bấm chọn khoa hoặc gõ khoa mới, SĐT) — tên người mượn nhập tự do, tự lưu cho lần sau → \"💾 Lưu mượn tạm\"; khi trả bấm \"↩ Trả\""}, {"k": "p", "t": "\"Sổ lý lịch\""}, {"k": "p", "t": "Kanban → \"⚙️ Cấu hình cột & nút\" (thêm cột, chọn nút từng giai đoạn)"}, {"k": "e", "t": "Tab \"Cấu hình\": hạn tiếp nhận, Phân quyền Phụ trách nhóm (PIN), checklist đầu ca, chu kỳ bảo trì, \"🏥 Danh mục khoa mượn\" (➕ Thêm khoa / ✏️ Sửa tên / ⛔ Ẩn / ↺ Hiện lại) và \"👤 Nhân viên khoa mượn\" (Họ tên, Khoa, SĐT → ➕ Thêm / 💾 Lưu / 🗑 Xóa)"}], "cn": "2026-11-13"}, {"id": "hc35", "hc": 35, "g": "F. Tài sản – thiết bị", "ten": "Mượn – Trả tài sản", "mt": "Ghi nhận phòng trong khoa / khoa khác mượn thiết bị, theo dõi hạn trả và nhận lại máy.", "cn": "2026-11-13", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Mượn – Trả tài sản\" (hoặc thẻ Tài sản → tab \"🔁 Mượn – Trả\")"}, {"k": "p", "t": "Bấm \"➕ CHO MƯỢN thiết bị\" → chọn phòng đang giữ máy (hoặc gõ tên / mã máy, hoặc \"QUÉT QR TEM MÁY\") → bấm \"🔁 Mượn\" ở máy cần cho mượn"}, {"k": "d", "t": "Khoa khác mượn?", "co": "Có", "khong": "Không", "nhanh": "\"🏠 Phòng / bộ phận trong khoa\" → chọn phòng mượn", "ve": ""}, {"k": "p", "t": "\"🏥 Khoa khác mượn\" → bấm chọn khoa (hoặc gõ khoa mới) → bấm tên nhân viên của khoa (👤) để tự điền Người mượn + SĐT"}, {"k": "p", "t": "Người mượn (nhập tự do), SĐT (khoa khác), Người cho mượn; \"Ngày giờ mượn\" (mặc định lúc mở, sửa được); Hạn trả: chọn ngày / \"Trong ngày\" / \"Ngày mai\" / \"3 ngày\" / \"1 tuần\" / \"⏳ Chưa xác định\" → \"💾 Lưu mượn tạm\""}, {"k": "p", "t": "Theo dõi khối \"🔁 Thiết bị ĐANG MƯỢN\" (dòng đỏ = quá hạn; thẻ Trang chủ báo \"⏰ … quá hạn\")"}, {"k": "p", "t": "Nhận lại máy → \"↩ NHẬN TRẢ thiết bị\" → \"↩ Trả\" → Người trả, Người nhận lại, \"Ngày giờ trả\", tình trạng → \"↩ Xác nhận trả về …\""}, {"k": "e", "t": "Tra cứu \"📜 Lịch sử mượn – trả\""}]}, {"id": "hc20", "hc": 20, "g": "G. Quản trị hệ thống", "ten": "Quản lý Admin", "mt": "Vào Kanban với toàn quyền.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Quản lý Admin\" → mật khẩu Admin"}, {"k": "p", "t": "Vào Kanban toàn quyền (phiên 30 phút)"}, {"k": "p", "t": "Thanh công cụ: Nhân viên, Đổi mật khẩu"}, {"k": "p", "t": "\"Sao lưu TOÀN BỘ ứng dụng\" định kỳ (giữ file .json)"}, {"k": "e", "t": "Khi cần: \"Phục hồi TOÀN BỘ\" (cẩn thận — ghi đè dữ liệu)"}], "cn": "2026-11-08"}, {"id": "hc21", "hc": 21, "g": "G. Quản trị hệ thống", "ten": "Phân quyền Nhân viên", "mt": "Cấp / thu hồi quyền vào các thẻ.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Phân quyền Nhân viên\" → mật khẩu Admin"}, {"k": "p", "t": "Bảng nhân viên × chức năng: tick quyền (VD Đối chiếu PTTT, HIS…)"}, {"k": "p", "t": "\"Lưu tất cả quyền\""}, {"k": "p", "t": "\"Chức năng cho NV\": ẩn / hiện nút trên Kanban cho nhân viên"}, {"k": "e", "t": "Nhân viên chuyển công tác → bỏ tick, Lưu"}], "cn": "2026-11-08"}];
+var LD_MD=[{"id": "hc1", "hc": 1, "g": "A. Công việc hằng ngày", "ten": "Báo cáo Công việc (Kanban)", "mt": "Thẻ chính để giao, theo dõi và đóng việc của nhân viên.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Báo cáo Công việc\""}, {"k": "p", "t": "Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Xem 3 cột: Chưa xử lý / Đang xử lý / Hoàn thành\n(lọc: Tìm nội dung, Tên NV, Đến ngày, Loại thẻ)"}, {"k": "p", "t": "Thẻ mới: Phân công / Gửi phòng ban (nếu cần)"}, {"k": "p", "t": "Bấm \"→ Đang xử lý\""}, {"k": "d", "t": "Đã xử lý xong?", "co": "Có", "khong": "Chưa", "nhanh": "Ghi tiến độ (+ Ghi lý do) — thẻ vẫn tính Downtime", "ve": 4}, {"k": "p", "t": "Bấm \"✓ Xong\""}, {"k": "e", "t": "Cuối tháng: Downtime, TK Bộ phận, Xuất Excel / In Word, Sao lưu"}], "cn": "2026-11-08"}, {"id": "hc2", "hc": 2, "g": "A. Công việc hằng ngày", "ten": "Xem Báo cáo Công việc", "mt": "Màn chỉ xem cho nhân viên.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Xem Báo cáo Công việc\""}, {"k": "p", "t": "Xem bảng Kanban (không sửa được)"}, {"k": "d", "t": "Cần sửa / chuyển trạng thái?", "co": "Có", "khong": "Không", "nhanh": "Chỉ xem, đóng lại", "ve": "x"}, {"k": "p", "t": "Về Trang chủ → thẻ \"Báo cáo Công việc\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "e", "t": "Ẩn/hiện nút cho NV: Kanban → \"Chức năng cho NV\""}], "cn": "2026-11-08"}, {"id": "hc3", "hc": 3, "g": "A. Công việc hằng ngày", "ten": "Đổi trực", "mt": "Duyệt phiếu đổi ca trực.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đổi Trực\""}, {"k": "p", "t": "Nhập \"Mật khẩu quản lý\" → Đăng nhập Quản lý"}, {"k": "p", "t": "Chọn \"Tháng xem\" (hoặc Xem tất cả các tháng)"}, {"k": "p", "t": "Danh sách phiếu đổi trực → lọc Trạng thái \"Chờ duyệt\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối phiếu", "ve": ""}, {"k": "p", "t": "Duyệt phiếu (Đã duyệt)"}, {"k": "e", "t": "Thống kê đổi trực (tháng / khoảng ngày / lũy kế) → Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc4", "hc": 4, "g": "A. Công việc hằng ngày", "ten": "Lịch trực khoa", "mt": "Tải lịch trực tháng lên cho cả khoa xem.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Lịch trực khoa\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Bấm \"Tải lên lịch mới\""}, {"k": "p", "t": "Chọn Tháng áp dụng + Loại lịch (Lịch chính / Lịch điều chỉnh) + chọn file"}, {"k": "p", "t": "Bấm \"Tải lên\""}, {"k": "p", "t": "Kiểm tra: Chọn tháng → Lịch chính / Lịch điều chỉnh → Xem dạng ảnh"}, {"k": "p", "t": "Theo dõi: dưới Lịch chính có bảng 2 cột ✅ ĐÃ XEM / ⚠️ CHƯA XEM (tỉ lệ x/y, ô Lọc tên) → \"📋 Chép tin nhắc Zalo\" gửi người chưa xem / \"📊 Xuất Excel\""}, {"k": "e", "t": "Nhân viên xem lịch; bản cũ lưu ở \"Lịch sử tất cả phiên bản\""}], "cn": "2026-11-24"}, {"id": "hc33", "hc": 33, "g": "A. Công việc hằng ngày", "ten": "Checklist công việc", "mt": "Việc của Quản lý hằng ngày / tuần / tháng.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Checklist công việc\" → Đăng nhập Quản lý"}, {"k": "p", "t": "Danh mục công việc → khối \"🏠 Thẻ trên Trang chủ\": tick thẻ cần kiểm tra → chỉnh Giờ; ô Nhóm theo dõi bấm chọn 1 hoặc nhiều nhóm (Hồi sức, Phòng mổ… hoặc thêm nhóm mới) → 💾 Lưu danh mục (thấy \"✅ Đã lưu lúc hh:mm\"; chữ cam \"● Có thay đổi CHƯA LƯU\" là chưa lưu). Việc ngoài app: \"+ Thêm công việc\" như cũ"}, {"k": "p", "t": "Lần đầu: tab \"⚙️ Danh mục công việc\" → Thêm / \"Nạp danh sách gợi ý\" → \"💾 Lưu danh mục\" (danh mục xếp A → Z; đổi kiểu ở nút \"Sắp xếp\")"}, {"k": "p", "t": "Hằng ngày: tab \"✅ Việc trong ngày\" — làm theo số thứ tự; ô 🔎 tìm nội dung để lọc nhanh"}, {"k": "p", "t": "Hằng ngày theo giờ: bấm \"🔗 Tên thẻ ↗\" ở dòng việc → app mở thẳng thẻ → kiểm tra xong bấm \"✓ Xong & quay lại\" (hoặc 📝 Ghi chú / ⬅ Quay lại) → làm việc kế tiếp"}, {"k": "p", "t": "Việc trên phần mềm khác (VD QLVT): dán link https://… vào ô Công việc hoặc Ghi chú → bấm \"🌐 Mở trang ↗\" (hoặc chữ link) → trang mở ở tab mới → quay lại Checklist bấm \"✓ Đã kiểm tra xong\" trên thanh xanh (hoặc 📝 Ghi chú)"}, {"k": "p", "t": "Tick ô khi xong; \"+ Thêm\" việc phát sinh"}, {"k": "p", "t": "Kiểm tra thấy chưa đạt → bấm 📝 cuối dòng → chọn ⚠ Vấn đề / 📝 Ghi nhận, Bộ phận (Hồi sức, Phòng mổ…), câu nhanh hoặc gõ → 💾 Lưu (tự ghi giờ, tên)"}, {"k": "p", "t": "Có người chưa thực hiện: ô \"👤 Nhân viên liên quan\" gõ vài chữ tên → chọn (chọn được nhiều người) → giữ tick \"Trừ điểm KPI\" + chọn loại sự kiện KPI → 💾 Lưu (tự ghi sang thẻ KPI; xóa ghi chú thì gỡ luôn điểm trừ)"}, {"k": "p", "t": "Vấn đề đã khắc phục → bấm \"✓ Đã xử lý\" (ghi cách xử lý). Xem tổng hợp: khối \"📝 Ghi chú kiểm tra\" trong ngày / \"📒 Sổ ghi chú kiểm tra\" (Lịch tháng) → lọc, Excel"}, {"k": "p", "t": "Thống kê: \"📒 Sổ ghi chú kiểm tra\" → ô \"👤 Mọi nhân viên\" để lọc / nút \"👥 Thống kê theo nhân viên\" (vấn đề, đã xử lý, điểm trừ KPI) → 📊 Excel (có sheet Theo nhân viên)"}, {"k": "p", "t": "Xem khối \"Còn tồn từ 7 ngày qua\""}, {"k": "p", "t": "Cuối ngày: \"📄 Biên bản ngày\" → In / Tải Word → \"📌 Lưu biên bản\". Tra lại: Lịch tháng → \"📚 Biên bản đã lưu\""}, {"k": "e", "t": "Tab \"📅 Lịch tháng\" xem tỷ lệ hoàn thành"}], "cn": "2026-11-18"}, {"id": "hc36", "hc": 36, "g": "A. Công việc hằng ngày", "ten": "Bundle Hồi sức", "mt": "Phòng ngừa viêm phổi thở máy, nhiễm khuẩn catheter/sonde, loét tì đè, té ngã — ghi theo ca, chỉ số tháng (thử nghiệm).", "cn": "2026-11-24", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bundle Hồi sức\" (chữ nhỏ: bấm \"🔍 Cỡ chữ\" → Lớn / Rất lớn — hộp ghi tràn toàn màn hình, máy nhớ lựa chọn)"}, {"k": "d", "t": "Giường trống?", "co": "Có", "khong": "Không", "nhanh": "Bấm giường → ghi bundle ca hiện tại", "ve": ""}, {"k": "p", "t": "Bấm giường → nhập Mã bệnh án HIS (không ghi họ tên), tick Thở máy / Catheter TMTT / Sonde tiểu → \"💾 Lưu\""}, {"k": "p", "t": "Mỗi ca: bấm từng giường → ✓ Đạt / ✗ Không / Không áp dụng (bắt buộc ghi lý do) (hoặc \"✓ Đạt hết\") → \"💾 Lưu bundle\" (giường đỏ = chưa ghi). Gói VAP 11 mục theo SHEA/IDSA/APIC 2022"}, {"k": "p", "t": "08:00: kiểm tra thiết bị từng giường → \"📌 Chốt kiểm đếm hôm nay\""}, {"k": "p", "t": "Có sự kiện → tab \"⚠️ Sự kiện\" → \"➕ Ghi sự kiện\"; nhiễm khuẩn chờ KSNK xác nhận"}, {"k": "p", "t": "Quản lý: tab \"🔍 Kiểm tra đột xuất\" (🎲 chọn ngẫu nhiên 2 giường) và \"⚙️ Cấu hình\" (cấu hình cũ: bấm \"⬆ Cập nhật gói VAP\")"}, {"k": "e", "t": "Tab \"📊 Chỉ số tháng\" → \"📊 Xuất Excel\" (KPI chỉ hiển thị dự kiến – giai đoạn thử nghiệm)"}]}, {"id":  "hc37", "hc":  37, "g":  "A. Công việc hằng ngày", "ten":  "Điểm danh", "mt":  "Điểm danh tập huấn, giao ban, họp, sinh hoạt bằng mã QR động — tự có danh sách theo ngày / chủ đề.", "cn":  "2026-11-25", "b":  [{"k":  "s", "t":  "Trang chủ → thẻ \"Điểm danh\" → \"🔐 Quản lý\""}, {"k":  "p", "t":  "\"➕ Tạo buổi điểm danh\":  Loại buổi, Chủ đề, Ngày, Bắt đầu – Kết thúc, Cho trễ (phút), Người giảng, Hình thức (Chỉ quét VÀO / Quét VÀO + RA), Đối tượng (nhóm), CNKT đề xuất, \"👤 Người được giao đưa mã\" → \"💾 Lưu\""}, {"k":  "d", "t":  "Có máy chiếu?", "co":  "Có", "khong":  "Không", "nhanh":  "Người được giao mở thẻ \"Điểm danh\" trên điện thoại → \"📱 Hiện mã\" (nhập đúng tên) → giơ mã cho mọi người quét", "ve":  ""}, {"k":  "p", "t":  "\"📱 Hiện mã\" → \"⛶ Toàn màn hình\" (mã đổi 20 giây, kèm 6 số để nhập tay); buổi Vào + Ra: cuối buổi bấm \"⏹ Mã RA\""}, {"k":  "p", "t":  "Nhân viên mở camera điện thoại quét mã → app mở → chọn tên (máy nhớ) → \"✅ Xác nhận điểm danh\"; không quét được: thẻ \"Điểm danh\" → \"✍ Nhập mã điểm danh\""}, {"k":  "p", "t":  "\"📄 Danh sách\":  tự động có Giờ vào / ra, Đúng giờ / Trễ / Về sớm / Vắng; Quản lý \"✋ Có mặt\" (ghi tay), \"Miễn\" (ghi lý do)"}, {"k":  "p", "t":  "\"📊 Xuất Excel\" / \"🖨 In danh sách\" (thể thức hành chính) / \"📋 Chép Zalo người vắng\"; \"🔒 Kết thúc\" buổi"}, {"k":  "p", "t":  "NHẬN TRỰC: Quản lý đăng ký máy tính bàn của khoa 1 lần (\"🖥 Máy tính khoa\" → \"➕ Đăng ký máy này\", đặt tên máy)"}, {"k":  "p", "t":  "Lúc nhận trực, trưởng tua trên máy đã đăng ký bấm \"🏥 Điểm danh nhận trực\" → tick thành viên tua (cả nhóm trực và nhóm chương trình; máy gợi ý lần gần nhất; ô \"🔍 Gõ tên để tìm\", Enter để tick) — khi quét, mỗi người tự chọn \"🏥 Nhóm trực\" / \"🗓 Nhóm chương trình\" → \"📱 Mở mã nhận trực\" → từng người quét bằng điện thoại cá nhân; màn hình hiện \"Chưa điểm danh: …\""}, {"k":  "p", "t":  "Mọi máy khoa đã đăng ký đều hiện mã VÀO + RA (từ 27/11) — đặt tên máy theo phòng, Quản lý bấm tên máy để đổi tên; nhận ca chỉ QUÉT QR (không nhập 6 số), mã nhận ~20–40 giây; màn mã có \"❌ Không có mặt\" để trưởng tua gạch người không có trong phòng; Danh sách cột \"Quét VÀO tại\" tô cam lượt bất thường; Tổng hợp có bảng \"🚪 Thống kê theo phòng mổ\" (đặt tên máy theo phòng; ✏️ đổi tên máy). Quản lý: \"✏️ Sửa / 🗑 Xóa\" để sửa buổi hoặc tick xóa nhiều buổi thử/trùng; \"🔍 Cỡ chữ\" phóng to màn hình; \"📅 Lọc\" theo ngày + bảng \"👥 đã / chưa điểm danh\" (📋 chép gửi Zalo)"}, {"k":  "p", "t":  "Cuối ca (hình thức VÀO + RA): ở BẤT KỲ máy khoa đã đăng ký → \"⏹ Mã RA\" → mọi người quét lại → app tính giờ làm việc; ai quên quét: \"📄 Danh sách\" → \"✋ Ghi RA\""}, {"k":  "p", "t":  "Người quên điện thoại: trưởng tua \"📄 Danh sách\" → \"✋ Có mặt\" → ghi lý do (đánh dấu ghi tay)"}, {"k":  "e", "t":  "Tab \"📊 Tổng hợp\":  Từ ngày – Đến ngày, Loại buổi → số buổi được mời / có mặt / trễ / vắng / miễn, giờ dự, CNKT đề xuất từng người → Xuất Excel"}]}, {"id": "hc5", "hc": 5, "g": "B. Nghỉ & chế độ", "ten": "Đăng ký Nghỉ bù", "mt": "Duyệt phiếu nghỉ bù và đối chiếu chấm công.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký Nghỉ Bù\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Tab \"Danh sách phiếu\" → lọc \"Chờ duyệt\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối", "ve": ""}, {"k": "p", "t": "Duyệt"}, {"k": "p", "t": "Tab \"Lịch nghỉ chung\" — kiểm tra người nghỉ trùng ngày"}, {"k": "p", "t": "Tab \"Thống kê\" (Tháng này / Tháng trước / Năm nay)"}, {"k": "e", "t": "Xuất Excel / Xuất Word; Sao lưu"}], "cn": "2026-11-08"}, {"id": "hc6", "hc": 6, "g": "B. Nghỉ & chế độ", "ten": "Đăng ký Nghỉ phép", "mt": "Duyệt phiếu nghỉ phép (phép năm, ốm, con ốm, thai sản…) và phiếu công tác (không trừ phép/bù).", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký Nghỉ Phép\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Tab \"Danh sách phiếu\" → lọc \"Chờ duyệt\""}, {"k": "p", "t": "Xem loại phép, số ngày, giấy tờ đính kèm"}, {"k": "p", "t": "Công tác: bấm \"✈️ Công tác\" trên thanh (Kanban / Nghỉ phép / Nghỉ bù) → danh sách lọc sẵn phiếu Công tác; loại \"✈️ Công tác\" KHÔNG trừ phép năm, KHÔNG trừ nghỉ bù — phiếu ghi Nơi công tác, Căn cứ (số QĐ / giấy mời), in ra \"Giấy đăng ký đi công tác\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối", "ve": ""}, {"k": "p", "t": "Duyệt"}, {"k": "p", "t": "Tab \"Lịch nghỉ chung\" / \"Thống kê\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-20"}, {"id": "hc38", "hc": 38, "g": "B. Nghỉ & chế độ", "ten": "Đăng ký Công tác", "mt": "Phiếu đi công tác (học, tập huấn, hội nghị, hỗ trợ tuyến…) — KHÔNG trừ phép năm, KHÔNG trừ nghỉ bù.", "cn": "2026-11-20", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký Công tác\" → chọn tên / đăng nhập Quản lý → màn hình CÔNG TÁC riêng (màu xanh dương; tab Đăng ký công tác / Danh sách phiếu / Lịch công tác chung / Thống kê; chỉ hiện phiếu công tác). Mọi nhân viên đều đăng ký được (không cần quyền ĐK Nghỉ Phép)"}, {"k": "p", "t": "Nhân viên: tab \"Đăng ký công tác\" (loại Công tác cố định) → Từ ngày – Đến ngày, Nơi công tác, Căn cứ (số QĐ / giấy mời), nội dung ở ô Lý do → \"Gửi phiếu đăng ký\" (ký tên)"}, {"k": "p", "t": "Quản lý: tab \"Danh sách phiếu\" (chỉ phiếu công tác). Chuyển qua lại: nút \"✈️ Công tác\" / \"🏖 Nghỉ Phép\" trên thanh (thanh Kanban, Nghỉ bù cũng có nút \"✈️ Công tác\"). Màn Nghỉ phép không còn lẫn phiếu công tác"}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Từ chối", "ve": ""}, {"k": "p", "t": "Duyệt (không trừ quỹ phép năm, không trừ nghỉ bù)"}, {"k": "p", "t": "Rà soát phẫu thuật: Nghỉ bù → tab \"Đối chiếu Dịch vụ PTTT\" → \"So sánh\": người có phiếu Công tác ĐÃ DUYỆT (hoặc Chấm công HIS ghi \"CT\") mà có tên trong danh sách phẫu thuật → báo KHÔNG HỢP LỆ (dòng ✈️). Tab \"Đối chiếu HIS\" không đòi ký hiệu \"P\" cho ngày công tác"}, {"k": "e", "t": "\"Xem phiếu\" / \"Xuất Word\" → \"Giấy đăng ký đi công tác\"; thẻ số \"✈️ Ngày công tác\""}]}, {"id": "hc7", "hc": 7, "g": "B. Nghỉ & chế độ", "ten": "Quản lý Phép năm", "mt": "Quỹ phép, thâm niên, phép còn lại toàn khoa.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Quản lý Phép năm\""}, {"k": "p", "t": "Đầu năm: \"Cấu hình quy tắc tính phép\" (phép cơ bản, cộng thêm khoa, thâm niên, hạn phép cũ, Năm hiện hành) → Lưu cấu hình"}, {"k": "p", "t": "\"Cấu hình ngày nghỉ đặc biệt\" (Lễ, Tết) → Lưu"}, {"k": "p", "t": "Bảng phép nhân viên: lọc đơn nguyên / nhóm / Đã nghỉ – Chưa nghỉ; Thêm nhân viên mới"}, {"k": "p", "t": "\"Lưu chốt số thâm niên hiện tại\""}, {"k": "p", "t": "Sau 31/1: \"Tính số ngày phép năm cũ được giải quyết\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc8", "hc": 8, "g": "C. Chuyên môn & phát triển", "ten": "Thư viện Quy trình", "mt": "Ban hành quy trình và theo dõi nhân viên đã đọc.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Thư viện Quy trình\" → \"Quản lý đăng nhập\""}, {"k": "p", "t": "\"Thêm quy trình\": \"📄 Đọc từ file PDF / Word\" (app tự RÚT GỌN và điền Mục đích, Trách nhiệm, Các bước, Lưu ý, Tóm tắt nhanh; chọn lần lượt file Quyết định + file Quy trình — app tự ghép) — hoặc Nhập từng ô / \"⚡ Dán nhanh (từ Claude)\" (đoạn dán không theo mẫu lưu thành \"Tóm tắt nhanh\")"}, {"k": "p", "t": "Điền: Tên, Mã số, Nhóm, Ngày hiệu lực, Nhóm chuyên môn áp dụng, Các bước, Link văn bản gốc"}, {"k": "p", "t": "Khi Sửa: tick \"📢 Báo lên Trang chủ\" + ghi nội dung thay đổi → cả khoa phải đọc lại và làm lại post-test (bỏ tick nếu chỉ sửa lỗi chính tả); thêm mới luôn được báo"}, {"k": "p", "t": "\"Lưu vào thư viện\""}, {"k": "p", "t": "Trang chủ hiện khung \"📘 Chào …! Khoa có n quy trình mới dành cho anh/chị\" theo TỪNG NGƯỜI (\"👤 Chọn tên của bạn\" lần đầu; \"Không phải tôi?\" để đổi) + huy hiệu \"📘 n mới\"; bấm tên quy trình → app mở đúng quy trình, điền sẵn tên; dòng chỉ mất khi người đó đã đạt; Quản lý thấy khung tiến độ khoa (👥 x/y đã hoàn thành)"}, {"k": "p", "t": "Nhân viên mở quy trình, đọc đủ thời gian tối thiểu (30–120 giây) → chọn tên → \"✍️ Nắm nhanh 5 câu & xác nhận\" (5 câu app tự soạn)"}, {"k": "d", "t": "Đạt post-test?", "co": "Đạt (Thường ≥4/5, Trọng yếu 5/5)", "khong": "Chưa đạt", "nhanh": "Đọc lại quy trình đủ thời gian → làm lại (câu hỏi đổi mới)", "ve": 6}, {"k": "p", "t": "Ghi nhận đã đọc + điểm; quy trình Trọng yếu ôn lại sau 6 tháng"}, {"k": "p", "t": "Quản lý theo dõi theo kỳ: \"📅 Theo dõi theo thời gian\" (Từ ngày – Đến ngày, hạn hoàn thành) → bảng Đúng hạn / Trễ hạn / Không thực hiện từng nhân viên, \"📊 Xuất Excel\""}, {"k": "p", "t": "Quản lý: \"📝 Câu hỏi post-test\" (mức áp dụng, câu hỏi riêng, \"Yêu cầu cả khoa làm post-test\" cho quy trình cũ) · \"📊 Kết quả post-test\" (đạt/chưa đạt/chưa làm, câu hay sai, \"📋 Chép tin nhắc Zalo\")"}, {"k": "p", "t": "Mở 1 quy trình → cuối thẻ có 2 cột ✅ ĐÃ ĐỌC (ngày giờ, điểm post-test) / ⚠️ CHƯA ĐỌC (nhóm) và tỉ lệ x/y → \"📋 Nhắc Zalo\" người chưa đọc"}, {"k": "p", "t": "\"Thống kê tuân thủ\" / Thống kê đọc quy trình mới"}, {"k": "e", "t": "Khi cần: Sửa / Hiệu lực / Xóa (gõ XOA) → \"Xuất dữ liệu\" → \"Thoát Quản lý\""}], "cn": "2026-11-24"}, {"id": "hc9", "hc": 9, "g": "C. Chuyên môn & phát triển", "ten": "CNKT – Cập nhật kiến thức", "mt": "Theo dõi giờ/tín chỉ theo Thông tư 32/2023/TT-BYT.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"CNKT\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Đầu kỳ: \"Cấu hình chu kỳ\", \"Đối tượng áp dụng\""}, {"k": "p", "t": "Nhân viên \"Ghi nhận hoạt động CNKT\" (tên, hình thức, số giờ/tín chỉ, bằng chứng)"}, {"k": "p", "t": "Mục \"Chờ duyệt (n)\" → xem bằng chứng"}, {"k": "d", "t": "Hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Hủy phiếu (vào \"Danh sách phiếu đã hủy\")", "ve": ""}, {"k": "p", "t": "Duyệt"}, {"k": "e", "t": "\"Danh sách nhân viên toàn khoa\": lọc Đã đạt / Sắp hết hạn / Chưa đạt → Xuất Word / Excel toàn khoa"}], "cn": "2026-11-08"}, {"id": "hc10", "hc": 10, "g": "C. Chuyên môn & phát triển", "ten": "Thành tích", "mt": "Thành tích tập thể (công khai) và cá nhân.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Thành tích\""}, {"k": "p", "t": "Bấm \"✏️ Thêm / sửa / xóa (Quản lý)\" → nhập mật khẩu"}, {"k": "p", "t": "Lần đầu: Danh mục danh hiệu / Danh mục cơ quan cấp / Danh mục nhóm ban hành"}, {"k": "p", "t": "\"Thêm danh hiệu\": Năm, Danh hiệu, Nhóm, Số quyết định, Cơ quan cấp, Ngày, minh chứng"}, {"k": "p", "t": "Sửa / xóa từng dòng; lọc theo nhóm, danh hiệu, năm"}, {"k": "e", "t": "Xuất Excel / In Word (hồ sơ thi đua)"}], "cn": "2026-11-08"}, {"id": "hc11", "hc": 11, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Đánh giá KPI", "mt": "Tự tổng hợp từ Kanban + sự kiện KPI.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đánh giá KPI\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Lần đầu: \"Danh mục loại sự kiện KPI & thang điểm trừ\" (Nhẹ -2 / Vừa -5 / Nặng -10)"}, {"k": "p", "t": "\"Ghi nhận sự kiện KPI\": nhân viên, ngày, loại, số lần, minh chứng → Lưu sự kiện"}, {"k": "p", "t": "Chọn \"Theo tháng\" hoặc \"Tổng hợp cả năm\""}, {"k": "p", "t": "Xem \"Bảng tổng hợp KPI\" và \"Danh sách sự kiện KPI trong tháng\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc12", "hc": 12, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Dụng cụ sau mổ", "mt": "Thiếu, thất lạc dụng cụ và bồi hoàn.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Dụng cụ sau mổ\" → Đăng nhập Quản lý (mật khẩu Admin)"}, {"k": "p", "t": "Lần đầu: \"Danh mục Bộ dụng cụ\"; \"KPI & Xác nhận hàng ngày\" (số ngày cho phép xử lý)"}, {"k": "p", "t": "\"Ghi nhận thiếu / thất lạc\": ngày, bộ dụng cụ, ê-kíp, danh sách dụng cụ → Ghi nhận"}, {"k": "p", "t": "Danh sách công khai: Chưa xử lý → Đang xử lý"}, {"k": "d", "t": "Đã bồi hoàn / khắc phục?", "co": "Có", "khong": "Chưa", "nhanh": "Theo dõi tiếp (quá hạn → tính KPI)", "ve": 3}, {"k": "p", "t": "Chuyển \"Đã bồi hoàn/khắc phục\""}, {"k": "e", "t": "Thống kê → Xuất Excel / In Word"}], "cn": "2026-11-08"}, {"id": "hc13", "hc": 13, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Bàn giao trực Phòng Hồi sức", "mt": "Biên bản bàn giao tài sản hằng ngày, ký 2 bên.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bàn giao trực Phòng Hồi sức\""}, {"k": "p", "t": "Lần đầu (Quản lý): \"Danh mục tài sản\""}, {"k": "p", "t": "Lập biên bản: ngày, giờ, ca, người giao, người nhận; đánh dấu Thiếu / Hư hỏng"}, {"k": "p", "t": "Ký 2 bên (\"Xác nhận đã ký\" / \"Nhập mã biên bản để ký\") → Lưu"}, {"k": "d", "t": "Đủ 2 chữ ký?", "co": "Có", "khong": "Chưa", "nhanh": "Nằm ở \"Biên bản CHỜ HOÀN THÀNH\" — nhắc ký", "ve": 3}, {"k": "p", "t": "Hoàn thành"}, {"k": "e", "t": "Thống kê, KPI tự động → Xuất Excel / In Word"}], "cn": "2026-11-08"}, {"id": "hc14", "hc": 14, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Bàn giao Phòng Mổ", "mt": "12 phòng mổ × nhóm Gây mê / Dụng cụ.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bàn giao Phòng Mổ\" → chọn phòng (\"Đổi phòng\")"}, {"k": "p", "t": "Quản lý: Cấu hình phòng; \"Khai báo giờ tất cả phòng\"; \"Mở khóa bỏ tua\""}, {"k": "p", "t": "Lập biên bản: ca (Ngày / Đêm / Cả ngày / Bàn giao tháng), nhóm Gây mê / Dụng cụ"}, {"k": "p", "t": "Ký 2 bên → Lưu biên bản bàn giao"}, {"k": "p", "t": "Thống kê: chọn phòng → kiểm tra đã / chưa bàn giao theo ngày"}, {"k": "p", "t": "\"Theo dõi bàn giao tháng\" (bảng bàn giao tháng, lưới ngày) / Bảng có chữ ký"}, {"k": "e", "t": "In A4 ngang / Chép tin Zalo gửi phòng chưa bàn giao"}], "cn": "2026-11-08"}, {"id": "hc15", "hc": 15, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Theo dõi Giao nhận trực", "mt": "Cảnh báo bộ phận chưa giao trực đúng giờ.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Theo dõi Giao nhận trực\""}, {"k": "p", "t": "Xem cảnh báo phòng / bộ phận chưa giao trực"}, {"k": "p", "t": "Quản lý: \"Khai báo giờ khóa bỏ tua\""}, {"k": "p", "t": "\"Thống kê trễ hạn\""}, {"k": "e", "t": "\"Xuất báo cáo\"; nhắc bộ phận trễ"}], "cn": "2026-11-08"}, {"id": "hc29", "hc": 29, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Bàn giao Hộ lý", "mt": "Bàn giao hằng ngày theo bộ phận, so cơ số.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bàn giao Hộ lý\""}, {"k": "p", "t": "Quản lý (lần đầu): tab \"⚙️ Cấu hình\" — bộ phận, cơ số"}, {"k": "p", "t": "Tab \"📝 Bàn giao\": nhân viên, bộ phận, đếm cơ số (\"✓ Tất cả đủ cơ số\" hoặc ghi thiếu)"}, {"k": "p", "t": "Ký (hoặc \"Dùng chữ ký mẫu đã lưu\") → \"Lưu bàn giao\""}, {"k": "p", "t": "Tab \"📊 Hôm nay\": bộ phận nào chưa bàn giao"}, {"k": "p", "t": "Bộ phận quá giờ/🔒 bị khóa mà nhân viên cần ghi bổ sung → Admin bấm \"🔓 Mở khóa cho nhân viên\" (dưới ô Bộ phận) → tick bộ phận, chọn thời hạn (30′…hết ngày), ghi lý do → hết hạn tự khóa lại; \"🔒 Khóa lại\" để đóng sớm"}, {"k": "e", "t": "Tab \"🗂 Lịch sử\": Xem nhanh, Xuất Excel / Xuất Word"}], "cn": "2026-11-09"}, {"id": "hc32", "hc": 32, "g": "D. Bàn giao – theo dõi – đánh giá", "ten": "Báo cáo vệ sinh", "mt": "Vệ sinh lavabo phòng mổ trước 8h00.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Báo cáo vệ sinh\""}, {"k": "p", "t": "Quản lý (lần đầu): tab \"⚙️ Cấu hình\" — lavabo, góc chụp cố định, ảnh mẫu, giờ chụp"}, {"k": "p", "t": "Nhân viên: tab \"📝 Báo cáo hôm nay\" — chụp đủ góc trước 8h00"}, {"k": "d", "t": "Phòng bị \"⛓ Bị khóa: đã KHÔNG BÁO ngày …\"?", "co": "Có", "khong": "Không", "nhanh": "", "ve": ""}, {"k": "p", "t": "Quản lý nhắc nhở → bấm \"🔓 Mở khóa (đã nhắc nhở)\" (ghi nội dung) → phòng báo cáo hôm nay (quá giờ: tự mở báo bù 2 giờ). Bật/tắt: \"⛓ Bật khóa hẳn\" / \"Tắt khóa hẳn\" ở dòng tự động khóa"}, {"k": "p", "t": "Tab \"🔍 Duyệt ảnh – đánh giá\""}, {"k": "d", "t": "Đạt?", "co": "Có", "khong": "Chưa", "nhanh": "Ghi chỗ chưa đạt, nhắc khắc phục", "ve": ""}, {"k": "p", "t": "Tab \"📋 Danh sách báo cáo\" / \"📅 Lịch tháng\""}, {"k": "p", "t": "Xem ảnh: bấm dòng báo cáo → chi tiết hiện đủ ảnh nhỏ → bấm 1 ảnh xem lớn, ◀ ▶ (hoặc phím mũi tên) chuyển ảnh, Esc đóng"}, {"k": "e", "t": "Tab \"📊 Thống kê\""}], "cn": "2026-11-13"}, {"id": "hc16", "hc": 16, "g": "E. Văn bản – nhân sự", "ten": "Điều động nhân lực", "mt": "Giấy đề nghị điều động và giờ điều động.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Điều động nhân lực\""}, {"k": "p", "t": "Tab \"Lập phiếu mới\" → điền → lưu"}, {"k": "p", "t": "Tab \"Danh sách phiếu\""}, {"k": "d", "t": "Phiếu hợp lệ?", "co": "Có", "khong": "Không", "nhanh": "Hủy / sửa phiếu", "ve": ""}, {"k": "p", "t": "Duyệt → In / Xuất Word"}, {"k": "p", "t": "Tab \"Thống kê giờ\" (theo nhân viên, khoảng thời gian)"}, {"k": "e", "t": "Tab \"Danh mục / Cấu hình\" khi cần"}], "cn": "2026-11-08"}, {"id": "hc17", "hc": 17, "g": "E. Văn bản – nhân sự", "ten": "Giấy đề nghị", "mt": "Lập, theo dõi văn bản đề nghị gửi đi.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Giấy đề nghị\" → tab \"Sổ văn bản đi\""}, {"k": "p", "t": "Điền: Thể loại, Về việc, Nơi gửi, Số (tự động), Người soạn, Người ký, Kính gửi"}, {"k": "d", "t": "Giấy liên quan Phẫu thuật viên?", "co": "Có", "khong": "Không", "nhanh": "Tick \"✍ Thêm chữ ký PHẪU THUẬT VIÊN\" → bấm chọn tên PTV (hoặc gõ) → xuất ra có ô ký PTV ở giữa, dưới hàng ký cũ", "ve": ""}, {"k": "p", "t": "Soạn nội dung: trong app / Word / Excel → \"Xem trước nhanh\""}, {"k": "p", "t": "Sửa bảng ngay trong khung soạn (kể cả bảng dán từ Excel có ô gộp): rê chuột tới đường kẻ dọc / ngang của bảng, thấy vạch xanh → giữ chuột kéo để đổi rộng cột / cao hàng (hiện số cm); \"➕ Hàng\" / \"➕ Cột\" / \"➖ Hàng\" / \"➖ Cột\"; bôi đen các ô → \"⊞ Gộp ô\", ô đã gộp → \"⊟ Tách ô\"; \"↔ Rộng cột\" / \"↕ Cao hàng\" nhập số cm"}, {"k": "p", "t": "Soạn trong app → \"💾 Lưu nội dung\" → app hỏi \"Lưu phiếu vào Sổ nào?\" (chọn sổ / Tạo sổ mới) → \"Ghi nhận văn bản ngay\" (tick \"Tạo thẻ Kanban\" nếu cần)"}, {"k": "p", "t": "Danh sách văn bản đi: Xuất Word / Xuất PDF"}, {"k": "d", "t": "Máy có máy in?", "co": "Có", "khong": "Không", "nhanh": "\"📲 Nhờ in (Zalo)\" → \"📎 Gửi file Word\" → Ctrl+V, kéo file vào Zalo", "ve": ""}, {"k": "p", "t": "Khai tên PTV: tab \"Danh mục / Cấu hình\" → \"✍ Danh mục Phẫu thuật viên\" (Admin); tab \"🕘 Nhật ký ký\" xem/xuất Excel phiếu nào PTV nào ký"}, {"k": "e", "t": "Cập nhật Trạng thái → \"Cập nhật thẻ Kanban\""}], "cn": "2026-11-28"}, {"id": "hc18", "hc": 18, "g": "E. Văn bản – nhân sự", "ten": "Đăng ký phụ trách bàn giao", "mt": "Nhân viên nhận bộ phận phụ trách theo tháng (tính KPI).", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký phụ trách bàn giao\""}, {"k": "p", "t": "Quản lý: \"Thêm bộ phận / phòng\"; \"Thêm nhóm lịch giao trực\" (12/24, 24/24, theo tháng)"}, {"k": "p", "t": "Nhân viên tự đăng ký theo tháng (hoặc \"Nhập từ Excel\")"}, {"k": "p", "t": "Xem \"Danh sách\" / \"Bảng lưới\"; \"Lịch sử đăng ký\""}, {"k": "p", "t": "\"Tính thống kê\""}, {"k": "e", "t": "Xuất Excel / Xuất Word"}], "cn": "2026-11-08"}, {"id": "hc19", "hc": 19, "g": "E. Văn bản – nhân sự", "ten": "Bình bệnh án", "mt": "Lưu trữ biên bản bình bệnh án.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Bình bệnh án\" → đăng nhập"}, {"k": "p", "t": "\"Thêm bệnh án mới\": tên NB, số vào viện, khoa, ngày, kỳ (Tháng / Quý)"}, {"k": "p", "t": "Kết luận Đạt / Chưa đạt; đính kèm file (.docx, .pdf, ảnh)"}, {"k": "p", "t": "\"Lưu biên bản\""}, {"k": "p", "t": "Danh sách: lọc kết luận / kỳ / ngày"}, {"k": "e", "t": "Xuất Word khi cần in kiểm tra"}], "cn": "2026-11-08"}, {"id": "hc22", "hc": 22, "g": "E. Văn bản – nhân sự", "ten": "SV/HV Thực hành (NĐ 96)", "mt": "Sinh viên thực tập, học viên chứng chỉ hành nghề.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"SV/HV Thực hành\" → \"Đăng nhập Quản lý/HD\""}, {"k": "p", "t": "\"Kế hoạch đào tạo\": tạo đợt (tên đợt, cơ sở đào tạo, loại, từ – đến ngày, số KH, số QĐ) → Lưu"}, {"k": "p", "t": "\"Danh sách người hướng dẫn\" (văn bằng, CCHN)"}, {"k": "p", "t": "\"+ Thêm học viên/sinh viên mới\" (mật khẩu riêng, mã tra cứu)"}, {"k": "p", "t": "\"Chấm công\" hằng ngày"}, {"k": "e", "t": "\"Thống kê\" → Xuất Excel / Word, Phụ lục I, Phụ lục II"}], "cn": "2026-11-08"}, {"id": "hc23", "hc": 23, "g": "E. Văn bản – nhân sự", "ten": "Sổ đi buồng", "mt": "Điều dưỡng trưởng ghi nhận đi buồng.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Sổ đi buồng\" → chọn tên → \"Vào Sổ đi buồng\""}, {"k": "p", "t": "Quản lý (lần đầu): \"Cấu hình nội dung\", \"Quản lý quyền truy cập\""}, {"k": "p", "t": "\"Thêm mới\": phòng, người bệnh có diễn biến, chẩn đoán, diễn biến, chỉ định"}, {"k": "p", "t": "\"Lưu\" (nháp) hoặc \"Lưu và thực hiện\""}, {"k": "p", "t": "\"Xem theo ngày (lật trang)\""}, {"k": "e", "t": "\"Tóm tắt nhanh\" → Sao chép gửi nhóm; \"Xem trước & in\""}], "cn": "2026-11-08"}, {"id": "hc24", "hc": 24, "g": "E. Văn bản – nhân sự", "ten": "Danh sách nhân viên khoa", "mt": "Danh bạ; nguồn số điện thoại cho Zalo.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Danh sách nhân viên khoa\""}, {"k": "p", "t": "\"Thêm nhân viên\" / \"Nhập từ Excel\" / \"Nhập SĐT/Email/CCCD\""}, {"k": "p", "t": "\"Quản lý nhóm\"; \"Lấy Số CCHN từ CNKT\""}, {"k": "p", "t": "Lọc: đơn vị, nhóm, giới, đảng viên, văn bằng; chọn cột"}, {"k": "e", "t": "Xuất Excel / Xuất Word / In danh sách"}], "cn": "2026-11-08"}, {"id": "hc25", "hc": 25, "g": "E. Văn bản – nhân sự", "ten": "Ghi chú Báo cáo", "mt": "Sổ ghi nhanh số liệu quanh năm (chỉ Admin).", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Ghi chú Báo cáo\" → mật khẩu Quản lý"}, {"k": "p", "t": "Lần đầu: \"Quản lý danh mục\" (chủ đề báo cáo)"}, {"k": "p", "t": "Ghi: Ngày sự việc, Danh mục, Số liệu, Nội dung, minh chứng → \"Lưu ghi chú\""}, {"k": "p", "t": "Ô Danh mục: gõ vài chữ (vd \"tap huan\") để lọc nhanh → ↑ ↓ chọn, Enter (hoặc bấm ▾ xem tất cả)"}, {"k": "p", "t": "Khi viết báo cáo: lọc danh mục / \"Tìm từ khóa\""}, {"k": "e", "t": "\"Copy văn bản (đã lọc)\" / \"Xuất Word (đã lọc)\"; Sao lưu"}], "cn": "2026-11-18"}, {"id": "hc26", "hc": 26, "g": "E. Văn bản – nhân sự", "ten": "Mẫu văn bản", "mt": "File mẫu Nghỉ phép, Nghỉ bù, Đổi trực…", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Mẫu văn bản\""}, {"k": "p", "t": "Chọn mẫu → \"Xem mẫu hiện tại\""}, {"k": "d", "t": "Mẫu cần cập nhật?", "co": "Có", "khong": "Không", "nhanh": "Giữ nguyên", "ve": "x"}, {"k": "p", "t": "\"Thay file\" → chọn file mới"}, {"k": "e", "t": "Nhân viên tải mẫu mới khi in phiếu"}], "cn": "2026-11-08"}, {"id": "hc27", "hc": 27, "g": "E. Văn bản – nhân sự", "ten": "Đăng ký phép BV", "mt": "Mẫu BM.01.TCCB của Bệnh viện.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đăng ký phép BV\""}, {"k": "p", "t": "Lần đầu: \"Cấu hình sẵn danh sách người ký\""}, {"k": "p", "t": "Họ tên (chức danh, khoa tự điền) → Người ký duyệt"}, {"k": "p", "t": "Từ ngày – Đến ngày, lý do, địa chỉ, phương tiện → \"Tạo phiếu\""}, {"k": "p", "t": "In phiếu, trình ký"}, {"k": "e", "t": "\"Danh sách theo dõi\"; \"Chế độ Quản lý\" để xóa phiếu sai"}], "cn": "2026-11-08"}, {"id": "hc28", "hc": 28, "g": "E. Văn bản – nhân sự", "ten": "Đánh giá, xếp loại VC – NLĐ", "mt": "Lưu kết quả đánh giá, xếp loại hằng năm.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đánh giá, Xếp loại\" → \"Đăng nhập Quản lý\""}, {"k": "p", "t": "Chọn Năm, Danh mục"}, {"k": "p", "t": "Ghi chú (số quyết định, ngày ban hành) + đính kèm kết quả (ảnh / scan / tệp / link)"}, {"k": "p", "t": "\"Lưu kết quả\""}, {"k": "e", "t": "Tìm theo năm / danh mục; sửa đính kèm khi cần → \"Thoát chế độ Quản lý\""}], "cn": "2026-11-08"}, {"id": "hc31", "hc": 31, "g": "E. Văn bản – nhân sự", "ten": "Đối chiếu Công – PTTT", "mt": "Chấm công – trực ↔ danh sách PTTT tháng.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Đối chiếu Công – PTTT\" (tài khoản có quyền \"Đối chiếu PTTT\")"}, {"k": "p", "t": "Mở tab \"Đối chiếu Dịch vụ PTTT\""}, {"k": "p", "t": "Tải 3 file bắt buộc: Chấm công tháng (PDF), Chấm trực tháng (PDF), Danh sách PTTT (Excel)"}, {"k": "p", "t": "(Khuyến nghị) Chấm công / Chấm trực THÁNG TRƯỚC; file Kiêm nhiệm nếu có"}, {"k": "p", "t": "Xem kết luận HỢP LỆ / KHÔNG HỢP LỆ từng ca"}, {"k": "e", "t": "Sửa chấm công / chấm trực các ca không hợp lệ trước khi nộp"}], "cn": "2026-11-08"}, {"id": "hc30a", "hc": 30, "g": "F. Tài sản – thiết bị", "ten": "Tài sản – Sự cố thiết bị (A): Xử lý sự cố", "mt": "Từ lúc báo hỏng đến khi nghiệm thu.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Tài sản – Sự cố thiết bị\" → Đăng nhập Quản lý (hoặc \"🔧 Phụ trách nhóm\" + PIN)"}, {"k": "p", "t": "Xem nhanh \"Bảng tin thiết bị\" (Trang chủ): mỗi máy hiện bước xử lý · báo dd/mm · ngừng N ngày (tab Trạng thái: 📅 Báo giờ ngày) → bấm tên máy xem chi tiết"}, {"k": "p", "t": "Tab \"Kanban sự cố\" (Thẻ hoặc Bảng; lọc tài sản / trạng thái)"}, {"k": "p", "t": "Mới báo → \"✋ Tiếp nhận\" (phân công nếu cần)"}, {"k": "p", "t": "\"📝 Lập đề nghị / báo cáo\" (số VB, nơi nhận; in phiếu) → \"📤 Gửi phòng ban\""}, {"k": "p", "t": "\"🛠 Bắt đầu sửa\"; chờ hãng → \"⏳ Chờ linh kiện\" → \"📦 Linh kiện đã về\""}, {"k": "p", "t": "\"🧪 Sửa xong – chờ nghiệm thu\""}, {"k": "d", "t": "Nghiệm thu đạt?", "co": "Có", "khong": "Chưa", "nhanh": "\"↩ Chưa đạt – sửa lại\" (ghi lý do)", "ve": 4}, {"k": "p", "t": "\"✅ Nghiệm thu đạt\" (kết quả, nguyên nhân, chi phí) → In biển xanh"}, {"k": "e", "t": "Downtime / \"Xuất báo cáo\" Word – Excel"}], "cn": "2026-11-09"}, {"id": "hc30b", "hc": 30, "g": "F. Tài sản – thiết bị", "ten": "Tài sản – Sự cố thiết bị (B): Danh mục & cấu hình", "mt": "Khai báo tài sản, nhóm, bộ phận, cột Kanban.", "b": [{"k": "s", "t": "Thẻ \"Tài sản – Sự cố thiết bị\" → Đăng nhập Quản lý → tab \"Danh mục\""}, {"k": "p", "t": "\"🏢 Thêm bộ phận\" / \"➕ Thêm nhóm thiết bị\" (nếu chưa có)"}, {"k": "p", "t": "\"+ Thêm tài sản\" (hoặc Nhập Excel) → \"Khai báo ảnh\""}, {"k": "p", "t": "\"In tem QR\" → dán tem lên máy"}, {"k": "p", "t": "Chuyển tài sản / \"🔁 Mượn\": chọn \"🏠 Phòng / bộ phận trong khoa\" hoặc \"🏥 Khoa khác mượn\" (bấm chọn khoa hoặc gõ khoa mới, SĐT) — tên người mượn nhập tự do, tự lưu cho lần sau → \"💾 Lưu mượn tạm\"; khi trả bấm \"↩ Trả\""}, {"k": "p", "t": "\"Sổ lý lịch\""}, {"k": "p", "t": "Kanban → \"⚙️ Cấu hình cột & nút\" (thêm cột, chọn nút từng giai đoạn)"}, {"k": "e", "t": "Tab \"Cấu hình\": hạn tiếp nhận, Phân quyền Phụ trách nhóm (PIN), checklist đầu ca, chu kỳ bảo trì, \"🏥 Danh mục khoa mượn\" (➕ Thêm khoa / ✏️ Sửa tên / ⛔ Ẩn / ↺ Hiện lại) và \"👤 Nhân viên khoa mượn\" (Họ tên, Khoa, SĐT → ➕ Thêm / 💾 Lưu / 🗑 Xóa)"}], "cn": "2026-11-13"}, {"id": "hc35", "hc": 35, "g": "F. Tài sản – thiết bị", "ten": "Mượn – Trả tài sản", "mt": "Ghi nhận phòng trong khoa / khoa khác mượn thiết bị, theo dõi hạn trả và nhận lại máy.", "cn": "2026-11-13", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Mượn – Trả tài sản\" (hoặc thẻ Tài sản → tab \"🔁 Mượn – Trả\")"}, {"k": "p", "t": "Bấm \"➕ CHO MƯỢN thiết bị\" → chọn phòng đang giữ máy (hoặc gõ tên / mã máy, hoặc \"QUÉT QR TEM MÁY\") → bấm \"🔁 Mượn\" ở máy cần cho mượn"}, {"k": "d", "t": "Khoa khác mượn?", "co": "Có", "khong": "Không", "nhanh": "\"🏠 Phòng / bộ phận trong khoa\" → chọn phòng mượn", "ve": ""}, {"k": "p", "t": "\"🏥 Khoa khác mượn\" → bấm chọn khoa (hoặc gõ khoa mới) → bấm tên nhân viên của khoa (👤) để tự điền Người mượn + SĐT"}, {"k": "p", "t": "Người mượn (nhập tự do), SĐT (khoa khác), Người cho mượn; \"Ngày giờ mượn\" (mặc định lúc mở, sửa được); Hạn trả: chọn ngày / \"Trong ngày\" / \"Ngày mai\" / \"3 ngày\" / \"1 tuần\" / \"⏳ Chưa xác định\" → \"💾 Lưu mượn tạm\""}, {"k": "p", "t": "Theo dõi khối \"🔁 Thiết bị ĐANG MƯỢN\" (dòng đỏ = quá hạn; thẻ Trang chủ báo \"⏰ … quá hạn\")"}, {"k": "p", "t": "Nhận lại máy → \"↩ NHẬN TRẢ thiết bị\" → \"↩ Trả\" → Người trả, Người nhận lại, \"Ngày giờ trả\", tình trạng → \"↩ Xác nhận trả về …\""}, {"k": "e", "t": "Tra cứu \"📜 Lịch sử mượn – trả\""}]}, {"id": "hc20", "hc": 20, "g": "G. Quản trị hệ thống", "ten": "Quản lý Admin", "mt": "Vào Kanban với toàn quyền.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Quản lý Admin\" → mật khẩu Admin"}, {"k": "p", "t": "Vào Kanban toàn quyền (phiên 30 phút)"}, {"k": "p", "t": "Thanh công cụ: Nhân viên, Đổi mật khẩu"}, {"k": "p", "t": "\"Sao lưu TOÀN BỘ ứng dụng\" định kỳ (giữ file .json)"}, {"k": "e", "t": "Khi cần: \"Phục hồi TOÀN BỘ\" (cẩn thận — ghi đè dữ liệu)"}], "cn": "2026-11-08"}, {"id": "hc21", "hc": 21, "g": "G. Quản trị hệ thống", "ten": "Phân quyền Nhân viên", "mt": "Cấp / thu hồi quyền vào các thẻ.", "b": [{"k": "s", "t": "Trang chủ → thẻ \"Phân quyền Nhân viên\" → mật khẩu Admin"}, {"k": "p", "t": "Bảng nhân viên × chức năng: tick quyền (VD Đối chiếu PTTT, HIS…)"}, {"k": "p", "t": "\"Lưu tất cả quyền\""}, {"k": "p", "t": "\"Chức năng cho NV\": ẩn / hiện nút trên Kanban cho nhân viên"}, {"k": "e", "t": "Nhân viên chuyển công tác → bỏ tick, Lưu"}], "cn": "2026-11-08"}];
 var S={chon:null, q:'', sua:{}, them:{}, nap:false, };
 function db0(){ try{ return (typeof db!=='undefined' && db) ? db : (window.firebase && firebase.database ? firebase.database() : null); }catch(e){ return null; } }
 function R(p){ var d=db0(); return d ? d.ref('luuDoHuongDan'+(p?'/'+p:'')) : null; }
@@ -69563,7 +69797,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-28 09:00';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-28 17:45';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
