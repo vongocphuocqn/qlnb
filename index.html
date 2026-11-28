@@ -34048,7 +34048,8 @@ function htmlToRtf(html){
       else if(/(pt|px)$/i.test(lh)) sl = '\\sl-'+Math.abs(twip(lh))+'\\slmult0 ';
       kieuDoanWord = '\\fi'+fi+' '+(sb?'\\sb'+sb+' ':'')+(sa?'\\sa'+sa+' ':'')+sl;
     }
-    if(isBlock) out += '\\pard '+(kieuDoanWord || firstLineIndent)+align;
+    const liNuaPhai = (isBlock && node.style && String(node.style.paddingLeft||'').trim()==='50%') ? '\\li'+Math.round((window.__ddnlRtfNgang ? 14003 : (window.__ddnlRtfKhoTrang ? 9071 : 9300))/2)+' ' : ''; // 28/11/2026: dòng "giữa nửa phải" (ngày tháng, chữ ký dán từ Excel)
+    if(isBlock) out += '\\pard '+(kieuDoanWord || firstLineIndent)+liNuaPhai+align;
     if(tag==='li' && !inCell) out += '\\bullet\\tab ';
     out += openC;
     // Mỗi đoạn/dòng (p/div/li) mở lại "chờ cắt tab đầu dòng" TỪ ĐẦU — kể cả khi tab đầu dòng đó
@@ -35108,6 +35109,114 @@ function openNoiDungSoanModal(){
    Giữ: căn lề đoạn & ô (trái/giữa/phải/đều), căn dọc ô, chữ đậm/nghiêng/gạch chân, gộp ô (colspan/rowspan),
    TỶ LỆ ĐỘ RỘNG CỘT của bảng, dòng trống. Bỏ: phông/cỡ/màu chữ, lề đoạn, mã rác của Word (mso-…) —
    phông chữ luôn theo chuẩn văn bản (Times New Roman 13). Muốn dán chữ trơn: Ctrl+Shift+V. */
+/* 28/11/2026: DÁN DỮ LIỆU EXCEL vào khung soạn Giấy đề nghị/văn bản.
+   Trước đây Excel gửi kèm 1 ẢNH CHỤP vùng ô vào bộ nhớ tạm -> app ưu tiên ảnh -> dán thành hình (không sửa được).
+   Giờ: đọc bảng HTML của Excel (kể cả kiểu ghi trong <style> .xl65{…}) -> các hàng CÓ KẺ KHUNG thành bảng thật
+   (giữ gộp ô, đậm, nghiêng, căn lề, tỷ lệ cột); hàng KHÔNG kẻ khung (tiêu đề, "Tổng số…", ngày tháng, chữ ký)
+   thành đoạn văn thường; bỏ hàng/cột ẩn, hàng trống. Dữ liệu chỉ có tab (không có HTML) -> bảng kẻ khung. */
+function ddnlLaExcel(html){ return /urn:schemas-microsoft-com:office:excel|ProgId\s*content="?Excel|Excel\.Sheet|x:str|x:num|class="?xl\d|google-sheets-html-origin|kingsoft|et\.Sheet/i.test(html||''); }
+function ddnlDanExcel(html, ed){
+  window.__ddnlExcelSoCot = 0;
+  try{
+    const quyTac = {};
+    (String(html).match(/<style[^>]*>([\s\S]*?)<\/style>/gi)||[]).forEach(khoi=>{
+      const css = khoi.replace(/<\/?style[^>]*>/gi,'').replace(/<!--|-->/g,'').replace(/\/\*[\s\S]*?\*\//g,'');
+      let m; const re = /([^{}@]+)\{([^}]*)\}/g;
+      while((m = re.exec(css))){ m[1].split(',').map(x=>x.trim().toLowerCase()).forEach(sel=>{ quyTac[sel]=(quyTac[sel]||'')+';'+m[2]; }); }
+    });
+    const tmp = document.createElement('div'); let h = String(html);
+    const sf = h.indexOf('<!--StartFragment-->'), ef = h.indexOf('<!--EndFragment-->');
+    tmp.innerHTML = h.replace(/<style[\s\S]*?<\/style>/gi,'');
+    const bang = tmp.querySelector('table'); if(!bang) return null;
+    const kieu = el=>{ let g = (quyTac['td']||''); (el.getAttribute('class')||'').toLowerCase().split(/\s+/).filter(Boolean).forEach(c=>{ g += ';'+(quyTac['.'+c]||'')+';'+(quyTac['td.'+c]||''); }); g += ';'+(el.getAttribute('style')||''); const o={}; g.split(';').forEach(kv=>{ const i=kv.indexOf(':'); if(i<0) return; o[kv.slice(0,i).trim().toLowerCase()] = kv.slice(i+1).trim().toLowerCase(); }); return o; };
+    const coVien = v=>!!v && !/^(none|0|0pt|0px|hidden)\b/.test(v) && !/\bnone\b/.test(v);
+    const escH = t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // cột: bề rộng + cột ẩn
+    const cols = []; Array.from(bang.querySelectorAll('col')).forEach(c=>{ const n=Math.max(1,parseInt(c.getAttribute('span'),10)||1); const k=kieu(c); const an = k['display']==='none' || /^0(pt|px)?$/.test(k['width']||'x'); let w=parseFloat(c.getAttribute('width'))||0; if(!w && k['width']){ const mm=/^([\d.]+)\s*(pt|px)?/.exec(k['width']); if(mm) w=parseFloat(mm[1])*(mm[2]==='pt'?4/3:1); } for(let i=0;i<n;i++) cols.push({w:w||64, an:an}); });
+    // lưới ô (tính đúng vị trí cột khi có gộp ô)
+    const rows = Array.from(bang.rows).filter(tr=>{ const k=kieu(tr); return k['display']!=='none'; });
+    const chiem = {}; const luoi = [];
+    rows.forEach((tr,ri)=>{ let c=0; const hang=[]; Array.from(tr.cells).forEach(td=>{ while(chiem[ri+','+c]) c++; const cs=Math.max(1,td.colSpan||1), rs=Math.max(1,td.rowSpan||1); for(let a=0;a<rs;a++) for(let b=0;b<cs;b++) chiem[(ri+a)+','+(c+b)]=1; hang.push({td:td, c:c, cs:cs, rs:rs}); c+=cs; }); luoi.push(hang); });
+    let soCot = cols.length; luoi.forEach(hg=>hg.forEach(o=>{ soCot=Math.max(soCot,o.c+o.cs); })); while(cols.length<soCot) cols.push({w:64,an:false});
+    const noiDung = td=>{ const c=td.cloneNode(true); c.querySelectorAll('br').forEach(b=>b.replaceWith('\n')); return (c.textContent||'').replace(/ /g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n[ \t]+/g,'\n').trim(); };
+    // thông tin từng ô
+    luoi.forEach(hg=>hg.forEach(o=>{ const k=kieu(o.td); o.k=k; o.txt=noiDung(o.td);
+      const anCot = cols.slice(o.c,o.c+o.cs).every(x=>x.an); o.an = anCot || k['display']==='none';
+      o.vien = ['border','border-top','border-bottom','border-left','border-right'].some(p=>coVien(k[p]));
+      const fw=k['font-weight']||''; o.dam = fw==='bold'||parseInt(fw,10)>=600 || !!o.td.querySelector('b,strong');
+      o.nghieng = (k['font-style']||'')==='italic' || !!o.td.querySelector('i,em');
+      o.gach = /underline/.test(k['text-decoration']||'') || /single|double/.test(k['text-underline-style']||'') || !!o.td.querySelector('u');
+      let ta = k['text-align']||o.td.getAttribute('align')||''; if(/center/.test(ta)) ta='center'; else if(/right/.test(ta)) ta='right'; else if(/justify|distributed/.test(ta)) ta='justify'; else if(/left/.test(ta)) ta='left'; else ta = (o.td.hasAttribute('x:num') || /^-?[\d.,]+%?$/.test(o.txt)) && o.txt ? 'right' : '';
+      o.ta = ta; let va=k['vertical-align']||o.td.getAttribute('valign')||''; o.va = /middle|center/.test(va)?'middle':/top/.test(va)?'top':/bottom/.test(va)?'bottom':''; }));
+    const ketVien = luoi.map(hg=>hg.some(o=>!o.an && o.vien));
+    const boc = (o,t)=>{ let x = escH(t).replace(/\n/g,'<br>'); if(o.gach) x='<u>'+x+'</u>'; if(o.nghieng) x='<i>'+x+'</i>'; if(o.dam) x='<b>'+x+'</b>'; return x; };
+    const beNgang = Math.max(300, (ed && ed.clientWidth) ? ed.clientWidth - 4 : 600);
+    const cotHien = cols.map((x,i)=>i).filter(i=>!cols[i].an);
+    let out = ''; let soBang = 0, soHang = 0;
+    for(let ri=0; ri<luoi.length; ){
+      if(ketVien[ri]){
+        // gom các hàng kẻ khung liên tiếp thành 1 bảng
+        let rj = ri; while(rj<luoi.length && ketVien[rj]) rj++;
+        // mở rộng nếu ô gộp dọc chạy quá vùng
+        luoi.slice(ri,rj).forEach((hg,d)=>hg.forEach(o=>{ if(ri+d+o.rs>rj) rj=Math.min(luoi.length, ri+d+o.rs); }));
+        // cột dùng trong bảng: cột hiện có ô (bỏ cột trống ngoài cùng)
+        const dung = new Set(); luoi.slice(ri,rj).forEach(hg=>hg.forEach(o=>{ if(o.an) return; if(o.txt || o.vien) for(let b=o.c;b<o.c+o.cs;b++) if(!cols[b].an) dung.add(b); }));
+        const ds = cotHien.filter(i=>dung.has(i)); if(!ds.length){ ri=rj; continue; }
+        const c0 = ds[0], c1 = ds[ds.length-1];
+        const tong = ds.reduce((a,i)=>a+cols[i].w,0);
+        let pct = ds.map(i=>Math.max(3, cols[i].w/tong*100)); const tp = pct.reduce((a,b)=>a+b,0); pct = pct.map(x=>x/tp*100);
+        const px = pct.map(x=>Math.round(x*beNgang/100));
+        window.__ddnlExcelSoCot = Math.max(window.__ddnlExcelSoCot||0, ds.length);
+        let t = '<table data-w="1" style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup>'+pct.map(x=>'<col style="width:'+x.toFixed(2)+'%">').join('')+'</colgroup>';
+        let daDatRong = false;
+        for(let r=ri;r<rj;r++){
+          const oHang = luoi[r].filter(o=>!o.an && o.c+o.cs-1>=c0 && o.c<=c1);
+          const motMot = oHang.length===ds.length && oHang.every(o=>o.cs===1);
+          t += '<tr>';
+          oHang.forEach(o=>{
+            const csHien = ds.filter(i=>i>=o.c && i<o.c+o.cs).length; if(!csHien) return;
+            let st = 'padding:3px 4px;font-size:'+(ds.length>=9?'11pt':'12pt')+';'; if(o.ta) st+='text-align:'+o.ta+';'; st += 'vertical-align:'+(o.va||'middle')+';'; if(o.dam) st+='font-weight:700;';
+            if(motMot && !daDatRong){ const idx = ds.indexOf(o.c); if(idx>=0) st += 'width:'+px[idx]+'px;'; }
+            t += '<td'+(csHien>1?' colspan="'+csHien+'"':'')+(o.rs>1?' rowspan="'+Math.min(o.rs, rj-r)+'"':'')+' style="'+st+'">'+(o.txt?boc(o,o.txt):'&nbsp;')+'</td>';
+          });
+          if(motMot) daDatRong = true;
+          t += '</tr>'; soHang++;
+        }
+        out += t + '</table>'; soBang++; ri = rj;
+      } else {
+        // hàng không kẻ khung -> 1 đoạn văn (nhiều ô có chữ: ghép, ô đầu sát trái)
+        const oc = luoi[ri].filter(o=>!o.an && o.txt);
+        if(oc.length){
+          const giua = soCot/2; const o0 = oc[0];
+          let st = 'margin:0pt;text-indent:0cm;';
+          if(oc.length===1){
+            const tamO = o0.c + o0.cs/2;
+            if(o0.ta==='center' && o0.c>=giua*0.6 && tamO>giua) st += 'padding-left:50%;text-align:center;';
+            else if(o0.ta==='center' && Math.abs(tamO-giua)<=soCot*0.2) st += 'text-align:center;';
+            else if(o0.ta==='right') st += 'text-align:right;';
+            else if(o0.c>=giua) st += 'padding-left:50%;text-align:center;';
+            out += '<p data-w="1" style="'+st+'">'+boc(o0,o0.txt)+'</p>';
+          } else {
+            // ô nửa trái -> 1 đoạn sát trái; ô nửa phải -> đoạn riêng (căn phải nếu Excel căn phải, còn lại giữa-nửa-phải như chữ ký)
+            const trai = oc.filter(o=>o.c < giua*0.6 || o.c===oc[0].c), phai = oc.filter(o=>trai.indexOf(o)<0);
+            out += '<p data-w="1" style="'+st+(trai.length===1 && trai[0].ta==='center' && Math.abs(trai[0].c+trai[0].cs/2-giua)<=soCot*0.2 ? 'text-align:center;' : '')+'">'+trai.map(o=>boc(o,o.txt)).join(' &nbsp; &nbsp; ')+'</p>';
+            phai.forEach(o=>{ out += '<p data-w="1" style="margin:0pt;text-indent:0cm;'+(o.ta==='right' ? 'text-align:right;' : 'padding-left:50%;text-align:center;')+'">'+boc(o,o.txt)+'</p>'; });
+          }
+        }
+        ri++;
+      }
+    }
+    if(!soBang && !out) return null;
+    return out + '<p><br></p>';
+  }catch(e){ console.warn('ddnlDanExcel', e); return null; }
+}
+function ddnlTabSangBang(txt){
+  const dong = String(txt||'').replace(/\r\n?/g,'\n').replace(/\n+$/,'').split('\n');
+  if(dong.length<1 || !dong.some(d=>d.indexOf('\t')>=0)) return null;
+  const escH = t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const n = Math.max(...dong.map(d=>d.split('\t').length));
+  return '<table data-w="1" style="width:100%;border-collapse:collapse;table-layout:fixed">'+dong.map(d=>{ const o=d.split('\t'); while(o.length<n) o.push(''); return '<tr>'+o.map(x=>'<td style="padding:4px 6px;vertical-align:middle">'+(x.trim()?escH(x.trim().replace(/^"|"$/g,'')):'&nbsp;')+'</td>').join('')+'</tr>'; }).join('')+'</table><p><br></p>';
+}
 function ddnlLaHtmlTuWord(html){
   return /urn:schemas-microsoft-com:office|class="?Mso|mso-[a-z]|ProgId|Excel\.Sheet|Word\.Document|kingsoft|wps-|x:str|class="?xl\d/i.test(html||'');
 }
@@ -35325,7 +35434,8 @@ document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     // Dán trực tiếp 1 ảnh (Ctrl+V ảnh chụp/copy từ nơi khác) -> chèn ngay như ảnh từ máy tính, không
     // để trình duyệt tự xử lý (mỗi trình duyệt/mỗi máy cho kết quả khác nhau, có máy không dán được).
     const cdImg = e.clipboardData || window.clipboardData;
-    if(cdImg && cdImg.items){
+    const coBangTrongBoNho = (()=>{ try{ const hh = cdImg ? (cdImg.getData('text/html')||'') : ''; const tt = cdImg ? (cdImg.getData('text/plain')||'') : ''; return /<table/i.test(hh) || ddnlLaExcel(hh) || /\t/.test(tt); }catch(x){ return false; } })();
+    if(cdImg && cdImg.items && !coBangTrongBoNho){
       for(let iImg=0; iImg<cdImg.items.length; iImg++){
         const itImg = cdImg.items[iImg];
         if(itImg && itImg.type && itImg.type.indexOf('image/')===0){
@@ -35401,7 +35511,15 @@ document.getElementById('ddnlNoiDungEditable').addEventListener('paste', (e)=>{
     // Dán "thường" (không phải dán bảng đè vào 1 ô có sẵn) -> luôn ép về font mặc định của văn bản,
     // bỏ hết font/màu/cỡ chữ mang theo từ Word/Excel/trang web nguồn, cho khỏi phải sửa tay từng chỗ.
     let danTuWord = false;
-    if(htmlDan){
+    const bangExcel = (htmlDan && ddnlLaExcel(htmlDan)) ? ddnlDanExcel(htmlDan, ed) : (!htmlDan && cd ? ddnlTabSangBang(cd.getData('text/plain')) : null);
+    if(bangExcel){
+      e.preventDefault();
+      danTuWord = true; // giữ tỷ lệ cột vừa tính
+      document.execCommand('insertHTML', false, bangExcel);
+      // bảng nhiều cột (≥ 9) -> tự chuyển trang sang A4 NGANG cho đủ chỗ (bấm "▯ Dọc" để trả lại nếu muốn)
+      try{ if((window.__ddnlExcelSoCot||0)>=9 && draftVB.khoGiay!=='ngang' && window.__ddnlDatKhoGiay){ window.__ddnlDatKhoGiay('ngang');
+        const tb=document.createElement('div'); tb.textContent='📊 Đã dán bảng Excel '+window.__ddnlExcelSoCot+' cột → tự chuyển trang sang khổ NGANG cho đủ chỗ (bấm "▯ Dọc" nếu muốn giữ khổ dọc).'; tb.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483000;background:#1b5e20;color:#fff;padding:10px 16px;border-radius:10px;font:600 14px/1.4 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:92vw'; document.body.appendChild(tb); setTimeout(()=>tb.remove(),6000); } }catch(x){}
+    } else if(htmlDan){
       e.preventDefault();
       danTuWord = ddnlLaHtmlTuWord(htmlDan);
       const sach = danTuWord ? ddnlDanGiuDinhDangWord(htmlDan, ed) : ddnlSanitizePasteHtml(htmlDan);
@@ -66529,9 +66647,10 @@ window.bcvsLuuCfg=function(){
 </style>
 <script>
 (function(){
-var LD_VER='2026-11-28a';
+var LD_VER='2026-11-28b';
 /* Nhật ký cập nhật lưu đồ — mỗi lần sửa app, thêm 1 dòng ở ĐẦU mảng */
 var LD_NK=[
+  {d:'2026-11-28', nd:'Giấy đề nghị / Soạn nội dung văn bản: copy vùng ô trong EXCEL rồi dán (Ctrl+V) → thành BẢNG sửa được (giữ gộp ô, chữ đậm/nghiêng, căn lề, tỷ lệ cột; bảng ≥ 9 cột tự chuyển trang sang khổ NGANG); dòng tiêu đề, "Tổng số…", ngày tháng, chữ ký (không kẻ khung) thành đoạn văn thường. Trước đây dán ra hình ảnh.'},
   {d:'2026-11-28', nd:'Bảng tin thiết bị: dòng phiếu ghi rõ "Phiếu sự cố đang mở: N phiếu / M thiết bị — … đang sửa"; thêm mục "✅ máy có phiếu nhưng vẫn dùng được" (giải thích vì sao số phiếu nhiều hơn số máy hỏng) và "⚠️ Cần rà soát: máy có phiếu trùng" (bấm tên máy để xử lý).'},
   {d:'2026-11-27', nd:'Điểm danh hộ: lần 1 và 2 trong ngày hiện CẢNH BÁO (ghi nhận vi phạm); lần thứ 3 → điện thoại bị KHÓA mọi chức năng của ứng dụng cho đến khi Quản lý mở khóa ("🔑 Quản lý mở khóa" trên điện thoại, hoặc bảng "🔒 Điện thoại bị khóa" ở màn Điểm danh).'},
   {d:'2026-11-27', nd:'Điểm danh: 1 điện thoại chỉ điểm danh cho 1 người TRONG NGÀY (trước chỉ khóa theo từng buổi); ghi mã thiết bị vào lượt quét; Danh sách / bảng đã điểm danh báo "📱 Cùng điện thoại với …" hoặc "📱? Nghi cùng máy" (cùng loại máy, quét cách nhau < 90 giây). Trang chủ: dòng người mượn / cho mượn tự xuống dòng, không tràn màn hình điện thoại.'},
@@ -69290,7 +69409,7 @@ html.bhs-z1 #bhsModal input[type=checkbox],html.bhs-z2 #bhsModal input[type=chec
 </style>
 <script>
 (function(){
-  var APP_BAN='2026-11-28 06:45';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
+  var APP_BAN='2026-11-28 08:15';   /* yyyy-mm-dd hh:mm — patch tự điền khi dựng */
   function coDb(){ return typeof db!=='undefined' && db && typeof db.ref==='function'; }
   function hienBan(b){ var m=String(b||'').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/); return m? m[3]+'/'+m[2]+' '+m[4]+':'+m[5] : String(b||''); }
   function laTrangThat(){ return /github\.io$/i.test(location.hostname||''); }
